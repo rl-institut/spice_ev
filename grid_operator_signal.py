@@ -67,38 +67,66 @@ slot_signal = {
 {
     # battery electric vehicle
     'bevs': {
-        1: {
-            'connected_charging_station': 1,
+        'B1': {
+            'connected_charging_station': 'C1',
             'estimated_time_of_departure': "2020-01-02T00:08:00+02:00",
             'desired_soc': 90,
             'soc': 100,
+            'vehicle_type': 'sprinter',
+        },
+        'B2': {
+            'connected_charging_station': None,
+            'estimated_time_of_departure': None,
+            'soc': 85,
+            'vehicle_type': 'sprinter',
+        },
+    },
+    'grid_connector': {
+        'id': 'GC1',
+        'max_power': 200,
+    },
+    'external_load': {
+        #...
+    },
+    'load_management': {
+        'L1': {
+            'charging_stations': ['C1', 'C2'],
+            'parent': 'L3',
+        },
+        'L2': {
+            'charging_stations': ['C3'],
+            'parent': 'L3',
+        },
+        'L3': {
+            'max_power': 200,
+            'grid_connector': 'GC1',
+        },
+    },
+    'charging_station': {
+        'C1': {
+            'max_power': 50,
+        },
+        'C2': {
+            'max_power': 50,
+        },
+        'C3': {
+            'max_power': 50,
+        },
+    },
+    'vehicle_types': {
+        'sprinter': {
+            'name': 'sprinter',
             'capacity': 70,
             'max_charging_power': 7,
             # Ladekurve, ...
             '': '...',
         },
-        2: {
-            'connected_charging_station': None,
-            'estimated_time_of_departure': None,
-            'soc': 85,
-            'capacity': 70,
+        'kleinwagen': {
+            'name': 'E-Golf',
+            'capacity': 50,
             'max_charging_power': 22,
         },
-    },
-    'grid_connector': {
-        'max_power': 200,
     }
-    'charging_station': {
-        1: {
-            'max_power': 50,
-        },
-        2: {
-            'max_power': 50,
-        },
-        3: {
-            'max_power': 50,
-        },
-    },
 }
 
 # list of state changes / events
@@ -115,7 +143,7 @@ slot_signal = {
     {
         "time": "2019-12-31T23:00:00+02:00",
         'slot_signal': {
-            "grid_connector_id": 1,
+            "grid_connector_id": 'GC1',
             "start_time": "2020-01-01T00:00:00+02:00",
             "end_time": "2020-01-01T00:15:00+02:00",
             "max_power": null,
@@ -127,7 +155,7 @@ slot_signal = {
     {
         "time": "2019-12-31T23:00:00+02:00",
         'slot_signal': {
-            "grid_connector_id": 1,
+            "grid_connector_id": 'GC1',
             "start_time": "2020-01-01T00:15:00+02:00",
             "end_time": "2020-01-01T00:30:00+02:00",
             "max_power": null,
