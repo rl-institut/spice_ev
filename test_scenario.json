@@ -1,0 +1,105 @@
+{
+  "constants": {
+    "vehicle_types": {
+        "sprinter": {
+            "name": "sprinter",
+            "capacity": 70,
+            "max_charging_power": 7,
+            "charging_curve": {"TODO": 42}
+        },
+        "kleinwagen": {
+            "name": "E-Golf",
+            "capacity": 50,
+            "max_charging_power": 22
+        }
+    },
+    "bevs": {
+        "B1": {
+            "connected_charging_station": "C1",
+            "estimated_time_of_departure": "2020-01-02T00:08:00+02:00",
+            "desired_soc": 90,
+            "soc": 100,
+            "vehicle_type": "sprinter"
+        },
+        "B2": {
+            "connected_charging_station": null,
+            "estimated_time_of_departure": null,
+            "soc": 85,
+            "vehicle_type": "sprinter"
+        }
+    },
+    "grid_connector": {
+        "id": "GC1",
+        "max_power": 200
+    },
+    "load_management": {
+        "L1": {
+            "charging_stations": ["C1", "C2"],
+            "parent": "L3"
+        },
+        "L2": {
+            "charging_stations": ["C3"],
+            "parent": "L3"
+        },
+        "L3": {
+            "max_power": 200,
+            "grid_connector": "GC1"
+        }
+    },
+    "charging_station": {
+        "C1": {
+            "max_power": 50
+        },
+        "C2": {
+            "max_power": 50
+        },
+        "C3": {
+            "max_power": 50
+        }
+    }
+  },
+  "events": {
+    "external_load": {
+      "building_92a": {
+        "start": "2020-01-02T00:08:00+02:00",
+        "step_duration_s": 900,
+        "values": [
+          12,
+          23,
+          12,
+          12
+        ]
+      },
+      "building_92b": {
+        "file": "92b.csv",
+        "start": "2020-01-02T00:08:00+02:00",
+        "step_duration_s": 900,
+        "column": "energy"
+      }
+    },
+    "grid_operator_signals": [
+      {
+        "time": "2019-12-31T23:00:00+02:00",
+        "grid_connector_id": "GC1",
+        "start_time": "2020-01-01T00:00:00+02:00",
+        "end_time": "2020-01-01T00:15:00+02:00",
+        "max_power": null,
+        "cost": {
+          "polynomial": [1.0, 0.0, 1.0]
+        }
+      },
+      {
+        "time": "2019-12-31T23:00:00+02:00",
+        "grid_connector_id": "GC1",
+        "start_time": "2020-01-01T00:15:00+02:00",
+        "end_time": "2020-01-01T00:30:00+02:00",
+        "max_power": null,
+        "cost": {
+          "fixed": 100
+        }
+      }
+    ]
+  },
+  "scenario": {
+  }
+}
