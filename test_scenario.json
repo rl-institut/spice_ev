@@ -1,4 +1,9 @@
 {
+  "scenario": {
+    "start_time": "2020-01-01T00:00:00+02:00",
+    "interval": 15,
+    "n_intervals": 35040
+  },
   "constants": {
     "vehicle_types": {
         "sprinter": {
@@ -82,7 +87,7 @@
         "time": "2019-12-31T23:00:00+02:00",
         "grid_connector_id": "GC1",
         "start_time": "2020-01-01T00:00:00+02:00",
-        "end_time": "2020-01-01T00:15:00+02:00",
+        "stop_time": "2020-01-01T00:15:00+02:00",
         "max_power": null,
         "cost": {
           "polynomial": [1.0, 0.0, 1.0]
@@ -92,7 +97,7 @@
         "time": "2019-12-31T23:00:00+02:00",
         "grid_connector_id": "GC1",
         "start_time": "2020-01-01T00:15:00+02:00",
-        "end_time": "2020-01-01T00:30:00+02:00",
+        "stop_time": "2020-01-01T00:30:00+02:00",
         "max_power": null,
         "cost": {
           "fixed": 100
@@ -100,11 +105,5 @@
       }
     ]
   },
-  "strategy": "greedy",
-  "scenario": {
-    "start": "2020-01-01T00:00:00+02:00",
-    "stop":  "2021-01-01T00:00:00+02:00",
-    "interval": 15,
-    "n_interval": 35040
-  }
+  "strategy": "greedy"
 }
