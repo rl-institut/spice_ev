@@ -1,3 +1,4 @@
+import argparse
 import json
 
 import constants
@@ -16,5 +17,7 @@ class Scenario:
         self.strategy = strategy.Strategy(j.get('strategy'))
 
 if __name__ == '__main__':
-    print("yay")
-    s = Scenario('test_scenario.json')
+    parser = argparse.ArgumentParser(description='Netz_eLOG modelling')
+    parser.add_argument('file', nargs='?', default='test_scenario.json', help='scenario JSON file')
+    args = parser.parse_args()
+    s = Scenario(args.file)

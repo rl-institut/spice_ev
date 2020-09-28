@@ -100,6 +100,11 @@
       }
     ]
   },
+  "strategy": "greedy",
   "scenario": {
+    "start": "2020-01-01T00:00:00+02:00",
+    "stop":  "2021-01-01T00:00:00+02:00",
+    "interval": 15,
+    "n_interval": 35040
   }
 }
