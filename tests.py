@@ -1,5 +1,7 @@
+import json
 import unittest
 import scenario
+
 
 def get_test_json():
     return {
@@ -9,15 +11,24 @@ def get_test_json():
             "n_intervals": 35040
         },
         "constants": {
+            "grid_connectors": {},
+            "charging_stations": {},
+            "vehicle_types": {},
+            "vehicles": {},
         },
         "events": {
         },
         "strategy": "greedy"
     }
 
+
 class TestScenario(unittest.TestCase):
 
-    def test_times(self):
+    def test_file(self):
+        with open('test_scenario.json', 'r') as f:
+            s = scenario.Scenario(json.load(f))
+
+    def test_scenario_times(self):
         j = get_test_json()
         s = scenario.Scenario(j)
         self.assertEqual(s.n_intervals, 35040)
@@ -29,6 +40,7 @@ class TestScenario(unittest.TestCase):
         del j['scenario']['n_intervals']
         s = scenario.Scenario(j)
         self.assertEqual(s.n_intervals, 4)
+
 
 if __name__ == '__main__':
     unittest.main()

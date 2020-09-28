@@ -18,24 +18,25 @@
             "max_charging_power": 22
         }
     },
-    "bevs": {
-        "B1": {
+    "vehicles": {
+        "V1": {
             "connected_charging_station": "C1",
             "estimated_time_of_departure": "2020-01-02T00:08:00+02:00",
             "desired_soc": 90,
             "soc": 100,
             "vehicle_type": "sprinter"
         },
-        "B2": {
+        "V2": {
             "connected_charging_station": null,
             "estimated_time_of_departure": null,
             "soc": 85,
             "vehicle_type": "sprinter"
         }
     },
-    "grid_connector": {
-        "id": "GC1",
-        "max_power": 200
+    "grid_connectors": {
+        "GC1": {
+          "max_power": 200
+        }
     },
     "load_management": {
         "L1": {
@@ -51,9 +52,9 @@
             "grid_connector": "GC1"
         }
     },
-    "charging_station": {
+    "charging_stations": {
         "C1": {
-            "max_power": 50
+            "max_power": 300
         },
         "C2": {
             "max_power": 50

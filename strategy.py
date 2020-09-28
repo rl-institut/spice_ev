@@ -10,4 +10,3 @@ class Strategy:
     class Greedy():
         def __init__(self):
             self.description = "greedy"
-            print("Greedy init")
