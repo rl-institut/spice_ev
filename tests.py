@@ -17,6 +17,9 @@ def get_test_json():
             "vehicles": {},
         },
         "events": {
+            "external_loads": {},
+            "grid_operator_signals": [],
+            "vehicle_events": [],
         },
         "strategy": "greedy"
     }
@@ -26,7 +29,7 @@ class TestScenario(unittest.TestCase):
 
     def test_file(self):
         with open('tests/test_scenario.json', 'r') as f:
-            s = scenario.Scenario(json.load(f))
+            s = scenario.Scenario(json.load(f), 'tests/')
 
     def test_scenario_times(self):
         j = get_test_json()
