@@ -1,6 +1,7 @@
 import argparse
 import datetime
 import json
+import os
 
 import constants
 import events
@@ -11,9 +12,9 @@ import util
 class Scenario:
     """ A scenario
     """
-    def __init__(self, json_dict):
+    def __init__(self, json_dict, dir_path=''):
         self.constants = constants.Constants(json_dict.get('constants'))
-        self.events = events.Events(json_dict.get('events'))
+        self.events = events.Events(json_dict.get('events'), dir_path, self.constants)
         self.strategy = strategy.Strategy(json_dict.get('strategy'))
 
         scenario = json_dict.get('scenario')
@@ -33,7 +34,7 @@ class Scenario:
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Netz_eLOG modelling')
-    parser.add_argument('file', nargs='?', default='test_scenario.json', help='scenario JSON file')
+    parser.add_argument('file', nargs='?', default='tests/test_scenario.json', help='scenario JSON file')
     args = parser.parse_args()
     with open(args.file, 'r') as f:
-        s = Scenario(json.load(f))
+        s = Scenario(json.load(f), os.path.dirname(args.file))
