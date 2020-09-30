@@ -25,7 +25,7 @@ def get_test_json():
 class TestScenario(unittest.TestCase):
 
     def test_file(self):
-        with open('test_scenario.json', 'r') as f:
+        with open('tests/test_scenario.json', 'r') as f:
             s = scenario.Scenario(json.load(f))
 
     def test_scenario_times(self):
