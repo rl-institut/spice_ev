@@ -4,9 +4,12 @@ class Strategy:
     """ strategy
     """
     def __init__(self, strat_string):
-        cls = getattr(self, strat_string.capitalize())
-        cls()
+        # module = __import__(self.__module__)
+        # cls = getattr(module, strat_string.capitalize())
+        # cls()
+        globals()[strat_string.capitalize()]()
 
-    class Greedy():
-        def __init__(self):
-            self.description = "greedy"
+class Greedy(Strategy):
+    def __init__(self):
+        self.description = "greedy"
+        print(self.description)
