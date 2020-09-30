@@ -31,6 +31,11 @@ class TestScenario(unittest.TestCase):
         with open('tests/test_scenario.json', 'r') as f:
             s = scenario.Scenario(json.load(f), 'tests/')
 
+    def test_greedy(self):
+        with open('tests/test_scenario.json', 'r') as f:
+            s = scenario.Scenario(json.load(f), 'tests/')
+        s.run('greedy')
+
     def test_scenario_times(self):
         j = get_test_json()
         s = scenario.Scenario(j)

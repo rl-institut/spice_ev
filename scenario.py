@@ -5,7 +5,7 @@ import os
 
 import constants
 import events
-import strategy
+from strategy import Strategy
 import util
 
 
@@ -15,7 +15,6 @@ class Scenario:
     def __init__(self, json_dict, dir_path=''):
         self.constants = constants.Constants(json_dict.get('constants'))
         self.events = events.Events(json_dict.get('events'), dir_path, self.constants)
-        self.strategy = strategy.Strategy(json_dict.get('strategy'))
 
         scenario = json_dict.get('scenario')
 
@@ -32,9 +31,31 @@ class Scenario:
             delta = stop_time - self.start_time
             self.n_intervals = delta / self.interval
 
+
+    def run(self, strategy_name):
+        strat = Strategy(strategy_name, self.constants)
+
+        event_steps = self.events.get_event_steps(self.start_time, self.n_intervals, self.interval)
+
+        current_time = self.start_time
+
+        """
+        for step_i in range(self.n_intervals):
+            print('step {}: {}'.format(step_i, current_time))
+            #strat.step()
+            current_time += self.interval
+        """
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Netz_eLOG modelling')
     parser.add_argument('file', nargs='?', default='tests/test_scenario.json', help='scenario JSON file')
+    parser.add_argument('--strategy', '-s', nargs='?', default='greedy', help='specify strategy for simulation')
     args = parser.parse_args()
+
+    # Read JSON
     with open(args.file, 'r') as f:
         s = Scenario(json.load(f), os.path.dirname(args.file))
+
+    # RUN!
+    s.run(args.strategy)

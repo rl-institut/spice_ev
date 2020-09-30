@@ -8,12 +8,50 @@ class Events:
     """
     def __init__(self, obj, dir_path, constants):
         # optional
-        self.external_loads = dict({k: ExternalLoad(v, dir_path) for k, v in obj.get('external_load', {}).items()})
+        self.external_load_lists = dict({k: ExternalLoadList(v, dir_path) for k, v in obj.get('external_load', {}).items()})
         self.grid_operator_signals = list([GridOperatorSignal(x, constants) for x in obj.get('grid_operator_signals')])
         self.vehicle_events = list([VehicleEvent(x, constants) for x in obj.get('vehicle_events')])
 
 
-class ExternalLoad:
+    def get_event_steps(self, start_time, n_intervals, interval):
+        steps = list([[] for _ in range(n_intervals)])
+
+        current_time = start_time
+
+        all_events = self.vehicle_events + self.grid_operator_signals
+        for name, load_list in self.external_load_lists.items():
+            all_events.extend(load_list.get_events())
+
+        for event in all_events:
+            index = int((event.signal_time - start_time) / interval)
+
+            if index < 0:
+                print('Warning: Event is before start of scenario:', event)
+            elif index >= n_intervals:
+                print('Warning: Event is after end of scenario:', event)
+            else:
+                steps[index].append(event)
+
+
+        """
+        for step_i in range(self.n_intervals):
+            print('step {}: {}'.format(step_i, current_time))
+            #strat.step()
+            current_time += self.interval
+        """
+
+
+class Event:
+    def __str__(self):
+        return '{}, {}'.format(self.__class__.__name__, vars(self))
+
+
+class ExternalLoad(Event):
+    def __init__(self, **kwargs):
+        self.__dict__.update(kwargs)
+
+
+class ExternalLoadList:
     def __init__(self, obj, dir_path):
         keys = [
             ('start_time', util.datetime_from_isoformat),
@@ -37,10 +75,12 @@ class ExternalLoad:
                 for row in reader:
                     self.values.append(float(row[column]))
 
-        print(self.__class__.__name__, vars(self))
+    def get_events(self):
+        #TODO return list of ExternalLoad objects
+        pass
 
 
-class GridOperatorSignal:
+class GridOperatorSignal(Event):
     def __init__(self, obj, constants):
         keys = [
             ('signal_time', util.datetime_from_isoformat),
@@ -53,10 +93,9 @@ class GridOperatorSignal:
             ('max_power', float, None),
         ]
         util.set_attr_from_dict(obj, self, keys, optional_keys)
-        print(self.__class__.__name__, vars(self))
 
 
-class VehicleEvent:
+class VehicleEvent(Event):
     def __init__(self, obj, constants):
         keys = [
             ('signal_time', util.datetime_from_isoformat),
@@ -81,5 +120,3 @@ class VehicleEvent:
         for name, func in conversions:
             if name in self.update:
                 self.update[name] = func(self.update[name])
-
-        print(self.__class__.__name__, vars(self))
