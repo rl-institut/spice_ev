@@ -13,7 +13,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     start = datetime.datetime(year=2020, month=1, day=1, tzinfo=datetime.timezone(datetime.timedelta(hours=2)))
-    stop  = datetime.datetime(year=2021, month=1, day=1, tzinfo=datetime.timezone(datetime.timedelta(hours=2)))
+    stop  = datetime.datetime(year=2020, month=2, day=1, tzinfo=datetime.timezone(datetime.timedelta(hours=2)))
     interval = datetime.timedelta(minutes=15)
 
     # CONSTANTS
@@ -25,7 +25,7 @@ if __name__ == '__main__':
             "capacity": 70,
             "max_charging_power": 7,
             "charging_curve": {"TODO": 42},
-            "count": 42
+            "count": 5
         },
         "golf": {
             "name": "E-Golf",
