@@ -1,4 +1,5 @@
 import csv
+from math import ceil
 import os
 import datetime
 import util
@@ -24,7 +25,7 @@ class Events:
             all_events.extend(load_list.get_events())
 
         for event in all_events:
-            index = int((event.signal_time - start_time) / interval)
+            index = ceil((event.signal_time - start_time) / interval)
 
             if index < 0:
                 print('Warning: Event is before start of scenario:', event)
@@ -32,7 +33,6 @@ class Events:
                 print('Warning: Event is after end of scenario:', event)
             else:
                 steps[index].append(event)
-
 
         """
         for step_i in range(self.n_intervals):

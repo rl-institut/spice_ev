@@ -7,7 +7,10 @@ class Strategy:
         # module = __import__(self.__module__)
         # cls = getattr(module, strat_string.capitalize())
         # cls()
-        globals()[strat_string.capitalize()](constants)
+        self = globals()[strat_string.capitalize()](constants)
+
+    def step(events=[]):
+        pass
 
 class Greedy(Strategy):
     def __init__(self, constants):
@@ -16,4 +19,4 @@ class Greedy(Strategy):
         print(self.description)
 
     def step(events=[]):
-        pass
+        print(len(events))

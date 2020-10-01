@@ -39,12 +39,10 @@ class Scenario:
 
         current_time = self.start_time
 
-        """
         for step_i in range(self.n_intervals):
             print('step {}: {}'.format(step_i, current_time))
-            #strat.step()
+            strat.step(event_steps[step_i])
             current_time += self.interval
-        """
 
 
 if __name__ == '__main__':
