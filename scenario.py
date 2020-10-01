@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import argparse
 import datetime
 import json
@@ -40,7 +42,7 @@ class Scenario:
         current_time = self.start_time
 
         for step_i in range(self.n_intervals):
-            print('step {}: {}'.format(step_i, current_time))
+            # print('step {}: {}'.format(step_i, current_time))
             strat.step(event_steps[step_i])
             current_time += self.interval
 

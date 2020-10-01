@@ -24,5 +24,6 @@ class Greedy(Strategy):
         print(self.description)
 
     def step(self, events=[]):
-        print(len(events))
+        # print(len(events))
         #TODO return list of charging commands, +meta info
+        return
