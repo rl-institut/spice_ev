@@ -1,5 +1,6 @@
 import csv
 import os
+import datetime
 import util
 
 
@@ -47,8 +48,8 @@ class Event:
 
 
 class ExternalLoad(Event):
-    def __init__(self, **kwargs):
-        self.__dict__.update(kwargs)
+    def __init__(self, kwargs):
+        self.__dict__.update(**kwargs)
 
 
 class ExternalLoadList:
@@ -76,8 +77,16 @@ class ExternalLoadList:
                     self.values.append(float(row[column]))
 
     def get_events(self):
-        #TODO return list of ExternalLoad objects
-        pass
+        eventlist = []
+        time_delta = datetime.timedelta(seconds=self.step_duration_s)
+        for idx, value in enumerate(self.values):
+            eventlist.append(ExternalLoad({
+                "signal_time": self.start_time,
+                "start_time": self.start_time + time_delta*idx,
+                "value": value
+            }))
+
+        return eventlist
 
 
 class GridOperatorSignal(Event):
