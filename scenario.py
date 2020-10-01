@@ -5,7 +5,7 @@ import os
 
 import constants
 import events
-from strategy import Strategy
+import strategy
 import util
 
 
@@ -33,7 +33,7 @@ class Scenario:
 
 
     def run(self, strategy_name):
-        strat = Strategy(strategy_name, self.constants)
+        strat = strategy.class_from_str(strategy_name)(self.constants)
 
         event_steps = self.events.get_event_steps(self.start_time, self.n_intervals, self.interval)
 
@@ -43,6 +43,8 @@ class Scenario:
             print('step {}: {}'.format(step_i, current_time))
             strat.step(event_steps[step_i])
             current_time += self.interval
+
+        #TODO visualization?
 
 
 if __name__ == '__main__':
