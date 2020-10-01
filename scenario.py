@@ -39,6 +39,8 @@ class Scenario:
 
         current_time = self.start_time
 
+        print(event_steps)
+
         """
         for step_i in range(self.n_intervals):
             print('step {}: {}'.format(step_i, current_time))

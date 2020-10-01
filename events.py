@@ -1,6 +1,7 @@
 import csv
 import os
 import datetime
+import math
 import util
 
 
@@ -24,7 +25,7 @@ class Events:
             all_events.extend(load_list.get_events())
 
         for event in all_events:
-            index = int((event.signal_time - start_time) / interval)
+            index = math.ceil((event.signal_time - start_time) / interval)
 
             if index < 0:
                 print('Warning: Event is before start of scenario:', event)
@@ -32,14 +33,6 @@ class Events:
                 print('Warning: Event is after end of scenario:', event)
             else:
                 steps[index].append(event)
-
-
-        """
-        for step_i in range(self.n_intervals):
-            print('step {}: {}'.format(step_i, current_time))
-            #strat.step()
-            current_time += self.interval
-        """
 
 
 class Event:
@@ -80,10 +73,11 @@ class ExternalLoadList:
         eventlist = []
         time_delta = datetime.timedelta(seconds=self.step_duration_s)
         for idx, value in enumerate(self.values):
+            idx_time = self.start_time + time_delta * idx
             eventlist.append(ExternalLoad({
-                "signal_time": self.start_time,
-                "start_time": self.start_time + time_delta*idx,
-                "value": value
+                "signal_time": idx_time,
+                "start_time": idx_time,
+                "value": value,
             }))
 
         return eventlist
