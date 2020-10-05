@@ -56,7 +56,7 @@ if __name__ == '__main__':
 
             charging_stations[cs_name] = {
                 "max_power": random.randint(30,300),
-                "parent": "L3"
+                "parent": "GC1"
             }
 
     events = {
@@ -167,21 +167,6 @@ if __name__ == '__main__':
             "grid_connectors": {
                 "GC1": {
                   "max_power": 2000
-                }
-            },
-            "load_management": {
-                # "L1": {
-                    # "charging_stations": ["C1", "C2"],
-                    # "parent": "L3"
-                # },
-                # "L2": {
-                    # "charging_stations": ["C3"],
-                    # "parent": "L3"
-                # },
-                "L3": {
-                    "charging_stations": list(charging_stations.keys()),
-                    "max_power": 2000,
-                    "grid_connector": "GC1"
                 }
             },
             "charging_stations": charging_stations

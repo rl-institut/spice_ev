@@ -38,30 +38,18 @@
           "max_power": 200
         }
     },
-    "load_management": {
-        "L1": {
-            "parent": "L3"
-        },
-        "L2": {
-            "parent": "L3"
-        },
-        "L3": {
-            "max_power": 200,
-            "parent": "GC1"
-        }
-    },
     "charging_stations": {
         "C1": {
-            "max_power": 300,
-            "parent": "L1"
+            "max_power": 100,
+            "parent": "GC1"
         },
         "C2": {
             "max_power": 50,
-            "parent": "L1"
+            "parent": "GC1"
         },
         "C3": {
             "max_power": 50,
-            "parent": "L2"
+            "parent": "GC1"
         }
     }
   },

@@ -18,7 +18,6 @@ class GridConnector:
         optional_keys = [
             ('current_loads', dict, {}),
             ('cost', dict, {}),
-            ('cur_max_power', float, None),
         ]
         util.set_attr_from_dict(obj, self, keys, optional_keys)
         print(self.__class__.__name__, vars(self))
@@ -28,7 +27,7 @@ class ChargingStation:
     def __init__(self, obj):
         keys = [
             ('max_power', float),
-            # ('parent', str)
+            ('parent', str),
         ]
         optional_keys = [
             ('current_power', float, 0.0)
