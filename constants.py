@@ -63,7 +63,6 @@ class Vehicle:
             ('estimated_time_of_departure', util.datetime_from_isoformat, None),
             ('desired_soc', float, 100.),
             ('soc', float, 0.),
-            ("energy_delta", float, 0.0),
         ]
         util.set_attr_from_dict(obj, self, keys, optional_keys)
         print(self.__class__.__name__, vars(self))

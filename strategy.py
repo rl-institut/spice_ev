@@ -61,12 +61,20 @@ class Strategy(ABC):
                     setattr(vehicle, k, v)
                 if ev.event_type == "departure":
                     vehicle.connected_charging_station = None
+                elif ev.event_type == "arrival":
+                    assert vehicle.connected_charging_station is not None
+                    assert hasattr(vehicle, 'soc_delta')
+                    vehicle.soc += vehicle.soc_delta
+                    delattr(vehicle, 'soc_delta')
+                    assert(vehicle.soc >= 0, 'SOC of vehicle {} negative :('.format(ev.vehicle_id))
+
+
             else:
                 raise Exception("Unknown event type: {}".format(ev))
 
         for name, connector in self.world_state.grid_connectors.items():
             if not connector.cost:
-                print("Warning: Connector {} has now associated costs at {}".format(name, time))
+                raise Exception("Warning: Connector {} has no associated costs at {}".format(name, time))
 
 
 class Greedy(Strategy):
@@ -79,13 +87,12 @@ class Greedy(Strategy):
         Strategy.step(self, event_list)
 
         for vehicle in self.world_state.vehicles.values():
-            vehicle.soc -= vehicle.energy_delta
-            vehicle.energy_delta = 0
             delta_soc = vehicle.desired_soc - vehicle.soc
             charging_station_id = vehicle.connected_charging_station
             if delta_soc > 0 and charging_station_id:
                 charging_station = self.world_state.charging_stations[charging_station_id]
                 # vehicle needs loading
+                #TODO compute charging losses and use charging curve
                 power_needed = delta_soc / 100 * vehicle.vehicle_type.capacity
 
                 print(power_needed)

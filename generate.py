@@ -117,8 +117,8 @@ if __name__ == '__main__':
             dep_time = now + datetime.timedelta(hours=6, minutes = 15 * random.randint(0,4))
             soc = v.get("next_soc", v["desired_soc"])
             capacity = vehicle_types[v["vehicle_type"]]["capacity"]
-            energy_delta = random.randint(int(capacity/3), int(soc / 100 * capacity))
-            t_delta = datetime.timedelta(hours = 8 * energy_delta/capacity / 0.75)
+            soc_delta = random.randint(int(capacity/3), int(soc / 100 * capacity))
+            t_delta = datetime.timedelta(hours = 8 * soc_delta/capacity / 0.75)
             t_delta = t_delta - datetime.timedelta(microseconds=t_delta.microseconds)
             arrival_time = dep_time + t_delta
             # print(dep_time, t_delta, arrival_time)
@@ -144,7 +144,7 @@ if __name__ == '__main__':
                     "connected_charging_station": "CS_" + v_id,
                     "estimated_time_of_departure": dep_time.isoformat(),
                     "desired_soc": v["next_soc"],
-                    "energy_delta": -energy_delta
+                    "soc_delta": -soc_delta
                 }
             })
 

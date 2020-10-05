@@ -127,7 +127,7 @@
             "connected_charging_station": "C1",
             "estimated_time_of_departure": "2020-01-03T00:08:00+02:00",
             "desired_soc": 90,
-            "energy_delta": -12
+            "soc_delta": -12
         }
       }
     ]
