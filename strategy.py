@@ -13,19 +13,12 @@ def class_from_str(strategy_name):
 class Strategy(ABC):
     """ strategy
     """
-    @abstractmethod
-    def step(self, events=[]):
-        raise NotImplementedError
 
-
-class Greedy(Strategy):
     def __init__(self, constants, start_time, interval):
-        self.description = "greedy"
         self.world_state = deepcopy(constants)
         self.world_state.future_events = []
         self.current_time = start_time - interval
         self.interval = interval
-        print(self.description)
 
     def step(self, event_list=[]):
         self.current_time += self.interval
@@ -75,6 +68,16 @@ class Greedy(Strategy):
             if not connector.cost:
                 print("Warning: Connector {} has now associated costs at {}".format(name, time))
 
+
+class Greedy(Strategy):
+    def __init__(self, constants, start_time, interval):
+        Strategy.__init__(self, constants, start_time, interval)
+        self.description = "greedy"
+        print(self.description)
+
+    def step(self, event_list=[]):
+        Strategy.step(self, event_list)
+
         for vehicle in self.world_state.vehicles.values():
             vehicle.soc -= vehicle.energy_delta
             vehicle.energy_delta = 0
@@ -89,4 +92,3 @@ class Greedy(Strategy):
                 vehicle.soc = vehicle.desired_soc
         #TODO return list of charging commands, +meta info
         return {'current_time': self.current_time}
-
