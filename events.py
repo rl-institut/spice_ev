@@ -121,7 +121,7 @@ class VehicleEvent(Event):
             ('estimated_time_of_arrival', util.datetime_from_isoformat),
             ('estimated_time_of_departure', util.datetime_from_isoformat),
             ('connected_charging_station', str),
-            ('energy_delta', float),
+            ('soc_delta', float),
             ('desired_soc', float),
         ]
 
