@@ -79,12 +79,12 @@ class Strategy(ABC):
 
 class Greedy(Strategy):
     def __init__(self, constants, start_time, interval):
-        Strategy.__init__(self, constants, start_time, interval)
+        super().__init__(constants, start_time, interval)
         self.description = "greedy"
         print(self.description)
 
     def step(self, event_list=[]):
-        Strategy.step(self, event_list)
+        super().step(event_list)
 
         for vehicle in self.world_state.vehicles.values():
             delta_soc = vehicle.desired_soc - vehicle.soc
