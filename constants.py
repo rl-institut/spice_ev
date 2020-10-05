@@ -16,6 +16,9 @@ class GridConnector:
             ('max_power', float),
         ]
         optional_keys = [
+            ('current_loads', dict, {}),
+            ('cost', dict, {}),
+            ('cur_max_power', float, None),
         ]
         util.set_attr_from_dict(obj, self, keys, optional_keys)
         print(self.__class__.__name__, vars(self))
@@ -27,6 +30,7 @@ class ChargingStation:
             ('max_power', float),
         ]
         optional_keys = [
+            ('current_power', float, 0.0)
         ]
         util.set_attr_from_dict(obj, self, keys, optional_keys)
         print(self.__class__.__name__, vars(self))
@@ -54,10 +58,11 @@ class Vehicle:
         ]
         optional_keys = [
             ('connected_charging_station', constants.charging_stations.get, None),
+            ('estimated_time_of_arrival', util.datetime_from_isoformat, None),
             ('estimated_time_of_departure', util.datetime_from_isoformat, None),
             ('desired_soc', float, 100.),
             ('soc', float, 0.),
+            ("energy_delta", float, 0.0),
         ]
         util.set_attr_from_dict(obj, self, keys, optional_keys)
         print(self.__class__.__name__, vars(self))
-

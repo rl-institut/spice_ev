@@ -8,11 +8,11 @@ import util
 class Events:
     """ events
     """
-    def __init__(self, obj, dir_path, constants):
+    def __init__(self, obj, dir_path):
         # optional
         self.external_load_lists = dict({k: ExternalLoadList(v, dir_path) for k, v in obj.get('external_load', {}).items()})
-        self.grid_operator_signals = list([GridOperatorSignal(x, constants) for x in obj.get('grid_operator_signals')])
-        self.vehicle_events = list([VehicleEvent(x, constants) for x in obj.get('vehicle_events')])
+        self.grid_operator_signals = list([GridOperatorSignal(x) for x in obj.get('grid_operator_signals')])
+        self.vehicle_events = list([VehicleEvent(x) for x in obj.get('vehicle_events')])
 
 
     def get_event_steps(self, start_time, n_intervals, interval):
@@ -22,13 +22,14 @@ class Events:
 
         all_events = self.vehicle_events + self.grid_operator_signals
         for name, load_list in self.external_load_lists.items():
-            all_events.extend(load_list.get_events())
+            all_events.extend(load_list.get_events(name))
 
         for event in all_events:
             index = ceil((event.signal_time - start_time) / interval)
 
             if index < 0:
-                print('Warning: Event is before start of scenario:', event)
+                print('Warning: Event is before start of scenario, placing at first time step:', event)
+                steps[0].append(event)
             elif index >= n_intervals:
                 print('Warning: Event is after end of scenario:', event)
             else:
@@ -52,6 +53,7 @@ class ExternalLoadList:
         keys = [
             ('start_time', util.datetime_from_isoformat),
             ('step_duration_s', float),
+            ('grid_connector_id', str),
         ]
         optional_keys = [
             ('values', lambda x: list(map(float, x)), []),
@@ -71,7 +73,7 @@ class ExternalLoadList:
                 for row in reader:
                     self.values.append(float(row[column]))
 
-    def get_events(self):
+    def get_events(self, name):
         eventlist = []
         time_delta = datetime.timedelta(seconds=self.step_duration_s)
         for idx, value in enumerate(self.values):
@@ -79,6 +81,8 @@ class ExternalLoadList:
             eventlist.append(ExternalLoad({
                 "signal_time": idx_time,
                 "start_time": idx_time,
+                "name": name,
+                "grid_connector_id": self.grid_connector_id,
                 "value": value,
             }))
 
@@ -86,12 +90,12 @@ class ExternalLoadList:
 
 
 class GridOperatorSignal(Event):
-    def __init__(self, obj, constants):
+    def __init__(self, obj):
         keys = [
             ('signal_time', util.datetime_from_isoformat),
             ('start_time', util.datetime_from_isoformat),
             ('stop_time', util.datetime_from_isoformat),
-            ('grid_connector_id', constants.grid_connectors.get),
+            ('grid_connector_id', str),
             ('cost', dict),
         ]
         optional_keys = [
@@ -101,11 +105,11 @@ class GridOperatorSignal(Event):
 
 
 class VehicleEvent(Event):
-    def __init__(self, obj, constants):
+    def __init__(self, obj):
         keys = [
             ('signal_time', util.datetime_from_isoformat),
             ('start_time', util.datetime_from_isoformat),
-            ('vehicle_id', constants.vehicles.get),
+            ('vehicle_id', str),
             ('event_type', str),
             ('update', dict),
         ]
@@ -117,7 +121,7 @@ class VehicleEvent(Event):
         conversions = [
             ('estimated_time_of_arrival', util.datetime_from_isoformat),
             ('estimated_time_of_departure', util.datetime_from_isoformat),
-            ('connected_charging_station', constants.charging_stations.get),
+            ('connected_charging_station', str),
             ('energy_delta', float),
             ('desired_soc', float),
         ]

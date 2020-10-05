@@ -22,3 +22,18 @@ def set_attr_from_dict(source, target, keys, optional_keys):
             setattr(target, n, default)
         else:
             setattr(target, n, conversion(source[n]))
+
+def get_cost(x, cost_dict):
+    if cost_dict["type"] == "fixed":
+        return cost_dict["value"] * x
+    elif cost_dict["type"] == "polynomial":
+        # cost = 0
+        # for power, coeff in enumerate(cost_dict["value"]):
+            # cost += coeff * pow(x, power)
+        cost = cost_dict["value"].pop(0) # base coefficient, independent of x
+        for coeff in cost_dict["value"]:
+            cost += coeff * x
+            x *= x
+        return cost
+    else:
+        raise NotImplementedError

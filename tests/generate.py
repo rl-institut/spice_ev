@@ -67,7 +67,8 @@ if __name__ == '__main__':
                 "stop_time": stop.isoformat(),
                 "max_power": None,
                 "cost": {
-                    "polynomial": [1.0, 0.0, 1.0]
+                    "type": "polynomial",
+                    "value": [1.0, 0.0, 1.0]
                 }
             },
             # {

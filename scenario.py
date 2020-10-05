@@ -16,7 +16,7 @@ class Scenario:
     """
     def __init__(self, json_dict, dir_path=''):
         self.constants = constants.Constants(json_dict.get('constants'))
-        self.events = events.Events(json_dict.get('events'), dir_path, self.constants)
+        self.events = events.Events(json_dict.get('events'), dir_path)
 
         scenario = json_dict.get('scenario')
 
@@ -43,7 +43,7 @@ class Scenario:
 
         for step_i in range(self.n_intervals):
             # print('step {}: {}'.format(step_i, current_time))
-            strat.step(event_steps[step_i])
+            strat.step(current_time, event_steps[step_i])
             current_time += self.interval
 
         #TODO visualization?

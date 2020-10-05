@@ -21,21 +21,57 @@ class Strategy(ABC):
 class Greedy(Strategy):
     def __init__(self, constants):
         self.description = "greedy"
-        #TODO generate initial world state from deep copy of constants
         self.world_state = deepcopy(constants)
-        self.world_state.price = None
+        self.world_state.future_events = []
         print(self.description)
 
-    def step(self, event_list=[]):
-        for ev in event_list:
+    def step(self, time, event_list=[]):
+        self.world_state.future_events += event_list
+        self.world_state.future_events.sort(key = lambda ev: ev.start_time)
+
+        for ev in self.world_state.future_events:
+            # ignore future events
+            if ev.start_time > time:
+                break
+
+            # remove event from list
+            self.world_state.future_events.pop(0)
+
             if type(ev) == events.ExternalLoad:
-                pass
+                connector = self.world_state.grid_connectors[ev.grid_connector_id]
+                connector.current_loads[ev.name] = ev.value # not reset after last event
             elif type(ev) == events.GridOperatorSignal:
-                pass
+                connector = self.world_state.grid_connectors[ev.grid_connector_id]
+                # set power cost
+                connector.cost = ev.cost
+                # set max power from event
+                if connector.max_power:
+                    if ev.max_power:
+                        connector.cur_max_power = max(connector.max_power, ev.max_power)
+                    else:
+                        # event max power not set: reset to connector power
+                        connector.cur_max_power = connector.max_power
+                else:
+                    # connector max power not set
+                    connector.cur_max_power = ev.max_power
+
             elif type(ev) == events.VehicleEvent:
-                pass
+                vehicle = self.world_state.vehicles[ev.vehicle_id]
+                for k,v in ev.update.items():
+                    setattr(vehicle, k, v)
             else:
                 raise Exception("Unknown event type: {}".format(ev))
-        # print(len(event_list))
+
+        for name, connector in self.world_state.grid_connectors.items():
+            if not connector.cost:
+                print("Warning: Connector {} has now associated costs at {}".format(name, time))
+
+        for vehicle in self.world_state.vehicles.values():
+            vehicle.soc -= vehicle.energy_delta
+            vehicle.energy_delta = 0
+            delta_soc = vehicle.desired_soc - vehicle.soc
+            if delta_soc > 0:
+                # vehicle needs loading
+                pass
         #TODO return list of charging commands, +meta info
         return
