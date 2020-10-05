@@ -91,7 +91,6 @@
         "signal_time": "2019-12-31T23:00:00+02:00",
         "grid_connector_id": "GC1",
         "start_time": "2020-01-01T00:00:00+02:00",
-        "stop_time": "2020-01-01T00:15:00+02:00",
         "max_power": null,
         "cost": {
           "type": "polynomial",
@@ -102,7 +101,6 @@
         "signal_time": "2019-12-31T23:00:00+02:00",
         "grid_connector_id": "GC1",
         "start_time": "2020-01-01T00:15:00+02:00",
-        "stop_time": "2020-01-01T00:30:00+02:00",
         "max_power": null,
         "cost": {
           "type": "fixed",

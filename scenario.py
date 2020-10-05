@@ -35,16 +35,13 @@ class Scenario:
 
 
     def run(self, strategy_name):
-        strat = strategy.class_from_str(strategy_name)(self.constants)
+        strat = strategy.class_from_str(strategy_name)(self.constants, self.start_time, self.interval)
 
         event_steps = self.events.get_event_steps(self.start_time, self.n_intervals, self.interval)
 
-        current_time = self.start_time
-
         for step_i in range(self.n_intervals):
             # print('step {}: {}'.format(step_i, current_time))
-            strat.step(current_time, event_steps[step_i])
-            current_time += self.interval
+            strat.step(event_steps[step_i])
 
         #TODO visualization?
 

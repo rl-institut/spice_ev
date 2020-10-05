@@ -94,12 +94,11 @@ class GridOperatorSignal(Event):
         keys = [
             ('signal_time', util.datetime_from_isoformat),
             ('start_time', util.datetime_from_isoformat),
-            ('stop_time', util.datetime_from_isoformat),
             ('grid_connector_id', str),
-            ('cost', dict),
         ]
         optional_keys = [
             ('max_power', float, None),
+            ('cost', dict, None),
         ]
         util.set_attr_from_dict(obj, self, keys, optional_keys)
 

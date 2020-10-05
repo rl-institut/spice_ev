@@ -19,36 +19,38 @@ class Strategy(ABC):
 
 
 class Greedy(Strategy):
-    def __init__(self, constants):
+    def __init__(self, constants, start_time, interval):
         self.description = "greedy"
-        self.last_time = None
         self.world_state = deepcopy(constants)
         self.world_state.future_events = []
+        self.current_time = start_time - interval
+        self.interval = interval
         print(self.description)
 
-    def step(self, time, event_list=[]):
-        # update time and timedelta
-        dt = time - (self.last_time if self.last_time else time)
-        self.last_time = time
+    def step(self, event_list=[]):
+        self.current_time += self.interval
 
         self.world_state.future_events += event_list
         self.world_state.future_events.sort(key = lambda ev: ev.start_time)
 
-        for ev in self.world_state.future_events:
-            # ignore future events
-            if ev.start_time > time:
+        while True:
+            if len(self.world_state.future_events) == 0:
+                break
+            elif self.world_state.future_events[0].start_time > self.current_time:
+                # ignore future events
                 break
 
             # remove event from list
-            self.world_state.future_events.pop(0)
+            ev = self.world_state.future_events.pop(0)
 
             if type(ev) == events.ExternalLoad:
                 connector = self.world_state.grid_connectors[ev.grid_connector_id]
                 connector.current_loads[ev.name] = ev.value # not reset after last event
             elif type(ev) == events.GridOperatorSignal:
                 connector = self.world_state.grid_connectors[ev.grid_connector_id]
-                # set power cost
-                connector.cost = ev.cost
+                if ev.cost:
+                    # set power cost
+                    connector.cost = ev.cost
                 # set max power from event
                 if connector.max_power:
                     if ev.max_power:
@@ -86,4 +88,5 @@ class Greedy(Strategy):
                 print(power_needed)
                 vehicle.soc = vehicle.desired_soc
         #TODO return list of charging commands, +meta info
-        return
+        return {'current_time': self.current_time}
+

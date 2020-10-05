@@ -65,7 +65,6 @@ if __name__ == '__main__':
                 "signal_time": start.isoformat(),
                 "grid_connector_id": "GC1",
                 "start_time": start.isoformat(),
-                "stop_time": stop.isoformat(),
                 "max_power": None,
                 "cost": {
                     "type": "polynomial",
@@ -76,7 +75,6 @@ if __name__ == '__main__':
                 # "signal_time": "2019-12-31T23:00:00+02:00",
                 # "grid_connector_id": "GC1",
                 # "start_time": "2020-01-01T00:15:00+02:00",
-                # "stop_time": "2020-01-01T00:30:00+02:00",
                 # "max_power": None,
                 # "cost": {
                     # "fixed": 100
