@@ -89,6 +89,7 @@ class Greedy(Strategy):
             if delta_soc > 0 and charging_station_id:
                 charging_station = self.world_state.charging_stations[charging_station_id]
                 # vehicle needs loading
+                #TODO compute charging losses and use charging curve
                 power_needed = delta_soc / 100 * vehicle.vehicle_type.capacity
 
                 print(power_needed)
