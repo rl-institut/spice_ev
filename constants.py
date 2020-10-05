@@ -7,7 +7,7 @@ class Constants:
         self.grid_connectors = dict({k: GridConnector(v) for k, v in obj['grid_connectors'].items()})
         self.charging_stations = dict({k: ChargingStation(v) for k, v in obj['charging_stations'].items()})
         self.vehicle_types = dict({k: VehicleType(v) for k, v in obj['vehicle_types'].items()})
-        self.vehicles = dict({k: Vehicle(v, self) for k, v in obj['vehicles'].items()})
+        self.vehicles = dict({k: Vehicle(v, self.vehicle_types) for k, v in obj['vehicles'].items()})
 
 
 class GridConnector:
@@ -28,6 +28,7 @@ class ChargingStation:
     def __init__(self, obj):
         keys = [
             ('max_power', float),
+            # ('parent', str)
         ]
         optional_keys = [
             ('current_power', float, 0.0)
@@ -52,12 +53,12 @@ class VehicleType:
 
 
 class Vehicle:
-    def __init__(self, obj, constants):
+    def __init__(self, obj, vehicle_types):
         keys = [
-            ('vehicle_type', constants.vehicle_types.get),
+            ('vehicle_type', vehicle_types.get),
         ]
         optional_keys = [
-            ('connected_charging_station', constants.charging_stations.get, None),
+            ('connected_charging_station', str, None),
             ('estimated_time_of_arrival', util.datetime_from_isoformat, None),
             ('estimated_time_of_departure', util.datetime_from_isoformat, None),
             ('desired_soc', float, 100.),

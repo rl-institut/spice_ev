@@ -2,7 +2,7 @@
   "scenario": {
     "start_time": "2020-01-01T00:00:00+02:00",
     "interval": 15,
-    "n_intervals": 35040
+    "n_intervals": 97
   },
   "constants": {
     "vehicle_types": {
@@ -40,27 +40,28 @@
     },
     "load_management": {
         "L1": {
-            "charging_stations": ["C1", "C2"],
             "parent": "L3"
         },
         "L2": {
-            "charging_stations": ["C3"],
             "parent": "L3"
         },
         "L3": {
             "max_power": 200,
-            "grid_connector": "GC1"
+            "parent": "GC1"
         }
     },
     "charging_stations": {
         "C1": {
-            "max_power": 300
+            "max_power": 300,
+            "parent": "L1"
         },
         "C2": {
-            "max_power": 50
+            "max_power": 50,
+            "parent": "L1"
         },
         "C3": {
-            "max_power": 50
+            "max_power": 50,
+            "parent": "L2"
         }
     }
   },
@@ -69,6 +70,7 @@
       "building_92a": {
         "start_time": "2020-01-02T00:08:00+02:00",
         "step_duration_s": 900,
+        "grid_connector_id": "GC1",
         "values": [
           12,
           23,
@@ -80,6 +82,7 @@
         "csv_file": "test_external_load.csv",
         "start_time": "2020-01-02T00:08:00+02:00",
         "step_duration_s": 900,
+        "grid_connector_id": "GC1",
         "column": "energy"
       }
     },
@@ -91,7 +94,8 @@
         "stop_time": "2020-01-01T00:15:00+02:00",
         "max_power": null,
         "cost": {
-          "polynomial": [1.0, 0.0, 1.0]
+          "type": "polynomial",
+          "value": [1.0, 0.0, 1.0]
         }
       },
       {
@@ -101,14 +105,15 @@
         "stop_time": "2020-01-01T00:30:00+02:00",
         "max_power": null,
         "cost": {
-          "fixed": 100
+          "type": "fixed",
+          "value": 100
         }
       }
     ],
     "vehicle_events": [
       {
         "signal_time": "2019-12-31T23:00:00+02:00",
-        "start_time": "2020-01-02T08:00:00+02:00",
+        "start_time": "2020-01-01T08:00:00+02:00",
         "vehicle_id": "V1",
         "event_type": "departure",
         "update": {
@@ -117,7 +122,7 @@
       },
       {
         "signal_time": "2019-12-31T23:00:00+02:00",
-        "start_time": "2020-01-02T17:00:00+02:00",
+        "start_time": "2020-01-01T17:00:00+02:00",
         "vehicle_id": "V1",
         "event_type": "arrival",
         "update": {

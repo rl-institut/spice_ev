@@ -21,11 +21,16 @@ class Strategy(ABC):
 class Greedy(Strategy):
     def __init__(self, constants):
         self.description = "greedy"
+        self.last_time = None
         self.world_state = deepcopy(constants)
         self.world_state.future_events = []
         print(self.description)
 
     def step(self, time, event_list=[]):
+        # update time and timedelta
+        dt = time - (self.last_time if self.last_time else time)
+        self.last_time = time
+
         self.world_state.future_events += event_list
         self.world_state.future_events.sort(key = lambda ev: ev.start_time)
 
@@ -59,6 +64,8 @@ class Greedy(Strategy):
                 vehicle = self.world_state.vehicles[ev.vehicle_id]
                 for k,v in ev.update.items():
                     setattr(vehicle, k, v)
+                if ev.event_type == "departure":
+                    vehicle.connected_charging_station = None
             else:
                 raise Exception("Unknown event type: {}".format(ev))
 
@@ -70,8 +77,13 @@ class Greedy(Strategy):
             vehicle.soc -= vehicle.energy_delta
             vehicle.energy_delta = 0
             delta_soc = vehicle.desired_soc - vehicle.soc
-            if delta_soc > 0:
+            charging_station_id = vehicle.connected_charging_station
+            if delta_soc > 0 and charging_station_id:
+                charging_station = self.world_state.charging_stations[charging_station_id]
                 # vehicle needs loading
-                pass
+                power_needed = delta_soc / 100 * vehicle.vehicle_type.capacity
+
+                print(power_needed)
+                vehicle.soc = vehicle.desired_soc
         #TODO return list of charging commands, +meta info
         return

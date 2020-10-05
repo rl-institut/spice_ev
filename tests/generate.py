@@ -55,7 +55,8 @@ if __name__ == '__main__':
             }
 
             charging_stations[cs_name] = {
-                "max_power": random.randint(30,300)
+                "max_power": random.randint(30,300),
+                "parent": "L3"
             }
 
     events = {
