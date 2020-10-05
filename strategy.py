@@ -64,8 +64,8 @@ class Strategy():
                     assert vehicle.connected_charging_station is not None
                     assert hasattr(vehicle, 'soc_delta')
                     vehicle.soc += vehicle.soc_delta
+                    assert vehicle.soc >= 0, 'SOC of vehicle {} should not be negative. SOC is {}, soc_delta was {}'.format(ev.vehicle_id, vehicle.soc, vehicle.soc_delta)
                     delattr(vehicle, 'soc_delta')
-                    assert(vehicle.soc >= 0, 'SOC of vehicle {} should not be negative'.format(ev.vehicle_id))
 
 
             else:
@@ -97,13 +97,14 @@ class Greedy(Strategy):
                 # vehicle needs loading
                 #TODO compute charging losses and use charging curve
                 energy_needed = delta_soc / 100 * vehicle.vehicle_type.capacity
+                # power = energy / time
                 power_needed = energy_needed / (self.interval.total_seconds() / 3600)
                 grid_connector = grid_connectors[charging_station.parent]
                 gc_power_left = grid_connector['cur_max_power'] - grid_connector['current_load']
                 cs_power_left = charging_station.max_power - charging_stations.get(charging_station_id, 0)
                 power = min(power_needed, vehicle.vehicle_type.max_charging_power, cs_power_left, gc_power_left)
 
-                assert(power >= 0, 'power should not be negative')
+                assert power >= 0, 'power should not be negative'
                 if power == 0:
                     continue
 
@@ -115,13 +116,14 @@ class Greedy(Strategy):
                 grid_connectors[charging_station.parent]['current_load'] += power
 
                 energy_kwh = self.interval.total_seconds() / 3600 * power
-                soc_delta = 100.0 * energy_kwh / vehicle.vehicle_type.capacity
-                vehicle.soc += soc_delta
+                vehicle.soc += 100.0 * energy_kwh / vehicle.vehicle_type.capacity
+
                 print('delta_soc {}, desired_soc {}'.format(delta_soc, vehicle.desired_soc))
                 print('energy_needed {}, power {}'.format(energy_needed, power))
                 print('SOC {}: {}'.format(vehicle_id, vehicle.soc))
-                assert(vehicle.soc <= 100)
-                assert(vehicle.soc >= 0)
+                assert vehicle.soc <= 100
+                assert vehicle.soc >= 0, 'SOC of {} is {}'.format(vehicle_id, vehicle.soc)
+                print('')
 
         #TODO return list of charging commands, +meta info
         return {'current_time': self.current_time, 'commands': charging_stations}
