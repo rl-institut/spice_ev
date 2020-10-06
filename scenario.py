@@ -81,6 +81,7 @@ class Scenario:
             # plot!
 
             fig, (ax1, ax2) = plt.subplots(2, 1)
+            fig.suptitle('Strategy: {}'.format(strategy_name), fontweight='bold')
 
             for name, values in sorted(charging_stations.items()):
                 _, = ax1.step(values['x'], values['y'], label=name)
