@@ -87,6 +87,7 @@ class Greedy(Strategy):
 
         grid_connectors = {name: {'cur_max_power': gc.cur_max_power, 'current_load': sum(gc.current_loads.values())} for name, gc in self.world_state.grid_connectors.items()}
         charging_stations = {}
+        socs = {}
 
         for vehicle_id in sorted(self.world_state.vehicles):
             vehicle = self.world_state.vehicles[vehicle_id]
@@ -125,5 +126,7 @@ class Greedy(Strategy):
                 assert vehicle.soc >= 0, 'SOC of {} is {}'.format(vehicle_id, vehicle.soc)
                 print('')
 
+            socs[vehicle_id] = vehicle.soc
+
         #TODO return list of charging commands, +meta info
-        return {'current_time': self.current_time, 'commands': charging_stations}
+        return {'current_time': self.current_time, 'commands': charging_stations, 'socs': socs}

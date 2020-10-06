@@ -3,6 +3,7 @@
 import argparse
 import datetime
 import json
+import math
 import os
 
 import constants
@@ -34,27 +35,81 @@ class Scenario:
             self.n_intervals = delta / self.interval
 
 
-    def run(self, strategy_name):
+    def run(self, strategy_name, visual):
         strat = strategy.class_from_str(strategy_name)(self.constants, self.start_time, self.interval)
 
         event_steps = self.events.get_event_steps(self.start_time, self.n_intervals, self.interval)
 
+        results = []
+
         for step_i in range(self.n_intervals):
             # print('step {}: {}'.format(step_i, current_time))
-            strat.step(event_steps[step_i])
+            res = strat.step(event_steps[step_i])
+            results.append(res)
 
-        #TODO visualization?
+        if visual:
+            charging_stations = {}
+            socs = {}
+
+            # find all charging stations and vehicles in results
+            for r in results:
+                for cs_id in r['commands'].keys():
+                    if cs_id not in charging_stations:
+                        charging_stations[cs_id] = {'x': [], 'y': []}
+                for v_id in r['socs'].keys():
+                    if v_id not in socs:
+                        socs[v_id] = {'x': [], 'y': []}
+
+            # find in result or NULL value for each timestep
+            for r in results:
+                time = r['current_time']
+                for cs_id in charging_stations.keys():
+                    charging_stations[cs_id]['x'].append(time)
+                    if cs_id in r['commands']:
+                        charging_stations[cs_id]['y'].append(r['commands'][cs_id])
+                    else:
+                        charging_stations[cs_id]['y'].append(0)
+
+                for vehicle_id, soc in r['socs'].items():
+                    for vehicle_id in socs.keys():
+                        socs[vehicle_id]['x'].append(time)
+                        if vehicle_id in r['socs']:
+                            socs[vehicle_id]['y'].append(r['socs'][vehicle_id])
+                        else:
+                            socs[vehicle_id]['y'].append(math.nan)
+
+            # plot!
+
+            fig, (ax1, ax2) = plt.subplots(2, 1)
+
+            for name, values in sorted(charging_stations.items()):
+                _, = ax1.step(values['x'], values['y'], label=name)
+            ax1.set_title('Charging Stations')
+            ax1.set(ylabel='Power in kW')
+            ax1.legend()
+
+            for name, values in sorted(socs.items()):
+                _, = ax2.step(values['x'], values['y'], label=name)
+            ax2.set_title('Vehicles')
+            ax2.set(ylabel='SOC in %')
+            ax2.legend()
+
+            plt.show()
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Netz_eLOG modelling')
     parser.add_argument('file', nargs='?', default='tests/test_scenario.json', help='scenario JSON file')
     parser.add_argument('--strategy', '-s', nargs='?', default='greedy', help='specify strategy for simulation')
+    parser.add_argument('--visual', action='store_true', default='False', help='show plots')
     args = parser.parse_args()
+
+    if args.visual:
+        import matplotlib.pyplot as plt
 
     # Read JSON
     with open(args.file, 'r') as f:
         s = Scenario(json.load(f), os.path.dirname(args.file))
 
     # RUN!
-    s.run(args.strategy)
+    s.run(args.strategy, args.visual)
