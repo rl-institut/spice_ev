@@ -122,7 +122,7 @@ if __name__ == '__main__':
             dep_time = now + datetime.timedelta(hours=6, minutes = 15 * random.randint(0,4))
             soc = v.get("next_soc", v["desired_soc"])
             capacity = vehicle_types[v["vehicle_type"]]["capacity"]
-            soc_delta = random.randint(1, 20)
+            soc_delta = random.randint(10, 30)
             t_delta = datetime.timedelta(hours=random.randint(6,8), minutes=random.randint(0, 59))
             t_delta = t_delta - datetime.timedelta(microseconds=t_delta.microseconds)
             arrival_time = dep_time + t_delta
