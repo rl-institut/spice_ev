@@ -10,13 +10,18 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Generate example JSON for Netz_eLOG modelling')
     parser.add_argument('output', help='output file name')
     parser.add_argument('external_csv', nargs='?', help='generate CSV for external load')
+    parser.add_argument('--cars', metavar='N', type=int, default=8, help='set number of cars')
+    parser.add_argument('--days', metavar='N', type=int, default=30, help='set number of week to create')
     args = parser.parse_args()
 
     start = datetime.datetime(year=2020, month=1, day=1, tzinfo=datetime.timezone(datetime.timedelta(hours=2)))
-    stop  = datetime.datetime(year=2020, month=2, day=1, tzinfo=datetime.timezone(datetime.timedelta(hours=2)))
+    stop  = start + datetime.timedelta(days=args.days)
     interval = datetime.timedelta(minutes=15)
 
     # CONSTANTS
+
+    num_car_type_1 = int(args.cars * (5/8))
+    num_car_type_2 = args.cars - num_car_type_1
 
     # VEHICLE TYPES
     vehicle_types = {
@@ -25,13 +30,13 @@ if __name__ == '__main__':
             "capacity": 70,
             "max_charging_power": 7,
             "charging_curve": {"TODO": 42},
-            "count": 5
+            "count": num_car_type_1
         },
         "golf": {
             "name": "E-Golf",
             "capacity": 50,
             "max_charging_power": 22,
-            "count": 3
+            "count": num_car_type_2
         }
     }
 
@@ -44,8 +49,8 @@ if __name__ == '__main__':
             cs_name = "CS_" + v_name
             is_connected = random.choice([True, False])
             depart = start + datetime.timedelta(hours=6, minutes=15 * random.randint(0,4))
-            desired_soc = random.randint(50,100)
-            soc = random.randint(0,100)
+            desired_soc = random.randint(70,100)
+            soc = random.randint(50,100)
             vehicles[v_name] = {
                 "connected_charging_station": cs_name if is_connected else None,
                 "estimated_time_of_departure": depart.isoformat(),
@@ -117,8 +122,8 @@ if __name__ == '__main__':
             dep_time = now + datetime.timedelta(hours=6, minutes = 15 * random.randint(0,4))
             soc = v.get("next_soc", v["desired_soc"])
             capacity = vehicle_types[v["vehicle_type"]]["capacity"]
-            soc_delta = random.randint(int(capacity/3), int(soc / 100 * capacity))
-            t_delta = datetime.timedelta(hours = 8 * soc_delta/capacity / 0.75)
+            soc_delta = random.randint(1, 20)
+            t_delta = datetime.timedelta(hours=random.randint(6,8), minutes=random.randint(0, 59))
             t_delta = t_delta - datetime.timedelta(microseconds=t_delta.microseconds)
             arrival_time = dep_time + t_delta
             # print(dep_time, t_delta, arrival_time)
@@ -134,7 +139,7 @@ if __name__ == '__main__':
             })
 
             #arrival
-            v["next_soc"] = random.randint(50,100)
+            v["next_soc"] = random.randint(70,100)
             events["vehicle_events"].append({
                 "signal_time": arrival_time.isoformat(),
                 "start_time": arrival_time.isoformat(),
