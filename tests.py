@@ -1,5 +1,8 @@
 import json
 import unittest
+
+import battery
+import loading_curve
 import scenario
 
 
@@ -34,7 +37,7 @@ class TestScenario(unittest.TestCase):
     def test_greedy(self):
         with open('tests/test_scenario.json', 'r') as f:
             s = scenario.Scenario(json.load(f), 'tests/')
-        s.run('greedy')
+        s.run('greedy', False)
 
     def test_scenario_times(self):
         j = get_test_json()
@@ -49,6 +52,53 @@ class TestScenario(unittest.TestCase):
         s = scenario.Scenario(j)
         self.assertEqual(s.n_intervals, 4)
 
+def approx_eq(x, y, eps=1e-3):
+    return abs(x - y) < eps
+
+class TestLoadingCurve(unittest.TestCase):
+    def test_creation(self):
+        points = [(50.0, 100.0), (0.0, 100.0), (100.0, 0.0)]
+        lc = loading_curve.LoadingCurve(points)
+        assert lc.points[0][0] == 0.0
+        print(lc)
+
+    def test_power_from_soc(self):
+        points = [(0.0, 100.0), (50.0, 100.0), (100.0, 0.0)]
+        lc = loading_curve.LoadingCurve(points)
+
+        assert lc.power_from_soc(0) == 100.0
+        assert lc.power_from_soc(25) == 100.0
+        assert lc.power_from_soc(50) == 100.0
+        assert lc.power_from_soc(75) == 50.0
+        assert lc.power_from_soc(100) == 0.0
+        assert lc.power_from_soc(100) != 100
+
+    def test_clamp(self):
+        points = [(0.0, 100.0), (50.0, 100.0), (100.0, 0.0)]
+        lc = loading_curve.LoadingCurve(points)
+        lc2 = lc.clamped(100)
+
+        for x in range(101):
+            assert lc.power_from_soc(x) == lc2.power_from_soc(x)
+
+        lc2 = lc.clamped(75)
+        for x in range(101):
+            assert approx_eq(min(75, lc.power_from_soc(x)), lc2.power_from_soc(x))
+
+        points = [(0.0, 100.0), (50.0, 50), (100.0, 0.0)]
+        lc = loading_curve.LoadingCurve(points)
+        lc2 = lc.clamped(75)
+        for x in range(101):
+            print(x, lc.power_from_soc(x), lc2.power_from_soc(x))
+            assert approx_eq(min(75, lc.power_from_soc(x)), lc2.power_from_soc(x))
+
+
+class TestBattery(unittest.TestCase):
+    def test_creation(self):
+        points = [(0.0, 100.0), (50.0, 100.0), (100.0, 0.0)]
+        lc = loading_curve.LoadingCurve(points)
+        bat = battery.Battery(100, lc, 0)
+        print(bat)
 
 if __name__ == '__main__':
     unittest.main()
