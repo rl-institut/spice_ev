@@ -12,11 +12,12 @@ if __name__ == '__main__':
     parser.add_argument('external_csv', nargs='?', help='generate CSV for external load')
     parser.add_argument('--cars', metavar='N', type=int, default=8, help='set number of cars')
     parser.add_argument('--days', metavar='N', type=int, default=30, help='set number of week to create')
+    parser.add_argument('--interval', metavar='MIN', type=int, default=15, help='set number of minutes for each timestep')
     args = parser.parse_args()
 
     start = datetime.datetime(year=2020, month=1, day=1, tzinfo=datetime.timezone(datetime.timedelta(hours=2)))
     stop  = start + datetime.timedelta(days=args.days)
-    interval = datetime.timedelta(minutes=15)
+    interval = datetime.timedelta(minutes=args.interval)
 
     # CONSTANTS
 
@@ -29,13 +30,14 @@ if __name__ == '__main__':
             "name": "sprinter",
             "capacity": 70,
             "max_charging_power": 7,
-            "charging_curve": {"TODO": 42},
+            "charging_curve": [[0, 7], [80, 7], [100, 0]],
             "count": num_car_type_1
         },
         "golf": {
             "name": "E-Golf",
             "capacity": 50,
             "max_charging_power": 22,
+            "charging_curve": [[0, 22], [80, 22], [100, 0]],
             "count": num_car_type_2
         }
     }
@@ -49,7 +51,7 @@ if __name__ == '__main__':
             cs_name = "CS_" + v_name
             is_connected = random.choice([True, False])
             depart = start + datetime.timedelta(hours=6, minutes=15 * random.randint(0,4))
-            desired_soc = random.randint(70,100)
+            desired_soc = 100
             soc = random.randint(50,100)
             vehicles[v_name] = {
                 "connected_charging_station": cs_name if is_connected else None,
@@ -139,7 +141,7 @@ if __name__ == '__main__':
             })
 
             #arrival
-            v["next_soc"] = random.randint(70,100)
+            v["next_soc"] = 100
             events["vehicle_events"].append({
                 "signal_time": arrival_time.isoformat(),
                 "start_time": arrival_time.isoformat(),
