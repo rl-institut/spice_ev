@@ -1,4 +1,5 @@
 import util
+import loading_curve
 
 class Constants:
     """ constants values of a scenario
@@ -20,7 +21,6 @@ class GridConnector:
             ('cost', dict, {}),
         ]
         util.set_attr_from_dict(obj, self, keys, optional_keys)
-        print(self.__class__.__name__, vars(self))
 
 
 class ChargingStation:
@@ -33,7 +33,6 @@ class ChargingStation:
             ('current_power', float, 0.0)
         ]
         util.set_attr_from_dict(obj, self, keys, optional_keys)
-        print(self.__class__.__name__, vars(self))
 
 
 class VehicleType:
@@ -42,13 +41,11 @@ class VehicleType:
             ('name', str),
             ('capacity', float),
             ('max_charging_power', float),
+            ('charging_curve', loading_curve.LoadingCurve),
         ]
         optional_keys = [
         ]
         util.set_attr_from_dict(obj, self, keys, optional_keys)
-        print(self.__class__.__name__, vars(self))
-
-        #TODO charging_curve
 
 
 class Vehicle:
@@ -64,4 +61,3 @@ class Vehicle:
             ('soc', float, 0.),
         ]
         util.set_attr_from_dict(obj, self, keys, optional_keys)
-        print(self.__class__.__name__, vars(self))

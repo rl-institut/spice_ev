@@ -10,12 +10,13 @@
             "name": "sprinter",
             "capacity": 70,
             "max_charging_power": 7,
-            "charging_curve": {"TODO": 42}
+            "charging_curve": [[0, 7], [80, 7], [100, 0]]
         },
         "kleinwagen": {
             "name": "E-Golf",
             "capacity": 50,
-            "max_charging_power": 22
+            "max_charging_power": 22,
+            "charging_curve": [[0, 22], [80, 22], [100, 0]]
         }
     },
     "vehicles": {
