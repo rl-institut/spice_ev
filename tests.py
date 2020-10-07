@@ -1,3 +1,4 @@
+import datetime
 import json
 import unittest
 
@@ -60,7 +61,6 @@ class TestLoadingCurve(unittest.TestCase):
         points = [(50.0, 100.0), (0.0, 100.0), (100.0, 0.0)]
         lc = loading_curve.LoadingCurve(points)
         assert lc.points[0][0] == 0.0
-        print(lc)
 
     def test_power_from_soc(self):
         points = [(0.0, 100.0), (50.0, 100.0), (100.0, 0.0)]
@@ -89,7 +89,6 @@ class TestLoadingCurve(unittest.TestCase):
         lc = loading_curve.LoadingCurve(points)
         lc2 = lc.clamped(75)
         for x in range(101):
-            print(x, lc.power_from_soc(x), lc2.power_from_soc(x))
             assert approx_eq(min(75, lc.power_from_soc(x)), lc2.power_from_soc(x))
 
 
@@ -99,6 +98,26 @@ class TestBattery(unittest.TestCase):
         lc = loading_curve.LoadingCurve(points)
         bat = battery.Battery(100, lc, 0)
         print(bat)
+
+
+    def test_load(self):
+        import matplotlib.pyplot as plt
+
+        points = [(0.0, 100.0), (50.0, 100.0), (100.0, 0.0)]
+        lc = loading_curve.LoadingCurve(points)
+        bat = battery.Battery(100, lc, 0)
+
+        x = []
+        y = []
+        tdelta  = datetime.timedelta(seconds=1)
+        for t in range(3600*3):
+            x.append(t)
+            y.append(bat.soc)
+            bat.load(tdelta, 100)
+
+        fig, ax = plt.subplots()
+        ax.plot(x, y)
+        plt.show()
 
 if __name__ == '__main__':
     unittest.main()
