@@ -48,8 +48,10 @@ class Scenario:
             results.append(res)
 
         if visual:
+            print('Done. Create plots...')
             charging_stations = {}
             socs = {}
+            sum_cs = {}
 
             # find all charging stations and vehicles in results
             for r in results:
@@ -59,6 +61,7 @@ class Scenario:
                 for v_id in r['socs'].keys():
                     if v_id not in socs:
                         socs[v_id] = {'x': [], 'y': []}
+                sum_cs[r['current_time']] = 0.0
 
             # find in result or NULL value for each timestep
             for r in results:
@@ -67,8 +70,9 @@ class Scenario:
                     charging_stations[cs_id]['x'].append(time)
                     if cs_id in r['commands']:
                         charging_stations[cs_id]['y'].append(r['commands'][cs_id])
+                        sum_cs[time] += r['commands'][cs_id]
                     else:
-                        charging_stations[cs_id]['y'].append(0)
+                        charging_stations[cs_id]['y'].append(0.0)
 
                 for vehicle_id, soc in r['socs'].items():
                     for vehicle_id in socs.keys():
@@ -94,6 +98,9 @@ class Scenario:
             ax2.set_title('Vehicles')
             ax2.set(ylabel='SOC in %')
             ax2.legend()
+
+            plt.figure(2)
+            plt.plot(sum_cs.keys(), sum_cs.values())
 
             plt.show()
 
