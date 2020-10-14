@@ -84,7 +84,8 @@ class Scenario:
 
             # plot!
 
-            fig, (ax1, ax2) = plt.subplots(2, 1)
+            fig, (ax1, ax2, ax3) = plt.subplots(3, 1)
+            # plt.xticks
             fig.suptitle('Strategy: {}'.format(strategy_name), fontweight='bold')
 
             for name, values in sorted(charging_stations.items()):
@@ -99,8 +100,11 @@ class Scenario:
             ax2.set(ylabel='SOC in %')
             ax2.legend()
 
-            plt.figure(2)
-            plt.plot(sum_cs.keys(), sum_cs.values())
+            ax3.plot(list(sum_cs.keys()), list(sum_cs.values()))
+            ax3.set_title('Cumulative Power')
+            ax3.set(ylabel='Power in kW')
+            ax3.xaxis_date() # xaxis are datetime objects
+            # fig.autofmt_xdate() # rotate xaxis labels (dates) to fit
 
             plt.show()
 
@@ -109,7 +113,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Netz_eLOG modelling')
     parser.add_argument('file', nargs='?', default='tests/test_scenario.json', help='scenario JSON file')
     parser.add_argument('--strategy', '-s', nargs='?', default='greedy', help='specify strategy for simulation')
-    parser.add_argument('--visual', action='store_true', default='False', help='show plots')
+    parser.add_argument('--visual', '-v', action='store_true', default='False', help='show plots')
     args = parser.parse_args()
 
     if args.visual:
