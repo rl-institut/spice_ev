@@ -62,6 +62,7 @@ class Strategy():
                     setattr(vehicle, k, v)
                 if ev.event_type == "departure":
                     vehicle.connected_charging_station = None
+                    assert vehicle.soc >= vehicle.desired_soc * 0.99, "{}: Vehicle {} is below desired SOC ({} < {})".format(ev.start_time.isoformat(), ev.vehicle_id, vehicle.soc, vehicle.desired_soc)
                 elif ev.event_type == "arrival":
                     assert vehicle.connected_charging_station is not None
                     assert hasattr(vehicle, 'soc_delta')
