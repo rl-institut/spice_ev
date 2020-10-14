@@ -24,6 +24,8 @@ class Events:
         for name, load_list in self.external_load_lists.items():
             all_events.extend(load_list.get_events(name))
 
+        ignored = 0
+
         for event in all_events:
             index = ceil((event.signal_time - start_time) / interval)
 
@@ -31,9 +33,12 @@ class Events:
                 print('Warning: Event is before start of scenario, placing at first time step:', event)
                 steps[0].append(event)
             elif index >= n_intervals:
-                print('Warning: Event is after end of scenario:', event)
+                ignored += 1
             else:
                 steps[index].append(event)
+
+        if ignored:
+            print('Warning: {} events ignored after end of scenario'.format(ignored))
 
         return steps
 
