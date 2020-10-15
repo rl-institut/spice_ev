@@ -1,5 +1,6 @@
-import util
+import battery
 import loading_curve
+import util
 
 class Constants:
     """ constants values of a scenario
@@ -41,11 +42,12 @@ class VehicleType:
             ('name', str),
             ('capacity', float),
             ('max_charging_power', float),
-            ('charging_curve', loading_curve.LoadingCurve),
+            # ('charging_curve', loading_curve.LoadingCurve),
         ]
         optional_keys = [
         ]
         util.set_attr_from_dict(obj, self, keys, optional_keys)
+        self.charging_curve = loading_curve.LoadingCurve(obj['charging_curve'], max_power = self.max_charging_power)
 
 
 class Vehicle:
@@ -61,3 +63,11 @@ class Vehicle:
             ('soc', float, 0.),
         ]
         util.set_attr_from_dict(obj, self, keys, optional_keys)
+
+        # Add battery object to vehicles
+        self.battery = battery.Battery(
+            self.vehicle_type.capacity,
+            self.vehicle_type.charging_curve,
+            self.soc,
+        )
+        del self.soc

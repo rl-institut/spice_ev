@@ -1,8 +1,6 @@
 from copy import deepcopy
 
-import battery
 import events
-import loading_curve
 
 def class_from_str(strategy_name):
     if strategy_name == 'greedy':
@@ -22,15 +20,6 @@ class Strategy():
         self.world_state.future_events = []
         self.current_time = start_time - interval
         self.interval = interval
-
-        # Add battery object to vehicles
-        for v in self.world_state.vehicles.values():
-            v.battery = battery.Battery(
-                v.vehicle_type.capacity,
-                v.vehicle_type.charging_curve,
-                v.soc,
-            )
-            del v.soc
 
     def step(self, event_list=[]):
         self.current_time += self.interval
@@ -73,12 +62,12 @@ class Strategy():
                     setattr(vehicle, k, v)
                 if ev.event_type == "departure":
                     vehicle.connected_charging_station = None
-                    assert vehicle.battery.soc >= vehicle.desired_soc * 0.99, "{}: Vehicle {} is below desired SOC ({} < {})".format(ev.start_time.isoformat(), ev.vehicle_id, vehicle.soc, vehicle.desired_soc)
+                    assert vehicle.battery.soc >= vehicle.desired_soc * 0.99, "{}: Vehicle {} is below desired SOC ({} < {})".format(ev.start_time.isoformat(), ev.vehicle_id, vehicle.battery.soc, vehicle.desired_soc)
                 elif ev.event_type == "arrival":
                     assert vehicle.connected_charging_station is not None
                     assert hasattr(vehicle, 'soc_delta')
                     vehicle.battery.soc += vehicle.soc_delta
-                    assert vehicle.battery.soc >= 0, 'SOC of vehicle {} should not be negative. SOC is {}, soc_delta was {}'.format(ev.vehicle_id, vehicle.soc, vehicle.soc_delta)
+                    assert vehicle.battery.soc >= 0, 'SOC of vehicle {} should not be negative. SOC is {}, soc_delta was {}'.format(ev.vehicle_id, vehicle.battery.soc, vehicle.soc_delta)
                     delattr(vehicle, 'soc_delta')
 
 
@@ -134,7 +123,7 @@ class Greedy(Strategy):
 
 class Parity(Strategy):
     """
-    Charging strategy that allows the same power to each car during each timestep.
+    Charging strategy that distributes power evenly among cars.
     """
     def __init__(self, constants, start_time, interval):
         super().__init__(constants, start_time, interval)
@@ -143,4 +132,51 @@ class Parity(Strategy):
 
     def step(self, event_list=[]):
         super().step(event_list)
-        raise NotImplementedError
+
+        grid_connectors = {name: {
+            'cur_max_power': gc.cur_max_power,
+            'current_load': sum(gc.current_loads.values()),
+            'charging_stations': {}
+        } for name, gc in self.world_state.grid_connectors.items()}
+        charging_stations = {}
+
+        # gather all vehicles in need of charge
+        for vehicle_id, vehicle in self.world_state.vehicles.items():
+            delta_soc = vehicle.desired_soc - vehicle.battery.soc
+            cs_id = vehicle.connected_charging_station
+            if delta_soc > 0 and cs_id:
+                cs = self.world_state.charging_stations[cs_id]
+                gc = grid_connectors[cs.parent]
+                # vehicle needs loading
+                charging_stations[cs_id] = 0
+                if cs_id in gc['charging_stations']:
+                    gc['charging_stations'][cs_id].append(vehicle_id)
+                else:
+                    gc['charging_stations'][cs_id] = [vehicle_id]
+
+        # distribute power of each grid connector
+        for gc in grid_connectors.values():
+            gc_power_left = gc['cur_max_power'] - gc['current_load']
+            for cs_id, vehicles in gc['charging_stations'].items():
+                cs = self.world_state.charging_stations[cs_id]
+
+                # find minimum of distributed power and charging station power
+                # guaranteed to have one requesting charging station
+                gc_dist_power = gc_power_left / len(gc['charging_stations'])
+                gc_dist_power = min(gc_dist_power, cs.max_power)
+                # CS guaranteed to have one requesting vehicle
+                cs_dist_power = gc_dist_power / len(gc['charging_stations'][cs_id])
+
+                # distribute power within CS
+                for vehicle_id in vehicles:
+                    vehicle = self.world_state.vehicles[vehicle_id]
+                    # load battery
+                    load_result = vehicle.battery.load(self.interval, cs_dist_power)
+                    avg_power = load_result['avg_power']
+                    charging_stations[cs_id] += avg_power
+                    assert vehicle.battery.soc <= 100
+                    assert vehicle.battery.soc >= 0, 'SOC of {} is {}'.format(vehicle_id, vehicle.battery.soc)
+
+        socs={vid: v.battery.soc for vid, v in self.world_state.vehicles.items()}
+
+        return {'current_time': self.current_time, 'commands': charging_stations, 'socs': socs}
