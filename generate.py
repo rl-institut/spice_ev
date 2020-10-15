@@ -16,6 +16,7 @@ if __name__ == '__main__':
     parser.add_argument('--cars', metavar='N', type=int, default=8, help='set number of cars')
     parser.add_argument('--days', metavar='N', type=int, default=30, help='set number of days to create')
     parser.add_argument('--interval', metavar='MIN', type=int, default=15, help='set number of minutes for each timestep')
+    parser.add_argument('--desired-soc', type=int, default=None, help='set desired SOC')
     args = parser.parse_args()
 
     start = datetime.datetime(year=2020, month=1, day=1, tzinfo=datetime.timezone(datetime.timedelta(hours=2)))
@@ -35,7 +36,6 @@ if __name__ == '__main__':
             "name": "sprinter",
             "capacity": 70, # kWh
             "mileage": 35, # kWh / 100km
-            "max_charging_power": 7, # kWh
             "charging_curve": [[0, 7], [80, 7], [100, 0]], # SOC -> kWh
             "count": num_car_type_1
         },
@@ -43,7 +43,6 @@ if __name__ == '__main__':
             "name": "E-Golf",
             "capacity": 50,
             "mileage": 16,
-            "max_charging_power": 22,
             "charging_curve": [[0, 22], [80, 22], [100, 0]],
             "count": num_car_type_2
         }
@@ -58,7 +57,7 @@ if __name__ == '__main__':
             cs_name = "CS_" + v_name
             is_connected = True
             depart = start + datetime.timedelta(days=1, hours=6, minutes=15 * random.randint(0,4))
-            desired_soc = 100
+            desired_soc = args.desired_soc or 100
             soc = random.randint(50,100)
             vehicles[v_name] = {
                 "connected_charging_station": cs_name,
@@ -69,7 +68,7 @@ if __name__ == '__main__':
             }
 
             charging_stations[cs_name] = {
-                "max_power": t['max_charging_power'],
+                "max_power": max([v[1] for v in t['charging_curve']]),
                 "parent": "GC1"
             }
 
@@ -157,7 +156,8 @@ if __name__ == '__main__':
             soc_delta = distance * mileage / capacity
 
             # departure
-            dep_time = datetime_from_isoformat(v["estimated_time_of_departure"])
+            dep_str  = v.get('departure', v["estimated_time_of_departure"])
+            dep_time = datetime_from_isoformat(dep_str)
             # now + datetime.timedelta(hours=6, minutes=15 * random.randint(0,4))
             # always 8h
             t_delta = datetime.timedelta(hours=8)
@@ -188,7 +188,7 @@ if __name__ == '__main__':
             next_distance = min(max(17, next_distance), 120)
             soc_needed = next_distance * mileage / capacity
             v['distance'] = next_distance
-            v["estimated_time_of_departure"] = next_dep_time.isoformat()
+            v["departure"] = next_dep_time.isoformat()
 
             events["vehicle_events"].append({
                 "signal_time": arrival_time.isoformat(),
@@ -198,7 +198,7 @@ if __name__ == '__main__':
                 "update": {
                     "connected_charging_station": "CS_" + v_id,
                     "estimated_time_of_departure": next_dep_time.isoformat(),
-                    "desired_soc": 100, #soc_needed * 1.1,
+                    "desired_soc": args.desired_soc or (soc_needed * 1.1),
                     "soc_delta": -soc_delta
                 }
             })
@@ -206,6 +206,7 @@ if __name__ == '__main__':
     # reset initial SOC
     for v in vehicles.values():
         del v["distance"]
+        del v["departure"]
 
     j = {
         "scenario": {
