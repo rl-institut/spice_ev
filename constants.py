@@ -41,13 +41,11 @@ class VehicleType:
         keys = [
             ('name', str),
             ('capacity', float),
-            ('max_charging_power', float),
-            # ('charging_curve', loading_curve.LoadingCurve),
+            ('charging_curve', loading_curve.LoadingCurve),
         ]
         optional_keys = [
         ]
         util.set_attr_from_dict(obj, self, keys, optional_keys)
-        self.charging_curve = loading_curve.LoadingCurve(obj['charging_curve'], max_power = self.max_charging_power)
 
 
 class Vehicle:
