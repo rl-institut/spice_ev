@@ -6,10 +6,12 @@ class LoadingCurve:
     x-axis: SOC in percent, 0 - 100%
     y-axis: Possible charging power in kW 0 - ∞ kW
     """
-    def __init__(self, points):
+    def __init__(self, points, max_power=None):
         self.points = []
         for p in sorted(points, key=lambda a: a[0]):
             assert len(p) == 2, 'len of {} is {}'.format(p, len(p))
+            if max_power is not None and p[1] > max_power:
+                raise ValueError("Loading curve exceeds max power: {} > {}".format(p[1], max_power))
             self.points.append((p[0], p[1]))
         assert self.points[0][0] == 0.0
         assert self.points[-1][0] == 100.0
