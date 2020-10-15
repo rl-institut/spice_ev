@@ -57,7 +57,7 @@ if __name__ == '__main__':
             v_name = "{}_{}".format(name, i)
             cs_name = "CS_" + v_name
             is_connected = True
-            depart = start + datetime.timedelta(hours=6, minutes=15 * random.randint(0,4))
+            depart = start + datetime.timedelta(days=1, hours=6, minutes=15 * random.randint(0,4))
             desired_soc = 100
             soc = random.randint(50,100)
             vehicles[v_name] = {
@@ -141,69 +141,31 @@ if __name__ == '__main__':
 
     now = start
     while now < stop:
+        # next day. First day is off
+        now += daily
+
         for v_id, v in vehicles.items():
+            if now.weekday() == 6:
+                # no work on Sunday
+                break
+
             capacity = vehicle_types[v["vehicle_type"]]["capacity"]
             mileage = vehicle_types[v["vehicle_type"]]["mileage"]
 
-            # departure
-            # dep_time = datetime.datetime.fromisoformat(v["estimated_time_of_departure"])
-            dep_time = datetime_from_isoformat(v["estimated_time_of_departure"])
-            # first day is holiday
-            distance = v.get("distance", 0)
+            # get distance for the day (computed before)
+            distance = v.get("distance", random.gauss(avg_distance, std_distance))
             soc_delta = distance * mileage / capacity
-            if distance:
-                # always 8h
-                t_delta = datetime.timedelta(hours=8)
-                # 40 km -> 6h
-                # l = log(1 - 6/8) / 40
-                # t_delta = datetime.timedelta(hours=8 * (1 - exp(l * distance)))
-                # t_delta = t_delta - datetime.timedelta(microseconds=t_delta.microseconds)
-                arrival_time = dep_time + t_delta
 
-                events["vehicle_events"].append({
-                    "signal_time": now.isoformat(),
-                    "start_time": dep_time.isoformat(),
-                    "vehicle_id": v_id,
-                    "event_type": "departure",
-                    "update": {
-                        "estimated_time_of_arrival": arrival_time.isoformat()
-                    }
-                })
-            else:
-                arrival_time = dep_time
-
-            #arrival
-            # plan next day
-            dep_time = now + daily + datetime.timedelta(hours=6, minutes=15 * random.randint(0,4))
-            distance = random.gauss(avg_distance, std_distance)
-            distance = min(max(17, distance), 120)
-            soc_needed = distance * mileage / capacity
-            v['distance'] = distance
-            v["estimated_time_of_departure"] = dep_time.isoformat()
-
-            events["vehicle_events"].append({
-                "signal_time": arrival_time.isoformat(),
-                "start_time": arrival_time.isoformat(),
-                "vehicle_id": v_id,
-                "event_type": "arrival",
-                "update": {
-                    "connected_charging_station": "CS_" + v_id,
-                    "estimated_time_of_departure": dep_time.isoformat(),
-                    "desired_soc": 100, #soc_needed * 1.1,
-                    "soc_delta": -soc_delta
-                }
-            })
-
-            """
-
-            dep_time = now + datetime.timedelta(hours=6, minutes = 15 * random.randint(0,4))
-            soc = v.get("next_soc", v["desired_soc"])
-            capacity = vehicle_types[v["vehicle_type"]]["capacity"]
-            soc_delta = random.randint(10, 30)
-            t_delta = datetime.timedelta(hours=random.randint(6,8), minutes=random.randint(0, 59))
-            t_delta = t_delta - datetime.timedelta(microseconds=t_delta.microseconds)
+            # departure
+            dep_time = datetime_from_isoformat(v["estimated_time_of_departure"])
+            # now + datetime.timedelta(hours=6, minutes=15 * random.randint(0,4))
+            # always 8h
+            t_delta = datetime.timedelta(hours=8)
+            # 40 km -> 6h
+            # l = log(1 - 6/8) / 40
+            # t_delta = datetime.timedelta(hours=8 * (1 - exp(l * distance)))
+            # t_delta = t_delta - datetime.timedelta(microseconds=t_delta.microseconds)
             arrival_time = dep_time + t_delta
-            # print(dep_time, t_delta, arrival_time)
 
             events["vehicle_events"].append({
                 "signal_time": now.isoformat(),
@@ -215,8 +177,19 @@ if __name__ == '__main__':
                 }
             })
 
-            #arrival
-            v["next_soc"] = 100
+            # plan next day
+            if now.weekday() == 5:
+                # today is Saturday, tomorrow is Sunday: no work
+                next_dep_time = now + datetime.timedelta(days=2, hours=6, minutes=15 * random.randint(0,4))
+            else:
+                next_dep_time = now + datetime.timedelta(days=1, hours=6, minutes=15 * random.randint(0,4))
+
+            next_distance = random.gauss(avg_distance, std_distance)
+            next_distance = min(max(17, next_distance), 120)
+            soc_needed = next_distance * mileage / capacity
+            v['distance'] = next_distance
+            v["estimated_time_of_departure"] = next_dep_time.isoformat()
+
             events["vehicle_events"].append({
                 "signal_time": arrival_time.isoformat(),
                 "start_time": arrival_time.isoformat(),
@@ -224,15 +197,11 @@ if __name__ == '__main__':
                 "event_type": "arrival",
                 "update": {
                     "connected_charging_station": "CS_" + v_id,
-                    "estimated_time_of_departure": dep_time.isoformat(),
-                    "desired_soc": v["next_soc"],
+                    "estimated_time_of_departure": next_dep_time.isoformat(),
+                    "desired_soc": 100, #soc_needed * 1.1,
                     "soc_delta": -soc_delta
                 }
             })
-            """
-
-        # next day
-        now += daily
 
     # reset initial SOC
     for v in vehicles.values():
