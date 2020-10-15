@@ -7,6 +7,8 @@ def class_from_str(strategy_name):
         return Greedy
     elif strategy_name == 'parity':
         return Parity
+    elif strategy_name == 'balanced':
+        return Balanced
     else:
         raise Exception('unknown strategy with name {}'.format(strategy_name))
 
@@ -176,6 +178,91 @@ class Parity(Strategy):
                     charging_stations[cs_id] += avg_power
                     assert vehicle.battery.soc <= 100
                     assert vehicle.battery.soc >= 0, 'SOC of {} is {}'.format(vehicle_id, vehicle.battery.soc)
+
+        socs={vid: v.battery.soc for vid, v in self.world_state.vehicles.items()}
+
+        return {'current_time': self.current_time, 'commands': charging_stations, 'socs': socs}
+
+class Balanced(Strategy):
+    def __init__(self, constants, start_time, interval):
+        super().__init__(constants, start_time, interval)
+        self.description = "balanced"
+
+
+    def step(self, event_list=[]):
+        super().step(event_list)
+
+        charging_stations = {}
+        EPS = 1e-5
+        ITERATIONS = 10
+
+        for vehicle_id in sorted(self.world_state.vehicles):
+            # get vehicle
+            vehicle = self.world_state.vehicles[vehicle_id]
+            delta_soc = vehicle.desired_soc - vehicle.battery.soc
+            cs_id = vehicle.connected_charging_station
+            if cs_id is None:
+                # not connected
+                continue
+            # get connected charging station
+            cs = self.world_state.charging_stations[cs_id]
+
+            if delta_soc > EPS:
+                # vehicle needs charging
+                if cs.current_power == 0:
+                    # not precomputed
+                    min_power = 0
+                    max_power = vehicle.vehicle_type.charging_curve.max_power
+                    # time until departure
+                    timedelta = vehicle.estimated_time_of_departure - self.current_time
+                    old_soc = vehicle.battery.soc
+                    idx = 0
+                    safe = False
+                    # converge to optimal power for the duration
+                    # at least ITERATIONS cycles
+                    # must end with slightly too much power used
+                    # abort if min_power == max_power (e.g. unrealistic goal)
+                    while (idx < ITERATIONS or not safe) and max_power - min_power > EPS:
+                        idx += 1
+                        # get new power value
+                        power = (max_power + min_power) / 2
+                        # load whole time with same power
+                        charged_soc = vehicle.battery.load(timedelta, power)["soc_delta"]
+                        # reset SOC
+                        vehicle.battery.soc = old_soc
+
+                        if delta_soc - charged_soc > EPS: #charged_soc < delta_soc
+                            # power not enough
+                            safe = False
+                            min_power = power
+                        elif charged_soc - delta_soc > EPS: #charged_soc > delta_soc:
+                            # power too much
+                            safe = True
+                            max_power = power
+                        else:
+                            # power exactly right
+                            break
+
+                    # add safety margin
+                    # power *= 1.1
+                    cs.current_power = power
+                else:
+                    # power precomputed: use again
+                    power = cs.current_power
+
+                # load with power
+                avg_power = vehicle.battery.load(self.interval, power)['avg_power']
+                assert vehicle.battery.soc <= 100
+                assert vehicle.battery.soc >= 0, 'SOC of {} is {}'.format(vehicle_id, vehicle.battery.soc)
+                if cs_id in charging_stations:
+                    charging_stations[cs_id] += avg_power
+                else:
+                    charging_stations[cs_id] = avg_power
+
+        # set current_power of all unconnected CS to 0
+        for cs_id, cs in self.world_state.charging_stations.items():
+            if cs_id not in charging_stations:
+                cs.current_power = 0
 
         socs={vid: v.battery.soc for vid, v in self.world_state.vehicles.items()}
 
