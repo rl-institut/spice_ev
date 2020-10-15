@@ -23,6 +23,15 @@ class Strategy():
         self.current_time = start_time - interval
         self.interval = interval
 
+        # Add battery object to vehicles
+        for v in self.world_state.vehicles.values():
+            v.battery = battery.Battery(
+                v.vehicle_type.capacity,
+                v.vehicle_type.charging_curve,
+                v.soc,
+            )
+            del v.soc
+
     def step(self, event_list=[]):
         self.current_time += self.interval
 
@@ -64,12 +73,12 @@ class Strategy():
                     setattr(vehicle, k, v)
                 if ev.event_type == "departure":
                     vehicle.connected_charging_station = None
-                    assert vehicle.soc >= vehicle.desired_soc * 0.99, "{}: Vehicle {} is below desired SOC ({} < {})".format(ev.start_time.isoformat(), ev.vehicle_id, vehicle.soc, vehicle.desired_soc)
+                    assert vehicle.battery.soc >= vehicle.desired_soc * 0.99, "{}: Vehicle {} is below desired SOC ({} < {})".format(ev.start_time.isoformat(), ev.vehicle_id, vehicle.soc, vehicle.desired_soc)
                 elif ev.event_type == "arrival":
                     assert vehicle.connected_charging_station is not None
                     assert hasattr(vehicle, 'soc_delta')
-                    vehicle.soc += vehicle.soc_delta
-                    assert vehicle.soc >= 0, 'SOC of vehicle {} should not be negative. SOC is {}, soc_delta was {}'.format(ev.vehicle_id, vehicle.soc, vehicle.soc_delta)
+                    vehicle.battery.soc += vehicle.soc_delta
+                    assert vehicle.battery.soc >= 0, 'SOC of vehicle {} should not be negative. SOC is {}, soc_delta was {}'.format(ev.vehicle_id, vehicle.soc, vehicle.soc_delta)
                     delattr(vehicle, 'soc_delta')
 
 
@@ -96,7 +105,7 @@ class Greedy(Strategy):
 
         for vehicle_id in sorted(self.world_state.vehicles):
             vehicle = self.world_state.vehicles[vehicle_id]
-            delta_soc = vehicle.desired_soc - vehicle.soc
+            delta_soc = vehicle.desired_soc - vehicle.battery.soc
             charging_station_id = vehicle.connected_charging_station
             if delta_soc > 0 and charging_station_id:
                 charging_station = self.world_state.charging_stations[charging_station_id]
@@ -106,14 +115,8 @@ class Greedy(Strategy):
                 cs_power_left = charging_station.max_power - charging_stations.get(charging_station_id, 0)
                 max_power = min(cs_power_left, gc_power_left)
 
-                bat = battery.Battery(
-                    vehicle.vehicle_type.capacity,
-                    vehicle.vehicle_type.charging_curve,
-                    vehicle.soc
-                )
-                load_result = bat.load(self.interval, max_power)
+                load_result = vehicle.battery.load(self.interval, max_power)
                 avg_power = load_result['avg_power']
-                vehicle.soc = bat.soc
 
                 grid_connectors[charging_station.parent]['current_load'] += avg_power
 
@@ -122,10 +125,10 @@ class Greedy(Strategy):
                 else:
                     charging_stations[charging_station_id] = avg_power
 
-                assert vehicle.soc <= 100
-                assert vehicle.soc >= 0, 'SOC of {} is {}'.format(vehicle_id, vehicle.soc)
+                assert vehicle.battery.soc <= 100
+                assert vehicle.battery.soc >= 0, 'SOC of {} is {}'.format(vehicle_id, vehicle.battery.soc)
 
-            socs[vehicle_id] = vehicle.soc
+            socs[vehicle_id] = vehicle.battery.soc
 
         return {'current_time': self.current_time, 'commands': charging_stations, 'socs': socs}
 
