@@ -35,8 +35,6 @@ class Battery:
             else:
                 break
 
-        y1 = clamped.power_from_soc(x1)
-        y2 = clamped.power_from_soc(x2)
         power = []
 
         # compute average power for each linear section
@@ -49,10 +47,10 @@ class Battery:
                 idx_2 += 1
                 x1 = clamped.points[idx_1][0]
                 x2 = clamped.points[idx_2][0]
-                y1 = clamped.power_from_soc(x1)
-                y2 = clamped.power_from_soc(x2)
 
             # compute gradient and offset of linear equation
+            y1 = clamped.power_from_soc(x1)
+            y2 = clamped.power_from_soc(x2)
             dx = x2 - x1
             dy = y2 - y1
             m = dy / dx
