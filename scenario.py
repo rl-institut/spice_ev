@@ -41,10 +41,13 @@ class Scenario:
         event_steps = self.events.get_event_steps(self.start_time, self.n_intervals, self.interval)
 
         results = []
+        external_loads = []
 
         for step_i in range(self.n_intervals):
             # print('step {}: {}'.format(step_i, current_time))
             res = strat.step(event_steps[step_i])
+            gcs = strat.world_state.grid_connectors.values()
+            external_loads.append(sum([sum(gc.current_loads.values()) for gc in gcs]))
             results.append(res)
 
         if visual:
@@ -100,9 +103,13 @@ class Scenario:
             ax2.set(ylabel='SOC in %')
             ax2.legend()
 
-            ax3.plot(list(sum_cs.keys()), list(sum_cs.values()))
+            ax3.plot(list(sum_cs.keys()), list(sum_cs.values()), label="CS")
+            ax3.plot(list(sum_cs.keys()), external_loads, label="external")
+            total_power = list([external_loads[i] + cs_power for i, cs_power in enumerate(sum_cs.values())])
+            ax3.plot(list(sum_cs.keys()), total_power, label="total")
             ax3.set_title('Cumulative Power')
             ax3.set(ylabel='Power in kW')
+            ax3.legend()
             ax3.xaxis_date() # xaxis are datetime objects
             # fig.autofmt_xdate() # rotate xaxis labels (dates) to fit
 
