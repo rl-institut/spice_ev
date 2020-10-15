@@ -7,6 +7,8 @@ import loading_curve
 def class_from_str(strategy_name):
     if strategy_name == 'greedy':
         return Greedy
+    elif strategy_name == 'parity':
+        return Parity
     else:
         raise Exception('unknown strategy with name {}'.format(strategy_name))
 
@@ -126,3 +128,16 @@ class Greedy(Strategy):
             socs[vehicle_id] = vehicle.soc
 
         return {'current_time': self.current_time, 'commands': charging_stations, 'socs': socs}
+
+class Parity(Strategy):
+    """
+    Charging strategy that allows the same power to each car during each timestep.
+    """
+    def __init__(self, constants, start_time, interval):
+        super().__init__(constants, start_time, interval)
+        self.description = "parity"
+
+
+    def step(self, event_list=[]):
+        super().step(event_list)
+        raise NotImplementedError
