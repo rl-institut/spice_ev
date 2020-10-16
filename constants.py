@@ -42,10 +42,14 @@ class VehicleType:
             ('name', str),
             ('capacity', float),
             ('charging_curve', loading_curve.LoadingCurve),
+            ('min_charging_power', float),
         ]
         optional_keys = [
         ]
         util.set_attr_from_dict(obj, self, keys, optional_keys)
+
+        assert self.min_charging_power <= self.charging_curve.max_power
+        assert self.min_charging_power > 0
 
 
 class Vehicle:

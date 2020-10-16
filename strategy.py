@@ -183,7 +183,12 @@ class Parity(Strategy):
 
         return {'current_time': self.current_time, 'commands': charging_stations, 'socs': socs}
 
+
 class Balanced(Strategy):
+    """
+    Charging strategy that calculates the minimum charging power to arrive at the
+    desired SOC during the estimated parking time for each vehicle.
+    """
     def __init__(self, constants, start_time, interval):
         super().__init__(constants, start_time, interval)
         self.description = "balanced"
@@ -211,7 +216,7 @@ class Balanced(Strategy):
                 # vehicle needs charging
                 if cs.current_power == 0:
                     # not precomputed
-                    min_power = 0
+                    min_power = vehicle.vehicle_type.min_charging_power
                     max_power = vehicle.vehicle_type.charging_curve.max_power
                     # time until departure
                     timedelta = vehicle.estimated_time_of_departure - self.current_time

@@ -35,8 +35,9 @@ if __name__ == '__main__':
         "sprinter": {
             "name": "sprinter",
             "capacity": 70, # kWh
-            "mileage": 35, # kWh / 100km
-            "charging_curve": [[0, 7], [80, 7], [100, 0]], # SOC -> kWh
+            "mileage": 40, # kWh / 100km
+            "charging_curve": [[0, 11], [80, 11], [100, 0]], # SOC -> kWh
+            "min_charging_power": 2,
             "count": num_car_type_1
         },
         "golf": {
@@ -44,6 +45,7 @@ if __name__ == '__main__':
             "capacity": 50,
             "mileage": 16,
             "charging_curve": [[0, 22], [80, 22], [100, 0]],
+            "min_charging_power": 2,
             "count": num_car_type_2
         }
     }
@@ -219,7 +221,7 @@ if __name__ == '__main__':
             "vehicles": vehicles,
             "grid_connectors": {
                 "GC1": {
-                  "max_power": 2000
+                  "max_power": 630
                 }
             },
             "charging_stations": charging_stations
