@@ -95,13 +95,15 @@ class Scenario:
                 _, = ax1.step(values['x'], values['y'], label=name)
             ax1.set_title('Charging Stations')
             ax1.set(ylabel='Power in kW')
-            ax1.legend()
+            if len(charging_stations) <= 10:
+                ax1.legend()
 
             for name, values in sorted(socs.items()):
                 _, = ax2.step(values['x'], values['y'], label=name)
             ax2.set_title('Vehicles')
             ax2.set(ylabel='SOC in %')
-            ax2.legend()
+            if len(charging_stations) <= 10:
+                ax2.legend()
 
             ax3.plot(list(sum_cs.keys()), list(sum_cs.values()), label="CS")
             ax3.plot(list(sum_cs.keys()), external_loads, label="external")
@@ -119,7 +121,8 @@ class Scenario:
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Netz_eLOG modelling')
     parser.add_argument('file', nargs='?', default='tests/test_scenario.json', help='scenario JSON file')
-    parser.add_argument('--strategy', '-s', nargs='?', default='greedy', help='specify strategy for simulation')
+    parser.add_argument('--strategy', '-s', nargs='?', default='greedy', choices=['greedy', 'parity', 'balanced'],
+        help='specify strategy for simulation')
     parser.add_argument('--visual', '-v', action='store_true', default='False', help='show plots')
     args = parser.parse_args()
 
