@@ -50,7 +50,7 @@ class Strategy():
                 # set max power from event
                 if connector.max_power:
                     if ev.max_power:
-                        connector.cur_max_power = max(connector.max_power, ev.max_power)
+                        connector.cur_max_power = min(connector.max_power, ev.max_power)
                     else:
                         # event max power not set: reset to connector power
                         connector.cur_max_power = connector.max_power
