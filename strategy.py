@@ -264,10 +264,24 @@ class Balanced(Strategy):
                 else:
                     charging_stations[cs_id] = avg_power
 
-        # set current_power of all unconnected CS to 0
+        # gather grid connector info
+        grid_connectors = {name: {
+            'cur_max_power': gc.cur_max_power,
+            'current_load': sum(gc.current_loads.values()),
+        } for name, gc in self.world_state.grid_connectors.items()}
+
+        # update charging stations
         for cs_id, cs in self.world_state.charging_stations.items():
             if cs_id not in charging_stations:
+                # CS currently inactive
                 cs.current_power = 0
+            else:
+                # can active charging station bear minimum load?
+                assert cs.current_power <= cs.max_power, "{} - {} over maximum load ({} > {})".format(self.current_time, cs_id, cs.current_power, cs.max_power)
+                # can grid connector bear load?
+                gc = grid_connectors[cs.parent]
+                gc['current_load'] += cs.current_power
+                assert gc['current_load'] <= gc['cur_max_power'], "{} - {} over maximum load ({} > {})".format(self.current_time, cs.parent, gc['current_load'], gc['cur_max_power'])
 
         socs={vid: v.battery.soc for vid, v in self.world_state.vehicles.items()}
 
