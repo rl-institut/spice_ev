@@ -1,4 +1,5 @@
 from copy import deepcopy
+from datetime import timedelta
 
 import events
 
@@ -41,6 +42,7 @@ class Strategy():
 
             if type(ev) == events.ExternalLoad:
                 connector = self.world_state.grid_connectors[ev.grid_connector_id]
+                assert ev.name not in self.world_state.charging_stations, "External load must not be from charging station"
                 connector.current_loads[ev.name] = ev.value # not reset after last event
             elif type(ev) == events.GridOperatorSignal:
                 connector = self.world_state.grid_connectors[ev.grid_connector_id]
@@ -77,6 +79,13 @@ class Strategy():
                 raise Exception("Unknown event type: {}".format(ev))
 
         for name, connector in self.world_state.grid_connectors.items():
+            # reset charging stations at grid connector
+            for load_name in list(connector.current_loads.keys()):
+                if load_name in self.world_state.charging_stations.keys():
+                    # connector.current_loads[load_name] = 0
+                    del connector.current_loads[load_name]
+
+            # check for associated costs
             if not connector.cost:
                 raise Exception("Warning: Connector {} has no associated costs at {}".format(name, time))
 
@@ -90,31 +99,25 @@ class Greedy(Strategy):
     def step(self, event_list=[]):
         super().step(event_list)
 
-        grid_connectors = {name: {'cur_max_power': gc.cur_max_power, 'current_load': sum(gc.current_loads.values())} for name, gc in self.world_state.grid_connectors.items()}
         charging_stations = {}
         socs = {}
 
         for vehicle_id in sorted(self.world_state.vehicles):
             vehicle = self.world_state.vehicles[vehicle_id]
             delta_soc = vehicle.desired_soc - vehicle.battery.soc
-            charging_station_id = vehicle.connected_charging_station
-            if delta_soc > 0 and charging_station_id:
-                charging_station = self.world_state.charging_stations[charging_station_id]
+            cs_id = vehicle.connected_charging_station
+            if delta_soc > 0 and cs_id:
+                cs = self.world_state.charging_stations[cs_id]
                 # vehicle needs loading
-                grid_connector = grid_connectors[charging_station.parent]
-                gc_power_left = grid_connector['cur_max_power'] - grid_connector['current_load']
-                cs_power_left = charging_station.max_power - charging_stations.get(charging_station_id, 0)
-                max_power = min(cs_power_left, gc_power_left)
+                gc = self.world_state.grid_connectors[cs.parent]
+                gc_power_left = gc.cur_max_power - sum(gc.current_loads.values())
+                cs_power_left = cs.max_power - charging_stations.get(cs_id, 0)
+                max_power =  min(cs_power_left, gc_power_left)
 
                 load_result = vehicle.battery.load(self.interval, max_power)
                 avg_power = load_result['avg_power']
 
-                grid_connectors[charging_station.parent]['current_load'] += avg_power
-
-                if charging_station_id in charging_stations:
-                    charging_stations[charging_station_id] += avg_power
-                else:
-                    charging_stations[charging_station_id] = avg_power
+                charging_stations[cs_id] = gc.add_load(cs_id, avg_power)
 
                 assert vehicle.battery.soc <= 100
                 assert vehicle.battery.soc >= 0, 'SOC of {} is {}'.format(vehicle_id, vehicle.battery.soc)
@@ -135,11 +138,8 @@ class Parity(Strategy):
     def step(self, event_list=[]):
         super().step(event_list)
 
-        grid_connectors = {name: {
-            'cur_max_power': gc.cur_max_power,
-            'current_load': sum(gc.current_loads.values()),
-            'charging_stations': {}
-        } for name, gc in self.world_state.grid_connectors.items()}
+        # charging vehicle at which grid connector?
+        vehicle_to_grid = {}
         charging_stations = {}
 
         # gather all vehicles in need of charge
@@ -148,36 +148,37 @@ class Parity(Strategy):
             cs_id = vehicle.connected_charging_station
             if delta_soc > 0 and cs_id:
                 cs = self.world_state.charging_stations[cs_id]
-                gc = grid_connectors[cs.parent]
-                # vehicle needs loading
-                charging_stations[cs_id] = 0
-                if cs_id in gc['charging_stations']:
-                    gc['charging_stations'][cs_id].append(vehicle_id)
+                gc_id = cs.parent
+                if gc_id in vehicle_to_grid:
+                    vehicle_to_grid[gc_id].append(vehicle_id)
                 else:
-                    gc['charging_stations'][cs_id] = [vehicle_id]
+                    vehicle_to_grid[gc_id] = [vehicle_id]
 
         # distribute power of each grid connector
-        for gc in grid_connectors.values():
-            gc_power_left = gc['cur_max_power'] - gc['current_load']
-            for cs_id, vehicles in gc['charging_stations'].items():
+        for gc_id, gc in self.world_state.grid_connectors.items():
+            gc_power_left = gc.cur_max_power - sum(gc.current_loads.values())
+            vehicles = vehicle_to_grid.get(gc_id, [])
+
+            for vehicle_id in vehicles:
+                vehicle = self.world_state.vehicles[vehicle_id]
+                cs_id = vehicle.connected_charging_station
                 cs = self.world_state.charging_stations[cs_id]
+                vehicles_at_cs = list(filter(lambda v: self.world_state.vehicles[v].connected_charging_station == cs_id, vehicles))
 
                 # find minimum of distributed power and charging station power
-                # guaranteed to have one requesting charging station
-                gc_dist_power = gc_power_left / len(gc['charging_stations'])
+                gc_dist_power = gc_power_left / len(vehicles)
                 gc_dist_power = min(gc_dist_power, cs.max_power)
                 # CS guaranteed to have one requesting vehicle
-                cs_dist_power = gc_dist_power / len(gc['charging_stations'][cs_id])
+                cs_dist_power = gc_dist_power / len(vehicles_at_cs)
 
-                # distribute power within CS
-                for vehicle_id in vehicles:
-                    vehicle = self.world_state.vehicles[vehicle_id]
-                    # load battery
-                    load_result = vehicle.battery.load(self.interval, cs_dist_power)
-                    avg_power = load_result['avg_power']
-                    charging_stations[cs_id] += avg_power
-                    assert vehicle.battery.soc <= 100
-                    assert vehicle.battery.soc >= 0, 'SOC of {} is {}'.format(vehicle_id, vehicle.battery.soc)
+                # load battery
+                load_result = vehicle.battery.load(self.interval, cs_dist_power)
+                avg_power = load_result['avg_power']
+
+                charging_stations[cs_id] = gc.add_load(cs_id, avg_power)
+
+                assert vehicle.battery.soc <= 100
+                assert vehicle.battery.soc >= 0, 'SOC of {} is {}'.format(vehicle_id, vehicle.battery.soc)
 
         socs={vid: v.battery.soc for vid, v in self.world_state.vehicles.items()}
 
@@ -219,7 +220,7 @@ class Balanced(Strategy):
                     min_power = vehicle.vehicle_type.min_charging_power
                     max_power = vehicle.vehicle_type.charging_curve.max_power
                     # time until departure
-                    timedelta = vehicle.estimated_time_of_departure - self.current_time
+                    dt = vehicle.estimated_time_of_departure - self.current_time - timedelta(hours=1)
                     old_soc = vehicle.battery.soc
                     idx = 0
                     safe = False
@@ -232,7 +233,7 @@ class Balanced(Strategy):
                         # get new power value
                         power = (max_power + min_power) / 2
                         # load whole time with same power
-                        charged_soc = vehicle.battery.load(timedelta, power)["soc_delta"]
+                        charged_soc = vehicle.battery.load(dt, power)["soc_delta"]
                         # reset SOC
                         vehicle.battery.soc = old_soc
 
@@ -255,20 +256,22 @@ class Balanced(Strategy):
                     # power precomputed: use again
                     power = cs.current_power
 
+                gc = self.world_state.grid_connectors[cs.parent]
+                gc_power_left = max(0, gc.cur_max_power - sum(gc.current_loads.values()))
+                old_soc = vehicle.battery.soc
                 # load with power
                 avg_power = vehicle.battery.load(self.interval, power)['avg_power']
+                if avg_power > gc_power_left:
+                    # GC at limit: try again with less power
+                    vehicle.battery.soc = old_soc
+                    avg_power = vehicle.battery.load(self.interval, gc_power_left)['avg_power']
+                    # compute new plan next time
+                    cs.current_power = 0
+
                 assert vehicle.battery.soc <= 100
                 assert vehicle.battery.soc >= 0, 'SOC of {} is {}'.format(vehicle_id, vehicle.battery.soc)
-                if cs_id in charging_stations:
-                    charging_stations[cs_id] += avg_power
-                else:
-                    charging_stations[cs_id] = avg_power
 
-        # gather grid connector info
-        grid_connectors = {name: {
-            'cur_max_power': gc.cur_max_power,
-            'current_load': sum(gc.current_loads.values()),
-        } for name, gc in self.world_state.grid_connectors.items()}
+                charging_stations[cs_id] = gc.add_load(cs_id, avg_power)
 
         # update charging stations
         for cs_id, cs in self.world_state.charging_stations.items():
@@ -277,11 +280,11 @@ class Balanced(Strategy):
                 cs.current_power = 0
             else:
                 # can active charging station bear minimum load?
-                assert cs.current_power <= cs.max_power, "{} - {} over maximum load ({} > {})".format(self.current_time, cs_id, cs.current_power, cs.max_power)
+                assert cs.max_power >= cs.current_power - EPS, "{} - {} over maximum load ({} > {})".format(self.current_time, cs_id, cs.current_power, cs.max_power)
                 # can grid connector bear load?
-                gc = grid_connectors[cs.parent]
-                gc['current_load'] += cs.current_power
-                assert gc['current_load'] <= gc['cur_max_power'], "{} - {} over maximum load ({} > {})".format(self.current_time, cs.parent, gc['current_load'], gc['cur_max_power'])
+                gc = self.world_state.grid_connectors[cs.parent]
+                gc_current_power = sum(gc.current_loads.values())
+                assert  gc.cur_max_power >= gc_current_power - EPS, "{} - {} over maximum load ({} > {})".format(self.current_time, cs.parent, gc_current_power, gc.cur_max_power)
 
         socs={vid: v.battery.soc for vid, v in self.world_state.vehicles.items()}
 

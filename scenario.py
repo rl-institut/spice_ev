@@ -40,6 +40,7 @@ class Scenario:
 
         event_steps = self.events.get_event_steps(self.start_time, self.n_intervals, self.interval)
 
+        costs = []
         results = []
         external_loads = []
 
@@ -47,8 +48,17 @@ class Scenario:
             # print('step {}: {}'.format(step_i, current_time))
             res = strat.step(event_steps[step_i])
             gcs = strat.world_state.grid_connectors.values()
-            external_loads.append(sum([sum(gc.current_loads.values()) for gc in gcs]))
+            # get external loads (all current loads without charging stations)
+            external_loads.append(sum([gc.get_external_load(self.constants.charging_stations.keys()) for gc in gcs]))
             results.append(res)
+
+            # get costs
+            cost = 0
+            for gc in gcs:
+                cost += util.get_cost(sum(gc.current_loads.values()), gc.cost)
+                costs.append(cost)
+
+        print("Costs:", int(sum(costs)))
 
         if visual:
             print('Done. Create plots...')
