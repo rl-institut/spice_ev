@@ -23,6 +23,23 @@ class GridConnector:
         ]
         util.set_attr_from_dict(obj, self, keys, optional_keys)
 
+    def add_load(self, key, value):
+        # add power __value__ to current_loads dict under __key__
+        # return updated value
+        if key in self.current_loads.keys():
+            self.current_loads[key] += value
+        else:
+            self.current_loads[key] = value
+        return self.current_loads[key]
+
+    def get_external_load(self, exclude):
+        # get sum of current loads not in exclude list
+        external_load = 0
+        for key, value in self.current_loads.items():
+            if key not in exclude:
+                external_load += value
+        return external_load
+
 
 class ChargingStation:
     def __init__(self, obj):
