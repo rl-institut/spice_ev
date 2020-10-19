@@ -30,10 +30,11 @@ def get_cost(x, cost_dict):
         # cost = 0
         # for power, coeff in enumerate(cost_dict["value"]):
             # cost += coeff * pow(x, power)
-        cost = cost_dict["value"].pop(0) # base coefficient, independent of x
+        base = 1
+        cost = 0
         for coeff in cost_dict["value"]:
-            cost += coeff * x
-            x *= x
+            cost += coeff * base
+            base *= x
         return cost
     else:
         raise NotImplementedError
