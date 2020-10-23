@@ -60,7 +60,7 @@ class Scenario:
 
         print("Costs:", int(sum(costs)))
 
-        if visual:
+        if visual==True:
             print('Done. Create plots...')
             charging_stations = {}
             socs = {}
