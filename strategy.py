@@ -328,6 +328,10 @@ class Foresight(Strategy):
             gc_info[gc_id] = (gc.cur_max_power, gc.cost)
         self.pred_ext_load[timestamp] = predicted_loads
 
+        # reset charging station power
+        for cs in self.world_state.charging_stations.values():
+            cs.current_power = 0
+
         # gather current state of vehicles
         vehicles = {
             v_id: {
@@ -391,12 +395,6 @@ class Foresight(Strategy):
                     # ignored: use current estimated arrival/departure times
                     pass
 
-            # get predicted external loads
-            # future[dts]["loads"] = self.pred_ext_load[str(cur_time.time())]
-
-            # get max power and costs from grid connectors
-            # future[dts]["connectors"] = deepcopy(gc_info)
-
             # predicted external load
             cur_ext_load = self.pred_ext_load[str(cur_time.time())]
 
@@ -404,7 +402,7 @@ class Foresight(Strategy):
             for gc_id, gc in self.world_state.grid_connectors.items():
                 available_power = gc_info[gc_id][0] - cur_ext_load[gc_id]
                 # cost = util.get_cost(gc_info[gc_id][0], gc_info[gc_id][1])
-                cost = util.get_cost(available_power, gc_info[gc_id][1])
+                cost = util.get_cost(gc_info[gc_id][0], gc_info[gc_id][1])
                 future[dts][gc_id]["power"] = available_power
                 future[dts][gc_id]["costs"] = cost
 
@@ -413,48 +411,13 @@ class Foresight(Strategy):
             socs={vid: v.battery.soc for vid, v in self.world_state.vehicles.items()}
             return {'current_time': self.current_time, 'commands': {}, 'socs': socs}
 
-        """
-        sum_power = {}
-        sum_costs = {}
-        avg_costs = {}
-        for gc_id in self.world_state.grid_connectors.keys():
-            sum_power[gc_id] = sum([f[gc_id]["power"] for f in future.values()])
-
-            # norm costs between 0 and 1
-            costs = [f[gc_id]["costs"] for f in future.values()]
-            min_costs = min(costs)
-            max_costs = max(costs)
-            print(min_costs, max_costs)
-            for ts, v in future.items():
-                cost = v[gc_id]["costs"]
-                if max_costs == min_costs:
-                    future[ts][gc_id]["costs"] = 0
-                else:
-                    future[ts][gc_id]["costs"] = (cost - min_costs) / (max_costs - min_costs)
-            sum_costs[gc_id] = sum([f[gc_id]["costs"] for f in future.values()])
-            avg_costs[gc_id] = sum_costs[gc_id] / len(future)
-        """
-        # print(future)
-        # print(sum_power)
-        # print(sum_costs)
-        # print(avg_costs)
-        # print(vehicles)
-
+        charging_stations = {}
         current_state = future[str(self.current_time)]
         # assign charging power by grid connector
         for gc_id, gc in self.world_state.grid_connectors.items():
             vehicles_present = current_state[gc_id]["vehicles"]
             available_power = current_state[gc_id]["power"]
             costs = [f[gc_id]["costs"] for f in future.values()]
-            # costs = current_state[gc_id]["costs"]
-            # avg_cost = avg_costs[gc_id]
-            # if sum_power[gc_id] <= 0:
-                # no power at all
-                # continue
-
-            # delta_costs = avg_cost - costs
-
-            # frac_power = available_power / sum_power[gc_id]
 
             # sort charging vehicles by remaining time
             vehicles_present = sorted(vehicles_present, key=lambda v_id: vehicles[v_id]["timesteps"])
@@ -463,7 +426,8 @@ class Foresight(Strategy):
                 vehicle = self.world_state.vehicles[v_id]
                 delta_energy = vehicles[v_id]["delta_energy"]
                 timesteps = vehicles[v_id]["timesteps"]
-                cs = self.world_state.charging_stations[vehicle.connected_charging_station]
+                cs_id = vehicle.connected_charging_station
+                cs = self.world_state.charging_stations[cs_id]
                 mean_power = (delta_energy / timesteps) * timesteps_per_hour
 
                 # get normed costs in remaining timesteps
@@ -479,11 +443,14 @@ class Foresight(Strategy):
                 avg_costs = sum_costs / len(norm_costs)
                 delta_costs = avg_costs - norm_costs[0]
                 factor = 1 - delta_costs
+
                 power = mean_power * factor
                 power = min(available_power, power)
+                power = min(cs.max_power - cs.current_power, power)
                 avg_power = vehicle.battery.load(self.interval, power)['avg_power']
-                print(self.current_time, v_id, delta_costs, mean_power, power, available_power, avg_power)
-                available_power -= power
+                available_power -= avg_power
+                charging_stations[cs_id] = gc.add_load(cs_id, avg_power)
+                cs.current_power += avg_power
 
         socs={vid: v.battery.soc for vid, v in self.world_state.vehicles.items()}
-        return {'current_time': self.current_time, 'commands': {}, 'socs': socs}
+        return {'current_time': self.current_time, 'commands': charging_stations, 'socs': socs}
