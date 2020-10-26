@@ -131,7 +131,7 @@ class Scenario:
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Netz_eLOG modelling')
     parser.add_argument('file', nargs='?', default='tests/test_scenario.json', help='scenario JSON file')
-    parser.add_argument('--strategy', '-s', nargs='?', default='greedy', choices=['greedy', 'parity', 'balanced', 'foresight'],
+    parser.add_argument('--strategy', '-s', nargs='?', type=str.lower, default='greedy', choices=['greedy', 'parity', 'balanced', 'foresight', 'genetic'],
         help='specify strategy for simulation')
     parser.add_argument('--visual', '-v', action='store_true', default='False', help='show plots')
     args = parser.parse_args()
