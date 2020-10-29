@@ -60,7 +60,7 @@ class Scenario:
 
         print("Costs:", int(sum(costs)))
 
-        if visual==True:
+        if visual:
             print('Done. Create plots...')
             charging_stations = {}
             socs = {}
@@ -133,7 +133,7 @@ if __name__ == '__main__':
     parser.add_argument('file', nargs='?', default='tests/test_scenario.json', help='scenario JSON file')
     parser.add_argument('--strategy', '-s', nargs='?', type=str.lower, default='greedy', choices=['greedy', 'parity', 'balanced', 'foresight', 'genetic'],
         help='specify strategy for simulation')
-    parser.add_argument('--visual', '-v', action='store_true', default='False', help='show plots')
+    parser.add_argument('--visual', '-v', action='store_true', help='show plots')
     args = parser.parse_args()
 
     if args.visual:
