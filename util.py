@@ -1,5 +1,5 @@
 import datetime
-
+from math import sqrt
 
 def datetime_from_isoformat(s):
     if s is None:
@@ -38,3 +38,27 @@ def get_cost(x, cost_dict):
         return cost
     else:
         raise NotImplementedError
+
+def get_power(y, cost_dict):
+    if cost_dict["type"] == "fixed":
+        return y / cost_dict["value"]
+    elif cost_dict["type"] == "polynomial":
+        while cost_dict["value"][-1] == 0:
+            cost_dict["value"].pop()
+        if len(cost_dict["value"]) <= 1:
+            # fixed cost: question makes no sense
+            return None
+        elif len(cost_dict["value"]) == 2:
+            # linear
+            (a0, a1) = cost_dict["value"]
+            return (y - a0) / a1
+        elif len(cost_dict["value"]) == 3:
+            (a0, a1, a2) = cost_dict["value"]
+            p = a1/a2
+            q = (y - a0) / a2
+            x1 = -p/2 - sqrt(p*p/4 - q)
+            x2 = -p/2 + sqrt(p*p/4 - q)
+            y1 = get_cost(x1, cost_dict)
+            return x1 if y1 == y else x2
+
+    raise NotImplementedError
