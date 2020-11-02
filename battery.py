@@ -41,7 +41,7 @@ class Battery:
         # update SOC
         # computes for whole time or until SOC is 100% (no next section)
         while hours > EPS and 100.0 - self.soc > EPS: #self.soc < 100.0:
-            if x2 - self.soc < EPS: # self.soc >= x2:
+            while x2 - self.soc < EPS: # self.soc >= x2:
                 # get next section
                 idx_1 += 1
                 idx_2 += 1
@@ -53,6 +53,7 @@ class Battery:
             y2 = clamped.power_from_soc(x2)
             dx = x2 - x1
             dy = y2 - y1
+
             m = dy / dx
             n = y1 - m * x1
             c = self.capacity
