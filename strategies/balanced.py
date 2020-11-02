@@ -1,0 +1,111 @@
+import datetime
+
+import events
+from strategy import Strategy
+
+
+class Balanced(Strategy):
+    """
+    Charging strategy that calculates the minimum charging power to arrive at the
+    desired SOC during the estimated parking time for each vehicle.
+    """
+    def __init__(self, constants, start_time, interval):
+        super().__init__(constants, start_time, interval)
+        self.description = "balanced"
+
+
+    def step(self, event_list=[]):
+        super().step(event_list)
+
+        charging_stations = {}
+        EPS = 1e-5
+        ITERATIONS = 10
+
+        for vehicle_id in sorted(self.world_state.vehicles):
+            # get vehicle
+            vehicle = self.world_state.vehicles[vehicle_id]
+            delta_soc = vehicle.desired_soc - vehicle.battery.soc
+            cs_id = vehicle.connected_charging_station
+            if cs_id is None:
+                # not connected
+                continue
+            # get connected charging station
+            cs = self.world_state.charging_stations[cs_id]
+
+            if delta_soc > EPS:
+                # vehicle needs charging
+                if cs.current_power == 0:
+                    # not precomputed
+                    min_power = vehicle.vehicle_type.min_charging_power
+                    max_power = vehicle.vehicle_type.charging_curve.max_power
+                    # time until departure
+                    dt = vehicle.estimated_time_of_departure - self.current_time - datetime.timedelta(hours=1)
+                    old_soc = vehicle.battery.soc
+                    idx = 0
+                    safe = False
+                    # converge to optimal power for the duration
+                    # at least ITERATIONS cycles
+                    # must end with slightly too much power used
+                    # abort if min_power == max_power (e.g. unrealistic goal)
+                    while (idx < ITERATIONS or not safe) and max_power - min_power > EPS:
+                        idx += 1
+                        # get new power value
+                        power = (max_power + min_power) / 2
+                        # load whole time with same power
+                        charged_soc = vehicle.battery.load(dt, power)["soc_delta"]
+                        # reset SOC
+                        vehicle.battery.soc = old_soc
+
+                        if delta_soc - charged_soc > EPS: #charged_soc < delta_soc
+                            # power not enough
+                            safe = False
+                            min_power = power
+                        elif charged_soc - delta_soc > EPS: #charged_soc > delta_soc:
+                            # power too much
+                            safe = True
+                            max_power = power
+                        else:
+                            # power exactly right
+                            break
+
+                    # add safety margin
+                    # power *= 1.1
+                    cs.current_power = power
+                else:
+                    # power precomputed: use again
+                    power = cs.current_power
+
+                gc = self.world_state.grid_connectors[cs.parent]
+                gc_power_left = max(0, gc.cur_max_power - sum(gc.current_loads.values()))
+                old_soc = vehicle.battery.soc
+                # load with power
+                avg_power = vehicle.battery.load(self.interval, power)['avg_power']
+                if avg_power > gc_power_left:
+                    # GC at limit: try again with less power
+                    vehicle.battery.soc = old_soc
+                    avg_power = vehicle.battery.load(self.interval, gc_power_left)['avg_power']
+                    # compute new plan next time
+                    cs.current_power = 0
+
+                assert vehicle.battery.soc <= 100
+                assert vehicle.battery.soc >= 0, 'SOC of {} is {}'.format(vehicle_id, vehicle.battery.soc)
+
+                charging_stations[cs_id] = gc.add_load(cs_id, avg_power)
+
+        # update charging stations
+        for cs_id, cs in self.world_state.charging_stations.items():
+            if cs_id not in charging_stations:
+                # CS currently inactive
+                cs.current_power = 0
+            else:
+                # can active charging station bear minimum load?
+                assert cs.max_power >= cs.current_power - EPS, "{} - {} over maximum load ({} > {})".format(self.current_time, cs_id, cs.current_power, cs.max_power)
+                # can grid connector bear load?
+                gc = self.world_state.grid_connectors[cs.parent]
+                gc_current_power = sum(gc.current_loads.values())
+                assert  gc.cur_max_power >= gc_current_power - EPS, "{} - {} over maximum load ({} > {})".format(self.current_time, cs.parent, gc_current_power, gc.cur_max_power)
+
+        socs={vid: v.battery.soc for vid, v in self.world_state.vehicles.items()}
+
+        return {'current_time': self.current_time, 'commands': charging_stations, 'socs': socs}
+
