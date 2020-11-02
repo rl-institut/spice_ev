@@ -1,27 +1,30 @@
 from copy import deepcopy
+from importlib import import_module
 
 import events
 import util
 
 def class_from_str(strategy_name):
     strategy_name = strategy_name.lower()
-    if strategy_name == 'greedy':
-        from strategies.greedy import Greedy
-        return Greedy
-    elif strategy_name == 'parity':
-        from strategies.parity import Parity
-        return Parity
-    elif strategy_name == 'balanced':
-        from strategies.balanced import Balanced
-        return Balanced
-    elif strategy_name == 'foresight':
-        from strategies.foresight import Foresight
-        return Foresight
-    elif strategy_name == 'genetic':
-        from strategies.genetic import Genetic
-        return Genetic
-    else:
-        raise Exception('unknown strategy with name {}'.format(strategy_name))
+    module = import_module('strategies.' + strategy_name)
+    return getattr(module, strategy_name.capitalize())
+    # if strategy_name == 'greedy':
+        # from strategies.greedy import Greedy
+        # return Greedy
+    # elif strategy_name == 'parity':
+        # from strategies.parity import Parity
+        # return Parity
+    # elif strategy_name == 'balanced':
+        # from strategies.balanced import Balanced
+        # return Balanced
+    # elif strategy_name == 'foresight':
+        # from strategies.foresight import Foresight
+        # return Foresight
+    # elif strategy_name == 'genetic':
+        # from strategies.genetic import Genetic
+        # return Genetic
+    # else:
+        # raise Exception('unknown strategy with name {}'.format(strategy_name))
 
 
 class Strategy():
