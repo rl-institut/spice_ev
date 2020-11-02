@@ -55,7 +55,7 @@ def get_power(y, cost_dict):
         elif len(cost_dict["value"]) == 3:
             (a0, a1, a2) = cost_dict["value"]
             p = a1/a2
-            q = (y - a0) / a2
+            q = (a0 - y) / a2
             x1 = -p/2 - sqrt(p*p/4 - q)
             x2 = -p/2 + sqrt(p*p/4 - q)
             y1 = get_cost(x1, cost_dict)
