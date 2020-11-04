@@ -10,6 +10,8 @@ import util
 class Inverse(Strategy):
     """
     Charging strategy that prioritizes times with lower power costs.
+    Idea is to find minimum viable cost threshold over next 24h
+    Timesteps with less external load and smaller costs are prioritized for loading
     """
     def __init__(self, constants, start_time, interval):
         super().__init__(constants, start_time, interval)
@@ -18,6 +20,7 @@ class Inverse(Strategy):
         # prepare dictionary of predicted external load
         self.pred_ext_load = {}
 
+        # initialize external load prediction for each timestep in a day
         timesteps_per_day = int(datetime.timedelta(days=1) / interval)
         cur_time = start_time
         for _ in range(timesteps_per_day):
@@ -27,8 +30,16 @@ class Inverse(Strategy):
                 }
             cur_time += interval
 
+        # minimum binary seach depth
         self.ITERATIONS = 16
+        # compare close floating points
         self.EPS = 1e-5
+        # low pass filter for predicted external cost
+        self.LPF = 0.75
+        # fraction of SOC allowed less
+        # eg. margin = 0.05: vehicles are allowed to leave with 95% of desired SOC
+        self.SOC_MARGIN = 0.0
+        self.LOAD_STRAT = 'balanced' # greedy, balanced
 
     def step(self, event_list=[]):
         super().step(event_list)
@@ -41,11 +52,12 @@ class Inverse(Strategy):
             # update predicted external load
             predicted_load = predicted_loads[gc_id]
             actual_load = sum(gc.current_loads.values())
-            predicted_loads[gc_id] = 0.0 * predicted_load + 1.0 * actual_load
+            # predicted_loads[gc_id] = (1-self.LPF) * predicted_load + self.LPF * actual_load
+            predicted_loads[gc_id] += (actual_load - predicted_load) * self.LPF
 
             gcs[gc_id] = {
-                'vehicles': {},
-                'ts': [],
+                'vehicles': {}, # vehicles to be charged connected to this GC
+                'ts': [],       # timestep infos
                 'max_power': gc.cur_max_power,
                 'costs': {
                     'min': inf,
@@ -54,29 +66,32 @@ class Inverse(Strategy):
                 }
             }
 
-            # get connected vehicles
-            for vid, vehicle in self.world_state.vehicles.items():
-                cs_id = vehicle.connected_charging_station
-                delta_soc = vehicle.desired_soc - vehicle.battery.soc
-                if cs_id and delta_soc > 0:
-                    cs = self.world_state.charging_stations[cs_id]
-                    gcs[cs.parent]['vehicles'][vid] = vehicle
+        # get connected vehicles
+        for vid, vehicle in self.world_state.vehicles.items():
+            cs_id = vehicle.connected_charging_station
+            delta_soc = vehicle.desired_soc - vehicle.battery.soc
+            if cs_id and delta_soc > 0:
+                cs = self.world_state.charging_stations[cs_id]
+                gcs[cs.parent]['vehicles'][vid] = vehicle
 
         self.pred_ext_load[timestamp] = predicted_loads
 
         # reset charging station power
-        # for cs in self.world_state.charging_stations.values():
-            # cs.current_power = 0
+        # may not be needed
+        for cs in self.world_state.charging_stations.values():
+            cs.current_power = 0
 
-        # set external load and prices until all vehicles gone (24h max)
+        # look at next 24h
+        # in this time, all vehicles must be charged
+        # get future events and predict external load and cost for each timestep
         event_idx = 0
         timesteps_per_day = int(datetime.timedelta(days =1) / self.interval)
-        timesteps_per_hour=     datetime.timedelta(hours=1) / self.interval
 
         cur_time = self.current_time - self.interval
         for _ in range(timesteps_per_day):
             cur_time += self.interval
 
+            # still vehicles present at this timestep?
             vehicles_charging = False
             for vehicle in self.world_state.vehicles.values():
                 needs_charging = vehicle.battery.soc < vehicle.desired_soc
@@ -86,19 +101,22 @@ class Inverse(Strategy):
                     break
 
             if not vehicles_charging:
+                # stop when no vehicle needs charging
                 break
 
             # peek into future events for external load or cost changes
-            # for event in self.world_state.future_events:
             while True:
                 try:
                     event = self.world_state.future_events[event_idx]
                 except IndexError:
+                    # no more events
                     break
                 if event.start_time > cur_time:
+                    # not this timestep
                     break
                 event_idx += 1
                 if type(event) == events.GridOperatorSignal:
+                    # update GC info
                     gc_id = event.grid_connector_id
                     max_power = event.max_power or gcs[gc_id]['max_power']
                     gcs[gc_id]['max_power'] = min(gcs[gc_id]['max_power'], max_power)
@@ -109,60 +127,69 @@ class Inverse(Strategy):
 
             # compute available power and associated costs
             for gc_id, gc in self.world_state.grid_connectors.items():
+                # get cost for no power
                 min_power_cost = util.get_cost(0, gcs[gc_id]['costs']['cur'])
+                # get cost for max power
                 max_power_cost = util.get_cost(gcs[gc_id]['max_power'], gcs[gc_id]['costs']['cur'])
 
+                # new timestep info
                 gcs[gc_id]['ts'].append({
                     'max': gcs[gc_id]['max_power'],
                     'ext': cur_ext_load[gc_id],
                     'costs': gcs[gc_id]['costs']['cur']
                 })
+                # save min/max costs in GC info
                 old_min = gcs[gc_id]['costs']['min']
                 old_max = gcs[gc_id]['costs']['max']
                 gcs[gc_id]['costs']['min'] = min(old_min, min_power_cost, max_power_cost)
                 gcs[gc_id]['costs']['max'] = max(old_max, min_power_cost, max_power_cost)
 
         if sum(len(gc['ts']) for gc in gcs.values()) == 0:
-            # no charging -> no timesteps
+            # no timesteps -> no charging at any grid connector
             socs={vid: v.battery.soc for vid, v in self.world_state.vehicles.items()}
             return {'current_time': self.current_time, 'commands': {}, 'socs': socs}
 
         charging_stations = {}
-        # find minimum viable power per grid connector
-        # print("next step", self.current_time)
+        # find minimum viable power per grid connector for next 24h
         for gc_id, gc_info in gcs.items():
             gc = self.world_state.grid_connectors[gc_id]
 
             min_costs = gc_info['costs']['min']
             max_costs = gc_info['costs']['max']
 
+            cur_costs = None
             safe = False
             last_valid = None
 
             idx = 0
+            # try to reach optimum cost level
+            # ... at least for ITERATIONS loops
+            # ... all vehicles must be loaded (safe result)
+            # ... optimum may converge -> min and max must be different
             while (idx < self.ITERATIONS or not safe) and max_costs - min_costs > self.EPS:
                 idx += 1
+                # binary search: try out average of min and max
                 cur_costs = (max_costs + min_costs) / 2
                 sim_time  = self.current_time - self.interval
+                # copy vehicle fleet for simulation (don't change SOC of originals)
                 sim_vehicles = deepcopy(gc_info["vehicles"])
-                # print("next idx", idx, ':', min_costs, cur_costs, max_costs)
+
+                # simulate next 24h
                 for ts_info in gc_info['ts']:
                     sim_time += self.interval
+
+                    # check that all vehicles that must be charged until now are charged
                     valid = True
                     for vid in list(sim_vehicles.keys()):
                         vehicle = sim_vehicles[vid]
                         if vehicle.battery.soc >= vehicle.desired_soc:
                             # reached desired SOC: remove from list of vehicles to charge
-                            # print(vid, "reached SOC at", sim_time)
                             del sim_vehicles[vid]
                         if sim_time >= vehicle.estimated_time_of_departure:
-                            if vehicle.battery.soc < vehicle.desired_soc * 0.95:
+                            if vehicle.battery.soc < ((1.0 - self.SOC_MARGIN) * vehicle.desired_soc):
                                 # fail: would have to leave with insufficient charge
-                                # print("{} not charged at {} ({} < {}, {})".format(vid, sim_time, vehicle.battery.soc, vehicle.desired_soc, vehicle.estimated_time_of_departure))
                                 valid = False
                                 break
-
-                    # print("next ts", sim_time, len(sim_vehicles))
 
                     if not valid:
                         # at least one vehicle not charged in time:
@@ -185,7 +212,6 @@ class Inverse(Strategy):
                     # how much energy can be loaded with current cost?
                     try:
                         max_power = util.get_power(cur_costs, ts_info['costs'])
-                        # print(sum([v.desired_soc - v.battery.soc for v in sim_vehicles.values()]) /len(sim_vehicles))
                     except ValueError:
                         # oops, cost not achievable: reuse last
                         print("Math error")
@@ -196,52 +222,63 @@ class Inverse(Strategy):
                         break
 
                     # max_power may be None (constant price)
+                    # can charge with max_power then
                     max_power = max_power or ts_info['max']
                     # subtract external loads
                     usable_power = max_power - ts_info['ext']
 
-                    # no vehicle to grid
-                    if usable_power < 0:
-                        safe = False
-                        min_costs = cur_costs
-                        break
-
-                    # distribute among remaining vehicles
-                    avg_power = usable_power / len(sim_vehicles)
-                    for vehicle in sim_vehicles.values():
-                        vehicle.battery.load(self.interval, avg_power)
-
-                    # load vehicles
-                    # for vid in sorted(sim_vehicles):
-                        # vehicle = sim_vehicles[vid]
-                        # avg_power = vehicle.battery.load(self.interval, usable_power)['avg_power']
-                        # usable_power -= avg_power
+                    if self.LOAD_STRAT == 'greedy':
+                        # charge one vehicle after the other
+                        for vid in sorted(sim_vehicles):
+                            if usable_power > 0:
+                                vehicle = sim_vehicles[vid]
+                                avg_power = vehicle.battery.load(self.interval, usable_power)['avg_power']
+                                usable_power -= avg_power
+                    elif self.LOAD_STRAT == 'balanced':
+                        # distribute among remaining vehicles
+                        ind_power = usable_power / len(sim_vehicles)
+                        if ind_power > 0:
+                            for vehicle in sim_vehicles.values():
+                                vehicle.battery.load(self.interval, ind_power)
 
                 # after all timesteps done: check all vehicles are loaded
                 if len(sim_vehicles) > 0:
-                    # at least one vehicle not charged in time:
+                    # fail: at least one vehicle not charged in time
                     # increase allowed costs
                     min_costs = cur_costs
                     safe = False
 
-            # print(self.current_time, min_costs, cur_costs, max_costs, idx)
+            # get optimum power
             max_power = util.get_power(cur_costs, gc.cost)
             # max_power may be None (constant price)
             max_power = max_power or gc.cur_max_power
             # subtract external loads
             usable_power = max_power - sum(gc.current_loads.values())
-            # print(gc_info['ts'][0]['max'], gc.cur_max_power)
-            # print(gc_info['ts'][0]['ext'], sum(gc.current_loads.values()))
-            # print(max_power, usable_power)
 
-            for vid in sorted(gc_info['vehicles']):
-                vehicle = self.world_state.vehicles[vid]
-                avg_power = vehicle.battery.load(self.interval, usable_power)['avg_power']
-                usable_power -= avg_power
-                cs_id = vehicle.connected_charging_station
-                cs = self.world_state.charging_stations[cs_id]
-                charging_stations[cs_id] = gc.add_load(cs_id, avg_power)
-                cs.current_power += avg_power
+            # load according to LOAD_STRAT (same as in simulation)
+            if self.LOAD_STRAT == 'greedy':
+                # charge one vehivle after the other
+                for vid in sorted(gc_info['vehicles']):
+                    if usable_power > 0:
+                        vehicle = self.world_state.vehicles[vid]
+                        avg_power = vehicle.battery.load(self.interval, usable_power)['avg_power']
+                        usable_power -= avg_power
+                        cs_id = vehicle.connected_charging_station
+                        cs = self.world_state.charging_stations[cs_id]
+                        charging_stations[cs_id] = gc.add_load(cs_id, avg_power)
+                        cs.current_power += avg_power
+            elif self.LOAD_STRAT == 'balanced':
+                # distribute power among vehicles
+                ind_power = usable_power / len(gc_info['vehicles'])
+                if ind_power > 0:
+                    for vehicle in gc_info['vehicles'].values():
+                        avg_power = vehicle.battery.load(self.interval, ind_power)['avg_power']
+                        cs_id = vehicle.connected_charging_station
+                        cs = self.world_state.charging_stations[cs_id]
+                        charging_stations[cs_id] = gc.add_load(cs_id, avg_power)
+                        cs.current_power += avg_power
+            else:
+                raise NotImplementedError(self.LOAD_STRAT)
 
         socs={vid: v.battery.soc for vid, v in self.world_state.vehicles.items()}
         return {'current_time': self.current_time, 'commands': charging_stations, 'socs': socs}
