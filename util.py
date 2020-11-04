@@ -40,10 +40,14 @@ def get_cost(x, cost_dict):
         raise NotImplementedError
 
 def get_power(y, cost_dict):
+    # how much power for a given price?
+    if y is None:
+        return None
     if cost_dict["type"] == "fixed":
         return y / cost_dict["value"]
     elif cost_dict["type"] == "polynomial":
         while cost_dict["value"][-1] == 0:
+            # reduce cost polynom until highest coefficient != 0
             cost_dict["value"].pop()
         if len(cost_dict["value"]) <= 1:
             # fixed cost: question makes no sense
@@ -56,9 +60,11 @@ def get_power(y, cost_dict):
             (a0, a1, a2) = cost_dict["value"]
             p = a1/a2
             q = (a0 - y) / a2
-            x1 = -p/2 - sqrt(p*p/4 - q)
-            x2 = -p/2 + sqrt(p*p/4 - q)
-            y1 = get_cost(x1, cost_dict)
-            return x1 if y1 == y else x2
+            # single solution: higher value
+            return -p/2 + sqrt(p*p/4 - q)
+            # x1 = -p/2 - sqrt(p*p/4 - q)
+            # x2 = -p/2 + sqrt(p*p/4 - q)
+            # y1 = get_cost(x1, cost_dict)
+            # return x1 if y1 == y else x2
 
     raise NotImplementedError
