@@ -37,7 +37,7 @@ if __name__ == '__main__':
             "capacity": 70, # kWh
             "mileage": 40, # kWh / 100km
             "charging_curve": [[0, 11], [80, 11], [100, 0]], # SOC -> kWh
-            "min_charging_power": 2,
+            "min_charging_power": 0,
             "count": num_car_type_1
         },
         "golf": {
@@ -45,7 +45,7 @@ if __name__ == '__main__':
             "capacity": 50,
             "mileage": 16,
             "charging_curve": [[0, 22], [80, 22], [100, 0]],
-            "min_charging_power": 2,
+            "min_charging_power": 0,
             "count": num_car_type_2
         }
     }
@@ -80,10 +80,9 @@ if __name__ == '__main__':
                 "signal_time": start.isoformat(),
                 "grid_connector_id": "GC1",
                 "start_time": start.isoformat(),
-                "max_power": None,
                 "cost": {
                     "type": "polynomial",
-                    "value": [1.0, 0.0, 1.0]
+                    "value": [0.0, 0.32, 0.0]
                 }
             },
             # {
@@ -144,6 +143,27 @@ if __name__ == '__main__':
     while now < stop:
         # next day. First day is off
         now += daily
+
+        # generate grid op signal for next day
+        events['grid_operator_signals'] += [{
+            # day (6-evening): 15ct
+            "signal_time": now.isoformat(),
+            "grid_connector_id": "GC1",
+            "start_time": (now + datetime.timedelta(days=1, hours=6)).isoformat(),
+            "cost": {
+                "type": "fixed",
+                "value": 0.15 + random.gauss(0, 0.05)
+            }
+        },{
+            # night (depending on month - 6): 5ct
+            "signal_time": now.isoformat(),
+            "grid_connector_id": "GC1",
+            "start_time": (now + datetime.timedelta(days=1, hours=22-abs(6-now.month))).isoformat(),
+            "cost": {
+                "type": "fixed",
+                "value": 0.05 + random.gauss(0, 0.03)
+            }
+        }]
 
         for v_id, v in vehicles.items():
             if now.weekday() == 6:
