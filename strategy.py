@@ -19,6 +19,7 @@ class Strategy():
         self.world_state.future_events = []
         self.interval = kwargs.get('interval')  # required
         self.current_time = start_time - self.interval
+        self.margin = 0.05
         # update optional
         for k, v in kwargs.items():
             setattr(self, k, v)
@@ -65,7 +66,7 @@ class Strategy():
                     setattr(vehicle, k, v)
                 if ev.event_type == "departure":
                     vehicle.connected_charging_station = None
-                    assert vehicle.battery.soc >= vehicle.desired_soc * 0.95, "{}: Vehicle {} is below desired SOC ({} < {})".format(ev.start_time.isoformat(), ev.vehicle_id, vehicle.battery.soc, vehicle.desired_soc)
+                    assert vehicle.battery.soc >= (1-self.margin)*vehicle.desired_soc, "{}: Vehicle {} is below desired SOC ({} < {})".format(ev.start_time.isoformat(), ev.vehicle_id, vehicle.battery.soc, vehicle.desired_soc)
                 elif ev.event_type == "arrival":
                     assert vehicle.connected_charging_station is not None
                     assert hasattr(vehicle, 'soc_delta')
