@@ -36,7 +36,7 @@ class Foresight(Strategy):
             predicted_load = predicted_loads[gc_id]
             actual_load = sum(gc.current_loads.values())
             predicted_loads[gc_id] = 0.25 * predicted_load + 0.75 * actual_load
-            gc_info[gc_id] = (gc.cur_max_power, gc.cost)
+            gc_info[gc_id] = [gc.cur_max_power, gc.cost]
         self.pred_ext_load[timestamp] = predicted_loads
 
         # reset charging station power
