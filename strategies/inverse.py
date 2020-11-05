@@ -55,7 +55,6 @@ class Inverse(Strategy):
             # update predicted external load
             predicted_load = predicted_loads[gc_id]
             actual_load = sum(gc.current_loads.values())
-            # predicted_loads[gc_id] = (1-self.LPF) * predicted_load + self.LPF * actual_load
             predicted_loads[gc_id] += (actual_load - predicted_load) * self.LPF
 
             gcs[gc_id] = {
@@ -72,7 +71,7 @@ class Inverse(Strategy):
         # get connected vehicles
         for vid, vehicle in self.world_state.vehicles.items():
             cs_id = vehicle.connected_charging_station
-            delta_soc = vehicle.desired_soc - vehicle.battery.soc
+            delta_soc = (1.0 - self.SOC_MARGIN) * vehicle.desired_soc -vehicle.battery.soc
             if cs_id and delta_soc > 0:
                 cs = self.world_state.charging_stations[cs_id]
                 gcs[cs.parent]['vehicles'][vid] = vehicle
