@@ -9,8 +9,12 @@ class Balanced(Strategy):
     Charging strategy that calculates the minimum charging power to arrive at the
     desired SOC during the estimated parking time for each vehicle.
     """
-    def __init__(self, constants, start_time, interval):
-        super().__init__(constants, start_time, interval)
+    def __init__(self, constants, start_time, **kwargs):
+        # defaults
+        self.EPS = 1e-5
+        self.ITERATIONS = 10
+
+        super().__init__(constants, start_time, **kwargs)
         self.description = "balanced"
 
 
@@ -18,8 +22,6 @@ class Balanced(Strategy):
         super().step(event_list)
 
         charging_stations = {}
-        EPS = 1e-5
-        ITERATIONS = 10
 
         for vehicle_id in sorted(self.world_state.vehicles):
             # get vehicle
@@ -32,7 +34,7 @@ class Balanced(Strategy):
             # get connected charging station
             cs = self.world_state.charging_stations[cs_id]
 
-            if delta_soc > EPS:
+            if delta_soc > self.EPS:
                 # vehicle needs charging
                 if cs.current_power == 0:
                     # not precomputed
@@ -47,7 +49,7 @@ class Balanced(Strategy):
                     # at least ITERATIONS cycles
                     # must end with slightly too much power used
                     # abort if min_power == max_power (e.g. unrealistic goal)
-                    while (idx < ITERATIONS or not safe) and max_power - min_power > EPS:
+                    while (idx < self.ITERATIONS or not safe) and max_power - min_power > self.EPS:
                         idx += 1
                         # get new power value
                         power = (max_power + min_power) / 2
@@ -56,11 +58,11 @@ class Balanced(Strategy):
                         # reset SOC
                         vehicle.battery.soc = old_soc
 
-                        if delta_soc - charged_soc > EPS: #charged_soc < delta_soc
+                        if delta_soc - charged_soc > self.EPS: #charged_soc < delta_soc
                             # power not enough
                             safe = False
                             min_power = power
-                        elif charged_soc - delta_soc > EPS: #charged_soc > delta_soc:
+                        elif charged_soc - delta_soc > self.EPS: #charged_soc > delta_soc:
                             # power too much
                             safe = True
                             max_power = power
@@ -99,13 +101,12 @@ class Balanced(Strategy):
                 cs.current_power = 0
             else:
                 # can active charging station bear minimum load?
-                assert cs.max_power >= cs.current_power - EPS, "{} - {} over maximum load ({} > {})".format(self.current_time, cs_id, cs.current_power, cs.max_power)
+                assert cs.max_power >= cs.current_power - self.EPS, "{} - {} over maximum load ({} > {})".format(self.current_time, cs_id, cs.current_power, cs.max_power)
                 # can grid connector bear load?
                 gc = self.world_state.grid_connectors[cs.parent]
                 gc_current_power = sum(gc.current_loads.values())
-                assert  gc.cur_max_power >= gc_current_power - EPS, "{} - {} over maximum load ({} > {})".format(self.current_time, cs.parent, gc_current_power, gc.cur_max_power)
+                assert  gc.cur_max_power >= gc_current_power - self.EPS, "{} - {} over maximum load ({} > {})".format(self.current_time, cs.parent, gc_current_power, gc.cur_max_power)
 
         socs={vid: v.battery.soc for vid, v in self.world_state.vehicles.items()}
 
         return {'current_time': self.current_time, 'commands': charging_stations, 'socs': socs}
-

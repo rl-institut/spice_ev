@@ -6,8 +6,8 @@ class Parity(Strategy):
     """
     Charging strategy that distributes power evenly among cars.
     """
-    def __init__(self, constants, start_time, interval):
-        super().__init__(constants, start_time, interval)
+    def __init__(self, constants, start_time, **kwargs):
+        super().__init__(constants, start_time, **kwargs)
         self.description = "parity"
 
 
@@ -59,5 +59,3 @@ class Parity(Strategy):
         socs={vid: v.battery.soc for vid, v in self.world_state.vehicles.items()}
 
         return {'current_time': self.current_time, 'commands': charging_stations, 'socs': socs}
-
-

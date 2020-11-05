@@ -9,21 +9,21 @@ class Foresight(Strategy):
     """
     Charging strategy that takes future available power and costs into account.
     """
-    def __init__(self, constants, start_time, interval):
-        super().__init__(constants, start_time, interval)
+    def __init__(self, constants, start_time, **kwargs):
+        super().__init__(constants, start_time, **kwargs)
         self.description = "foresight"
 
         # prepare dictionary of predicted external load
         self.pred_ext_load = {}
 
-        timesteps_per_day = int(datetime.timedelta(days=1) / interval)
+        timesteps_per_day = int(datetime.timedelta(days=1) / self.interval)
         cur_time = start_time
         for _ in range(timesteps_per_day):
             for gc in self.world_state.grid_connectors.keys():
                 self.pred_ext_load[str(cur_time.time())] = {
                     gc: 0 for gc in self.world_state.grid_connectors.keys()
                 }
-            cur_time += interval
+            cur_time += self.interval
 
     def step(self, event_list=[]):
         super().step(event_list)

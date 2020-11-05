@@ -35,8 +35,9 @@ class Scenario:
             self.n_intervals = delta / self.interval
 
 
-    def run(self, strategy_name, visual):
-        strat = strategy.class_from_str(strategy_name)(self.constants, self.start_time, self.interval)
+    def run(self, strategy_name, options):
+        options['interval'] = self.interval
+        strat = strategy.class_from_str(strategy_name)(self.constants, self.start_time, **options)
 
         event_steps = self.events.get_event_steps(self.start_time, self.n_intervals, self.interval)
 
@@ -60,7 +61,7 @@ class Scenario:
 
         print("Costs:", int(sum(costs)))
 
-        if visual:
+        if options.get('visual', False):
             print('Done. Create plots...')
             charging_stations = {}
             socs = {}
@@ -129,12 +130,36 @@ class Scenario:
 
 
 if __name__ == '__main__':
+
+    strategies = ['greedy', 'parity', 'balanced', 'foresight', 'genetic', 'inverse']
+
     parser = argparse.ArgumentParser(description='Netz_eLOG modelling')
     parser.add_argument('file', nargs='?', default='tests/test_scenario.json', help='scenario JSON file')
-    parser.add_argument('--strategy', '-s', nargs='?', type=str.lower, default='greedy', choices=['greedy', 'parity', 'balanced', 'foresight', 'genetic', 'inverse'],
-        help='specify strategy for simulation')
+    parser.add_argument('--strategy', '-s', nargs='*', default=['greedy'], help='specify strategy for simulation')
     parser.add_argument('--visual', '-v', action='store_true', help='show plots')
     args = parser.parse_args()
+
+    options = {'visual': args.visual}
+
+    # parse strategy options
+    if args.strategy:
+        # first argument: strategy name
+        strategy_name = args.strategy.pop(0)
+        if strategy_name not in strategies:
+            raise NotImplementedError("Unknown strategy: {}".format(strategy_name))
+        for opt_string in args.strategy:
+            try:
+                # key=value
+                opt_key, opt_val = opt_string.split('=')
+            except ValueError:
+                print("Ignored option {}. Need options in the form key=value".format(opt_string))
+            try:
+                # option may be number
+                opt_val = float(opt_val)
+            except ValueError:
+                # or not
+                pass
+            options[opt_key] = opt_val
 
     if args.visual:
         import matplotlib.pyplot as plt
@@ -144,4 +169,4 @@ if __name__ == '__main__':
         s = Scenario(json.load(f), os.path.dirname(args.file))
 
     # RUN!
-    s.run(args.strategy, args.visual)
+    s.run(strategy_name, options)

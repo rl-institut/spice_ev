@@ -8,34 +8,20 @@ def class_from_str(strategy_name):
     strategy_name = strategy_name.lower()
     module = import_module('strategies.' + strategy_name)
     return getattr(module, strategy_name.capitalize())
-    # if strategy_name == 'greedy':
-        # from strategies.greedy import Greedy
-        # return Greedy
-    # elif strategy_name == 'parity':
-        # from strategies.parity import Parity
-        # return Parity
-    # elif strategy_name == 'balanced':
-        # from strategies.balanced import Balanced
-        # return Balanced
-    # elif strategy_name == 'foresight':
-        # from strategies.foresight import Foresight
-        # return Foresight
-    # elif strategy_name == 'genetic':
-        # from strategies.genetic import Genetic
-        # return Genetic
-    # else:
-        # raise Exception('unknown strategy with name {}'.format(strategy_name))
 
 
 class Strategy():
     """ strategy
     """
 
-    def __init__(self, constants, start_time, interval):
+    def __init__(self, constants, start_time, **kwargs):
         self.world_state = deepcopy(constants)
         self.world_state.future_events = []
-        self.current_time = start_time - interval
-        self.interval = interval
+        self.interval = kwargs.get('interval')  # required
+        self.current_time = start_time - self.interval
+        # update optional
+        for k, v in kwargs.items():
+            setattr(self, k, v)
 
     def step(self, event_list=[]):
         self.current_time += self.interval

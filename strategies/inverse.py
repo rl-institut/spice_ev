@@ -13,22 +13,8 @@ class Inverse(Strategy):
     Idea is to find minimum viable cost threshold over next 24h
     Timesteps with less external load and smaller costs are prioritized for loading
     """
-    def __init__(self, constants, start_time, interval):
-        super().__init__(constants, start_time, interval)
-        self.description = "inverse"
-
-        # prepare dictionary of predicted external load
-        self.pred_ext_load = {}
-
-        # initialize external load prediction for each timestep in a day
-        timesteps_per_day = int(datetime.timedelta(days=1) / interval)
-        cur_time = start_time
-        for _ in range(timesteps_per_day):
-            for gc in self.world_state.grid_connectors.keys():
-                self.pred_ext_load[str(cur_time.time())] = {
-                    gc: 0 for gc in self.world_state.grid_connectors.keys()
-                }
-            cur_time += interval
+    def __init__(self, constants, start_time, **kwargs):
+        # defaults, can be overridden by CLO (through kwargs)
 
         # minimum binary seach depth
         self.ITERATIONS = 16
@@ -40,6 +26,23 @@ class Inverse(Strategy):
         # eg. margin = 0.05: vehicles are allowed to leave with 95% of desired SOC
         self.SOC_MARGIN = 0.0
         self.LOAD_STRAT = 'balanced' # greedy, balanced
+
+        # init parent class Strategy. May override defaults
+        super().__init__(constants, start_time, **kwargs)
+        self.description = "inverse ({})".format(self.LOAD_STRAT)
+
+        # prepare dictionary of predicted external load
+        self.pred_ext_load = {}
+
+        # initialize external load prediction for each timestep in a day
+        timesteps_per_day = int(datetime.timedelta(days=1) / self.interval)
+        cur_time = start_time
+        for _ in range(timesteps_per_day):
+            for gc in self.world_state.grid_connectors.keys():
+                self.pred_ext_load[str(cur_time.time())] = {
+                    gc: 0 for gc in self.world_state.grid_connectors.keys()
+                }
+            cur_time += self.interval
 
     def step(self, event_list=[]):
         super().step(event_list)

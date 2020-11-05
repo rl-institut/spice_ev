@@ -3,8 +3,8 @@ from strategy import Strategy
 
 
 class Greedy(Strategy):
-    def __init__(self, constants, start_time, interval):
-        super().__init__(constants, start_time, interval)
+    def __init__(self, constants, start_time, **kwargs):
+        super().__init__(constants, start_time, **kwargs)
         self.description = "greedy"
 
 
@@ -37,4 +37,3 @@ class Greedy(Strategy):
             socs[vehicle_id] = vehicle.battery.soc
 
         return {'current_time': self.current_time, 'commands': charging_stations, 'socs': socs}
-

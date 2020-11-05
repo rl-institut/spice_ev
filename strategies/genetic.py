@@ -60,17 +60,20 @@ class Genetic(Strategy):
     """
     Charging strategy computed by genetic algorithm.
     """
-    def __init__(self, constants, start_time, interval):
-        super().__init__(constants, start_time, interval)
-        self.description = "genetic"
-        assert interval.seconds == 15*60, "Genetic algorithm only for 15 minute intervals"
-        assert len(self.world_state.grid_connectors) == 1, "Only one Grid Connector allowed"
-
+    def __init__(self, constants, start_time, **kwargs):
+        # defaults
         self.INTERVALS = [1,1,2,4,8,16,16,32] # 24 hours
-        # self.INTERVALS = [1,2,4,8,16,32,33]
         self.POPSIZE = 8# 32
         self.GENERATIONS = 2 #10
         self.N_CORE = mp.cpu_count()
+
+        super().__init__(constants, start_time, **kwargs)
+        self.description = "genetic"
+        assert self.interval.seconds == 15*60, "Genetic algorithm only for 15 minute intervals"
+        assert len(self.world_state.grid_connectors) == 1, "Only one Grid Connector allowed"
+
+        if sum(self.INTERVALS) != 96:
+            print("Warning: INTERVALS should add up to 24 hours (96 intervals)")
 
         self.population = []
 
@@ -79,7 +82,7 @@ class Genetic(Strategy):
         # prepare dictionary of predicted external load
         self.pred_gc = {}
 
-        timesteps_per_day = int(datetime.timedelta(days=1) / interval)
+        timesteps_per_day = int(datetime.timedelta(days=1) / self.interval)
         cur_time = start_time
         for _ in range(timesteps_per_day):
             self.pred_gc[str(cur_time.time())] = {
@@ -87,7 +90,7 @@ class Genetic(Strategy):
                 'max_power': gc.max_power,
                 'cost': gc.cost
             }
-            cur_time += interval
+            cur_time += self.interval
 
     def set_fitness(self, result):
         self.population[result[0]] = result[1]
