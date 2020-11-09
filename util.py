@@ -46,7 +46,7 @@ def get_power(y, cost_dict):
     if cost_dict["type"] == "fixed":
         return y / cost_dict["value"]
     elif cost_dict["type"] == "polynomial":
-        while cost_dict["value"][-1] == 0:
+        while len(cost_dict["value"]) > 0 and cost_dict["value"][-1] == 0:
             # reduce cost polynom until highest coefficient != 0
             cost_dict["value"].pop()
         if len(cost_dict["value"]) <= 1:
