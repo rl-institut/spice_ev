@@ -87,4 +87,4 @@ class Strategy():
 
             # check for associated costs
             if not connector.cost:
-                raise Exception("Warning: Connector {} has no associated costs at {}".format(name, time))
+                raise Exception("Connector {} has no associated costs at {}".format(name, self.current_time))
