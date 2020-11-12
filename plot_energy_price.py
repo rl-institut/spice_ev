@@ -40,19 +40,12 @@ if __name__ == '__main__':
 
     cur_time = s.start_time - s.interval
     grid_op_signals = []
-    xlabels = []
-    ylabels = []
     # get costs for all timesteps
     for day in range(days):
-        # new day, new xlabel
-        xlabels.append((cur_time + s.interval).date())
         # cycle through day
         for idx in range(intervals_per_day):
             # next timestep
             cur_time += s.interval
-            if len(ylabels) < intervals_per_day:
-                # first day: create ylabels
-                ylabels.append(cur_time.time())
 
             # get events for this timestep
             ts_events = event_steps.pop(0)
@@ -90,6 +83,8 @@ if __name__ == '__main__':
 
     # plot all GC prices
     fig, axes = plt.subplots(len(gcs))
+    start_date= s.start_time.date()
+    end_date  = (s.start_time + s.n_intervals * s.interval).date()
     for gc_idx, gc_id in enumerate(sorted(gcs.keys())):
         if len(gcs) > 1:
             ax = axes[gc_idx]
@@ -99,7 +94,7 @@ if __name__ == '__main__':
 
         # get plot limits
         # xaxis: dates -> convert dates to numbers
-        xlims = [mdates.date2num(xlabels[0]), mdates.date2num(xlabels[-1])]
+        xlims = [mdates.date2num(start_date), mdates.date2num(end_date)]
         # yaxis: times -> use interval index
         ylims = [0, intervals_per_day]
         extent = [xlims[0], xlims[1], ylims[1], ylims[0]]
