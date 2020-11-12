@@ -26,7 +26,7 @@ class Balanced(Strategy):
         for vehicle_id in sorted(self.world_state.vehicles):
             # get vehicle
             vehicle = self.world_state.vehicles[vehicle_id]
-            delta_soc = vehicle.desired_soc - vehicle.battery.soc
+            delta_soc = vehicle.get_delta_soc()
             cs_id = vehicle.connected_charging_station
             if cs_id is None:
                 # not connected

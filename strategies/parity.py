@@ -20,9 +20,8 @@ class Parity(Strategy):
 
         # gather all vehicles in need of charge
         for vehicle_id, vehicle in self.world_state.vehicles.items():
-            delta_soc = vehicle.desired_soc - vehicle.battery.soc
             cs_id = vehicle.connected_charging_station
-            if delta_soc > 0 and cs_id:
+            if vehicle.get_delta_soc() > 0 and cs_id:
                 cs = self.world_state.charging_stations[cs_id]
                 gc_id = cs.parent
                 if gc_id in vehicle_to_grid:

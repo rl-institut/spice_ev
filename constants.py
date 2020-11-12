@@ -89,3 +89,6 @@ class Vehicle:
             self.soc,
         )
         del self.soc
+
+    def get_delta_soc(self):
+        return self.desired_soc - self.battery.soc

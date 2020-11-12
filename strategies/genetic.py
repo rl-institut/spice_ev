@@ -149,8 +149,7 @@ class Genetic(Strategy):
         for vehicle_id in sorted(self.world_state.vehicles.keys()):
             vehicle = self.world_state.vehicles[vehicle_id]
             cs_id = vehicle.connected_charging_station
-            delta_soc = vehicle.desired_soc - vehicle.battery.soc
-            if cs_id and delta_soc > 0:
+            if vehicle.get_delta_soc() > 0 and cs_id:
                 vehicles.append(vehicle)
                 charging_stations[cs_id] = 0
 
@@ -270,7 +269,7 @@ class Genetic(Strategy):
             assert vehicle.battery.soc <= 100
             assert vehicle.battery.soc >= 0, 'SOC of {} is {}'.format(vehicle_id, vehicle.battery.soc)
 
-            delta_soc += vehicle.desired_soc - vehicle.battery.soc
+            delta_soc += vehicle.get_delta_soc()
 
         # print(self.current_time, self.population[0][1])
         print("{}: {}€, {} need charging, {} avg delta SOC".format(self.current_time, int(self.population[0][1]), len(vehicles), round(delta_soc / len(vehicles),2)))

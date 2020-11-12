@@ -46,7 +46,7 @@ class Foresight(Strategy):
         # gather current state of vehicles
         vehicles = {
             v_id: {
-                "delta_energy": (v.desired_soc - v.battery.soc) / 100 * v.battery.capacity,
+                "delta_energy": v.get_delta_soc() / 100 * v.battery.capacity,
                 "timesteps": 0
             } for v_id, v in self.world_state.vehicles.items()
         }

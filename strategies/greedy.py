@@ -16,9 +16,8 @@ class Greedy(Strategy):
 
         for vehicle_id in sorted(self.world_state.vehicles):
             vehicle = self.world_state.vehicles[vehicle_id]
-            delta_soc = vehicle.desired_soc - vehicle.battery.soc
             cs_id = vehicle.connected_charging_station
-            if delta_soc > 0 and cs_id:
+            if vehicle.get_delta_soc() > 0 and cs_id:
                 cs = self.world_state.charging_stations[cs_id]
                 # vehicle needs loading
                 gc = self.world_state.grid_connectors[cs.parent]
