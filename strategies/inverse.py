@@ -24,7 +24,7 @@ class Inverse(Strategy):
         # fraction of SOC allowed less
         # eg. margin = 0.05: vehicles are allowed to leave with 95% of desired SOC
         self.SOC_MARGIN = 0.0
-        self.LOAD_STRAT = 'balanced' # greedy, balanced
+        self.LOAD_STRAT = 'needy' # greedy, needy, balanced
 
         # init parent class Strategy. May override defaults
         super().__init__(constants, start_time, **kwargs)
@@ -42,6 +42,16 @@ class Inverse(Strategy):
                     gc: 0 for gc in self.world_state.grid_connectors.keys()
                 }
             cur_time += self.interval
+
+        # set order of vehicles to load
+        if self.LOAD_STRAT == 'greedy':
+            self.sort_key=lambda v: v.estimated_time_of_departure
+        elif self.LOAD_STRAT == 'needy':
+            self.sort_key=lambda v: -v.get_delta_soc()
+        elif self.LOAD_STRAT == 'balanced':
+            self.sort_key=lambda v: 0 # order does not matter
+        else:
+            raise NotImplementedError(self.LOAD_STRAT)
 
     def step(self, event_list=[]):
         super().step(event_list)
@@ -72,12 +82,14 @@ class Inverse(Strategy):
                 }
             }
 
+        soc_need = 0
         # get connected vehicles
         for vid, vehicle in self.world_state.vehicles.items():
             cs_id = vehicle.connected_charging_station
             if cs_id is not None:
                 cs = self.world_state.charging_stations[cs_id]
                 gcs[cs.parent]['vehicles'][vid] = vehicle
+                soc_need += max(vehicle.get_delta_soc(), 0)
 
         self.pred_ext_load[timestamp] = predicted_loads
 
@@ -189,6 +201,7 @@ class Inverse(Strategy):
                 # binary search: try out average of min and max
                 cur_costs = (max_costs + min_costs) / 2
                 sim_time  = self.current_time - self.interval
+                sim_need = soc_need
 
                 # reset vehicle SOC
                 for vid, sim_vehicle in sim_vehicles.items():
@@ -200,7 +213,7 @@ class Inverse(Strategy):
                     sim_charging = []
 
                     safe = True
-                    for vehicle in sorted(sim_vehicles.values(), key=lambda v: v.estimated_time_of_departure):
+                    for vehicle in sorted(sim_vehicles.values(), key=self.sort_key):
                         needs_charging = vehicle.battery.soc < ((1.0 - self.SOC_MARGIN) * vehicle.desired_soc)
                         has_left = sim_time >= vehicle.estimated_time_of_departure
                         if needs_charging:
@@ -237,16 +250,23 @@ class Inverse(Strategy):
                     max_power = max_power or ts_info['max']
                     # subtract external loads
                     usable_power = max_power - ts_info['ext']
+                    delta_sim_need = 0
 
-                    for vehicle in sim_charging:
+                    for vehicle in sorted(sim_charging, key=self.sort_key):
                         if usable_power > 0:
                             if self.LOAD_STRAT == 'greedy':
                                 # charge one vehicle after the other
                                 avg_power = vehicle.battery.load(self.interval, usable_power)['avg_power']
                                 usable_power -= avg_power
+                            elif self.LOAD_STRAT == 'needy':
+                                delta_soc = max(vehicle.get_delta_soc(), 0)
+                                f = delta_soc / sim_need if sim_need > 0 else 0
+                                delta_sim_need += vehicle.battery.load(self.interval, usable_power * f)['soc_delta']
                             elif self.LOAD_STRAT == 'balanced':
                                 # distribute among remaining vehicles
                                 vehicle.battery.load(self.interval, usable_power / len(sim_charging))
+
+                    sim_need -= delta_sim_need
 
                 # after all timesteps done: check all vehicles are loaded
                 safe = True
@@ -264,15 +284,17 @@ class Inverse(Strategy):
             max_power = max_power or gc.cur_max_power
             # subtract external loads
             usable_power = max_power - sum(gc.current_loads.values())
-
             # load according to LOAD_STRAT (same as in simulation)
-            # for vid in sorted(gc_info['vehicles']):
-            for vehicle in sorted(gc_info['vehicles'].values(), key=lambda v: v.estimated_time_of_departure):
+            for vehicle in sorted(gc_info['vehicles'].values(), key=self.sort_key):
                 if usable_power > 0:
                     if self.LOAD_STRAT == 'greedy':
                         # charge one vehicle after the other
                         avg_power = vehicle.battery.load(self.interval, usable_power)['avg_power']
                         usable_power -= avg_power
+                    elif self.LOAD_STRAT == 'needy':
+                        delta_soc = max(vehicle.get_delta_soc(), 0)
+                        f = delta_soc / soc_need
+                        avg_power = vehicle.battery.load(self.interval, usable_power * f)['avg_power']
                     elif self.LOAD_STRAT == 'balanced':
                         # distribute among remaining vehicles
                         avg_power = vehicle.battery.load(self.interval, usable_power / len(gc_info['vehicles']))['avg_power']
