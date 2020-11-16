@@ -7,7 +7,7 @@ class Battery:
         self.loading_curve = copy.deepcopy(loading_curve)
         self.soc = soc
 
-    def load(self, timedelta, max_charging_power):
+    def load(self, timedelta, max_charging_power, target_soc=100.0):
         """ Adjust SOC and return average charging power for a given timedelta
         and maximum charging power.
         """
@@ -29,7 +29,7 @@ class Battery:
         while idx_1 < len(clamped.points) - 1:
             idx_2 = idx_1 + 1
             x1 = clamped.points[idx_1][0]
-            x2 = clamped.points[idx_2][0]
+            x2 = min(target_soc, clamped.points[idx_2][0])
             if self.soc >= x2:
                 idx_1 += 1
             else:
@@ -40,13 +40,13 @@ class Battery:
         # compute average power for each linear section
         # update SOC
         # computes for whole time or until SOC is 100% (no next section)
-        while hours > EPS and 100.0 - self.soc > EPS: #self.soc < 100.0:
+        while hours > EPS and target_soc - self.soc > EPS: #self.soc < 100.0:
             while x2 - self.soc < EPS: # self.soc >= x2:
                 # get next section
                 idx_1 += 1
                 idx_2 += 1
                 x1 = clamped.points[idx_1][0]
-                x2 = clamped.points[idx_2][0]
+                x2 = min(target_soc, clamped.points[idx_2][0])
 
             # compute gradient and offset of linear equation
             y1 = clamped.power_from_soc(x1)
@@ -90,6 +90,23 @@ class Battery:
         avg_power = sum(power)/len(power) if len(power) else 0
         return {'avg_power': avg_power, 'soc_delta': self.soc - old_soc}
 
+    def unload(self, timedelta, max_power=None, target_soc=0):
+        # unload battery with constant power over timedelta
+        # can use specific power - default: loading curve max power
+        # can set target SOC (don't discharge below this threshold)
+        max_power = max_power or self.loading_curve.max_power
+        delta_soc = max(self.soc - target_soc, 0) / 100
+        hours = timedelta.total_seconds() / 3600.0
+        # how long until target SOC reached?
+        t = delta_soc * self.capacity / max_power
+        # within time?
+        t = min(t, hours)
+        # get average power per hour
+        avg_power = max_power * t/hours
+        # discharge battery with average power over time
+        delta_soc = (avg_power * hours) / self.capacity * 100
+        self.soc -= delta_soc
+        return {'avg_power': avg_power, 'soc_delta': delta_soc}
 
     def __str__(self):
         return 'Battery {}'.format({ k: str(v) for k, v in vars(self).items() })
