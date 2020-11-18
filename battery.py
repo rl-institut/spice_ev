@@ -109,5 +109,36 @@ class Battery:
         self.soc -= delta_soc
         return {'avg_power': avg_power, 'soc_delta': delta_soc}
 
+    def load_iterative(self, timedelta, max_charging_power):
+        """ Adjust SOC and return average charging power for a given timedelta
+        and maximum charging power.
+        """
+
+        seconds = timedelta.total_seconds()
+
+        clamped = self.loading_curve.clamped(max_charging_power)
+
+        avg_power = 0
+        old_soc = self.soc
+
+        # iterative solution
+        for _ in range(round(seconds)):
+            loading_power = clamped.power_from_soc(self.soc)
+            avg_power += loading_power
+            energy_delta = loading_power / 3600
+            delta_soc = 100.0 * energy_delta / self.capacity
+            self.soc += delta_soc
+
+            if self.soc >= 100:
+                avg_power -= loading_power * (100 - self.soc) / delta_soc
+                self.soc = 100
+                break
+
+        avg_power /= seconds
+        soc_delta = self.soc - old_soc
+
+        return {'avg_power': avg_power, 'soc_delta': soc_delta}
+
+
     def __str__(self):
         return 'Battery {}'.format({ k: str(v) for k, v in vars(self).items() })
