@@ -131,7 +131,7 @@ class Scenario:
 
 if __name__ == '__main__':
 
-    strategies = ['greedy', 'parity', 'balanced', 'foresight', 'genetic', 'inverse']
+    strategies = ['greedy', 'parity', 'balanced', 'foresight', 'genetic', 'inverse', 'v2g']
 
     parser = argparse.ArgumentParser(description='Netz_eLOG modelling')
     parser.add_argument('file', nargs='?', default='tests/test_scenario.json', help='scenario JSON file')
