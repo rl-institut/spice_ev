@@ -95,6 +95,7 @@ class Battery:
         # can use specific power - default: loading curve max power
         # can set target SOC (don't discharge below this threshold)
         max_power = max_power or self.loading_curve.max_power
+        max_power = min(max_power, self.loading_curve.max_power)
         delta_soc = max(self.soc - target_soc, 0) / 100
         hours = timedelta.total_seconds() / 3600.0
         # how long until target SOC reached?
