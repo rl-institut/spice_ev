@@ -97,16 +97,23 @@ class Battery:
         if max_power is None:
             avg_power = self.loading_curve.max_power
         else:
-            avg_power = min(max_power, self.loading_curve.max_power)
+            avg_power = min(max(max_power, 0), self.loading_curve.max_power)
+
         delta_soc = max(self.soc - target_soc, 0) / 100
         hours = timedelta.total_seconds() / 3600.0
+
         # how long until target SOC reached?
-        t = delta_soc * self.capacity / avg_power if avg_power > 0 else 0
+        t = delta_soc * self.capacity / avg_power if avg_power > 0 else hours
         # within time?
         t = min(t, hours)
+        # power = energy / t
+        # energy = soc * c
+
         # discharge battery with average power over time
-        delta_soc = (avg_power * t) / self.capacity * 100
+        delta_energy = avg_power * t
+        delta_soc = delta_energy / self.capacity * 100
         self.soc -= delta_soc
+        avg_power = delta_energy / t if t > 0 else 0
         return {'avg_power': avg_power, 'soc_delta': delta_soc}
 
     def load_iterative(self, timedelta, max_charging_power):
