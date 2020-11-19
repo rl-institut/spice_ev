@@ -17,10 +17,11 @@ class V2g(Strategy):
         # low pass filter for predicted external cost
         self.LPF = 0.75
         self.LOAD_STRAT = 'needy' # greedy, needy, balanced
+        self.SAFE_DISCHARGE = 0
 
         # init parent class Strategy. May override defaults
         super().__init__(constants, start_time, **kwargs)
-        self.description = "v2g"
+        self.description = "v2g_{}".format(self.LOAD_STRAT)
 
         # limitations: one grid connector, linear costs
         assert len(constants.grid_connectors) == 1, "Only one grid connector supported"
@@ -194,9 +195,9 @@ class V2g(Strategy):
                 if usable_power <= 0:
                     # all available power used
                     break
-                # if vehicle.get_delta_soc() >= 0:
+                if vehicle.get_delta_soc() >= self.SAFE_DISCHARGE:
                     # vehicle is not charged yet
-                    # continue
+                    continue
 
                 if self.LOAD_STRAT == 'greedy':
                     # discharge one vehicle after the other
