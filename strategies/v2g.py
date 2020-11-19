@@ -47,14 +47,16 @@ class V2g(Strategy):
             cs.current_power = 0
 
         energy_needed = 0
+        energy_avail  = 0
         max_energy_needed = 0
         # get connected vehicles
         vehicles = {}
         for vid, vehicle in self.world_state.vehicles.items():
             if vehicle.connected_charging_station is not None:
                 vehicles[vid] = vehicle
-                delta_soc = max(vehicle.get_delta_soc(), 0)
-                energy_needed += (delta_soc / 100) * vehicle.battery.capacity
+                delta_soc = vehicle.get_delta_soc()
+                energy_needed += max(delta_soc / 100, 0) * vehicle.battery.capacity
+                energy_avail  -= min(delta_soc / 100, 0) * vehicle.battery.capacity
                 max_energy_needed += (1 - vehicle.battery.soc/100) * vehicle.battery.capacity
 
         # get one and only GC
@@ -149,13 +151,9 @@ class V2g(Strategy):
                 # success: vehicles charged and external load saturated
                 max_power = cur_power
 
-        # print(self.current_time, energy_needed, energy_loaded, energy_discharged, cur_power)
-
         charging_stations = {}
         usable_power = min(gc.max_power, cur_power) - gc.get_external_load()
         vehicle_list = sorted(vehicles.values(), key=self.sort_key)
-        # num_charging = len([v for v in vehicle_list if v.get_delta_soc() > 0])
-        # print(usable_power, num_charging, energy_needed, max_energy_needed, energy_loaded, energy_discharged)
         if usable_power > 0:
             # load vehicles
             for vehicle in vehicle_list:
@@ -167,15 +165,23 @@ class V2g(Strategy):
                     usable_power -= avg_power
                 elif self.LOAD_STRAT == 'needy' and max_energy_needed > 0:
                     # delta_soc = max(vehicle.get_delta_soc(), 0)
-                    delta_soc = 100 - vehicle.battery.soc
-                    delta_energy = (delta_soc / 100) * vehicle.battery.capacity
-                    f = delta_energy / max_energy_needed
+                    # delta_soc = 100 - vehicle.battery.soc
+                    # delta_energy = (delta_soc / 100) * vehicle.battery.capacity
+                    # f = delta_energy / max_energy_needed
+                    # f = delta_energy / energy_needed
+                    delta_soc = vehicle.get_delta_soc() / 100
+                    if delta_soc > 0:
+                        f = delta_soc * vehicle.battery.capacity / energy_needed
+                        max_energy_needed - energy_needed
+                    else:
+                        f = -delta_soc * vehicle.battery.capacity / max_energy_needed
                     avg_power = vehicle.battery.load(self.interval, usable_power * f)['avg_power']
                 elif self.LOAD_STRAT == 'balanced':
                     # distribute among remaining vehicles
                     avg_power = vehicle.battery.load(self.interval, usable_power / len(vehicle_list))['avg_power']
                 else:
-                    raise NotImplementedError(self.LOAD_STRAT)
+                    continue
+
                 cs_id = vehicle.connected_charging_station
                 cs = self.world_state.charging_stations[cs_id]
                 charging_stations[cs_id] = gc.add_load(cs_id, avg_power)
@@ -183,13 +189,31 @@ class V2g(Strategy):
         else:
             # discharge vehicles
             vehicle_list.reverse()
+            usable_power *= -1
             for vehicle in vehicle_list:
-                if usable_power >= 0:
+                if usable_power <= 0:
+                    # all available power used
                     break
-                if vehicle.get_delta_soc() > 0:
+                # if vehicle.get_delta_soc() >= 0:
+                    # vehicle is not charged yet
+                    # continue
+
+                if self.LOAD_STRAT == 'greedy':
+                    # discharge one vehicle after the other
+                    avg_power = vehicle.battery.unload(self.interval, usable_power, vehicle.desired_soc)['avg_power']
+                    usable_power -= avg_power
+                elif self.LOAD_STRAT == 'needy' and energy_avail > 0:
+                    # discharge in relation to available energy
+                    delta_soc = -vehicle.get_delta_soc()
+                    delta_energy = (delta_soc / 100) * vehicle.battery.capacity
+                    f = delta_energy / energy_avail
+                    avg_power = vehicle.battery.unload(self.interval, usable_power * f, vehicle.desired_soc)['avg_power']
+                elif self.LOAD_STRAT == 'balanced':
+                    # discharge evenly
+                    avg_power = vehicle.battery.unload(self.interval, usable_power / len(vehicle_list), vehicle.desired_soc)['avg_power']
+                else:
                     continue
-                avg_power = vehicle.battery.unload(self.interval, usable_power, vehicle.desired_soc)['avg_power']
-                usable_power += avg_power
+
                 cs_id = vehicle.connected_charging_station
                 cs = self.world_state.charging_stations[cs_id]
                 charging_stations[cs_id] = gc.add_load(cs_id, -avg_power)
