@@ -23,7 +23,7 @@ class Inverse(Strategy):
         self.LPF = 0.75
         # fraction of SOC allowed less
         # eg. margin = 0.05: vehicles are allowed to leave with 95% of desired SOC
-        self.SOC_MARGIN = 0.0
+        self.SOC_MARGIN = 0.1
         self.LOAD_STRAT = 'needy' # greedy, needy, balanced
 
         # init parent class Strategy. May override defaults
