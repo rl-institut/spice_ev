@@ -94,18 +94,18 @@ class Battery:
         # unload battery with constant power over timedelta
         # can use specific power - default: loading curve max power
         # can set target SOC (don't discharge below this threshold)
-        max_power = max_power or self.loading_curve.max_power
-        max_power = min(max_power, self.loading_curve.max_power)
+        if max_power is None:
+            avg_power = self.loading_curve.max_power
+        else:
+            avg_power = min(max_power, self.loading_curve.max_power)
         delta_soc = max(self.soc - target_soc, 0) / 100
         hours = timedelta.total_seconds() / 3600.0
         # how long until target SOC reached?
-        t = delta_soc * self.capacity / max_power
+        t = delta_soc * self.capacity / avg_power if avg_power > 0 else 0
         # within time?
         t = min(t, hours)
-        # get average power per hour
-        avg_power = max_power * t/hours
         # discharge battery with average power over time
-        delta_soc = (avg_power * hours) / self.capacity * 100
+        delta_soc = (avg_power * t) / self.capacity * 100
         self.soc -= delta_soc
         return {'avg_power': avg_power, 'soc_delta': delta_soc}
 
