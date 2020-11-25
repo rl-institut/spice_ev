@@ -86,7 +86,7 @@ class Scenario:
 
             # plot!
             fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2,2)
-            fig.suptitle('Strategy: {}'.format(strat.description), fontweight='bold')
+            fig.suptitle('Strategy: {}: {}€'.format(strat.description, int(sum(costs))), fontweight='bold')
 
             lines = ax1.step(xlabels, sum_cs)
             ax1.set_title('Charging Stations')
