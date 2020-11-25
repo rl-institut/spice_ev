@@ -4,6 +4,7 @@ from strategy import Strategy
 
 class Greedy(Strategy):
     def __init__(self, constants, start_time, **kwargs):
+        self.CONCURRENCY=1.0
         super().__init__(constants, start_time, **kwargs)
         self.description = "greedy"
 
@@ -22,7 +23,7 @@ class Greedy(Strategy):
                 # vehicle needs loading
                 gc = self.world_state.grid_connectors[cs.parent]
                 gc_power_left = gc.cur_max_power - sum(gc.current_loads.values())
-                cs_power_left = cs.max_power - charging_stations.get(cs_id, 0)
+                cs_power_left = (self.CONCURRENCY * cs.max_power) - charging_stations.get(cs_id, 0)
                 max_power =  min(cs_power_left, gc_power_left)
 
                 load_result = vehicle.battery.load(self.interval, max_power)
