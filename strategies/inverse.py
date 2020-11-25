@@ -293,7 +293,7 @@ class Inverse(Strategy):
                         usable_power -= avg_power
                     elif self.LOAD_STRAT == 'needy':
                         delta_soc = max(vehicle.get_delta_soc(), 0)
-                        f = delta_soc / soc_need
+                        f = delta_soc / soc_need if soc_need > 0 else 0
                         avg_power = vehicle.battery.load(self.interval, usable_power * f)['avg_power']
                     elif self.LOAD_STRAT == 'balanced':
                         # distribute among remaining vehicles
