@@ -282,6 +282,7 @@ class Inverse(Strategy):
             max_power = util.get_power(cur_costs, gc.cost)
             # max_power may be None (constant price)
             max_power = max_power or gc.cur_max_power
+            max_power = min(max_power, gc.cur_max_power)
             # subtract external loads
             usable_power = max_power - sum(gc.current_loads.values())
             # load according to LOAD_STRAT (same as in simulation)
