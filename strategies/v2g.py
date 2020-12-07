@@ -15,7 +15,6 @@ class V2g(Strategy):
         # compare close floating points
         self.EPS = 1e-2
         # low pass filter for predicted external cost
-        self.LPF = 0.75
         self.LOAD_STRAT = 'needy' # greedy, needy, balanced
         self.SAFE_DISCHARGE = 0
         self.USE_COST = 0
@@ -284,27 +283,32 @@ class V2g(Strategy):
                 cs.current_power += avg_power
                 used_power += avg_power
                 max_energy_needed -= load["soc_delta"]/100 * vehicle.battery.capacity
-                if gc.cur_max_power != gc.max_power:
-                    print(avg_power, max_energy_needed)
 
             # distribute surplus
-            usable_power -= used_power
+            surplus_power = max(usable_power - used_power, 0)
             for vehicle in vehicle_list:
-                if usable_power <= 0:
+                cs_id = vehicle.connected_charging_station
+                cs = self.world_state.charging_stations[cs_id]
+                cs_remaining_power = cs.max_power - cs.current_power
+                load_power = 0
+                # if usable_power <= 0:
+                if usable_power < vehicle.vehicle_type.min_charging_power:
                     break
                 if self.LOAD_STRAT == 'greedy':
                     # charge one vehicle after the other
-                    avg_power = vehicle.battery.load(self.interval, usable_power)["avg_power"]
+                    load_power = max(usable_power - used_power, 0)
                 elif self.LOAD_STRAT == 'needy' and max_energy_needed > 0:
                     delta_soc = 1 - vehicle.battery.soc/100
                     f = delta_soc * vehicle.battery.capacity / max_energy_needed
-                    avg_power = vehicle.battery.load(self.interval, usable_power * f)["avg_power"]
+                    load_power = surplus_power * f
                 elif self.LOAD_STRAT == 'balanced':
                     # distribute among vehicles
-                    avg_power = vehicle.battery.load(self.interval, usable_power / len(vehicle_list))["avg_power"]
+                    load_power = surplus_power / len(vehicle_list)
 
-                cs_id = vehicle.connected_charging_station
-                cs = self.world_state.charging_stations[cs_id]
+                load_power = min(cs_remaining_power, load_power)
+                avg_power = vehicle.battery.load(self.interval, load_power)["avg_power"]
+                used_power += avg_power
+
                 charging_stations[cs_id] = gc.add_load(cs_id, avg_power)
                 cs.current_power += avg_power
 
