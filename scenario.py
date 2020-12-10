@@ -34,6 +34,14 @@ class Scenario:
             delta = stop_time - self.start_time
             self.n_intervals = delta / self.interval
 
+        # for gc_id, gc in self.constants.grid_connectors.items():
+            # ext_lists = list(filter(lambda l: l.grid_connector_id == gc_id, self.events.external_load_lists))
+            # gc.compute_avg_ext_load_week(ext_lists, self.interval)
+        for ext_load_list in self.events.external_load_lists.values():
+            gc_id = ext_load_list.grid_connector_id
+            gc = self.constants.grid_connectors[gc_id]
+            gc.add_avg_ext_load_week(ext_load_list, self.interval)
+
 
     def run(self, strategy_name, options):
         options['interval'] = self.interval
@@ -45,6 +53,8 @@ class Scenario:
         prices = []
         results = []
         ext_load = []
+        predicted = []
+        diffToPred = []
 
         for step_i in range(self.n_intervals):
             # print('step {}: {}'.format(step_i, current_time))
@@ -52,6 +62,8 @@ class Scenario:
             gcs = strat.world_state.grid_connectors.values()
             # get external loads (all current loads without charging stations)
             ext_load.append(sum([gc.get_external_load(self.constants.charging_stations.keys()) for gc in gcs]))
+            predicted.append(sum([gc.get_avg_ext_load(strat.current_time, self.interval) for gc in gcs]))
+            diffToPred.append(ext_load[-1] - predicted[-1])
             results.append(res)
 
             # get prices and costs
@@ -103,7 +115,10 @@ class Scenario:
             ax3.plot(xlabels, list([sum(cs) for cs in sum_cs]), label="CS")
             ax3.plot(xlabels, ext_load, label="external")
             total_power = list([ext_load[i] + sum(sum_cs[i]) for i in range(len(xlabels))])
+            # ax3.plot(xlabels, predicted, label="Prediction")
+            # ax3.plot(xlabels, diffToPred, label="Difference")
             ax3.plot(xlabels, total_power, label="total")
+            # ax3.axhline(color='k', linestyle='--', linewidth=1)
             ax3.set_title('Cumulative Power')
             ax3.set(ylabel='Power in kW')
             ax3.legend()
