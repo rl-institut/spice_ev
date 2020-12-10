@@ -1,6 +1,7 @@
 import battery
 import loading_curve
 import util
+import datetime
 
 class Constants:
     """ constants values of a scenario
@@ -22,6 +23,7 @@ class GridConnector:
             ('cost', dict, {}),
         ]
         util.set_attr_from_dict(obj, self, keys, optional_keys)
+        self.avg_ext_load = None
 
     def add_load(self, key, value):
         # add power __value__ to current_loads dict under __key__
@@ -39,6 +41,60 @@ class GridConnector:
             if key not in exclude:
                 external_load += value
         return external_load
+
+    def add_avg_ext_load_week(self, ext_load_list, interval):
+        # Compute average load using ExternalLoadList
+        # Each weekday has its own sequence of average values, depending on interval
+        # Multiple external loads are added up
+
+        # convert ExternalLoadList to event list
+        events = ext_load_list.get_events(None)
+        events_per_day = int(datetime.timedelta(hours=24) / interval)
+        values_by_weekday = [[[] for _ in range(events_per_day)] for _ in range(7)]
+
+        # iterate over event list, to find which external load is present during which interval step
+        # take care when ExternalLoadList.step_duration_s != interval (not in sync)
+        # last event in interval used, similar to strategy implementation
+        cur_time = ext_load_list.start_time - interval
+        cur_value = None
+        while True:
+            cur_time += interval
+
+            if len(events) == 0:
+                break
+
+            # get last event for this timestep
+            while len(events) > 0 and events[0].start_time <= cur_time:
+                event = events.pop(0)
+                cur_value = event.value
+
+            # insert external load value into specific timeslot
+            if cur_value is not None:
+                weekday = cur_time.weekday()
+                midnight = cur_time.replace(hour=0, minute=0)
+                timeslot = int((cur_time - midnight) / interval)
+                values_by_weekday[weekday][timeslot].append(cur_value)
+
+        # compute averages
+        avg_values_by_weekday = [[
+            (sum(v) / len(v)) if len(v) > 0 else 0 for v in day_values
+        ] for day_values in values_by_weekday]
+
+        # set/update avg_ext_load for this GC
+        if self.avg_ext_load is None:
+            self.avg_ext_load = avg_values_by_weekday
+        else:
+            self.avg_ext_load = [sum(x) for x in zip(self.avg_ext_load, avg_values_by_weekday)]
+
+    def get_avg_ext_load(self, dt, interval):
+        # get average external load for specific timeslot
+        # dt: datetime, interval: scenario interval timedelta
+        if self.avg_ext_load is None:
+            return 0
+        weekday = dt.weekday()
+        midnight = dt.replace(hour=0, minute=0)
+        timeslot = int((dt - midnight) / interval)
+        return self.avg_ext_load[weekday][timeslot]
 
 
 class ChargingStation:
