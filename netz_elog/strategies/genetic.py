@@ -6,9 +6,8 @@ import traceback
 def tb(e):
     traceback.print_exception(type(e), e, e.__traceback__)
 
-import events
-from strategy import Strategy
-import util
+from netz_elog import events, util
+from netz_elog.strategy import Strategy
 
 
 def fp(individual):

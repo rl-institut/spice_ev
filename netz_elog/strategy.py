@@ -1,12 +1,12 @@
 from copy import deepcopy
 from importlib import import_module
 
-import events
-import util
+from netz_elog import events, util
+
 
 def class_from_str(strategy_name):
     strategy_name = strategy_name.lower()
-    module = import_module('strategies.' + strategy_name)
+    module = import_module('netz_elog.strategies.' + strategy_name)
     return getattr(module, strategy_name.capitalize())
 
 

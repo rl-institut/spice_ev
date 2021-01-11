@@ -1,7 +1,6 @@
-import battery
-import loading_curve
-import util
 import datetime
+from netz_elog import battery, loading_curve, util
+
 
 class Constants:
     """ constants values of a scenario

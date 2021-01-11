@@ -1,9 +1,8 @@
 from copy import deepcopy
 import datetime
 
-import events
-from strategy import Strategy
-import util
+from netz_elog import events, util
+from netz_elog.strategy import Strategy
 
 
 class Inverse(Strategy):

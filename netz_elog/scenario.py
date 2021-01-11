@@ -6,10 +6,7 @@ import json
 import math
 import os
 
-import constants
-import events
-import strategy
-import util
+from netz_elog import constants, events, strategy, util
 
 
 class Scenario:

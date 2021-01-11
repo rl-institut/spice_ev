@@ -2,7 +2,7 @@ import csv
 from math import ceil
 import os
 import datetime
-import util
+from netz_elog import util
 
 
 class Events:

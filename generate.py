@@ -6,7 +6,7 @@ import json
 import random
 # from math import exp, log
 
-from util import datetime_from_isoformat
+from netz_elog.util import datetime_from_isoformat
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Generate example JSON for Netz_eLOG modelling')

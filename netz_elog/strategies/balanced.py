@@ -1,7 +1,7 @@
 import datetime
 
-import events
-from strategy import Strategy
+from netz_elog import events
+from netz_elog.strategy import Strategy
 
 
 class Balanced(Strategy):

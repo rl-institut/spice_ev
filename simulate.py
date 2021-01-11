@@ -6,11 +6,7 @@ import json
 import math
 import os
 
-import constants
-import events
-from scenario import Scenario
-import strategy
-import util
+from netz_elog.scenario import Scenario
 
 
 if __name__ == '__main__':
