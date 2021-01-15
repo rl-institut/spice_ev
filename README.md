@@ -16,11 +16,17 @@ Generate a scenario and store it in a JSON file:
 ./generate.py example.json
 ```
 
+Generate a 7-day scenario with 10 cars and 15 minute timesteps:
+
+```sh
+./generate.py --days 7 --cars 10 --interval 15 example.json
+```
+
 Run a simulation of this scenario using the `greedy` charging strategy and show
 plots of the results:
 
 ```sh
-./simulate.py kleinmachnow.json --strategy greedy --visual
+./simulate.py example.json --strategy greedy --visual
 ```
 
 Show all command line options:
