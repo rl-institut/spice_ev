@@ -13,10 +13,10 @@ if __name__ == '__main__':
 
     strategies = ['greedy', 'parity', 'balanced', 'foresight', 'genetic', 'inverse', 'v2g']
 
-    parser = argparse.ArgumentParser(description='Netz_eLOG modelling tool. Generate scenarios and simulate different charging strategies.')
+    parser = argparse.ArgumentParser(description='Netz_eLOG modelling tool. Simulate different charging strategies for a given scenario.')
     parser.add_argument('file', nargs='?', default='tests/test_scenario.json', help='Set the scenario JSON file')
     parser.add_argument('--strategy', '-s', nargs='*', default=['greedy'], help='Specify the charging strategy. '
-        'One of {}'.format(', '.join(strategies)))
+        'One of {}. You may define custom options in the form option=value.'.format(', '.join(strategies)))
     parser.add_argument('--visual', '-v', action='store_true', help='Show plots of the results')
     args = parser.parse_args()
 
