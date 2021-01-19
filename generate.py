@@ -14,7 +14,7 @@ if __name__ == '__main__':
     parser.add_argument('--cars', metavar='N', type=int, default=8, help='set number of cars')
     parser.add_argument('--days', metavar='N', type=int, default=30, help='set duration of scenario as number of days')
     parser.add_argument('--interval', metavar='MIN', type=int, default=15, help='set number of minutes for each timestep (Δt)')
-    parser.add_argument('--desired-soc', metavar='SOC', type=int, default=None, help='set desired SOC (0%% - 100%%) for each charging process')
+    parser.add_argument('--desired-soc', metavar='SOC', type=int, default=80, help='set desired SOC (0%% - 100%%) for each charging process')
     parser.add_argument('--include_csv', nargs='*', help='include CSV for external load. You may define custom options in the form option=value')
     parser.add_argument('--external_csv', nargs='?', help='generate CSV for external load. Not implemented.')
     args = parser.parse_args()
@@ -59,7 +59,7 @@ if __name__ == '__main__':
             cs_name = "CS_" + v_name
             is_connected = True
             depart = start + datetime.timedelta(days=1, hours=6, minutes=15 * random.randint(0,4))
-            desired_soc = args.desired_soc or 100
+            desired_soc = args.desired_soc
             soc = random.randint(50,100)
             vehicles[v_name] = {
                 "connected_charging_station": cs_name,
