@@ -2,10 +2,11 @@ import copy
 from math import exp, log
 
 class Battery:
-    def __init__(self, capacity, loading_curve, soc):
+    def __init__(self, capacity, loading_curve, soc, efficiency=0.95):
         self.capacity = capacity
         self.loading_curve = copy.deepcopy(loading_curve)
         self.soc = soc
+        self.efficiency = efficiency
 
     def load(self, timedelta, max_charging_power, target_soc=100.0):
         """ Adjust SOC and return average charging power for a given timedelta
@@ -49,8 +50,8 @@ class Battery:
                 x2 = min(target_soc, clamped.points[idx_2][0])
 
             # compute gradient and offset of linear equation
-            y1 = clamped.power_from_soc(x1)
-            y2 = clamped.power_from_soc(x2)
+            y1 = clamped.power_from_soc(x1) * self.efficiency
+            y2 = clamped.power_from_soc(x2) * self.efficiency
             dx = x2 - x1
             dy = y2 - y1
 
@@ -82,7 +83,7 @@ class Battery:
 
             # compute energy and power
             energy_delta = (new_soc - self.soc) / 100 * c
-            power.append(energy_delta / t)
+            power.append(energy_delta / t / self.efficiency)
             self.soc = new_soc
             hours -= t
 
@@ -113,7 +114,7 @@ class Battery:
         delta_energy = avg_power * t
         delta_soc = delta_energy / self.capacity * 100
         self.soc -= delta_soc
-        avg_power = delta_energy / t if t > 0 else 0
+        avg_power = delta_energy / t * self.efficiency if t > 0 else 0
         return {'avg_power': avg_power, 'soc_delta': delta_soc}
 
     def load_iterative(self, timedelta, max_charging_power):
@@ -133,11 +134,11 @@ class Battery:
             loading_power = clamped.power_from_soc(self.soc)
             avg_power += loading_power
             energy_delta = loading_power / 3600
-            delta_soc = 100.0 * energy_delta / self.capacity
+            delta_soc = 100.0 * energy_delta / self.capacity * self.efficiency
             self.soc += delta_soc
 
             if self.soc >= 100:
-                avg_power -= loading_power * (100 - self.soc) / delta_soc
+                avg_power -= (loading_power * (100 - self.soc) / delta_soc / self.efficiency)
                 self.soc = 100
                 break
 
