@@ -1,5 +1,6 @@
 import datetime
 from netz_elog import battery, loading_curve, util
+from netz_elog.events import ExternalLoad
 
 
 class Constants:
@@ -42,17 +43,17 @@ class GridConnector:
         return external_load
 
     def add_avg_ext_load_week(self, ext_load_list, interval):
-        # Compute average load using ExternalLoadList
+        # Compute average load using EnergyValuesList
         # Each weekday has its own sequence of average values, depending on interval
         # Multiple external loads are added up
 
-        # convert ExternalLoadList to event list
-        events = ext_load_list.get_events(None)
+        # convert EnergyValuesList to event list
+        events = ext_load_list.get_events(None, ExternalLoad, has_perfect_foresight=False)
         events_per_day = int(datetime.timedelta(hours=24) / interval)
         values_by_weekday = [[[] for _ in range(events_per_day)] for _ in range(7)]
 
         # iterate over event list, to find which external load is present during which interval step
-        # take care when ExternalLoadList.step_duration_s != interval (not in sync)
+        # take care when EnergyValuesList.step_duration_s != interval (not in sync)
         # last event in interval used, similar to strategy implementation
         cur_time = ext_load_list.start_time - interval
         cur_value = None

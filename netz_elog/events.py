@@ -10,7 +10,7 @@ class Events:
     """
     def __init__(self, obj, dir_path):
         # optional
-        self.external_load_lists = dict({k: ExternalLoadList(v, dir_path) for k, v in obj.get('external_load', {}).items()})
+        self.external_load_lists = dict({k: EnergyValuesList(v, dir_path) for k, v in obj.get('external_load', {}).items()})
         self.grid_operator_signals = list([GridOperatorSignal(x) for x in obj.get('grid_operator_signals')])
         self.vehicle_events = list([VehicleEvent(x) for x in obj.get('vehicle_events')])
 
@@ -22,7 +22,7 @@ class Events:
 
         all_events = self.vehicle_events + self.grid_operator_signals
         for name, load_list in self.external_load_lists.items():
-            all_events.extend(load_list.get_events(name))
+            all_events.extend(load_list.get_events(name, ExternalLoad))
 
         ignored = 0
 
@@ -48,12 +48,17 @@ class Event:
         return '{}, {}'.format(self.__class__.__name__, vars(self))
 
 
+class EnergyFeedIn(Event):
+    def __init__(self, kwargs):
+        self.__dict__.update(**kwargs)
+
+
 class ExternalLoad(Event):
     def __init__(self, kwargs):
         self.__dict__.update(**kwargs)
 
 
-class ExternalLoadList:
+class EnergyValuesList:
     def __init__(self, obj, dir_path):
         keys = [
             ('start_time', util.datetime_from_isoformat),
@@ -78,13 +83,15 @@ class ExternalLoadList:
                 for row in reader:
                     self.values.append(float(row[column]))
 
-    def get_events(self, name):
+    def get_events(self, name, value_class, has_perfect_foresight=False):
+        assert value_class in [EnergyFeedIn, ExternalLoad]
+
         eventlist = []
         time_delta = datetime.timedelta(seconds=self.step_duration_s)
         for idx, value in enumerate(self.values):
             idx_time = self.start_time + time_delta * idx
-            eventlist.append(ExternalLoad({
-                "signal_time": idx_time,
+            eventlist.append(value_class({
+                "signal_time": self.start_time if has_perfect_foresight else idx_time,
                 "start_time": idx_time,
                 "name": name,
                 "grid_connector_id": self.grid_connector_id,
