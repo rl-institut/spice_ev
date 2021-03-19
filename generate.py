@@ -15,8 +15,9 @@ if __name__ == '__main__':
     parser.add_argument('--days', metavar='N', type=int, default=30, help='set duration of scenario as number of days')
     parser.add_argument('--interval', metavar='MIN', type=int, default=15, help='set number of minutes for each timestep (Δt)')
     parser.add_argument('--desired-soc', metavar='SOC', type=int, default=80, help='set desired SOC (0%% - 100%%) for each charging process')
-    parser.add_argument('--include_csv', nargs='*', help='include CSV for external load. You may define custom options in the form option=value')
-    parser.add_argument('--external_csv', nargs='?', help='generate CSV for external load. Not implemented.')
+    parser.add_argument('--include_csv', type=str, help='include CSV for external load. You may define custom options with --include-csv-option')
+    parser.add_argument('--include_csv_option', '-c', metavar=('KEY', 'VALUE'), nargs=2, action='append', help='append additional argument to external load')
+    #parser.add_argument('--external_csv', nargs='?', help='generate CSV for external load. Not implemented.')
     args = parser.parse_args()
 
     start = datetime.datetime(year=2020, month=1, day=1, tzinfo=datetime.timezone(datetime.timedelta(hours=2)))
@@ -125,7 +126,7 @@ if __name__ == '__main__':
     """
 
     if args.include_csv:
-        filename = args.include_csv.pop(0)
+        filename = args.include_csv
         basename = filename.split('.')[0]
         options = {
             "csv_file": filename,
@@ -134,9 +135,8 @@ if __name__ == '__main__':
             "grid_connector_id": "GC1",
             "column": "energy"
         }
-        for opt in args.include_csv:
-            k,v = opt.split('=')
-            options[k] = v
+        for key, value in args.include_csv_option:
+            options[key] = value
         events['external_load'][basename] = options
 
     daily  = datetime.timedelta(days=1)
