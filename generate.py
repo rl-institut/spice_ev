@@ -135,8 +135,9 @@ if __name__ == '__main__':
             "grid_connector_id": "GC1",
             "column": "energy"
         }
-        for key, value in args.include_csv_option:
-            options[key] = value
+        if args.include_csv_option:
+            for key, value in args.include_csv_option:
+                options[key] = value
         events['external_load'][basename] = options
 
     daily  = datetime.timedelta(days=1)
