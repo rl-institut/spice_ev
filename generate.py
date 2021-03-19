@@ -15,8 +15,8 @@ if __name__ == '__main__':
     parser.add_argument('--days', metavar='N', type=int, default=30, help='set duration of scenario as number of days')
     parser.add_argument('--interval', metavar='MIN', type=int, default=15, help='set number of minutes for each timestep (Δt)')
     parser.add_argument('--desired-soc', metavar='SOC', type=int, default=80, help='set desired SOC (0%% - 100%%) for each charging process')
-    parser.add_argument('--include_csv', type=str, help='include CSV for external load. You may define custom options with --include-csv-option')
-    parser.add_argument('--include_csv_option', '-c', metavar=('KEY', 'VALUE'), nargs=2, action='append', help='append additional argument to external load')
+    parser.add_argument('--include-csv', type=str, help='include CSV for external load. You may define custom options with --include-csv-option')
+    parser.add_argument('--include-csv-option', '-c', metavar=('KEY', 'VALUE'), nargs=2, action='append', help='append additional argument to external load')
     #parser.add_argument('--external_csv', nargs='?', help='generate CSV for external load. Not implemented.')
     args = parser.parse_args()
 
