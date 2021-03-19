@@ -11,7 +11,7 @@ from netz_elog.util import datetime_from_isoformat
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Generate scenarios as JSON files for Netz_eLOG modelling')
     parser.add_argument('output', help='output file name (example.json)')
-    parser.add_argument('--cars', metavar='N', type=int, default=8, help='set number of cars')
+    parser.add_argument('--cars', metavar=('N', 'TYPE'), nargs=2, default=[['2', 'golf'], ['3', 'sprinter']], action='append', type=str, help='set number of cars for a vehicle type, e.g. `--cars 100 sprinter` or `--cars 13 golf`')
     parser.add_argument('--days', metavar='N', type=int, default=30, help='set duration of scenario as number of days')
     parser.add_argument('--interval', metavar='MIN', type=int, default=15, help='set number of minutes for each timestep (Δt)')
     parser.add_argument('--desired-soc', metavar='SOC', type=int, default=80, help='set desired SOC (0%% - 100%%) for each charging process')
@@ -24,9 +24,6 @@ if __name__ == '__main__':
     interval = datetime.timedelta(minutes=args.interval)
 
     # CONSTANTS
-
-    num_car_type_1 = int(args.cars * (5/8))
-    num_car_type_2 = args.cars - num_car_type_1
     avg_distance = 40 # km
     std_distance = 2.155
 
@@ -38,7 +35,7 @@ if __name__ == '__main__':
             "mileage": 40, # kWh / 100km
             "charging_curve": [[0, 11], [80, 11], [100, 0]], # SOC -> kWh
             "min_charging_power": 0,
-            "count": num_car_type_1
+            "count": 0
         },
         "golf": {
             "name": "E-Golf",
@@ -46,9 +43,18 @@ if __name__ == '__main__':
             "mileage": 16,
             "charging_curve": [[0, 22], [80, 22], [100, 0]],
             "min_charging_power": 0,
-            "count": num_car_type_2
+            "count": 0
         }
     }
+
+    for count, vehicle_type in args.cars:
+        assert vehicle_type in vehicle_types,\
+        'The given vehicle type "{}" is not valid. Should be one of {}'\
+        .format(vehicle_type, list(vehicle_types.keys()))
+
+        count = int(count)
+        vehicle_types[vehicle_type]['count'] = count
+
 
     # VEHICLES WITH THEIR CHARGING STATION
     vehicles = {}
