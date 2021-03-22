@@ -11,13 +11,16 @@ from netz_elog.util import datetime_from_isoformat
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Generate scenarios as JSON files for Netz_eLOG modelling')
     parser.add_argument('output', help='output file name (example.json)')
-    parser.add_argument('--cars', metavar='N', type=int, default=8, help='set number of cars')
+    parser.add_argument('--cars', metavar=('N', 'TYPE'), nargs=2, default=[['2', 'golf'], ['3', 'sprinter']], action='append', type=str, help='set number of cars for a vehicle type, e.g. `--cars 100 sprinter` or `--cars 13 golf`')
     parser.add_argument('--days', metavar='N', type=int, default=30, help='set duration of scenario as number of days')
     parser.add_argument('--interval', metavar='MIN', type=int, default=15, help='set number of minutes for each timestep (Δt)')
     parser.add_argument('--desired-soc', metavar='SOC', type=int, default=80, help='set desired SOC (0%% - 100%%) for each charging process')
-    parser.add_argument('--include-ext-load-csv', nargs='*', help='include CSV for external load. You may define custom options in the form option=value')
-    parser.add_argument('--include-feed-in-csv', nargs='*', help='include CSV for energy feed-in, e.g., local PV. You may define custom options in the form option=value')
-    parser.add_argument('--external-csv', nargs='?', help='generate CSV for external load. Not implemented.')
+
+    parser.add_argument('--include-ext-load-csv', help='include CSV for external load. You may define custom options with --include-ext-csv-option')
+    parser.add_argument('--include-ext-csv-option', '-eo', metavar=('KEY', 'VALUE'), nargs=2, action='append', help='append additional argument to external load')
+    parser.add_argument('--include-feed-in-csv', help='include CSV for energy feed-in, e.g., local PV. You may define custom options with --include-feed-in-csv-option')
+    parser.add_argument('--include-feed-in-csv-option', '-fo', metavar=('KEY', 'VALUE'), nargs=2, action='append', help='append additional argument to feed-in load')
+
     args = parser.parse_args()
 
     start = datetime.datetime(year=2020, month=1, day=1, tzinfo=datetime.timezone(datetime.timedelta(hours=2)))
@@ -25,9 +28,6 @@ if __name__ == '__main__':
     interval = datetime.timedelta(minutes=args.interval)
 
     # CONSTANTS
-
-    num_car_type_1 = int(args.cars * (5/8))
-    num_car_type_2 = args.cars - num_car_type_1
     avg_distance = 40 # km
     std_distance = 2.155
 
@@ -39,7 +39,7 @@ if __name__ == '__main__':
             "mileage": 40, # kWh / 100km
             "charging_curve": [[0, 11], [80, 11], [100, 0]], # SOC -> kWh
             "min_charging_power": 0,
-            "count": num_car_type_1
+            "count": 0
         },
         "golf": {
             "name": "E-Golf",
@@ -47,9 +47,18 @@ if __name__ == '__main__':
             "mileage": 16,
             "charging_curve": [[0, 22], [80, 22], [100, 0]],
             "min_charging_power": 0,
-            "count": num_car_type_2
+            "count": 0
         }
     }
+
+    for count, vehicle_type in args.cars:
+        assert vehicle_type in vehicle_types,\
+        'The given vehicle type "{}" is not valid. Should be one of {}'\
+        .format(vehicle_type, list(vehicle_types.keys()))
+
+        count = int(count)
+        vehicle_types[vehicle_type]['count'] = count
+
 
     # VEHICLES WITH THEIR CHARGING STATION
     vehicles = {}
@@ -96,6 +105,8 @@ if __name__ == '__main__':
                 # }
             # }
         ],
+        "external_load": {},
+        "energy_feed_in": {},
         "vehicle_events": []
     }
 
@@ -119,7 +130,7 @@ if __name__ == '__main__':
     """
 
     if args.include_ext_load_csv:
-        filename = args.include_ext_load_csv.pop(0)
+        filename = args.include_ext_load_csv
         basename = filename.split('.')[0]
         options = {
             "csv_file": filename,
@@ -128,15 +139,13 @@ if __name__ == '__main__':
             "grid_connector_id": "GC1",
             "column": "energy"
         }
-        for opt in args.include_ext_load_csv:
-            k,v = opt.split('=')
-            options[k] = v
-        if "external_load" not in events:
-            events["external_load"] = {}
+        if args.include_ext_csv_option:
+            for key, value in args.include_ext_csv_option:
+                options[key] = value
         events['external_load'][basename] = options
 
     if args.include_feed_in_csv:
-        filename = args.include_feed_in_csv.pop(0)
+        filename = args.include_feed_in_csv
         basename = filename.split('.')[0]
         options = {
             "csv_file": filename,
@@ -145,12 +154,10 @@ if __name__ == '__main__':
             "grid_connector_id": "GC1",
             "column": "energy"
         }
-        for opt in args.include_feed_in_csv:
-            k,v = opt.split('=')
-            options[k] = v
-        if "energy_feed_in" not in events:
-            events["energy_feed_in"] = {}
-        events['energy_feed_in'][basename] = options
+        if args.include_feed_in_csv_option:
+            for key, value in args.include_feed_in_csv_option:
+                options[key] = value
+        events['external_load'][basename] = options
 
     daily  = datetime.timedelta(days=1)
     hourly = datetime.timedelta(hours=1)
