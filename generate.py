@@ -15,8 +15,9 @@ if __name__ == '__main__':
     parser.add_argument('--days', metavar='N', type=int, default=30, help='set duration of scenario as number of days')
     parser.add_argument('--interval', metavar='MIN', type=int, default=15, help='set number of minutes for each timestep (Δt)')
     parser.add_argument('--desired-soc', metavar='SOC', type=int, default=80, help='set desired SOC (0%% - 100%%) for each charging process')
-    parser.add_argument('--include_csv', nargs='*', help='include CSV for external load. You may define custom options in the form option=value')
-    parser.add_argument('--external_csv', nargs='?', help='generate CSV for external load. Not implemented.')
+    parser.add_argument('--include-ext-load-csv', nargs='*', help='include CSV for external load. You may define custom options in the form option=value')
+    parser.add_argument('--include-feed-in-csv', nargs='*', help='include CSV for energy feed-in, e.g., local PV. You may define custom options in the form option=value')
+    parser.add_argument('--external-csv', nargs='?', help='generate CSV for external load. Not implemented.')
     args = parser.parse_args()
 
     start = datetime.datetime(year=2020, month=1, day=1, tzinfo=datetime.timezone(datetime.timedelta(hours=2)))
@@ -82,7 +83,7 @@ if __name__ == '__main__':
                 "start_time": start.isoformat(),
                 "cost": {
                     "type": "polynomial",
-                    "value": [0.0, 0.32, 0.0]
+                    "value": [0.0, 0.1, 0.0]
                 }
             },
             # {
@@ -95,7 +96,6 @@ if __name__ == '__main__':
                 # }
             # }
         ],
-        "external_load": {},
         "vehicle_events": []
     }
 
@@ -118,8 +118,8 @@ if __name__ == '__main__':
 
     """
 
-    if args.include_csv:
-        filename = args.include_csv.pop(0)
+    if args.include_ext_load_csv:
+        filename = args.include_ext_load_csv.pop(0)
         basename = filename.split('.')[0]
         options = {
             "csv_file": filename,
@@ -128,10 +128,29 @@ if __name__ == '__main__':
             "grid_connector_id": "GC1",
             "column": "energy"
         }
-        for opt in args.include_csv:
+        for opt in args.include_ext_load_csv:
             k,v = opt.split('=')
             options[k] = v
+        if "external_load" not in events:
+            events["external_load"] = {}
         events['external_load'][basename] = options
+
+    if args.include_feed_in_csv:
+        filename = args.include_feed_in_csv.pop(0)
+        basename = filename.split('.')[0]
+        options = {
+            "csv_file": filename,
+            "start_time": start.isoformat(),
+            "step_duration_s": 3600, # 60 minutes
+            "grid_connector_id": "GC1",
+            "column": "energy"
+        }
+        for opt in args.include_feed_in_csv:
+            k,v = opt.split('=')
+            options[k] = v
+        if "energy_feed_in" not in events:
+            events["energy_feed_in"] = {}
+        events['energy_feed_in'][basename] = options
 
     daily  = datetime.timedelta(days=1)
     hourly = datetime.timedelta(hours=1)
