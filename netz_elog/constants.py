@@ -84,7 +84,9 @@ class GridConnector:
         if self.avg_ext_load is None:
             self.avg_ext_load = avg_values_by_weekday
         else:
-            self.avg_ext_load = [sum(x) for x in zip(self.avg_ext_load, avg_values_by_weekday)]
+            # multiple external loads: add up
+            for i, values in enumerate(avg_values_by_weekday):
+                self.avg_ext_load[i] = [e + v for (e,v) in zip(self.avg_ext_load[i], values)]
 
     def get_avg_ext_load(self, dt, interval):
         # get average external load for specific timeslot
