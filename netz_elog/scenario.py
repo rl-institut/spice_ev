@@ -13,11 +13,13 @@ class Scenario:
     """ A scenario
     """
     def __init__(self, json_dict, dir_path=''):
+        # get constants and events
         self.constants = constants.Constants(json_dict.get('constants'))
         self.events = events.Events(json_dict.get('events'), dir_path)
 
         scenario = json_dict.get('scenario')
 
+        # compute time stuff
         self.start_time = util.datetime_from_isoformat(scenario['start_time'])
         self.interval =  datetime.timedelta(minutes=scenario['interval'])
 
@@ -31,9 +33,7 @@ class Scenario:
             delta = stop_time - self.start_time
             self.n_intervals = delta / self.interval
 
-        # for gc_id, gc in self.constants.grid_connectors.items():
-            # ext_lists = list(filter(lambda l: l.grid_connector_id == gc_id, self.events.external_load_lists))
-            # gc.compute_avg_ext_load_week(ext_lists, self.interval)
+        # compute average load for each timeslot
         for ext_load_list in self.events.external_load_lists.values():
             gc_id = ext_load_list.grid_connector_id
             gc = self.constants.grid_connectors[gc_id]
@@ -41,6 +41,7 @@ class Scenario:
 
 
     def run(self, strategy_name, options):
+        # run scenario
         options['interval'] = self.interval
         strat = strategy.class_from_str(strategy_name)(self.constants, self.start_time, **options)
 
@@ -49,18 +50,32 @@ class Scenario:
         costs = []
         prices = []
         results = []
-        ext_load = []
-        predicted = []
-        diffToPred = []
+        extLoads = []
+        totalLoad = []
+        totalFeedIn = 0
+        unusedFeedIn = 0
+
 
         for step_i in range(self.n_intervals):
-            # print('step {}: {}'.format(step_i, current_time))
+            # run single timestep
             res = strat.step(event_steps[step_i])
             gcs = strat.world_state.grid_connectors.values()
-            # get external loads (all current loads without charging stations)
-            ext_load.append(sum([gc.get_external_load(self.constants.charging_stations.keys()) for gc in gcs]))
-            predicted.append(sum([gc.get_avg_ext_load(strat.current_time, self.interval) for gc in gcs]))
-            diffToPred.append(ext_load[-1] - predicted[-1])
+
+            # get current loads
+            currentLoad = 0
+            for gc in gcs:
+                # loads without charging stations (external + feed-in)
+                stepLoads = {k: v for k,v in gc.current_loads.items() if k not in self.constants.charging_stations.keys()}
+                extLoads.append(stepLoads)
+                # sum up loads (with charging stations)
+                currentLoad += gc.get_external_load()
+
+                # sum up feed-in power (negative values)
+                totalFeedIn -= sum(min(p, 0) for p in stepLoads.values())
+                unusedFeedIn -= min(gc.get_external_load(), 0)
+
+            totalLoad.append(currentLoad)
+
             results.append(res)
 
             # get prices and costs
@@ -73,6 +88,11 @@ class Scenario:
             prices.append(price)
 
         print("Costs:", int(sum(costs)))
+        print("Renewable energy feed-in: {} kW, unused: {} kW ({}%)".format(
+            round(totalFeedIn),
+            round(unusedFeedIn),
+            round((unusedFeedIn)*100/totalFeedIn) if totalFeedIn > 0 else 0)
+        )
 
         if options.get('visual', False):
             import matplotlib.pyplot as plt
@@ -95,6 +115,20 @@ class Scenario:
                     cur_cs.append(r['commands'].get(cs_id, 0.0))
                 sum_cs.append(cur_cs)
 
+            # untangle external loads (with feed-in)
+            loads = {}
+            for i, step in enumerate(extLoads):
+                currentLoad = 0
+                for k, v in step.items():
+                    if k not in loads:
+                        # new key, not present before
+                        loads[k] = [0] * i
+                    loads[k].append(v)
+                for k in loads.keys():
+                    if k not in step:
+                        # old key not in current step
+                        loads[k].append(0)
+
             # plot!
             fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2,2)
             fig.suptitle('Strategy: {}: {}€'.format(strat.description, int(sum(costs))), fontweight='bold')
@@ -112,13 +146,12 @@ class Scenario:
                 ax2.legend(lines, sorted(self.constants.vehicles.keys()))
 
             ax3.plot(xlabels, list([sum(cs) for cs in sum_cs]), label="CS")
-            ax3.plot(xlabels, ext_load, label="external")
-            total_power = list([ext_load[i] + sum(sum_cs[i]) for i in range(len(xlabels))])
-            # ax3.plot(xlabels, predicted, label="Prediction")
-            # ax3.plot(xlabels, diffToPred, label="Difference")
-            ax3.plot(xlabels, total_power, label="total")
+            for name, values in loads.items():
+                ax3.plot(xlabels, values, label=name)
+
+            ax3.plot(xlabels, totalLoad, label="total")
             # ax3.axhline(color='k', linestyle='--', linewidth=1)
-            ax3.set_title('Cumulative Power')
+            ax3.set_title('Power')
             ax3.set(ylabel='Power in kW')
             ax3.legend()
             ax3.xaxis_date() # xaxis are datetime objects
