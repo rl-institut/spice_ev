@@ -11,7 +11,15 @@ from netz_elog.scenario import Scenario
 
 if __name__ == '__main__':
 
-    strategies = ['greedy', 'parity', 'balanced', 'foresight', 'genetic', 'inverse', 'v2g']
+    strategies = [
+        'greedy', 'greedy_feed_in',
+        'parity',
+        'balanced', 'balanced_feed_in',
+        'foresight',
+        'genetic',
+        'inverse',
+        'v2g'
+    ]
 
     parser = argparse.ArgumentParser(description='Netz_eLOG modelling tool. Simulate different charging strategies for a given scenario.')
     parser.add_argument('file', help='Set the scenario JSON file')
