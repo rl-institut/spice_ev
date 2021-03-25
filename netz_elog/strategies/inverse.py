@@ -54,6 +54,7 @@ class Inverse(Strategy):
                 'vehicles': {}, # vehicles to be charged connected to this GC
                 'ts': [],       # timestep infos
                 'max_power': gc.cur_max_power,
+                'feed_in': 0,
                 'costs': {
                     'min': util.get_cost(0, gc.cost),
                     'max': util.get_cost(gc.cur_max_power, gc.cost),
@@ -107,6 +108,11 @@ class Inverse(Strategy):
                     max_power = event.max_power or gcs[gc_id]['max_power']
                     gcs[gc_id]['max_power'] = min(gcs[gc_id]['max_power'], max_power)
                     gcs[gc_id]['costs']['cur'] = event.cost
+                elif type(event) == events.EnergyFeedIn:
+                    # update GC info
+                    gc_id = event.grid_connector_id
+                    gcs[gc_id]['feed_in'] = event.value
+
 
             # compute available power and associated costs
             for gc_id, gc in self.world_state.grid_connectors.items():
@@ -116,6 +122,7 @@ class Inverse(Strategy):
                     ext_load = gc.get_external_load()
                 else:
                     ext_load = gc.get_avg_ext_load(cur_time, self.interval)
+                    ext_load -= gcs[gc_id]['feed_in']
                 # get cost for no power
                 min_power_cost = util.get_cost(0, gcs[gc_id]['costs']['cur'])
                 # get cost for max power
@@ -228,7 +235,7 @@ class Inverse(Strategy):
                     # max_power may be None (constant price)
                     # can charge with max_power then
                     max_power = max_power or ts_info['max']
-                    # subtract external loads
+                    # subtract external loads (may be negative because of feed-in)
                     usable_power = max_power - ts_info['ext']
                     self.load_vehicles(sim_charging, usable_power)
 
