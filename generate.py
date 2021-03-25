@@ -157,7 +157,7 @@ if __name__ == '__main__':
         if args.include_feed_in_csv_option:
             for key, value in args.include_feed_in_csv_option:
                 options[key] = value
-        events['external_load'][basename] = options
+        events['energy_feed_in'][basename] = options
 
     daily  = datetime.timedelta(days=1)
     hourly = datetime.timedelta(hours=1)
