@@ -62,30 +62,28 @@ class Scenario:
             gcs = strat.world_state.grid_connectors.values()
 
             # get current loads
-            currentLoad = 0
+            cost = 0
+            price = []
+            curLoad = 0
             for gc in gcs:
                 # loads without charging stations (external + feed-in)
                 stepLoads = {k: v for k,v in gc.current_loads.items() if k not in self.constants.charging_stations.keys()}
                 extLoads.append(stepLoads)
-                # sum up loads (with charging stations)
-                currentLoad += gc.get_external_load()
+                # sum up loads (with charging stations), compute cost
+                gc_load = gc.get_external_load()
+                cost += util.get_cost(max(gc_load, 0), gc.cost)
+                price.append(util.get_cost(1, gc.cost))
+                curLoad += gc_load
 
                 # sum up feed-in power (negative values)
                 totalFeedIn -= sum(min(p, 0) for p in stepLoads.values())
                 unusedFeedIn -= min(gc.get_external_load(), 0)
 
-            totalLoad.append(currentLoad)
-
-            results.append(res)
-
-            # get prices and costs
-            cost = 0
-            price = []
-            for gc_id, gc in sorted(strat.world_state.grid_connectors.items()):
-                cost += util.get_cost(sum(gc.current_loads.values()), gc.cost)
-                price.append(util.get_cost(1, gc.cost))
             costs.append(cost)
             prices.append(price)
+            totalLoad.append(max(curLoad, 0))
+
+            results.append(res)
 
         print("Costs:", int(sum(costs)))
         print("Renewable energy feed-in: {} kW, unused: {} kW ({}%)".format(
