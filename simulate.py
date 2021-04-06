@@ -25,12 +25,20 @@ if __name__ == '__main__':
     parser.add_argument('file', help='Set the scenario JSON file')
     parser.add_argument('--strategy', '-s', default='greedy', help='Specify the charging strategy. '
         'One of {}. You may define custom options with --strategy-option.'.format(', '.join(strategies)))
+    parser.add_argument('--margin', '-m', metavar='X', type=float, default=0.05,
+        help=('Add margin for desired SOC [0.0 - 1.0]. margin=0.05 means the simulation '
+        'will not abort if vehicles reach at least 95%% of the desired SOC '
+        'before leaving. margin=1 -> the simulation continues with every '
+        'positive SOC value.'))
     parser.add_argument('--strategy-option', '-so', metavar=('KEY', 'VALUE'), nargs=2, action='append',
         help='Append additional options to the charging strategy.')
     parser.add_argument('--visual', '-v', action='store_true', help='Show plots of the results')
     args = parser.parse_args()
 
-    options = {'visual': args.visual}
+    options = {
+        'visual': args.visual,
+        'margin': args.margin,
+    }
 
     # parse strategy options
     if args.strategy:
