@@ -1,6 +1,6 @@
 import datetime
 
-from netz_elog import events
+from netz_elog import events, util
 from netz_elog.strategy import Strategy
 
 
@@ -21,11 +21,13 @@ class BalancedFeedIn(Strategy):
     def step(self, event_list=[]):
         super().step(event_list)
 
+        socs = {}
         charging_stations = {}
 
         # keep track of available power and number of connected vehicles
         gc_info = {gc_id: {
             "vehicles": [],
+            "batteries": [],
             "power": max(gc.get_external_load(), -gc.cur_max_power)
         } for gc_id, gc in self.world_state.grid_connectors.items()}
 
@@ -40,6 +42,9 @@ class BalancedFeedIn(Strategy):
             cs = self.world_state.charging_stations[cs_id]
             # vehicle belongs to this GC
             gc_info[cs.parent]["vehicles"].append(vehicle_id)
+
+        for bat_id, bat in self.world_state.batteries.items():
+            gc_info[bat.parent]["batteries"].append(bat_id)
 
         # charging
         for gc_id, info in gc_info.items():
@@ -108,6 +113,27 @@ class BalancedFeedIn(Strategy):
                 # can grid connector bear load?
                 assert  gc.cur_max_power >= gc.get_external_load() - self.EPS, "{} - {} over maximum load ({} > {})".format(self.current_time, cs.parent, gc_current_power, gc.cur_max_power)
 
-        socs={vid: v.battery.soc for vid, v in self.world_state.vehicles.items()}
+                # take note of final vehicle SOC
+                socs[vehicle_id] = vehicle.battery.soc
+
+            gc_price = util.get_cost(1, gc.cost)
+            gc_power = gc.get_external_load()
+            for bat_id in info["batteries"]:
+                bat = self.world_state.batteries[bat_id]
+                if gc_price <= 0:
+                    # free energy: load with max power
+                    bat_power = bat.load(self.interval, bat.loading_curve.max_power)['avg_power']
+                    gc.add_load(bat_id, bat_power)
+                else:
+                    # price above zero
+                    ind_power = gc_power / len(info["batteries"])
+                    if gc_power >= 0:
+                        # GC draws from supply: support by unloading battery
+                        bat_power = bat.unload(self.interval, ind_power)['avg_power']
+                        gc.add_load(bat_id, -bat_power)
+                    else:
+                        # GC has surplus power: store in battery
+                        bat_power = bat.load(self.interval, -ind_power)['avg_power']
+                        gc.add_load(bat_id, bat_power)
 
         return {'current_time': self.current_time, 'commands': charging_stations, 'socs': socs}
