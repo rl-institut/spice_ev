@@ -11,6 +11,7 @@ class Constants:
         self.charging_stations = dict({k: ChargingStation(v) for k, v in obj['charging_stations'].items()})
         self.vehicle_types = dict({k: VehicleType(v) for k, v in obj['vehicle_types'].items()})
         self.vehicles = dict({k: Vehicle(v, self.vehicle_types) for k, v in obj['vehicles'].items()})
+        self.batteries = dict({k: StationaryBattery(v) for k, v in obj.get('batteries', {}).items()})
 
 
 class GridConnector:
@@ -150,3 +151,25 @@ class Vehicle:
 
     def get_delta_soc(self):
         return self.desired_soc - self.battery.soc
+
+class StationaryBattery(battery.Battery):
+    def __init__(self, obj):
+        keys = [
+            ('charging_curve', loading_curve.LoadingCurve),
+            ('parent', str),
+        ]
+        optional_keys = [
+            ('capacity', float, -1.0),
+            ('min_charging_power', float, 0.0),
+            ('soc', float, 0.0),
+            ('efficiency', float, 0.95),
+        ]
+        util.set_attr_from_dict(obj, self, keys, optional_keys)
+        assert self.min_charging_power <= self.charging_curve.max_power
+
+        battery.Battery.__init__(self,
+            self.capacity if self.capacity >= 0 else 2**31, # may be unknown (set unlimited)
+            self.charging_curve,
+            self.soc,
+            self.efficiency
+        )

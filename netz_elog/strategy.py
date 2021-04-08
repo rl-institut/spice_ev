@@ -84,10 +84,11 @@ class Strategy():
                 raise Exception("Unknown event type: {}".format(ev))
 
         for name, connector in self.world_state.grid_connectors.items():
-            # reset charging stations at grid connector
+            # reset charging stations and battery loads at grid connector
             for load_name in list(connector.current_loads.keys()):
                 if load_name in self.world_state.charging_stations.keys():
-                    # connector.current_loads[load_name] = 0
+                    del connector.current_loads[load_name]
+                if load_name in self.world_state.batteries.keys():
                     del connector.current_loads[load_name]
 
             # check for associated costs

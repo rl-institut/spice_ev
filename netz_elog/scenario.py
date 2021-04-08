@@ -54,6 +54,7 @@ class Scenario:
         totalLoad = []
         totalFeedIn = 0
         unusedFeedIn = 0
+        batteryLevels = {k: [] for k in self.constants.batteries.keys()}
 
 
         for step_i in range(self.n_intervals):
@@ -85,12 +86,17 @@ class Scenario:
 
             results.append(res)
 
+            for batName, bat in strat.world_state.batteries.items():
+                batteryLevels[batName].append(bat.soc / 100 * bat.capacity)
+
         print("Costs:", int(sum(costs)))
         print("Renewable energy feed-in: {} kW, unused: {} kW ({}%)".format(
             round(totalFeedIn),
             round(unusedFeedIn),
             round((unusedFeedIn)*100/totalFeedIn) if totalFeedIn > 0 else 0)
         )
+        for batName, values in batteryLevels.items():
+            print("Maximum stored power for {}: {:.2f} kW".format(batName, max(values)))
 
         if options.get('visual', False):
             import matplotlib.pyplot as plt
@@ -128,37 +134,59 @@ class Scenario:
                         loads[k].append(0)
 
             # plot!
-            fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2,2)
-            fig.suptitle('Strategy: {}: {}€'.format(strat.description, int(sum(costs))), fontweight='bold')
 
-            lines = ax1.step(xlabels, sum_cs)
-            ax1.set_title('Charging Stations')
-            ax1.set(ylabel='Power in kW')
-            if len(self.constants.charging_stations) <= 10:
-                ax1.legend(lines, sorted(self.constants.charging_stations.keys()))
+            # batteries
+            if batteryLevels:
+                plots_top_row = 3
+                ax = plt.subplot(2, plots_top_row, 3)
+                ax.set_title('Batteries')
+                ax.set(ylabel='Stored power in kWh')
+                for name, values in batteryLevels.items():
+                    ax.plot(xlabels, values, label=name)
+                ax.legend()
+            else:
+                plots_top_row = 2
 
-            lines = ax2.step(xlabels, socs)
-            ax2.set_title('Vehicles')
-            ax2.set(ylabel='SOC in %')
+            # vehicles
+            ax = plt.subplot(2, plots_top_row, 1)
+            ax.set_title('Vehicles')
+            ax.set(ylabel='SOC in %')
+            lines = ax.step(xlabels, socs)
             if len(self.constants.vehicles) <= 10:
-                ax2.legend(lines, sorted(self.constants.vehicles.keys()))
+                ax.legend(lines, sorted(self.constants.vehicles.keys()))
 
-            ax3.plot(xlabels, list([sum(cs) for cs in sum_cs]), label="CS")
+            # charging stations
+            ax = plt.subplot(2, plots_top_row, 2)
+            ax.set_title('Charging Stations')
+            ax.set(ylabel='Power in kW')
+            lines = ax.step(xlabels, sum_cs)
+            if len(self.constants.charging_stations) <= 10:
+                ax.legend(lines, sorted(self.constants.charging_stations.keys()))
+
+            # total power
+            ax = plt.subplot(2, 2, 3)
+            ax.plot(xlabels, list([sum(cs) for cs in sum_cs]), label="CS")
             for name, values in loads.items():
-                ax3.plot(xlabels, values, label=name)
+                ax.plot(xlabels, values, label=name)
 
-            ax3.plot(xlabels, totalLoad, label="total")
-            # ax3.axhline(color='k', linestyle='--', linewidth=1)
-            ax3.set_title('Power')
-            ax3.set(ylabel='Power in kW')
-            ax3.legend()
-            ax3.xaxis_date() # xaxis are datetime objects
+            ax.plot(xlabels, totalLoad, label="total")
+            # ax.axhline(color='k', linestyle='--', linewidth=1)
+            ax.set_title('Power')
+            ax.set(ylabel='Power in kW')
+            ax.legend()
+            ax.xaxis_date() # xaxis are datetime objects
 
-            lines = ax4.step(xlabels, prices)
-            ax4.set_title('Price for 1 kWh')
-            ax4.set(ylabel='€')
+            # price
+            ax = plt.subplot(2, 2, 4)
+            lines = ax.step(xlabels, prices)
+            ax.set_title('Price for 1 kWh')
+            ax.set(ylabel='€')
             if len(self.constants.grid_connectors) <= 10:
-                ax4.legend(lines, sorted(self.constants.grid_connectors.keys()))
+                ax.legend(lines, sorted(self.constants.grid_connectors.keys()))
+
+            # figure title
+            fig = plt.gcf()
+            fig.suptitle('Strategy: {}: {}€'.format(strat.description, int(sum(costs))), fontweight='bold')
 
             fig.autofmt_xdate() # rotate xaxis labels (dates) to fit
             plt.show()
