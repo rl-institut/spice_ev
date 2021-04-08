@@ -15,6 +15,7 @@ if __name__ == '__main__':
     parser.add_argument('--days', metavar='N', type=int, default=30, help='set duration of scenario as number of days')
     parser.add_argument('--interval', metavar='MIN', type=int, default=15, help='set number of minutes for each timestep (Δt)')
     parser.add_argument('--desired-soc', metavar='SOC', type=int, default=80, help='set desired SOC (0%% - 100%%) for each charging process')
+    parser.add_argument('--battery', '-b', type=int, action='append', help='add battery with specified capacity in kWh (-1 for variable capacity))')
 
     parser.add_argument('--include-ext-load-csv', help='include CSV for external load. You may define custom options with --include-ext-csv-option')
     parser.add_argument('--include-ext-csv-option', '-eo', metavar=('KEY', 'VALUE'), nargs=2, action='append', help='append additional argument to external load')
@@ -65,6 +66,7 @@ if __name__ == '__main__':
 
     # VEHICLES WITH THEIR CHARGING STATION
     vehicles = {}
+    batteries = {}
     charging_stations = {}
     for name, t in vehicle_types.items():
         for i in range(t["count"]):
@@ -86,6 +88,13 @@ if __name__ == '__main__':
                 "max_power": max([v[1] for v in t['charging_curve']]),
                 "parent": "GC1"
             }
+
+    for idx, capacity in enumerate(args.battery):
+        batteries["BAT{}".format(idx+1)] = {
+            "parent": "GC1",
+            "capacity": capacity,
+            "charging_curve": [[0,11],[80,11],[100,0]]
+        }
 
     events = {
         "grid_operator_signals": [
@@ -273,7 +282,8 @@ if __name__ == '__main__':
                   "max_power": 630
                 }
             },
-            "charging_stations": charging_stations
+            "charging_stations": charging_stations,
+            "batteries": batteries
         },
         "events": events
     }
