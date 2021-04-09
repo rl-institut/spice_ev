@@ -76,8 +76,10 @@ class Scenario:
                 price.append(util.get_cost(1, gc.cost))
                 curLoad += gc_load
 
-                # sum up feed-in power (negative values)
-                totalFeedIn -= sum(min(p, 0) for p in stepLoads.values())
+                # sum up total feed-in power
+                feed_in_keys = self.events.energy_feed_in_lists.keys()
+                totalFeedIn -= sum([gc.current_loads.get(k, 0) for k in feed_in_keys])
+                # sum up unused feed-in power (negative total power)
                 unusedFeedIn -= min(gc.get_external_load(), 0)
 
             costs.append(cost)
