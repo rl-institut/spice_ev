@@ -18,7 +18,8 @@ if __name__ == '__main__':
         'foresight',
         'genetic',
         'inverse',
-        'v2g'
+        'v2g',
+        'battery'
     ]
 
     parser = argparse.ArgumentParser(description='Netz_eLOG modelling tool. Simulate different charging strategies for a given scenario.')
