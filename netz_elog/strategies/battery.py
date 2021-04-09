@@ -38,7 +38,7 @@ class Battery(Strategy):
 
         # for now, only one grid connector allowed
         assert len(self.world_state.grid_connectors) == 1, "Need exactly one grid connector"
-        # exactly one battery needed (more can be chained, no batteries defeat purpose of strategy)
+        # exactly one battery needed (more can be pooled, no batteries defeat purpose of strategy)
         assert len(self.world_state.batteries) == 1, "Need exactly one battery"
 
     def step(self, event_list=[]):
@@ -114,39 +114,42 @@ class Battery(Strategy):
         # compute cost for upper limit
         cur_max_cost = util.get_cost(gc.cur_max_power, gc.cost)
 
-        # is safe if cost is negative
+        # is safe if cost is negative (skip computation, use max power)
         safe = cur_max_cost <= 0
 
         if safe:
             # negative energy price
             # charge all connected vehicles, even above desired_soc
-            cur_cost = cur_max_cost
+            cur_lvl = cur_max_cost if self.USE_COST else gc.cur_max_power
             # skip simulation
-            min_cost = cur_max_cost
-            max_cost = cur_max_cost
-            vehicles = self.world_state.vehicles
+            min_lvl = cur_max_cost
+            max_lvl = min_lvl
+            # charge all vehicles, regardless of SOC
+            vehicles= self.world_state.vehicles
         else:
-            cur_cost = None
+            cur_lvl = None
+            min_lvl = min_cost if self.USE_COST else 0
+            max_lvl = max_cost if self.USE_COST else gc.cur_max_power
             # remove all vehicles from simulation where desired SOC is reached
             vehicles = {
                 vid: v for vid,v in self.world_state.vehicles.items()
                 if v.battery.soc < v.desired_soc
             }
-            # copy vehicle fleet for simulation (don't change SOC of originals)
+            # copy vehicles and battery for simulation (don't change SOC of originals)
             sim_vehicles = deepcopy(vehicles)
-            # copy battery
             sim_battery = deepcopy(battery)
 
         idx = 0
-        # try to reach optimum cost level (minimum viable power)
+        # try to reach optimum power level (minimum viable power)
         # ... at least for ITERATIONS loops
         # ... all vehicles must be loaded (safe result)
         # ... optimum may converge -> min and max must be different
         # ... price may be negative -> min >= max -> skip simulation
-        while (idx < self.ITERATIONS or not safe) and max_cost - min_cost > self.EPS:
+        # ... may be cost or power, depending on USE_COST flag
+        while (idx < self.ITERATIONS or not safe) and max_lvl - min_lvl > self.EPS:
             idx += 1
             # binary search: try out average of min and max
-            cur_cost = (max_cost + min_cost) / 2
+            cur_lvl = (max_lvl + min_lvl) / 2
             sim_time  = self.current_time - self.interval
 
             # reset vehicle and battery SOC
@@ -160,7 +163,7 @@ class Battery(Strategy):
                 sim_time += self.interval
                 sim_charging = []
 
-                # check that any vehicles in need of charging still have time
+                # check that any vehicle in need of charging still has time
                 safe = True
                 for vehicle in sim_vehicles.values():
                     needs_charging = vehicle.battery.soc < ((1.0 - self.SOC_MARGIN) * vehicle.desired_soc)
@@ -177,29 +180,34 @@ class Battery(Strategy):
                 if not safe:
                     # at least one vehicle not charged in time:
                     # increase allowed costs
-                    min_cost = cur_cost
+                    min_lvl = cur_lvl
                     break
 
                 if len(sim_charging) == 0:
                     # all vehicles left, still valid result:
                     # decrease allowed costs
-                    max_cost = cur_cost
+                    max_lvl = cur_lvl
                     break
 
 
                 # still vehicles left to charge
 
-                # how much energy can be loaded with current cost?
-                # cur_cost SHOULD be achievable (ValueError otherwise)
-                grid_power = util.get_power(cur_cost, ts_info['cost'])
-
-                # grid_power may be None (constant price)
-                # can charge with max_power then
-                grid_power = grid_power or ts_info['max']
+                # get power level for next 24h
                 ext_power  = ts_info['ext']
                 bat_power  = sim_battery.get_available_power(self.interval)
-                charge_power = grid_power - ext_power + bat_power
+                if self.USE_COST:
+                    # how much energy can be loaded with current cost?
+                    # cur_lvl SHOULD be achievable (ValueError otherwise)
+                    grid_power = util.get_power(cur_lvl, ts_info['cost'])
 
+                    # grid_power may be None (constant price)
+                    # can charge with max_power then
+                    grid_power = grid_power or ts_info['max']
+                else:
+                    # use same power over 24h
+                    grid_power = cur_lvl
+
+                charge_power = grid_power - ext_power + bat_power
                 cs_info = self.load_vehicles(sim_charging, charge_power)
                 used_power = sum(cs_info.values())
 
@@ -219,21 +227,23 @@ class Battery(Strategy):
                 safe &= vehicle.battery.soc >= ((1.0 - self.SOC_MARGIN) * vehicle.desired_soc)
             # adjust costs based on result
             if safe:
-                max_cost = cur_cost
+                max_lvl = cur_lvl
             else:
-                min_cost = cur_cost
+                min_lvl = cur_lvl
 
-        # get optimum power from grid
-        grid_power = util.get_power(cur_cost, gc.cost)
-        # grid_power may be None (constant price)
-        grid_power = grid_power or gc.cur_max_power
+        ext_power = gc.get_external_load()
+        bat_power = battery.get_available_power(self.interval)
+        # get optimum power
+        if self.USE_COST:
+            grid_power = util.get_power(cur_lvl, gc.cost)
+            grid_power = grid_power or gc.cur_max_power
+        else:
+            grid_power = cur_lvl
+
         # make sure power is within GC limits (should not be needed?)
         grid_power = min(grid_power, gc.cur_max_power)
-        ext_power  = gc.get_external_load()
-        bat_power  = battery.get_available_power(self.interval)
-        charge_power = grid_power - ext_power + bat_power
-
         charging_stations = {}
+        charge_power = grid_power - ext_power + bat_power
         cs_info = self.load_vehicles(vehicles.values(), charge_power)
         for cs_id, power in cs_info.items():
             charging_stations[cs_id] = gc.add_load(cs_id, power)
