@@ -93,7 +93,7 @@ if __name__ == '__main__':
         batteries["BAT{}".format(idx+1)] = {
             "parent": "GC1",
             "capacity": capacity,
-            "charging_curve": [[0,11],[80,11],[100,0]]
+            "charging_curve": [[0,50],[80,50],[100,0]]
         }
 
     events = {
