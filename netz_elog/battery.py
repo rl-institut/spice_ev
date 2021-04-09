@@ -147,6 +147,12 @@ class Battery:
 
         return {'avg_power': avg_power, 'soc_delta': soc_delta}
 
+    def get_available_power(self, timedelta):
+        # returns maximum available power for timedelta duration
+        old_soc = self.soc
+        power = self.unload(timedelta)['avg_power']
+        self.soc = old_soc
+        return power
 
     def __str__(self):
         return 'Battery {}'.format({ k: str(v) for k, v in vars(self).items() })
