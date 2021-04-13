@@ -70,7 +70,7 @@ class V2g(Strategy):
         gc_info = {
             'max_power': gc.cur_max_power,
             'cost': gc.cost,
-            'load': gc.get_external_load()
+            'load': gc.get_current_load()
         }
         min_cost = util.get_cost(0, gc.cost)
         max_cost = util.get_cost(gc.cur_max_power, gc.cost)
@@ -149,10 +149,10 @@ class V2g(Strategy):
                     # success: vehicles charged, try to build buffer
                     min_power = cur_power
 
-            usable_power = min(gc.cur_max_power, cur_power) - gc.get_external_load()
+            usable_power = min(gc.cur_max_power, cur_power) - gc.get_current_load()
         elif util.get_cost(gc.cur_max_power, gc.cost) < 0:
             # negative price: full power
-            usable_power = gc.cur_max_power - gc.get_external_load()
+            usable_power = gc.cur_max_power - gc.get_current_load()
         elif self.USE_COST == 1:
             min_power = 0
             max_power = max([info['max_power'] for info in timesteps])
@@ -220,7 +220,7 @@ class V2g(Strategy):
                         increase = not increase
                 last_cost = cost
 
-            usable_power = min(gc.cur_max_power, cur_power) - gc.get_external_load()
+            usable_power = min(gc.cur_max_power, cur_power) - gc.get_current_load()
         else:
             # get power by price
             while max_cost - min_cost > self.EPS:
@@ -249,7 +249,7 @@ class V2g(Strategy):
                     min_cost = cur_cost
             usable_power = util.get_power(cur_cost, gc.cost)
             usable_power = min(usable_power, gc.cur_max_power)
-            usable_power -= gc.get_external_load()
+            usable_power -= gc.get_current_load()
 
         charging_stations = {}
         vehicle_list = sorted(vehicles.values(), key=self.sort_key)

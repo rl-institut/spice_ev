@@ -71,7 +71,7 @@ class Scenario:
                 stepLoads = {k: v for k,v in gc.current_loads.items() if k not in self.constants.charging_stations.keys()}
                 extLoads.append(stepLoads)
                 # sum up loads (with charging stations), compute cost
-                gc_load = gc.get_external_load()
+                gc_load = gc.get_current_load()
                 cost += util.get_cost(max(gc_load, 0), gc.cost)
                 price.append(util.get_cost(1, gc.cost))
                 curLoad += gc_load
@@ -80,7 +80,7 @@ class Scenario:
                 feed_in_keys = self.events.energy_feed_in_lists.keys()
                 totalFeedIn -= sum([gc.current_loads.get(k, 0) for k in feed_in_keys])
                 # sum up unused feed-in power (negative total power)
-                unusedFeedIn -= min(gc.get_external_load(), 0)
+                unusedFeedIn -= min(gc.get_current_load(), 0)
 
             costs.append(cost)
             prices.append(price)

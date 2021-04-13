@@ -119,7 +119,7 @@ class Inverse(Strategy):
                 # get (predicted) external load
                 if timestep_idx == 0:
                     # use actual external load
-                    ext_load = gc.get_external_load()
+                    ext_load = gc.get_current_load()
                 else:
                     ext_load = gc.get_avg_ext_load(cur_time, self.interval)
                     ext_load -= gcs[gc_id]['feed_in']
@@ -256,7 +256,7 @@ class Inverse(Strategy):
             # make sure power is within GC limits (should not be needed?)
             max_power = min(max_power, gc.cur_max_power)
             # subtract external loads
-            usable_power = max_power - gc.get_external_load()
+            usable_power = max_power - gc.get_current_load()
 
             # charge for real, get CS power values
             charging_info = self.load_vehicles(gc_info['vehicles'].values(), usable_power)

@@ -28,7 +28,7 @@ class BalancedFeedIn(Strategy):
         gc_info = {gc_id: {
             "vehicles": [],
             "batteries": [],
-            "power": max(gc.get_external_load(), -gc.cur_max_power)
+            "power": max(gc.get_current_load(), -gc.cur_max_power)
         } for gc_id, gc in self.world_state.grid_connectors.items()}
 
         for vehicle_id in sorted(self.world_state.vehicles):
@@ -97,7 +97,7 @@ class BalancedFeedIn(Strategy):
 
                     cs.current_power = power
 
-                gc_power_left = max(gc.cur_max_power - gc.get_external_load(), 0)
+                gc_power_left = max(gc.cur_max_power - gc.get_current_load(), 0)
                 old_soc = vehicle.battery.soc
                 # load with power
                 avg_power = vehicle.battery.load(self.interval, power)['avg_power']
@@ -111,13 +111,13 @@ class BalancedFeedIn(Strategy):
                 # can active charging station bear minimum load?
                 assert cs.max_power >= cs.current_power - self.EPS, "{} - {} over maximum load ({} > {})".format(self.current_time, cs_id, cs.current_power, cs.max_power)
                 # can grid connector bear load?
-                assert  gc.cur_max_power >= gc.get_external_load() - self.EPS, "{} - {} over maximum load ({} > {})".format(self.current_time, cs.parent, gc_current_power, gc.cur_max_power)
+                assert  gc.cur_max_power >= gc.get_current_load() - self.EPS, "{} - {} over maximum load ({} > {})".format(self.current_time, cs.parent, gc_current_power, gc.cur_max_power)
 
                 # take note of final vehicle SOC
                 socs[vehicle_id] = vehicle.battery.soc
 
             gc_price = util.get_cost(1, gc.cost)
-            gc_power = gc.get_external_load()
+            gc_power = gc.get_current_load()
             for bat_id in info["batteries"]:
                 bat = self.world_state.batteries[bat_id]
                 if gc_price <= 0:

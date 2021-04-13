@@ -35,13 +35,13 @@ class GridConnector:
             self.current_loads[key] = value
         return self.current_loads[key]
 
-    def get_external_load(self, exclude=[]):
+    def get_current_load(self, exclude=[]):
         # get sum of current loads not in exclude list
-        external_load = 0
+        current_load = 0
         for key, value in self.current_loads.items():
             if key not in exclude:
-                external_load += value
-        return external_load
+                current_load += value
+        return current_load
 
     def add_avg_ext_load_week(self, ext_load_list, interval):
         # Compute average load using EnergyValuesList

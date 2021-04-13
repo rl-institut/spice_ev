@@ -23,12 +23,12 @@ class GreedyFeedIn(Strategy):
             cs = self.world_state.charging_stations[cs_id]
             gc = self.world_state.grid_connectors[cs.parent]
 
-            if gc.get_external_load() < 0 or vehicle.get_delta_soc() > 0:
+            if gc.get_current_load() < 0 or vehicle.get_delta_soc() > 0:
 
                 # feed-in surplus or vehicle needs loading: charge with max power
                 # compute power left for vehicle's GC
 
-                gc_power_left = gc.cur_max_power - gc.get_external_load()
+                gc_power_left = gc.cur_max_power - gc.get_current_load()
 
                 cs_power_left = (self.CONCURRENCY * cs.max_power) - charging_stations.get(cs_id, 0)
 
@@ -47,7 +47,7 @@ class GreedyFeedIn(Strategy):
         # stationary batteries
         for bat_id, bat in self.world_state.batteries.items():
             gc = self.world_state.grid_connectors[bat.parent]
-            gc_power = gc.get_external_load()
+            gc_power = gc.get_current_load()
             gc_price = util.get_cost(1, gc.cost)
             if gc_price <= 0:
                 # free energy: load with max power

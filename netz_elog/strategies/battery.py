@@ -90,7 +90,7 @@ class Battery(Strategy):
             # get (predicted) external load
             if timestep_idx == 0:
                 # use actual external load (with feed-in)
-                ext_load = gc.get_external_load()
+                ext_load = gc.get_current_load()
             else:
                 ext_load = gc.get_avg_ext_load(cur_time, self.interval)
                 ext_load -= feed_in
@@ -231,7 +231,7 @@ class Battery(Strategy):
             else:
                 min_lvl = cur_lvl
 
-        ext_power = gc.get_external_load()
+        ext_power = gc.get_current_load()
         bat_power = battery.get_available_power(self.interval)
         # get optimum power
         if self.USE_COST:
