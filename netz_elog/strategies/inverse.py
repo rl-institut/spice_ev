@@ -82,7 +82,10 @@ class Inverse(Strategy):
             # still vehicles present at this timestep?
             vehicles_present = False
             for vehicle in self.world_state.vehicles.values():
-                still_present  = vehicle.estimated_time_of_departure > cur_time and vehicle.connected_charging_station is not None
+                still_present = (
+                    vehicle.connected_charging_station is not None
+                    and vehicle.estimated_time_of_departure is not None
+                    and vehicle.estimated_time_of_departure > cur_time)
                 if still_present:
                     vehicles_present = True
                     break
