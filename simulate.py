@@ -34,11 +34,13 @@ if __name__ == '__main__':
     parser.add_argument('--strategy-option', '-so', metavar=('KEY', 'VALUE'), nargs=2, action='append',
         help='Append additional options to the charging strategy.')
     parser.add_argument('--visual', '-v', action='store_true', help='Show plots of the results')
+    parser.add_argument('--output', '-o', help='Generate output file')
     args = parser.parse_args()
 
     options = {
         'visual': args.visual,
         'margin': args.margin,
+        'output': args.output,
     }
 
     # parse strategy options

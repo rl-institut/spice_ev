@@ -100,6 +100,21 @@ class Scenario:
         for batName, values in batteryLevels.items():
             print("Maximum stored power for {}: {:.2f} kW".format(batName, max(values)))
 
+        if options.get('output', None):
+            cs_ids = strat.world_state.charging_stations.keys()
+            with open(options['output'], 'w') as output_file:
+                # write header
+                header = ["timestep", "time"]
+                header += [cs_id for cs_id in cs_ids]
+                output_file.write(','.join(header) + '\n')
+
+                # write timesteps
+                for idx, r in enumerate(results):
+                    time = r['current_time']
+                    row = [str(idx), str(time)]
+                    row += [str(r['commands'].get(cs_id, 0)) for cs_id in cs_ids]
+                    output_file.write(','.join(row) + '\n')
+
         if options.get('visual', False):
             import matplotlib.pyplot as plt
 
