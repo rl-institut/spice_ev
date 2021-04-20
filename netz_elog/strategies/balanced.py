@@ -39,9 +39,9 @@ class Balanced(Strategy):
                 if cs.current_power == 0:
                     # not precomputed
                     min_power = vehicle.vehicle_type.min_charging_power
-                    max_power = vehicle.vehicle_type.charging_curve.max_power
+                    max_power = min(vehicle.vehicle_type.charging_curve.max_power, cs.max_power)
                     # time until departure
-                    dt = vehicle.estimated_time_of_departure - self.current_time - datetime.timedelta(hours=1)
+                    dt = vehicle.estimated_time_of_departure - self.current_time
                     old_soc = vehicle.battery.soc
                     idx = 0
                     safe = False
@@ -62,23 +62,26 @@ class Balanced(Strategy):
                             # power not enough
                             safe = False
                             min_power = power
-                        elif charged_soc - delta_soc > self.EPS: #charged_soc > delta_soc:
-                            # power too much
+                        else: #charged_soc >= delta_soc:
+                            # power too much or just right (may be possible with less power)
                             safe = True
                             max_power = power
-                        else:
-                            # power exactly right
-                            break
 
-                    # add safety margin
-                    # power *= 1.1
+                    # safe power for next time
                     cs.current_power = power
+
                 else:
                     # power precomputed: use again
                     power = cs.current_power
 
+
                 gc = self.world_state.grid_connectors[cs.parent]
                 gc_power_left = max(0, gc.cur_max_power - sum(gc.current_loads.values()))
+                if power < cs.min_power or power < vehicle.vehicle_type.min_charging_power:
+                    # power too low -> don't charge
+                    cs.current_power = 0
+                    continue
+
                 old_soc = vehicle.battery.soc
                 # load with power
                 avg_power = vehicle.battery.load(self.interval, power)['avg_power']

@@ -153,7 +153,8 @@ if __name__ == '__main__':
                         charging_stations[cs_name] = {
                             # get max power from charging curve
                             "max_power": capacity,
-                            "parent": "GC1"
+                            "parent": "GC1",
+                            "min_power": capacity * 0.1,
                         }
 
                     # create vehicle events

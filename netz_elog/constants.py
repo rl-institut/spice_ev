@@ -107,7 +107,8 @@ class ChargingStation:
             ('parent', str),
         ]
         optional_keys = [
-            ('current_power', float, 0.0)
+            ('current_power', float, 0.0),
+            ('min_power', float, 0.0)
         ]
         util.set_attr_from_dict(obj, self, keys, optional_keys)
 

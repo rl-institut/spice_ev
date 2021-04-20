@@ -296,7 +296,7 @@ class Inverse(Strategy):
         # load vehicles below desired SOC first
         used_power = 0
         energy_loaded = 0
-        for vehicle in needy_vehicles:
+        for idx, vehicle in enumerate(needy_vehicles):
             if power - used_power > 0:
                 # power left to distribute
                 if self.LOAD_STRAT == 'greedy':
@@ -306,26 +306,25 @@ class Inverse(Strategy):
                     f = vehicle_energy_need / desired_energy_need
                     p = power * f
                 elif self.LOAD_STRAT == 'balanced':
-                    p = power / len(needy_vehicles)
+                    p = (power - used_power) / (len(needy_vehicles) - idx)
 
                 # load with power p
-                load = vehicle.battery.load(self.interval, p)
-                avg_power = load['avg_power']
                 cs_id = vehicle.connected_charging_station
-                charging_stations[cs_id] = avg_power
-                used_power += avg_power
-                max_energy_need -= load['soc_delta']/100 * vehicle.battery.capacity
+                cs = self.world_state.charging_stations.get(cs_id, None)
+                if cs and p > cs.min_power and p > vehicle.vehicle_type.min_charging_power:
+                    load = vehicle.battery.load(self.interval, p)
+                    avg_power = load['avg_power']
+                    charging_stations[cs_id] = avg_power
+                    used_power += avg_power
+                    max_energy_need -= load['soc_delta']/100 * vehicle.battery.capacity
 
         # distribute surplus
         surplus_power = power - used_power
-        for vehicle in vehicles:
+        for idx, vehicle in enumerate(vehicles):
             if power - used_power > 0:
                 # surplus power left to distribute
                 p = 0
-                # find remaining power of CS
-                cs_id = vehicle.connected_charging_station
-                cs = self.world_state.charging_stations[cs_id]
-                cs_remaining_power = cs.max_power - charging_stations.get(cs_id, 0)
+
                 if self.LOAD_STRAT == 'greedy':
                     p = power - used_power
                 elif self.LOAD_STRAT == 'needy' and max_energy_need > 0:
@@ -333,15 +332,22 @@ class Inverse(Strategy):
                     f = delta_soc * vehicle.battery.capacity / max_energy_need
                     p = f * surplus_power
                 elif self.LOAD_STRAT == 'balanced':
-                    p = surplus_power / len(vehicles)
+                    p = (power - used_power) / (len(vehicles) - idx)
 
                 # load with power p
-                p = min(cs_remaining_power, p)
-                avg_power = vehicle.battery.load(self.interval,p)['avg_power']
-                used_power += avg_power
-                try:
-                    charging_stations[cs_id] += avg_power
-                except KeyError:
-                    # CS may not be in result dict yet
-                    charging_stations[cs_id] = avg_power
+                cs_id = vehicle.connected_charging_station
+                cs = self.world_state.charging_stations.get(cs_id, None)
+                if cs and p > cs.min_power and p > vehicle.vehicle_type.min_charging_power:
+                    # find remaining power of CS
+                    cs_remaining_power = cs.max_power - charging_stations.get(cs_id, 0)
+                    p = min(cs_remaining_power, p)
+                    if p < cs.min_power:
+                        p = 0
+                    avg_power = vehicle.battery.load(self.interval,p)['avg_power']
+                    used_power += avg_power
+                    try:
+                        charging_stations[cs_id] += avg_power
+                    except KeyError:
+                        # CS may not be in result dict yet
+                        charging_stations[cs_id] = avg_power
         return charging_stations

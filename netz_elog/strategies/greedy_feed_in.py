@@ -31,6 +31,8 @@ class GreedyFeedIn(Strategy):
                 gc_power_left = gc.cur_max_power - gc.get_current_load()
 
                 cs_power_left = (self.CONCURRENCY * cs.max_power) - charging_stations.get(cs_id, 0)
+                if cs_power_left < cs.min_power:
+                    cs_power_left = 0
 
                 max_power =  max(min(cs_power_left, gc_power_left), 0)
 

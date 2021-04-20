@@ -63,10 +63,10 @@ class BalancedFeedIn(Strategy):
                 delta_soc = vehicle.get_delta_soc()
                 if delta_soc > self.EPS:
                     # vehicle needs charging
-                    min_power = vehicle.vehicle_type.min_charging_power
-                    max_power = vehicle.vehicle_type.charging_curve.max_power
+                    min_power = max(vehicle.vehicle_type.min_charging_power, cs.min_power)
+                    max_power = min(vehicle.vehicle_type.charging_curve.max_power, cs.max_power)
                     # time until departure
-                    dt = vehicle.estimated_time_of_departure - self.current_time - datetime.timedelta(hours=1)
+                    dt = vehicle.estimated_time_of_departure - self.current_time
                     old_soc = vehicle.battery.soc
                     idx = 0
                     safe = False
@@ -87,13 +87,10 @@ class BalancedFeedIn(Strategy):
                             # power not enough
                             safe = False
                             min_power = power
-                        elif charged_soc - delta_soc > self.EPS: #charged_soc > delta_soc:
-                            # power too much
+                        else: #charged_soc >= delta_soc:
+                            # power too much or just right (may be possible with less power)
                             safe = True
                             max_power = power
-                        else:
-                            # power exactly right
-                            break
 
                     cs.current_power = power
 

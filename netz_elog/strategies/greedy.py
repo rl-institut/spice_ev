@@ -24,6 +24,8 @@ class Greedy(Strategy):
                 gc = self.world_state.grid_connectors[cs.parent]
                 gc_power_left = gc.cur_max_power - sum(gc.current_loads.values())
                 cs_power_left = (self.CONCURRENCY * cs.max_power) - charging_stations.get(cs_id, 0)
+                if cs_power_left < cs.min_power:
+                    cs_power_left = 0
                 max_power =  min(cs_power_left, gc_power_left)
 
                 load_result = vehicle.battery.load(self.interval, max_power)
