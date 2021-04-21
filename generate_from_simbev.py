@@ -17,7 +17,6 @@ if __name__ == '__main__':
     parser.add_argument('output', help='output file name (example.json)')
     parser.add_argument('--simbev', metavar='DIR', type=str, required=True, help='set directory with SimBEV files')
     parser.add_argument('--interval', metavar='MIN', type=int, default=15, help='set number of minutes for each timestep (Δt)')
-    # parser.add_argument('--use-case', '-uc', default='home,work', help='SimBEV charging use case. Default: home,work (charge at home and at work)')
     parser.add_argument('--price-seed', '-s', type=int, default=0, help='set seed when generating energy market prices. Negative values for fixed price in cents')
     #parser.add_argument('--include_csv', nargs='*', help='include CSV for external load. You may define custom options in the form option=value')
     #parser.add_argument('--external_csv', nargs='?', help='generate CSV for external load. Not implemented.')
@@ -77,21 +76,9 @@ if __name__ == '__main__':
         },
     }
 
-    """
-    # Infer vehicle type from file name
-    def vehicle_type_from_path(path):
-        print(path, path.stem)
-        for t in vehicle_types.keys():
-            if t in str(path.stem).lower():
-                return t
-        raise NotImplementedError("Unknown vehicle type: {}".format(path.stem))
-    """
-
     def datetime_from_timestep(timestep):
         assert type(timestep) == int
         return start + (interval * timestep)
-
-    # use_cases = args.use_cases.split(',_')
 
     # CSV files
     pathlist = list(Path(args.simbev).rglob('*.csv'))
@@ -133,17 +120,19 @@ if __name__ == '__main__':
                         "soc": float(row["SoC_end"]) * 100,
                         "vehicle_type": v_type
                     }
+                    # set initial charge
+                    vehicle_soc = float(row["SoC_end"])
+                    # vehicle not actually charged in first row, so skip rest
+                    continue
 
                 # charge at this location?
                 location = row["location"]
                 capacity = float(row["netto_charging_capacity"])
                 demand   = float(row["chargingdemand"])
-                charge_here = (
-                    capacity > 0
-                    and demand > 0
-                    # and reduce((lambda b, uc: b or (uc in location)), use_cases)
-                )
-                if charge_here:
+                # demand only makes sense if charging station (capacity) is present
+                assert capacity > 0 or demand == 0, "Charging event without charging station: {} @ row {}".format(vehicle_name, idx + 2)
+
+                if demand > 0:
                     # set up charging point at location
                     cs_name = "{}_{}".format(vehicle_name, location.split('_')[-1])
                     if cs_name in charging_stations and charging_stations[cs_name]["max_power"] != capacity:
@@ -158,11 +147,17 @@ if __name__ == '__main__':
                         }
 
                     # create vehicle events
+                    soc_start = float(row["SoC_start"])
+                    soc_end = float(row["SoC_end"])
                     park_start = int(row["park_start"])
                     park_end = int(row["park_end"])
                     event_start = datetime_from_timestep(int(row['park_start']))
                     event_end = datetime_from_timestep(int(row['park_end']))
-                    soc_delta = -100.0 * demand / vehicle_types[v_type]['capacity']
+
+                    # get SOC delta since last charging (should be negative)
+                    drive_soc_delta = soc_start - vehicle_soc
+                    # set new vehicle SOC after charging
+                    vehicle_soc = soc_end
 
                     events["vehicle_events"].append({
                         "signal_time": event_start.isoformat(),
@@ -172,8 +167,8 @@ if __name__ == '__main__':
                         "update": {
                             "connected_charging_station": cs_name,
                             "estimated_time_of_departure": event_end.isoformat(),
-                            "desired_soc": float(row["SoC_end"]) * 100,
-                            "soc_delta": soc_delta
+                            "desired_soc": soc_end * 100,
+                            "soc_delta": drive_soc_delta * 100
                         }
                     })
 
