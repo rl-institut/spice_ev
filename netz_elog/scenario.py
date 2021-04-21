@@ -59,7 +59,14 @@ class Scenario:
 
         for step_i in range(self.n_intervals):
             # run single timestep
-            res = strat.step(event_steps[step_i])
+            try:
+                res = strat.step(event_steps[step_i])
+            except Exception as e:
+                print('*'*42)
+                print(e)
+                print("Aborting simulation in timestep {} ({})".format(step_i + 1, strat.current_time))
+                strat.description = "*** {} (ABORTED) ***".format(strat.description)
+                break
             gcs = strat.world_state.grid_connectors.values()
 
             # get current loads
@@ -101,17 +108,37 @@ class Scenario:
             print("Maximum stored power for {}: {:.2f} kW".format(batName, max(values)))
 
         if options.get('output', None):
-            cs_ids = strat.world_state.charging_stations.keys()
+            cs_ids = sorted(strat.world_state.charging_stations.keys())
+            uc_keys = ["work", "business", "school", "shopping", "private/ridesharing", "leisure", "home", "hub"]
+
+            # which SimBEV-Use Cases are in this scenario?
+            uc_present = []
+            for uc_key in uc_keys:
+                for cs_id in cs_ids:
+                    if cs_id.endswith(uc_key):
+                        # use case present at least once
+                        uc_present.append(uc_key)
+                        # search next use case
+                        break
+
             with open(options['output'], 'w') as output_file:
                 # write header
-                header = ["timestep", "time"]
+                header = ["timestep", "time", "sum"]
+                header += ["sum_{}".format(uc) for uc in uc_present]
                 header += [cs_id for cs_id in cs_ids]
+                print(header)
                 output_file.write(','.join(header) + '\n')
 
                 # write timesteps
                 for idx, r in enumerate(results):
                     time = r['current_time']
-                    row = [str(idx), str(time)]
+                    sum_all = sum(r['commands'].values())
+                    row = [str(idx), str(time), str(sum_all)]
+
+                    # sum up all charging power for each use case
+                    row += [str(sum([cs_value for cs_id, cs_value in r['commands'].items() if cs_id.endswith(uc_key)])) for uc_key in uc_present]
+
+                    # write out individual charging power
                     row += [str(r['commands'].get(cs_id, 0)) for cs_id in cs_ids]
                     output_file.write(','.join(row) + '\n')
 
