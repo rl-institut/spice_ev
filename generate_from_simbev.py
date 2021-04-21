@@ -154,6 +154,9 @@ if __name__ == '__main__':
                     event_start = datetime_from_timestep(int(row['park_start']))
                     event_end = datetime_from_timestep(int(row['park_end']))
 
+                    assert soc_start > 0, "SoC_start must be positive, is {} for {} @ row {}".format(soc_start, vehicle_name, idx + 2)
+                    assert soc_end > 0, "SoC_end must be positive, is {} for {} @ row {}".format(soc_end, vehicle_name, idx + 2)
+
                     # get SOC delta since last charging (should be negative)
                     drive_soc_delta = soc_start - vehicle_soc
                     # set new vehicle SOC after charging
