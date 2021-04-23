@@ -146,10 +146,18 @@ if __name__ == '__main__':
                 capacity = float(row["netto_charging_capacity"])
                 consumption = float(row["consumption"])
 
+                # general sanity checks
+                simbev_soc_start = float(row["SoC_start"])
+                simbev_soc_end = float(row["SoC_end"])
+                assert simbev_soc_start > 0 and simbev_soc_end > 0, "SimBEV created negative SoC for {} in row {}".format(vehicle_name, idx + 2)
+                simbev_demand = float(row["chargingdemand"])
+                assert capacity > 0 or simbev_demand == 0, "Charging event without charging station: {} @ row {}".format(vehicle_name, idx + 2)
+
                 if not capacity or soc_needed < SOC_THRESHOLD:
                     # no charging station or don't need to charge
                     # just increase charging demand based on consumption
                     soc_needed += consumption / vehicle_capacity
+                    assert soc_needed <= 1 + vehicle_soc, "Consumption too high for {} in row {}: vehicle charged to {}, needs SoC of {} ({} kW)".format(vehicle_name, idx + 2, vehicle_soc, soc_needed, soc_needed * vehicle_capacity)
                 else:
                     # charging station present
                     # must have no consumption
