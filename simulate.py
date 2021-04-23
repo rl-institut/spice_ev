@@ -1,9 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
-import datetime
 import json
-import math
 import os
 
 from netz_elog.scenario import Scenario
@@ -35,7 +33,23 @@ if __name__ == '__main__':
         help='Append additional options to the charging strategy.')
     parser.add_argument('--visual', '-v', action='store_true', help='Show plots of the results')
     parser.add_argument('--output', '-o', help='Generate output file')
+    parser.add_argument('--config', help='Use config file to set arguments')
     args = parser.parse_args()
+
+    if args.config:
+        # read options from config file
+        with open(args.config, 'r') as f:
+            for line in f:
+                k,v = line.split("=")
+                k = k.strip()
+                v = v.strip()
+                try:
+                    # option may be number
+                    v = float(v)
+                except ValueError:
+                    # or not
+                    pass
+                vars(args)[k] = v
 
     options = {
         'visual': args.visual,
