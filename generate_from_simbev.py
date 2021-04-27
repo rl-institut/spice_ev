@@ -16,7 +16,7 @@ if __name__ == '__main__':
     parser.add_argument('output', help='output file name (example.json)')
     parser.add_argument('--simbev', metavar='DIR', type=str, required=True, help='set directory with SimBEV files')
     parser.add_argument('--interval', metavar='MIN', type=int, default=15, help='set number of minutes for each timestep (Δt)')
-    parser.add_argument('--price-seed', '-s', type=int, default=0, help='set seed when generating energy market prices. Negative values for fixed price in cents')
+    parser.add_argument('--price-seed', type=int, default=0, help='set seed when generating energy market prices. Negative values for fixed price in cents')
     parser.add_argument('--min-soc', type=float, default=0.5, help='Set minimum desired SoC for each charging event. Default: 0.5')
     #parser.add_argument('--include_csv', nargs='*', help='include CSV for external load. You may define custom options in the form option=value')
     #parser.add_argument('--external_csv', nargs='?', help='generate CSV for external load. Not implemented.')
@@ -43,14 +43,14 @@ if __name__ == '__main__':
         },
         "bev_medium": {
             "name": "bev_medium",
-            "capacity": 100, # kWh
+            "capacity": 65, # kWh
             "mileage": 40, # kWh / 100km
             "charging_curve": [[0, 150], [80, 150], [100, 150]], # SOC -> kWh
             "min_charging_power": 0,
         },
         "bev_mini": {
             "name": "bev_mini",
-            "capacity": 70, # kWh
+            "capacity": 30, # kWh
             "mileage": 40, # kWh / 100km
             "charging_curve": [[0, 50], [80, 50], [100, 50]], # SOC -> kWh
             "min_charging_power": 0,
@@ -183,7 +183,14 @@ if __name__ == '__main__':
                         possible_soc = possible_power / vehicle_capacity
 
                         if delta_soc > possible_soc:
-                            print("WARNING: Can't fulfill charging request for {} in ts {:.0f}. Need {:.2f} kWh in {:.2f} h from {} kW CS, possible: {} kWh".format(vehicle_name, (park_end_ts - start)/interval, desired_soc * vehicle_capacity, charge_duration.seconds/3600, cs_power, possible_power))
+                            print("WARNING: Can't fulfill charging request for {} in ts {:.0f}. Need {:.2f} kWh in {:.2f} h ({:.0f} ts) from {} kW CS, possible: {} kWh".format(
+                                vehicle_name,
+                                (park_end_ts - start)/interval,
+                                desired_soc * vehicle_capacity,
+                                charge_duration.seconds/3600,
+                                charge_duration / interval,
+                                cs_power, possible_power
+                            ))
 
                         # update last charge event info: set desired SOC
                         last_cs_event["update"]["desired_soc"] = desired_soc * 100
