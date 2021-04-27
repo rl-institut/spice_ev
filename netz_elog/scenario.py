@@ -126,7 +126,6 @@ class Scenario:
                 header = ["timestep", "time", "sum"]
                 header += ["sum_{}".format(uc) for uc in uc_present]
                 header += [cs_id for cs_id in cs_ids]
-                print(header)
                 output_file.write(','.join(header) + '\n')
 
                 # write timesteps
