@@ -44,9 +44,9 @@ if __name__ == '__main__':
                 k = k.strip()
                 v = v.strip()
                 try:
-                    # option may be number
-                    v = float(v)
-                except ValueError:
+                    # option may be special: number, array, etc.
+                    v = json.loads(v)
+                except ValueError as e:
                     # or not
                     pass
                 vars(args)[k] = v
