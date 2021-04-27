@@ -137,7 +137,7 @@ class Vehicle:
             ('connected_charging_station', str, None),
             ('estimated_time_of_arrival', util.datetime_from_isoformat, None),
             ('estimated_time_of_departure', util.datetime_from_isoformat, None),
-            ('desired_soc', float, 100.),
+            ('desired_soc', float, 0.),
             ('soc', float, 0.),
         ]
         util.set_attr_from_dict(obj, self, keys, optional_keys)
