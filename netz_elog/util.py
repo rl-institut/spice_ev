@@ -1,4 +1,5 @@
 import datetime
+import json
 from math import sqrt
 
 def datetime_from_isoformat(s):
@@ -68,3 +69,32 @@ def get_power(y, cost_dict):
             # return x1 if y1 == y else x2
 
     raise NotImplementedError
+
+def set_options_from_config(args, verbose=True):
+    # read options from config file, update given args
+    # try to parse options, ignore comment lines (begin with #)
+    # verbose: warns on unknown options and gives final overview of arguments
+    if "config" in args and args.config is not None:
+        # read options from config file
+        with open(args.config, 'r') as f:
+            for line in f:
+                if line.startswith("#"):
+                    # comment
+                    continue
+                k,v = line.split("=")
+                k = k.strip()
+                v = v.strip()
+                try:
+                    # option may be special: number, array, etc.
+                    v = json.loads(v)
+                except ValueError as e:
+                    # or not
+                    pass
+                # known option?
+                if (k not in args) and verbose:
+                    print("WARNING: Unknown option {}".format(k))
+                # set option
+                vars(args)[k] = v
+        # Give overview of options
+        if verbose:
+            print("Options: {}".format(vars(args)))
