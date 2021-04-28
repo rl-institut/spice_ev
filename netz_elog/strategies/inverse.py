@@ -18,14 +18,15 @@ class Inverse(Strategy):
         self.ITERATIONS = 16
         # compare close floating points
         self.EPS = 1e-5
-        # fraction of SOC allowed less
-        # eg. margin = 0.05: vehicles are allowed to leave with 95% of desired SOC
-        self.SOC_MARGIN = 0.05
         self.LOAD_STRAT = 'needy' # greedy, needy, balanced
 
         # init parent class Strategy. May override defaults
         super().__init__(constants, start_time, **kwargs)
         self.description = "inverse ({})".format(self.LOAD_STRAT)
+        # fraction of SOC allowed less
+        # eg. margin = 0.05: vehicles are allowed to leave with 95% of desired SOC in price simulation
+        # default: margin of strategy
+        self.SOC_MARGIN = kwargs.get("SOC_MARGIN", self.margin)
 
         if self.SOC_MARGIN != self.margin:
             print("WARNING: SoC margins don't match. In price simulation: {}, global: {}".format(self.SOC_MARGIN, self.margin))
