@@ -6,7 +6,7 @@ import json
 import random
 # from math import exp, log
 
-from netz_elog.util import datetime_from_isoformat
+from netz_elog.util import datetime_from_isoformat, set_options_from_config
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Generate scenarios as JSON files for Netz_eLOG modelling')
@@ -21,8 +21,13 @@ if __name__ == '__main__':
     parser.add_argument('--include-ext-csv-option', '-eo', metavar=('KEY', 'VALUE'), nargs=2, action='append', help='append additional argument to external load')
     parser.add_argument('--include-feed-in-csv', help='include CSV for energy feed-in, e.g., local PV. You may define custom options with --include-feed-in-csv-option')
     parser.add_argument('--include-feed-in-csv-option', '-fo', metavar=('KEY', 'VALUE'), nargs=2, action='append', help='append additional argument to feed-in load')
+    parser.add_argument('--include-price-csv', help='include CSV for energy price. You may define custom options with --include-price-csv-option')
+    parser.add_argument('--include-price-csv-option', '-po', metavar=('KEY', 'VALUE'), nargs=2, default=[], action='append', help='append additional argument to price signals')
+    parser.add_argument('--config', help='Use config file to set arguments')
 
     args = parser.parse_args()
+
+    set_options_from_config(args, False)
 
     if not args.cars:
         args.cars = [['2', 'golf'], ['3', 'sprinter']]
@@ -32,8 +37,8 @@ if __name__ == '__main__':
     interval = datetime.timedelta(minutes=args.interval)
 
     # CONSTANTS
-    avg_distance = 40 # km
-    std_distance = 2.155
+    avg_distance = vars(args).get("avg_distance", 40) # km
+    std_distance = vars(args).get("std_distance", 2.155)
 
     # VEHICLE TYPES
     vehicle_types = {
@@ -97,49 +102,11 @@ if __name__ == '__main__':
         }
 
     events = {
-        "grid_operator_signals": [
-            {
-                "signal_time": start.isoformat(),
-                "grid_connector_id": "GC1",
-                "start_time": start.isoformat(),
-                "cost": {
-                    "type": "polynomial",
-                    "value": [0.0, 0.1, 0.0]
-                }
-            },
-            # {
-                # "signal_time": "2019-12-31T23:00:00+02:00",
-                # "grid_connector_id": "GC1",
-                # "start_time": "2020-01-01T00:15:00+02:00",
-                # "max_power": None,
-                # "cost": {
-                    # "fixed": 100
-                # }
-            # }
-        ],
+        "grid_operator_signals": [],
         "external_load": {},
         "energy_feed_in": {},
         "vehicle_events": []
     }
-
-    """
-    now = start
-
-    if args.external_csv:
-        csv_file = open(args.external_csv, 'w')
-        csv_file.write("datetime, energy\n")
-
-    while now < stop:
-        now += interval
-
-        if args.external_csv and now.minute == 0:
-            csv_file.write("{},{}\n".format(now.isoformat(), 0))
-
-
-    if args.external_csv:
-        csv_file.close()
-
-    """
 
     if args.include_ext_load_csv:
         filename = args.include_ext_load_csv
@@ -171,6 +138,30 @@ if __name__ == '__main__':
                 options[key] = value
         events['energy_feed_in'][basename] = options
 
+    if args.include_price_csv:
+        filename = args.include_price_csv
+        basename = filename.split('.')[0]
+        options = {
+            "csv_file": filename,
+            "start_time": start.isoformat(),
+            "step_duration_s": 3600, # 60 minutes
+            "grid_connector_id": "GC1",
+            "column": "price [ct/kWh]"
+        }
+        for key, value in args.include_price_csv_option:
+                options[key] = value
+        events['energy_price_from_csv'] = options
+    else:
+        events['grid_operator_signals'].append({
+            "signal_time": start.isoformat(),
+            "grid_connector_id": "GC1",
+            "start_time": start.isoformat(),
+            "cost": {
+                "type": "polynomial",
+                "value": [0.0, 0.1, 0.0]
+            }
+        })
+
     daily  = datetime.timedelta(days=1)
     hourly = datetime.timedelta(hours=1)
 
@@ -182,26 +173,27 @@ if __name__ == '__main__':
         # next day. First day is off
         now += daily
 
-        # generate grid op signal for next day
-        events['grid_operator_signals'] += [{
-            # day (6-evening): 15ct
-            "signal_time": now.isoformat(),
-            "grid_connector_id": "GC1",
-            "start_time": (now + datetime.timedelta(days=1, hours=6)).isoformat(),
-            "cost": {
-                "type": "fixed",
-                "value": 0.15 + random.gauss(0, 0.05)
-            }
-        },{
-            # night (depending on month - 6): 5ct
-            "signal_time": now.isoformat(),
-            "grid_connector_id": "GC1",
-            "start_time": (now + datetime.timedelta(days=1, hours=22-abs(6-now.month))).isoformat(),
-            "cost": {
-                "type": "fixed",
-                "value": 0.05 + random.gauss(0, 0.03)
-            }
-        }]
+        if not args.include_price_csv:
+            # generate grid op signal for next day
+            events['grid_operator_signals'] += [{
+                # day (6-evening): 15ct
+                "signal_time": now.isoformat(),
+                "grid_connector_id": "GC1",
+                "start_time": (now + datetime.timedelta(days=1, hours=6)).isoformat(),
+                "cost": {
+                    "type": "fixed",
+                    "value": 0.15 + random.gauss(0, 0.05)
+                }
+            },{
+                # night (depending on month - 6): 5ct
+                "signal_time": now.isoformat(),
+                "grid_connector_id": "GC1",
+                "start_time": (now + datetime.timedelta(days=1, hours=22-abs(6-now.month))).isoformat(),
+                "cost": {
+                    "type": "fixed",
+                    "value": 0.05 + random.gauss(0, 0.03)
+                }
+            }]
 
         for v_id, v in vehicles.items():
             if now.weekday() == 6:
