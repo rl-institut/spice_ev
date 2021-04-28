@@ -29,7 +29,7 @@ if __name__ == '__main__':
     parser.add_argument('--config', help='Use config file to set arguments')
     args = parser.parse_args()
 
-    set_options_from_config(args)
+    set_options_from_config(args, verbose=False)
 
     # first monday of 2021
     # SimBEV uses MiD data and creates data for an exemplary week, so there are no exact dates.
