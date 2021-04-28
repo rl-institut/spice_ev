@@ -24,7 +24,7 @@ class Scenario:
         self.interval =  datetime.timedelta(minutes=scenario['interval'])
 
         # compute n_intervals or stop_time
-        assert (scenario.get('stop_time') != None) ^ (scenario.get('n_intervals') != None), 'just one of\'em plz'
+        assert (scenario.get('stop_time') != None) ^ (scenario.get('n_intervals') != None), 'Give either stop_time or n_intervals, not both'
         if 'n_intervals' in scenario:
             self.n_intervals = scenario['n_intervals']
             self.stop_time = self.start_time + self.interval * self.n_intervals
@@ -55,6 +55,7 @@ class Scenario:
         totalFeedIn = 0
         unusedFeedIn = 0
         batteryLevels = {k: [] for k in self.constants.batteries.keys()}
+        connChargeByTS = []
 
 
         for step_i in range(self.n_intervals):
@@ -98,6 +99,9 @@ class Scenario:
             for batName, bat in strat.world_state.batteries.items():
                 batteryLevels[batName].append(bat.soc / 100 * bat.capacity)
 
+            connChargeByTS.append([v.connected_charging_station for v in strat.world_state.vehicles.values() if v.connected_charging_station is not None])
+
+
         print("Costs:", int(sum(costs)))
         print("Renewable energy feed-in: {} kW, unused: {} kW ({}%)".format(
             round(totalFeedIn),
@@ -111,35 +115,63 @@ class Scenario:
             cs_ids = sorted(strat.world_state.charging_stations.keys())
             uc_keys = ["work", "business", "school", "shopping", "private/ridesharing", "leisure", "home", "hub"]
 
+            round_to_places = 2
+
             # which SimBEV-Use Cases are in this scenario?
-            uc_present = []
+            # group CS by UC name
+            cs_by_uc = {}
             for uc_key in uc_keys:
                 for cs_id in cs_ids:
-                    if cs_id.endswith(uc_key):
-                        # use case present at least once
-                        uc_present.append(uc_key)
-                        # search next use case
-                        break
+                    if uc_key in cs_id:
+                        # CS part of UC
+                        if uc_key not in cs_by_uc:
+                            # first CS of this UC
+                            cs_by_uc[uc_key] = []
+                        cs_by_uc[uc_key].append(cs_id)
+
+            uc_keys_present = cs_by_uc.keys()
 
             with open(options['output'], 'w') as output_file:
                 # write header
-                header = ["timestep", "time", "sum"]
-                header += ["sum_{}".format(uc) for uc in uc_present]
-                header += [cs_id for cs_id in cs_ids]
-                output_file.write(','.join(header) + '\n')
+                # general info
+                header = ["timestep", "time"]
+
+                # sum of charging power
+                header.append("sum power")
+                # charging power per use case
+                header += ["sum UC {}".format(uc) for uc in uc_keys_present]
+
+                # total number of occupied charging stations
+                header.append("# occupied CS")
+                # number of occupied CS per UC
+                header += ["# occupied UC {}".format(uc) for uc in uc_keys_present]
+
+                # charging power per CS
+                header += [str(cs_id) for cs_id in cs_ids]
+                output_file.write(','.join(header))
 
                 # write timesteps
                 for idx, r in enumerate(results):
-                    time = r['current_time']
-                    sum_all = sum(r['commands'].values())
-                    row = [str(idx), str(time), str(sum_all)]
+                    # general info: timestep index and timestamp
+                    row = [idx, r['current_time']]
 
+                    # charging power
+                    # get sum of all current CS power
+                    row.append(round(sum(r['commands'].values()), round_to_places))
                     # sum up all charging power for each use case
-                    row += [str(sum([cs_value for cs_id, cs_value in r['commands'].items() if cs_id.endswith(uc_key)])) for uc_key in uc_present]
+                    row += [round(sum([cs_value for cs_id, cs_value in r['commands'].items() if cs_id in cs_by_uc[uc_key]]), round_to_places) for uc_key in uc_keys_present]
 
-                    # write out individual charging power
-                    row += [str(r['commands'].get(cs_id, 0)) for cs_id in cs_ids]
-                    output_file.write(','.join(row) + '\n')
+                    # get total number of occupied CS
+                    row.append(len(connChargeByTS[idx]))
+                    # get number of occupied CS for each use case
+                    row += [sum([1 if uc_key in cs_id else 0 for cs_id in connChargeByTS[idx]]) for uc_key in uc_keys_present]
+
+
+                    # get individual charging power
+                    row += [round(r['commands'].get(cs_id, 0), round_to_places) for cs_id in cs_ids]
+
+                    # write row to file
+                    output_file.write('\n' + ','.join(map(lambda x: str(x), row)))
 
         if options.get('visual', False):
             import matplotlib.pyplot as plt
