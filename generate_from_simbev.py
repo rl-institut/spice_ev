@@ -8,7 +8,7 @@ import math
 from pathlib import Path
 import random
 
-from netz_elog.util import datetime_from_isoformat
+from netz_elog.util import set_options_from_config
 
 
 if __name__ == '__main__':
@@ -16,27 +16,32 @@ if __name__ == '__main__':
     parser.add_argument('output', help='output file name (example.json)')
     parser.add_argument('--simbev', metavar='DIR', type=str, required=True, help='set directory with SimBEV files')
     parser.add_argument('--interval', metavar='MIN', type=int, default=15, help='set number of minutes for each timestep (Δt)')
-    parser.add_argument('--price-seed', type=int, default=0, help='set seed when generating energy market prices. Negative values for fixed price in cents')
-    parser.add_argument('--min-soc', type=float, default=0.5, help='Set minimum desired SoC for each charging event. Default: 0.5')
-    #parser.add_argument('--include_csv', nargs='*', help='include CSV for external load. You may define custom options in the form option=value')
-    #parser.add_argument('--external_csv', nargs='?', help='generate CSV for external load. Not implemented.')
+    parser.add_argument('--price-seed', metavar='X', type=int, default=0, help='set seed when generating energy market prices. Negative values for fixed price in cents')
+    parser.add_argument('--min-soc', metavar='S', type=float, default=0.5, help='Set minimum desired SoC for each charging event. Default: 0.5')
+
+    # csv files
+    parser.add_argument('--include-ext-load-csv', help='include CSV for external load. You may define custom options with --include-ext-csv-option')
+    parser.add_argument('--include-ext-csv-option', '-eo', metavar=('KEY', 'VALUE'), nargs=2, default=[], action='append', help='append additional argument to external load')
+    parser.add_argument('--include-feed-in-csv', help='include CSV for energy feed-in, e.g., local PV. You may define custom options with --include-feed-in-csv-option')
+    parser.add_argument('--include-feed-in-csv-option', '-fo', metavar=('KEY', 'VALUE'), nargs=2, default=[], action='append', help='append additional argument to feed-in load')
+    parser.add_argument('--include-price-csv', help='include CSV for energy price. You may define custom options with --include-price-csv-option')
+    parser.add_argument('--include-price-csv-option', '-po', metavar=('KEY', 'VALUE'), nargs=2, default=[], action='append', help='append additional argument to price signals')
+    parser.add_argument('--config', help='Use config file to set arguments')
     args = parser.parse_args()
+
+    set_options_from_config(args)
 
     # first monday of 2021
     # SimBEV uses MiD data and creates data for an exemplary week, so there are no exact dates.
     start = datetime.datetime(year=2021, month=1, day=4, tzinfo=datetime.timezone(datetime.timedelta(hours=1)))
     interval = datetime.timedelta(minutes=args.interval)
     n_intervals = 0
-    price_stable_hours = 6 # for random price: remains stable for X hours
-    price_interval = datetime.timedelta(hours=price_stable_hours) / interval # every X timesteps, generate new price signal
-
-    SOC_THRESHOLD = 0.0 # don't charge if next trip uses less than this SOC
 
     # possible vehicle types
     vehicle_types = {
         "bev_luxury": {
             "name": "bev_luxury",
-            "capacity": 120, # kWh
+            "capacity": 90, # kWh
             "mileage": 40, # kWh / 100km
             "charging_curve": [[0, 300], [80, 300], [100, 300]], # SOC -> kWh
             "min_charging_power": 0,
@@ -82,7 +87,7 @@ if __name__ == '__main__':
         assert type(timestep) == int
         return start + (interval * timestep)
 
-    # CSV files
+    # vehicle CSV files
     pathlist = list(Path(args.simbev).rglob('*.csv'))
     pathlist.sort()
 
@@ -91,22 +96,77 @@ if __name__ == '__main__':
     events = {
         "grid_operator_signals": [],
         "external_load": {},
+        "energy_feed_in": {},
         "vehicle_events": []
     }
 
-    if args.price_seed < 0:
-        # use fixed price
+    # external load CSV
+    if args.include_ext_load_csv:
+        filename = args.include_ext_load_csv
+        basename = filename.split('.')[0]
+        options = {
+            "csv_file": filename,
+            "start_time": start.isoformat(),
+            "step_duration_s": 900, # 15 minutes
+            "grid_connector_id": "GC1",
+            "column": "energy"
+        }
+        for key, value in args.include_ext_csv_option:
+            options[key] = value
+        events['external_load'][basename] = options
+
+    # energy feed-in CSV (e.g. from PV)
+    if args.include_feed_in_csv:
+        filename = args.include_feed_in_csv
+        basename = filename.split('.')[0]
+        options = {
+            "csv_file": filename,
+            "start_time": start.isoformat(),
+            "step_duration_s": 3600, # 60 minutes
+            "grid_connector_id": "GC1",
+            "column": "energy"
+        }
+        for key, value in args.include_feed_in_csv_option:
+                options[key] = value
+        events['energy_feed_in'][basename] = options
+
+    # energy price CSV
+    if args.include_price_csv:
+        filename = args.include_price_csv
+        basename = filename.split('.')[0]
+        options = {
+            "csv_file": filename,
+            "start_time": start.isoformat(),
+            "step_duration_s": 3600, # 60 minutes
+            "grid_connector_id": "GC1",
+            "column": "price [ct/kWh]"
+        }
+        for key, value in args.include_price_csv_option:
+                options[key] = value
+        events['energy_price_from_csv'] = options
+
+        if args.price_seed:
+            # CSV and price_seed given
+            print("WARNING: Multiple price sources detected. Using CSV.")
+    elif args.price_seed < 0:
+        # use single, fixed price
         events["grid_operator_signals"].append({
             "signal_time": start.isoformat(),
             "grid_connector_id": "GC1",
             "start_time": start.isoformat(),
             "cost": {
                 "type": "fixed",
-                "value": -args.price_seed/100
+                "value": -args.price_seed
             }
         })
     else:
+        # random price
+        # set seed from input (repeatability)
         random.seed(args.price_seed)
+        # price remains stable for X hours
+        price_stable_hours = 6
+        # every X timesteps, generate new price signal
+        price_interval = datetime.timedelta(hours=price_stable_hours) / interval
 
     # generate vehicle events: iterate over input files
     for csv_path in pathlist:
@@ -153,15 +213,16 @@ if __name__ == '__main__':
                 simbev_demand = float(row["chargingdemand"])
                 assert capacity > 0 or simbev_demand == 0, "Charging event without charging station: {} @ row {}".format(vehicle_name, idx + 2)
 
-                if not capacity or soc_needed < SOC_THRESHOLD:
+                cs_present = capacity > 0
+                assert (not cs_present) or consumption == 0, "Consumption while charging for {} @ row {}".format(vehicle_name, idx + 2)
+
+                if not cs_present:
                     # no charging station or don't need to charge
                     # just increase charging demand based on consumption
                     soc_needed += consumption / vehicle_capacity
                     assert soc_needed <= 1 + vehicle_soc, "Consumption too high for {} in row {}: vehicle charged to {}, needs SoC of {} ({} kW)".format(vehicle_name, idx + 2, vehicle_soc, soc_needed, soc_needed * vehicle_capacity)
                 else:
                     # charging station present
-                    # must have no consumption
-                    assert consumption == 0, "Consumption while charging for {} @ row {}".format(vehicle_name, idx + 2)
 
                     if not last_cs_event:
                         # first charge: initial must be enough
@@ -254,7 +315,7 @@ if __name__ == '__main__':
 
                     # random price: each price interval, generate new price
 
-                    while args.price_seed >= 0 and n_intervals >= price_interval * len(events["grid_operator_signals"]):
+                    while not args.include_price_csv and args.price_seed >= 0 and n_intervals >= price_interval * len(events["grid_operator_signals"]):
                         # at which timestep is price updated?
                         price_update_idx = int(len(events["grid_operator_signals"]) * price_interval)
                         start_time = datetime_from_timestep(price_update_idx)
