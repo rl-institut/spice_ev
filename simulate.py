@@ -5,6 +5,7 @@ import json
 import os
 
 from netz_elog.scenario import Scenario
+from netz_elog.util import set_options_from_config
 
 
 if __name__ == '__main__':
@@ -36,20 +37,7 @@ if __name__ == '__main__':
     parser.add_argument('--config', help='Use config file to set arguments')
     args = parser.parse_args()
 
-    if args.config:
-        # read options from config file
-        with open(args.config, 'r') as f:
-            for line in f:
-                k,v = line.split("=")
-                k = k.strip()
-                v = v.strip()
-                try:
-                    # option may be special: number, array, etc.
-                    v = json.loads(v)
-                except ValueError as e:
-                    # or not
-                    pass
-                vars(args)[k] = v
+    set_options_from_config(args)
 
     options = {
         'visual': args.visual,
