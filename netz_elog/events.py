@@ -135,7 +135,7 @@ def get_energy_price_list_from_csv(obj, dir_path):
             start_time = idx * interval + start
             event_time = max(start, start_time-yesterday)
             events.append(GridOperatorSignal({
-                "start_time": obj["start_time"],
+                "start_time": start_time.isoformat(),
                 "signal_time": event_time.isoformat(),
                 "grid_connector_id": obj["grid_connector_id"],
                 "cost": {"type": "fixed", "value": float(row[column])}
