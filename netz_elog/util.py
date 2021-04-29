@@ -70,10 +70,11 @@ def get_power(y, cost_dict):
 
     raise NotImplementedError
 
-def set_options_from_config(args, verbose=True):
+def set_options_from_config(args, check=False, verbose=True):
     # read options from config file, update given args
     # try to parse options, ignore comment lines (begin with #)
-    # verbose: warns on unknown options and gives final overview of arguments
+    # check: raise ValueError on unknown options
+    # verbose: gives final overview of arguments
     if "config" in args and args.config is not None:
         # read options from config file
         with open(args.config, 'r') as f:
@@ -91,8 +92,8 @@ def set_options_from_config(args, verbose=True):
                     # or not
                     pass
                 # known option?
-                if (k not in args) and verbose:
-                    print("WARNING: Unknown option {}".format(k))
+                if (k not in args) and check:
+                    raise ValueError("Unknown option {}".format(k))
                 # set option
                 vars(args)[k] = v
         # Give overview of options

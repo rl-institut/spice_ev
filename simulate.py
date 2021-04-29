@@ -37,7 +37,7 @@ if __name__ == '__main__':
     parser.add_argument('--config', help='Use config file to set arguments')
     args = parser.parse_args()
 
-    set_options_from_config(args)
+    set_options_from_config(args, check=True, verbose=False)
 
     options = {
         'visual': args.visual,

@@ -27,7 +27,7 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    set_options_from_config(args, verbose=False)
+    set_options_from_config(args, check=False, verbose=False)
 
     if not args.cars:
         args.cars = [['2', 'golf'], ['3', 'sprinter']]
