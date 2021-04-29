@@ -316,6 +316,9 @@ class Inverse(Strategy):
                 cs_id = vehicle.connected_charging_station
                 cs = self.world_state.charging_stations.get(cs_id, None)
                 if cs and p > cs.min_power and p > vehicle.vehicle_type.min_charging_power:
+                    p = min(cs.max_power, p)
+                    if p < cs.min_power:
+                        p = 0
                     load = vehicle.battery.load(self.interval, p)
                     avg_power = load['avg_power']
                     charging_stations[cs_id] = avg_power
@@ -343,6 +346,7 @@ class Inverse(Strategy):
                 cs = self.world_state.charging_stations.get(cs_id, None)
                 if cs and p > cs.min_power and p > vehicle.vehicle_type.min_charging_power:
                     # find remaining power of CS
+                    # cannot exceed cs.max_power
                     cs_remaining_power = cs.max_power - charging_stations.get(cs_id, 0)
                     p = min(cs_remaining_power, p)
                     if p < cs.min_power:
