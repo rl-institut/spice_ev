@@ -14,7 +14,7 @@ from netz_elog.util import set_options_from_config
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Generate scenarios as JSON files for Netz_eLOG modelling')
     parser.add_argument('output', help='output file name (example.json)')
-    parser.add_argument('--simbev', metavar='DIR', type=str, required=True, help='set directory with SimBEV files')
+    parser.add_argument('--simbev', metavar='DIR', type=str, help='set directory with SimBEV files')
     parser.add_argument('--interval', metavar='MIN', type=int, default=15, help='set number of minutes for each timestep (Δt)')
     parser.add_argument('--price-seed', metavar='X', type=int, default=0, help='set seed when generating energy market prices. Negative values for fixed price in cents')
     parser.add_argument('--min-soc', metavar='S', type=float, default=0.5, help='Set minimum desired SoC for each charging event. Default: 0.5')
@@ -29,7 +29,9 @@ if __name__ == '__main__':
     parser.add_argument('--config', help='Use config file to set arguments')
     args = parser.parse_args()
 
-    set_options_from_config(args, verbose=False)
+    set_options_from_config(args, check=True, verbose=False)
+
+    assert args.simbev, "Need SimBEV output folder (use --simbev)"
 
     # first monday of 2021
     # SimBEV uses MiD data and creates data for an exemplary week, so there are no exact dates.
@@ -88,7 +90,9 @@ if __name__ == '__main__':
         return start + (interval * timestep)
 
     # vehicle CSV files
-    pathlist = list(Path(args.simbev).rglob('*.csv'))
+    path = Path(args.simbev)
+    assert path.exists(), "SimBEV directory {} does not exist".format(args.simbev)
+    pathlist = list(path.rglob('*.csv'))
     pathlist.sort()
 
     vehicles = {}
@@ -177,7 +181,11 @@ if __name__ == '__main__':
             for idx,row in enumerate(reader):
                 if vehicle_name not in vehicles:
                     # set vehicle info from first data row
-                    v_type = row["car_type"]
+                    try:
+                        v_type = row["car_type"]
+                    except KeyError:
+                        print("Skipping {}, probably no vehicle file".format(csv_path))
+                        break
                     # vehicle type must be known
                     assert v_type in vehicle_types, "Unknown vehicle type for {}: {}".format(vehicle_name, v_type)
                     # save initial vehicle data
@@ -343,6 +351,8 @@ if __name__ == '__main__':
                                     "value": 0.15 + random.gauss(0, 0.05)
                                 }
                             })
+
+    assert len(vehicles)>0, "No vehicles found in {}".format(args.simbev)
 
     j = {
         "scenario": {
