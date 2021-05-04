@@ -70,6 +70,12 @@ def get_power(y, cost_dict):
 
     raise NotImplementedError
 
+def clamp_power(power, vehicle, cs):
+    power = min(power, cs.max_power)
+    if power < cs.min_power or power < vehicle.vehicle_type.min_charging_power:
+        power = 0
+    return power
+
 def set_options_from_config(args, check=False, verbose=True):
     # read options from config file, update given args
     # try to parse options, ignore comment lines (begin with #)
