@@ -94,7 +94,7 @@ if __name__ == '__main__':
                 "parent": "GC1"
             }
 
-    for idx, capacity in enumerate(args.battery):
+    for idx, capacity in enumerate(args.battery or []):
         batteries["BAT{}".format(idx+1)] = {
             "parent": "GC1",
             "capacity": capacity,
