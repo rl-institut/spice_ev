@@ -2,9 +2,7 @@ import datetime
 import json
 import unittest
 
-import battery
-import loading_curve
-import scenario
+from netz_elog import battery, loading_curve, scenario
 
 
 def get_test_json():
@@ -99,7 +97,7 @@ class TestBattery(unittest.TestCase):
         bat = battery.Battery(100, lc, 0)
         print(bat)
 
-
+    """
     def test_load(self):
         import matplotlib.pyplot as plt
 
@@ -118,6 +116,22 @@ class TestBattery(unittest.TestCase):
         fig, ax = plt.subplots()
         ax.plot(x, y)
         plt.show()
+    """
+
+    def test_charging(self):
+        # charge one battery with 10 kW for one hour and another battery with 1 kW for 10 hours
+        # SoC and used energy must be the same
+        points = [(0.0, 100.0), (50.0, 100.0), (100.0, 0.0)]
+        lc = loading_curve.LoadingCurve(points)
+        b1 = battery.Battery(100, lc, 0)
+        b2 = battery.Battery(100, lc, 0)
+        td = datetime.timedelta(hours=1)
+        p1 = b1.load(td, 10)["avg_power"]
+        p2 = 0
+        for _ in range(10):
+            p2 += b2.load(td, 1)["avg_power"]
+        assert approx_eq(b1.soc, b2.soc), "SoC different: {} vs {}".format(b1.soc, b2.soc)
+        assert approx_eq(p1, p2), "Used power different: {} vs {}".format(p1, p2)
 
 if __name__ == '__main__':
     unittest.main()
