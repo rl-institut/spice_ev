@@ -22,7 +22,10 @@ class GreedyForesight(Strategy):
         super().step(event_list)
 
         gc = list(self.world_state.grid_connectors.values())[0]
-        vehicles = sorted([(v_id, v) for (v_id, v) in self.world_state.vehicles.items() if v.connected_charging_station is not None], key = lambda x: (x[1].battery.capacity*x[1].battery.soc/self.world_state.charging_stations[x[1].connected_charging_station].max_power) / ((x[1].estimated_time_of_departure - self.current_time) / self.interval))
+        # order by needed energy per timestep
+        # vehicles = sorted([v for v in self.world_state.vehicles.values() if v.connected_charging_station is not None], key = lambda v: (v.battery.capacity*v.battery.soc/self.world_state.charging_stations[v.connected_charging_station].max_power) / ((v.estimated_time_of_departure - self.current_time) / self.interval))
+        # order by time of departure
+        vehicles = sorted([v for v in self.world_state.vehicles.values() if v.connected_charging_station is not None], key = lambda v: v.estimated_time_of_departure)
 
         cur_max_power = gc.cur_max_power
         cur_cost = gc.cost
@@ -91,7 +94,7 @@ class GreedyForesight(Strategy):
         sorted_ts = sorted((util.get_cost(1, e["cost"]), idx) for idx, e in enumerate(timesteps))
 
         charging_stations = {}
-        for v_id, vehicle in vehicles:
+        for vehicle in vehicles:
             cs_id = vehicle.connected_charging_station
             cs = self.world_state.charging_stations[cs_id]
 
@@ -100,6 +103,7 @@ class GreedyForesight(Strategy):
                 # charge max
                 p = gc.cur_max_power - gc.get_current_load()
                 p = util.clamp_power(p, vehicle, cs)
+                p = min(p, cs.max_power * self.CONCURRENCY)
                 avg_power = vehicle.battery.load(self.interval,p)['avg_power']
                 charging_stations[cs_id] = gc.add_load(cs_id, avg_power)
             else:
@@ -117,6 +121,7 @@ class GreedyForesight(Strategy):
                         # charge max
                         cur_power = timesteps[ts_idx]["power"]
                         cur_power = util.clamp_power(cur_power, sim_vehicle, cs)
+                        cur_power = min(cur_power, cs.max_power * self.CONCURRENCY)
                         avg_power = sim_vehicle.battery.load(self.interval,cur_power)['avg_power']
                         timesteps[ts_idx]["power"] -= avg_power
                     elif sim_vehicle.battery.soc < vehicle.desired_soc:
@@ -124,22 +129,31 @@ class GreedyForesight(Strategy):
                         old_sim_soc = sim_vehicle.battery.soc
                         min_power = max(0, vehicle.vehicle_type.min_charging_power, cs.min_power)
                         max_power = timesteps[ts_idx]["power"]
+                        # adhere to CS and vehicle limits
+                        min_power = util.clamp_power(min_power, sim_vehicle, cs)
+                        # max_power = util.clamp_power(max_power, sim_vehicle, cs)
+                        max_power = min(max_power, cs.max_power * self.CONCURRENCY)
                         cur_power = max_power
-                        while max_power - min_power > self.EPS:
-                            cur_power = (max_power + min_power) / 2
-                            sim_vehicle.battery.load(self.interval, cur_power)
-                            if sim_vehicle.battery.soc < vehicle.desired_soc:
-                                # not enough power
-                                min_power = cur_power
-                            else:
-                                # too much power
-                                max_power = cur_power
-                            sim_vehicle.battery.soc = old_sim_soc
-                        # allocate charge
+                        # try to charge with max power
                         avg_power = sim_vehicle.battery.load(self.interval,cur_power)['avg_power']
+                        if sim_vehicle.battery.soc >= vehicle.desired_soc:
+                            # max power charges too much -> find minimum viable power to reach desired SoC
+                            while max_power - min_power > self.EPS:
+                                # reset simulated SoC
+                                sim_vehicle.battery.soc = old_sim_soc
+                                # binary search
+                                cur_power = (max_power + min_power) / 2
+                                avg_power = sim_vehicle.battery.load(self.interval, cur_power)['avg_power']
+                                if sim_vehicle.battery.soc < vehicle.desired_soc:
+                                    # not enough power
+                                    min_power = cur_power
+                                else:
+                                    # too much power
+                                    max_power = cur_power
+                        # allocate charge
                         timesteps[ts_idx]["power"] -= avg_power
 
-                    if ts_idx == 0:
+                    if ts_idx == 0 and cur_power:
                         # current timestep: charge for real
                         avg_power = vehicle.battery.load(self.interval, cur_power)['avg_power']
                         charging_stations[cs_id] = gc.add_load(cs_id, avg_power)
