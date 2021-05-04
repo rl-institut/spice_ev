@@ -11,11 +11,12 @@ from netz_elog.util import set_options_from_config
 if __name__ == '__main__':
 
     strategies = [
-        'greedy', 'greedy_feed_in',
+        'greedy', 'greedy_feed_in', 'greedy_foresight',
         'parity',
         'balanced', 'balanced_feed_in',
         'foresight',
         'genetic',
+        'i2c',
         'inverse',
         'v2g',
         'battery'
