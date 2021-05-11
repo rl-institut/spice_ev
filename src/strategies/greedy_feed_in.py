@@ -1,5 +1,5 @@
-from netz_elog import events, util
-from netz_elog.strategy import Strategy
+from src import events, util
+from src.strategy import Strategy
 
 
 class GreedyFeedIn(Strategy):

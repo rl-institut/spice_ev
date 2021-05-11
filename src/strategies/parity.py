@@ -1,5 +1,5 @@
-from netz_elog import events
-from netz_elog.strategy import Strategy
+from src import events
+from src.strategy import Strategy
 
 
 class Parity(Strategy):

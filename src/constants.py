@@ -1,6 +1,6 @@
 import datetime
-from netz_elog import battery, loading_curve, util
-from netz_elog.events import ExternalLoad
+from src import battery, loading_curve, util
+from src.events import ExternalLoad
 
 
 class Constants:

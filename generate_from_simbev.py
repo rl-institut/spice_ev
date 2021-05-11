@@ -8,11 +8,11 @@ import math
 from pathlib import Path
 import random
 
-from netz_elog.util import set_options_from_config
+from src.util import set_options_from_config
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Generate scenarios as JSON files for Netz_eLOG modelling')
+    parser = argparse.ArgumentParser(description='Generate scenarios as JSON files for vehicle charging modelling from vehicle timeseries (e.g. SimBEV output).')
     parser.add_argument('output', help='output file name (example.json)')
     parser.add_argument('--simbev', metavar='DIR', type=str, help='set directory with SimBEV files')
     parser.add_argument('--interval', metavar='MIN', type=int, default=15, help='set number of minutes for each timestep (Δt)')

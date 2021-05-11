@@ -6,10 +6,10 @@ import json
 import random
 # from math import exp, log
 
-from netz_elog.util import datetime_from_isoformat, set_options_from_config
+from src.util import datetime_from_isoformat, set_options_from_config
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Generate scenarios as JSON files for Netz_eLOG modelling')
+    parser = argparse.ArgumentParser(description='Generate scenarios as JSON files for vehicle charging modelling')
     parser.add_argument('output', help='output file name (example.json)')
     parser.add_argument('--cars', metavar=('N', 'TYPE'), nargs=2, action='append', type=str, help='set number of cars for a vehicle type, e.g. `--cars 100 sprinter` or `--cars 13 golf`')
     parser.add_argument('--days', metavar='N', type=int, default=30, help='set duration of scenario as number of days')

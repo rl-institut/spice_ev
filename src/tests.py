@@ -2,7 +2,7 @@ import datetime
 import json
 import unittest
 
-from netz_elog import battery, loading_curve, scenario
+from src import battery, loading_curve, scenario
 
 
 def get_test_json():

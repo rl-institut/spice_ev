@@ -4,8 +4,8 @@ import argparse
 import json
 import os
 
-from netz_elog.scenario import Scenario
-from netz_elog.util import set_options_from_config
+from src.scenario import Scenario
+from src.util import set_options_from_config
 
 
 if __name__ == '__main__':
@@ -22,7 +22,7 @@ if __name__ == '__main__':
         'battery'
     ]
 
-    parser = argparse.ArgumentParser(description='Netz_eLOG modelling tool. Simulate different charging strategies for a given scenario.')
+    parser = argparse.ArgumentParser(description='SpiceEV - Simulation Program for Individual Charging Events of Electric Vehicles. Simulate different charging strategies for a given scenario.')
     parser.add_argument('file', help='Set the scenario JSON file')
     parser.add_argument('--strategy', '-s', default='greedy', help='Specify the charging strategy. '
         'One of {}. You may define custom options with --strategy-option.'.format(', '.join(strategies)))

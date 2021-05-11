@@ -6,7 +6,7 @@ import json
 import math
 import os
 
-from netz_elog import constants, events, strategy, util
+from src import constants, events, strategy, util
 
 
 class Scenario:
@@ -80,7 +80,8 @@ class Scenario:
                 extLoads.append(stepLoads)
                 # sum up loads (with charging stations), compute cost
                 gc_load = gc.get_current_load()
-                cost += util.get_cost(max(gc_load, 0), gc.cost)
+                # price in ct/kWh -> get price in EUR
+                cost += util.get_cost(max(gc_load, 0), gc.cost) / 100
                 price.append(util.get_cost(1, gc.cost))
                 curLoad += gc_load
 

@@ -5,7 +5,7 @@ import datetime
 import math
 import random
 
-from netz_elog.util import datetime_from_isoformat, set_options_from_config
+from src.util import datetime_from_isoformat, set_options_from_config
 
 
 if __name__ == '__main__':
