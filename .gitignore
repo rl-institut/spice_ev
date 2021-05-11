@@ -1,3 +1,6 @@
 .*.sw[op]
 /__pycache__
 *.pyc
+
+tests/
+docs/
