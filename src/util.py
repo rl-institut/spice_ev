@@ -85,8 +85,12 @@ def set_options_from_config(args, check=False, verbose=True):
         # read options from config file
         with open(args.config, 'r') as f:
             for line in f:
+                line = line.strip()
                 if line.startswith("#"):
                     # comment
+                    continue
+                if len(line) == 0:
+                    # empty line
                     continue
                 k,v = line.split("=")
                 k = k.strip()
