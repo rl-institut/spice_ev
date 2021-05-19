@@ -14,7 +14,7 @@ class V2g(Strategy):
         # compare close floating points
         self.EPS = 1e-2
         # low pass filter for predicted external cost
-        self.LOAD_STRAT = 'needy' # greedy, needy, balanced
+        self.LOAD_STRAT = 'needy'  # greedy, needy, balanced
         self.SAFE_DISCHARGE = 0
         self.USE_COST = 0
 
@@ -28,11 +28,11 @@ class V2g(Strategy):
 
         # set order of vehicles to load
         if self.LOAD_STRAT == 'greedy':
-            self.sort_key=lambda v: v.estimated_time_of_departure
+            self.sort_key = lambda v: v.estimated_time_of_departure
         elif self.LOAD_STRAT == 'needy':
-            self.sort_key=lambda v: -v.get_delta_soc()*v.battery.capacity
+            self.sort_key = lambda v: -v.get_delta_soc()*v.battery.capacity
         elif self.LOAD_STRAT == 'balanced':
-            self.sort_key=lambda v: 0 # order does not matter
+            self.sort_key = lambda v: 0  # order does not matter
         else:
             raise NotImplementedError(self.LOAD_STRAT)
 
@@ -45,7 +45,7 @@ class V2g(Strategy):
             cs.current_power = 0
 
         energy_needed = 0
-        energy_avail  = 0
+        energy_avail = 0
         max_energy_needed = 0
         # get connected vehicles
         vehicles = {}
@@ -54,7 +54,7 @@ class V2g(Strategy):
                 vehicles[vid] = vehicle
                 delta_soc = vehicle.get_delta_soc()
                 energy_needed += max(delta_soc / 100, 0) * vehicle.battery.capacity
-                energy_avail  -= min(delta_soc / 100, 0) * vehicle.battery.capacity
+                energy_avail -= min(delta_soc / 100, 0) * vehicle.battery.capacity
                 max_energy_needed += (1 - vehicle.battery.soc/100) * vehicle.battery.capacity
 
         # get one and only GC
@@ -64,8 +64,8 @@ class V2g(Strategy):
         # in this time, all vehicles must be charged
         # get future events and predict external load and cost for each timestep
         event_idx = 0
-        timesteps_per_day = int(datetime.timedelta(days = 1) / self.interval)
-        hours_per_timestep=self.interval.total_seconds() / 3600.0
+        timesteps_per_day = int(datetime.timedelta(days=1) / self.interval)
+        hours_per_timestep = self.interval.total_seconds() / 3600.0
         timesteps = []
         gc_info = {
             'max_power': gc.cur_max_power,
@@ -82,7 +82,7 @@ class V2g(Strategy):
             # still vehicles present at this timestep?
             vehicles_present = False
             for vehicle in vehicles.values():
-                still_present  = vehicle.estimated_time_of_departure > cur_time
+                still_present = vehicle.estimated_time_of_departure > cur_time
                 if still_present:
                     vehicles_present = True
                     break
@@ -118,8 +118,8 @@ class V2g(Strategy):
 
         if len(timesteps) == 0:
             # no timesteps -> no charging vehicle
-            socs={vid: v.battery.soc for vid, v in self.world_state.vehicles.items()}
-            return {'current_time': self.current_time, 'commands': {}, 'socs': socs}
+            soc = {vid: v.battery.soc for vid, v in self.world_state.vehicles.items()}
+            return {'current_time': self.current_time, 'commands': {}, 'socs': soc}
 
         if self.USE_COST == 0:
             min_power = 0
@@ -320,21 +320,26 @@ class V2g(Strategy):
 
                 if self.LOAD_STRAT == 'greedy':
                     # discharge one vehicle after the other
-                    avg_power = vehicle.battery.unload(self.interval, usable_power, vehicle.desired_soc)['avg_power']
+                    avg_power = vehicle.battery.unload(
+                        self.interval, usable_power, vehicle.desired_soc)['avg_power']
                     usable_power -= avg_power
                 elif self.LOAD_STRAT == 'needy' and energy_avail > 0:
                     # discharge in relation to available energy
                     delta_soc = -vehicle.get_delta_soc() / 100
                     f = delta_soc * vehicle.battery.capacity / energy_avail
-                    avg_power = vehicle.battery.unload(self.interval, usable_power * f, vehicle.desired_soc)['avg_power']
+                    avg_power = vehicle.battery.unload(
+                        self.interval, usable_power * f, vehicle.desired_soc)['avg_power']
                 elif self.LOAD_STRAT == 'balanced':
                     # discharge evenly
-                    avg_power = vehicle.battery.unload(self.interval, usable_power / len(vehicle_list), vehicle.desired_soc)['avg_power']
+                    avg_power = vehicle.battery.unload(
+                        self.interval,
+                        usable_power / len(vehicle_list),
+                        vehicle.desired_soc)['avg_power']
 
                 cs_id = vehicle.connected_charging_station
                 cs = self.world_state.charging_stations[cs_id]
                 charging_stations[cs_id] = gc.add_load(cs_id, -avg_power)
                 cs.current_power -= avg_power
 
-        socs={vid: v.battery.soc for vid, v in self.world_state.vehicles.items()}
+        socs = {vid: v.battery.soc for vid, v in self.world_state.vehicles.items()}
         return {'current_time': self.current_time, 'commands': charging_stations, 'socs': socs}

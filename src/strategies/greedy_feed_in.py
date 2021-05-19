@@ -1,13 +1,12 @@
-from src import events, util
+from src import util
 from src.strategy import Strategy
 
 
 class GreedyFeedIn(Strategy):
     def __init__(self, constants, start_time, **kwargs):
-        self.CONCURRENCY=1.0
+        self.CONCURRENCY = 1.0
         super().__init__(constants, start_time, **kwargs)
         self.description = "greedy (feed-in)"
-
 
     def step(self, event_list=[]):
         super().step(event_list)
@@ -34,7 +33,7 @@ class GreedyFeedIn(Strategy):
                 if cs_power_left < cs.min_power:
                     cs_power_left = 0
 
-                max_power =  max(min(cs_power_left, gc_power_left), 0)
+                max_power = max(min(cs_power_left, gc_power_left), 0)
 
                 load_result = vehicle.battery.load(self.interval, max_power)
                 avg_power = load_result['avg_power']
@@ -42,7 +41,8 @@ class GreedyFeedIn(Strategy):
                 charging_stations[cs_id] = gc.add_load(cs_id, avg_power)
 
                 assert vehicle.battery.soc <= 100
-                assert vehicle.battery.soc >= 0, 'SOC of {} is {}'.format(vehicle_id, vehicle.battery.soc)
+                assert vehicle.battery.soc >= 0, (
+                    'SOC of {} is {}'.format(vehicle_id, vehicle.battery.soc))
 
             socs[vehicle_id] = vehicle.battery.soc
 

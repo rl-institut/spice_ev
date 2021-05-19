@@ -1,4 +1,3 @@
-from src import events
 from src.strategy import Strategy
 
 
@@ -9,7 +8,6 @@ class Parity(Strategy):
     def __init__(self, constants, start_time, **kwargs):
         super().__init__(constants, start_time, **kwargs)
         self.description = "parity"
-
 
     def step(self, event_list=[]):
         super().step(event_list)
@@ -38,7 +36,9 @@ class Parity(Strategy):
                 vehicle = self.world_state.vehicles[vehicle_id]
                 cs_id = vehicle.connected_charging_station
                 cs = self.world_state.charging_stations[cs_id]
-                vehicles_at_cs = list(filter(lambda v: self.world_state.vehicles[v].connected_charging_station == cs_id, vehicles))
+                vehicles_at_cs = list(filter(
+                    lambda v: self.world_state.vehicles[v].connected_charging_station == cs_id,
+                    vehicles))
 
                 # find minimum of distributed power and charging station power
                 gc_dist_power = gc_power_left / len(vehicles)
@@ -53,8 +53,9 @@ class Parity(Strategy):
                 charging_stations[cs_id] = gc.add_load(cs_id, avg_power)
 
                 assert vehicle.battery.soc <= 100
-                assert vehicle.battery.soc >= 0, 'SOC of {} is {}'.format(vehicle_id, vehicle.battery.soc)
+                assert vehicle.battery.soc >= 0, (
+                    'SOC of {} is {}'.format(vehicle_id, vehicle.battery.soc))
 
-        socs={vid: v.battery.soc for vid, v in self.world_state.vehicles.items()}
+        socs = {vid: v.battery.soc for vid, v in self.world_state.vehicles.items()}
 
         return {'current_time': self.current_time, 'commands': charging_stations, 'socs': socs}

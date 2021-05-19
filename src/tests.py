@@ -31,7 +31,7 @@ class TestScenario(unittest.TestCase):
 
     def test_file(self):
         with open('tests/test_scenario.json', 'r') as f:
-            s = scenario.Scenario(json.load(f), 'tests/')
+            scenario.Scenario(json.load(f), 'tests/')
 
     def test_greedy(self):
         with open('tests/test_scenario.json', 'r') as f:
@@ -51,8 +51,10 @@ class TestScenario(unittest.TestCase):
         s = scenario.Scenario(j)
         self.assertEqual(s.n_intervals, 4)
 
+
 def approx_eq(x, y, eps=1e-3):
     return abs(x - y) < eps
+
 
 class TestLoadingCurve(unittest.TestCase):
     def test_creation(self):
@@ -132,6 +134,7 @@ class TestBattery(unittest.TestCase):
             p2 += b2.load(td, 1)["avg_power"]
         assert approx_eq(b1.soc, b2.soc), "SoC different: {} vs {}".format(b1.soc, b2.soc)
         assert approx_eq(p1, p2), "Used power different: {} vs {}".format(p1, p2)
+
 
 if __name__ == '__main__':
     unittest.main()

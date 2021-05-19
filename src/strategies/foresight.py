@@ -51,10 +51,10 @@ class Foresight(Strategy):
         }
 
         # gather charging vehicles, external load and prices until all vehicles gone (24h max)
-        future    = {}
+        future = {}
         event_idx = 0
-        timesteps_per_day = int(datetime.timedelta(days =1) / self.interval)
-        timesteps_per_hour=     datetime.timedelta(hours=1) / self.interval
+        timesteps_per_day = int(datetime.timedelta(days=1) / self.interval)
+        timesteps_per_hour = datetime.timedelta(hours=1) / self.interval
 
         cur_time = self.current_time - self.interval
         for _ in range(timesteps_per_day):
@@ -65,7 +65,9 @@ class Foresight(Strategy):
             cur_vehicles = {gc: [] for gc in self.world_state.grid_connectors.keys()}
             for v_id, vehicle in self.world_state.vehicles.items():
                 needs_charging = vehicle.battery.soc < vehicle.desired_soc
-                still_present  = vehicle.estimated_time_of_departure > cur_time and vehicle.connected_charging_station is not None
+                still_present = (
+                    vehicle.estimated_time_of_departure > cur_time and
+                    vehicle.connected_charging_station is not None)
                 if still_present and needs_charging:
                     cs = self.world_state.charging_stations[vehicle.connected_charging_station]
                     cur_vehicles[cs.parent].append(v_id)
@@ -118,7 +120,7 @@ class Foresight(Strategy):
 
         if len(future) == 0:
             # no charging
-            socs={vid: v.battery.soc for vid, v in self.world_state.vehicles.items()}
+            socs = {vid: v.battery.soc for vid, v in self.world_state.vehicles.items()}
             return {'current_time': self.current_time, 'commands': {}, 'socs': socs}
 
         charging_stations = {}
@@ -130,7 +132,7 @@ class Foresight(Strategy):
             costs = [f[gc_id]["costs"] for f in future.values()]
 
             # sort charging vehicles by remaining time
-            vehicles_present = sorted(vehicles_present, key=lambda v_id: vehicles[v_id]["timesteps"])
+            vehicles_present = sorted(vehicles_present, key=lambda vid: vehicles[vid]["timesteps"])
 
             for v_id in vehicles_present:
                 vehicle = self.world_state.vehicles[v_id]
@@ -142,8 +144,8 @@ class Foresight(Strategy):
 
                 # get normed costs in remaining timesteps
                 norm_costs = [c for c in costs[:timesteps]]
-                min_costs  = min(norm_costs)
-                max_costs  = max(norm_costs)
+                min_costs = min(norm_costs)
+                max_costs = max(norm_costs)
                 for i in range(len(norm_costs)):
                     if min_costs == max_costs:
                         norm_costs[i] = 1
@@ -162,5 +164,5 @@ class Foresight(Strategy):
                 charging_stations[cs_id] = gc.add_load(cs_id, avg_power)
                 cs.current_power += avg_power
 
-        socs={vid: v.battery.soc for vid, v in self.world_state.vehicles.items()}
+        socs = {vid: v.battery.soc for vid, v in self.world_state.vehicles.items()}
         return {'current_time': self.current_time, 'commands': charging_stations, 'socs': socs}

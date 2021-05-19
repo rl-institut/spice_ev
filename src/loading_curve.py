@@ -73,6 +73,5 @@ class LoadingCurve:
 
         return LoadingCurve(new_points)
 
-
     def __str__(self):
         return 'LoadingCurve {}'.format(vars(self))

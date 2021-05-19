@@ -7,11 +7,16 @@ class Constants:
     """ constants values of a scenario
     """
     def __init__(self, obj):
-        self.grid_connectors = dict({k: GridConnector(v) for k, v in obj['grid_connectors'].items()})
-        self.charging_stations = dict({k: ChargingStation(v) for k, v in obj['charging_stations'].items()})
-        self.vehicle_types = dict({k: VehicleType(v) for k, v in obj['vehicle_types'].items()})
-        self.vehicles = dict({k: Vehicle(v, self.vehicle_types) for k, v in obj['vehicles'].items()})
-        self.batteries = dict({k: StationaryBattery(v) for k, v in obj.get('batteries', {}).items()})
+        self.grid_connectors = dict(
+            {k: GridConnector(v) for k, v in obj['grid_connectors'].items()})
+        self.charging_stations = dict(
+            {k: ChargingStation(v) for k, v in obj['charging_stations'].items()})
+        self.vehicle_types = dict(
+            {k: VehicleType(v) for k, v in obj['vehicle_types'].items()})
+        self.vehicles = dict(
+            {k: Vehicle(v, self.vehicle_types) for k, v in obj['vehicles'].items()})
+        self.batteries = dict(
+            {k: StationaryBattery(v) for k, v in obj.get('batteries', {}).items()})
 
 
 class GridConnector:
@@ -87,7 +92,7 @@ class GridConnector:
         else:
             # multiple external loads: add up
             for i, values in enumerate(avg_values_by_weekday):
-                self.avg_ext_load[i] = [e + v for (e,v) in zip(self.avg_ext_load[i], values)]
+                self.avg_ext_load[i] = [e + v for (e, v) in zip(self.avg_ext_load[i], values)]
 
     def get_avg_ext_load(self, dt, interval):
         # get average external load for specific timeslot
@@ -153,6 +158,7 @@ class Vehicle:
     def get_delta_soc(self):
         return self.desired_soc - self.battery.soc
 
+
 class StationaryBattery(battery.Battery):
     def __init__(self, obj):
         keys = [
@@ -168,8 +174,9 @@ class StationaryBattery(battery.Battery):
         util.set_attr_from_dict(obj, self, keys, optional_keys)
         assert self.min_charging_power <= self.charging_curve.max_power
 
-        battery.Battery.__init__(self,
-            self.capacity if self.capacity >= 0 else 2**31, # may be unknown (set unlimited)
+        battery.Battery.__init__(
+            self,
+            self.capacity if self.capacity >= 0 else 2**31,  # may be unknown (set unlimited)
             self.charging_curve,
             self.soc,
             self.efficiency

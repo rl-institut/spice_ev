@@ -2,14 +2,15 @@ import datetime
 import json
 from math import sqrt
 
+
 def datetime_from_isoformat(s):
     if s is None:
         return None
 
     # Thanks SO! (https://stackoverflow.com/questions/30999230/how-to-parse-timezone-with-colon)
-    if ":" == s[-3:-2]:
+    if s[-3:-2] == ':':
         s = s[:-3]+s[-2:]
-    return datetime.datetime.strptime(s, '%Y-%m-%dT%H:%M:%S%z')
+    return datetime.datetime.strptime(s, "%Y-%m-%dT%H:%M:%S%z")
 
 
 def set_attr_from_dict(source, target, keys, optional_keys):
@@ -24,13 +25,11 @@ def set_attr_from_dict(source, target, keys, optional_keys):
         else:
             setattr(target, n, conversion(source[n]))
 
+
 def get_cost(x, cost_dict):
     if cost_dict["type"] == "fixed":
         return cost_dict["value"] * x
     elif cost_dict["type"] == "polynomial":
-        # cost = 0
-        # for power, coeff in enumerate(cost_dict["value"]):
-            # cost += coeff * pow(x, power)
         base = 1
         cost = 0
         for coeff in cost_dict["value"]:
@@ -39,6 +38,7 @@ def get_cost(x, cost_dict):
         return cost
     else:
         raise NotImplementedError
+
 
 def get_power(y, cost_dict):
     # how much power for a given price?
@@ -70,11 +70,13 @@ def get_power(y, cost_dict):
 
     raise NotImplementedError
 
+
 def clamp_power(power, vehicle, cs):
     power = min(power, cs.max_power)
     if power < cs.min_power or power < vehicle.vehicle_type.min_charging_power:
         power = 0
     return power
+
 
 def set_options_from_config(args, check=False, verbose=True):
     # read options from config file, update given args
@@ -86,19 +88,19 @@ def set_options_from_config(args, check=False, verbose=True):
         with open(args.config, 'r') as f:
             for line in f:
                 line = line.strip()
-                if line.startswith("#"):
+                if line.startswith('#'):
                     # comment
                     continue
                 if len(line) == 0:
                     # empty line
                     continue
-                k,v = line.split("=")
+                k, v = line.split('=')
                 k = k.strip()
                 v = v.strip()
                 try:
                     # option may be special: number, array, etc.
                     v = json.loads(v)
-                except ValueError as e:
+                except ValueError:
                     # or not
                     pass
                 # known option?

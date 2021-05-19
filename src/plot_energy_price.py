@@ -16,7 +16,8 @@ from src.util import get_cost
 
 if __name__ == '__main__':
 
-    parser = argparse.ArgumentParser(description='Show annual energy price from generated JSON file')
+    parser = argparse.ArgumentParser(
+        description='Show annual energy price from generated JSON file')
     parser.add_argument('file', help='scenario JSON file')
     args = parser.parse_args()
 
@@ -30,7 +31,7 @@ if __name__ == '__main__':
     # some multipliers
     intervals_per_day = datetime.timedelta(days=1) / s.interval
     intervals_per_day = int(intervals_per_day)
-    intervals_per_hour= int(intervals_per_day/24)
+    intervals_per_hour = int(intervals_per_day/24)
     days = s.n_intervals / intervals_per_day
     days = int(days)
 
@@ -54,7 +55,7 @@ if __name__ == '__main__':
                 if type(event) == events.GridOperatorSignal:
                     grid_op_signals.append(event)
             # need grid op signals in order
-            grid_op_signals.sort(key = lambda ev: ev.start_time)
+            grid_op_signals.sort(key=lambda ev: ev.start_time)
 
             # peek into signals to update GC info
             while True:
@@ -83,8 +84,8 @@ if __name__ == '__main__':
 
     # plot all GC prices
     fig, axes = plt.subplots(len(gcs))
-    start_date= s.start_time.date()
-    end_date  = (s.start_time + s.n_intervals * s.interval).date()
+    start_date = s.start_time.date()
+    end_date = (s.start_time + s.n_intervals * s.interval).date()
     for gc_idx, gc_id in enumerate(sorted(gcs.keys())):
         if len(gcs) > 1:
             ax = axes[gc_idx]
@@ -109,10 +110,12 @@ if __name__ == '__main__':
         fig.autofmt_xdate()
 
         # reconvert interval indices to hours:minutes
-        ax.yaxis.set_major_formatter(mticker.FuncFormatter(lambda y, pos:
-            "{:02d}:{:02d}".format(
-                int(y//intervals_per_hour),
-                int((y%intervals_per_hour)*(60 / intervals_per_hour)))
+        ax.yaxis.set_major_formatter(
+            mticker.FuncFormatter(
+                lambda y, pos: "{:02d}:{:02d}".format(
+                    int(y//intervals_per_hour),
+                    int((y % intervals_per_hour)*(60 / intervals_per_hour))
+                )
             )
         )
 
@@ -122,7 +125,7 @@ if __name__ == '__main__':
         divider = make_axes_locatable(ax)
         cax = divider.append_axes("right", size="5%", pad=0.05)
         # restrict labels to two decimal places
-        fmt2dec = mticker.FuncFormatter(lambda x,pos: "{:.2f}".format(x))
+        fmt2dec = mticker.FuncFormatter(lambda x, pos: "{:.2f}".format(x))
         cbar = plt.colorbar(im, cax=cax, format=fmt2dec)
         # label legend
         cbar.set_label('Strompreis in €/kWh')

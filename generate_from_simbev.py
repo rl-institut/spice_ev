@@ -4,7 +4,6 @@ import argparse
 import csv
 import datetime
 import json
-import math
 from pathlib import Path
 import random
 
@@ -12,20 +11,38 @@ from src.util import set_options_from_config
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Generate scenarios as JSON files for vehicle charging modelling from vehicle timeseries (e.g. SimBEV output).')
+    parser = argparse.ArgumentParser(
+        description='Generate scenarios as JSON files for vehicle charging modelling \
+        from vehicle timeseries (e.g. SimBEV output).')
     parser.add_argument('output', help='output file name (example.json)')
     parser.add_argument('--simbev', metavar='DIR', type=str, help='set directory with SimBEV files')
-    parser.add_argument('--interval', metavar='MIN', type=int, default=15, help='set number of minutes for each timestep (Δt)')
-    parser.add_argument('--price-seed', metavar='X', type=int, default=0, help='set seed when generating energy market prices. Negative values for fixed price in cents')
-    parser.add_argument('--min-soc', metavar='S', type=float, default=0.5, help='Set minimum desired SoC for each charging event. Default: 0.5')
+    parser.add_argument('--interval', metavar='MIN', type=int, default=15,
+                        help='set number of minutes for each timestep (Δt)')
+    parser.add_argument('--price-seed', metavar='X', type=int, default=0,
+                        help='set seed when generating energy market prices. \
+                        Negative values for fixed price in cents')
+    parser.add_argument('--min-soc', metavar='S', type=float, default=0.5,
+                        help='Set minimum desired SoC for each charging event. Default: 0.5')
 
     # csv files
-    parser.add_argument('--include-ext-load-csv', help='include CSV for external load. You may define custom options with --include-ext-csv-option')
-    parser.add_argument('--include-ext-csv-option', '-eo', metavar=('KEY', 'VALUE'), nargs=2, default=[], action='append', help='append additional argument to external load')
-    parser.add_argument('--include-feed-in-csv', help='include CSV for energy feed-in, e.g., local PV. You may define custom options with --include-feed-in-csv-option')
-    parser.add_argument('--include-feed-in-csv-option', '-fo', metavar=('KEY', 'VALUE'), nargs=2, default=[], action='append', help='append additional argument to feed-in load')
-    parser.add_argument('--include-price-csv', help='include CSV for energy price. You may define custom options with --include-price-csv-option')
-    parser.add_argument('--include-price-csv-option', '-po', metavar=('KEY', 'VALUE'), nargs=2, default=[], action='append', help='append additional argument to price signals')
+    parser.add_argument('--include-ext-load-csv',
+                        help='include CSV for external load. \
+                        You may define custom options with --include-ext-csv-option')
+    parser.add_argument('--include-ext-csv-option', '-eo', metavar=('KEY', 'VALUE'),
+                        nargs=2, default=[], action='append',
+                        help='append additional argument to external load')
+    parser.add_argument('--include-feed-in-csv',
+                        help='include CSV for energy feed-in, e.g., local PV. \
+                        You may define custom options with --include-feed-in-csv-option')
+    parser.add_argument('--include-feed-in-csv-option', '-fo', metavar=('KEY', 'VALUE'),
+                        nargs=2, default=[], action='append',
+                        help='append additional argument to feed-in load')
+    parser.add_argument('--include-price-csv',
+                        help='include CSV for energy price. \
+                        You may define custom options with --include-price-csv-option')
+    parser.add_argument('--include-price-csv-option', '-po', metavar=('KEY', 'VALUE'),
+                        nargs=2, default=[], action='append',
+                        help='append additional argument to price signals')
     parser.add_argument('--config', help='Use config file to set arguments')
     args = parser.parse_args()
 
@@ -35,7 +52,8 @@ if __name__ == '__main__':
 
     # first monday of 2021
     # SimBEV uses MiD data and creates data for an exemplary week, so there are no exact dates.
-    start = datetime.datetime(year=2021, month=1, day=4, tzinfo=datetime.timezone(datetime.timedelta(hours=1)))
+    start = datetime.datetime(year=2021, month=1, day=4,
+                              tzinfo=datetime.timezone(datetime.timedelta(hours=1)))
     interval = datetime.timedelta(minutes=args.interval)
     n_intervals = 0
 
@@ -43,44 +61,44 @@ if __name__ == '__main__':
     vehicle_types = {
         "bev_luxury": {
             "name": "bev_luxury",
-            "capacity": 90, # kWh
-            "mileage": 40, # kWh / 100km
-            "charging_curve": [[0, 300], [80, 300], [100, 300]], # SOC -> kWh
+            "capacity": 90,  # kWh
+            "mileage": 40,  # kWh / 100km
+            "charging_curve": [[0, 300], [80, 300], [100, 300]],  # SOC -> kWh
             "min_charging_power": 0,
         },
         "bev_medium": {
             "name": "bev_medium",
-            "capacity": 65, # kWh
-            "mileage": 40, # kWh / 100km
-            "charging_curve": [[0, 150], [80, 150], [100, 150]], # SOC -> kWh
+            "capacity": 65,  # kWh
+            "mileage": 40,  # kWh / 100km
+            "charging_curve": [[0, 150], [80, 150], [100, 150]],  # SOC -> kWh
             "min_charging_power": 0,
         },
         "bev_mini": {
             "name": "bev_mini",
-            "capacity": 30, # kWh
-            "mileage": 40, # kWh / 100km
-            "charging_curve": [[0, 50], [80, 50], [100, 50]], # SOC -> kWh
+            "capacity": 30,  # kWh
+            "mileage": 40,  # kWh / 100km
+            "charging_curve": [[0, 50], [80, 50], [100, 50]],  # SOC -> kWh
             "min_charging_power": 0,
         },
         "phev_luxury": {
             "name": "phev_luxury",
-            "capacity": 40, # kWh
-            "mileage": 40, # kWh / 100km
-            "charging_curve": [[0, 22], [80, 22], [100, 0]], # SOC -> kWh
+            "capacity": 40,  # kWh
+            "mileage": 40,  # kWh / 100km
+            "charging_curve": [[0, 22], [80, 22], [100, 0]],  # SOC -> kWh
             "min_charging_power": 0,
         },
         "phev_medium": {
             "name": "phev_medium",
-            "capacity": 100, # kWh
-            "mileage": 30, # kWh / 100km
-            "charging_curve": [[0, 22], [80, 22], [100, 0]], # SOC -> kWh
+            "capacity": 100,  # kWh
+            "mileage": 30,  # kWh / 100km
+            "charging_curve": [[0, 22], [80, 22], [100, 0]],  # SOC -> kWh
             "min_charging_power": 0,
         },
         "phev_mini": {
             "name": "phev_mini",
-            "capacity": 70, # kWh
-            "mileage": 25, # kWh / 100km
-            "charging_curve": [[0, 22], [80, 22], [100, 0]], # SOC -> kWh
+            "capacity": 70,  # kWh
+            "mileage": 25,  # kWh / 100km
+            "charging_curve": [[0, 22], [80, 22], [100, 0]],  # SOC -> kWh
             "min_charging_power": 0,
         },
     }
@@ -111,7 +129,7 @@ if __name__ == '__main__':
         options = {
             "csv_file": filename,
             "start_time": start.isoformat(),
-            "step_duration_s": 900, # 15 minutes
+            "step_duration_s": 900,  # 15 minutes
             "grid_connector_id": "GC1",
             "column": "energy"
         }
@@ -126,12 +144,12 @@ if __name__ == '__main__':
         options = {
             "csv_file": filename,
             "start_time": start.isoformat(),
-            "step_duration_s": 3600, # 60 minutes
+            "step_duration_s": 3600,  # 60 minutes
             "grid_connector_id": "GC1",
             "column": "energy"
         }
         for key, value in args.include_feed_in_csv_option:
-                options[key] = value
+            options[key] = value
         events['energy_feed_in'][basename] = options
 
     # energy price CSV
@@ -141,12 +159,12 @@ if __name__ == '__main__':
         options = {
             "csv_file": filename,
             "start_time": start.isoformat(),
-            "step_duration_s": 3600, # 60 minutes
+            "step_duration_s": 3600,  # 60 minutes
             "grid_connector_id": "GC1",
             "column": "price [ct/kWh]"
         }
         for key, value in args.include_price_csv_option:
-                options[key] = value
+            options[key] = value
         events['energy_price_from_csv'] = options
 
         if args.price_seed:
@@ -178,7 +196,7 @@ if __name__ == '__main__':
         vehicle_name = str(csv_path.stem)[:-4]
         with open(csv_path, newline='') as csvfile:
             reader = csv.DictReader(csvfile)
-            for idx,row in enumerate(reader):
+            for idx, row in enumerate(reader):
                 if vehicle_name not in vehicles:
                     # set vehicle info from first data row
                     try:
@@ -187,7 +205,8 @@ if __name__ == '__main__':
                         print("Skipping {}, probably no vehicle file".format(csv_path))
                         break
                     # vehicle type must be known
-                    assert v_type in vehicle_types, "Unknown vehicle type for {}: {}".format(vehicle_name, v_type)
+                    assert v_type in vehicle_types, "Unknown vehicle type for {}: {}".format(
+                        vehicle_name, v_type)
                     # save initial vehicle data
                     vehicles[vehicle_name] = {
                         "connected_charging_station": None,
@@ -198,13 +217,15 @@ if __name__ == '__main__':
                     # check that capacities match
                     vehicle_capacity = vehicle_types[v_type]["capacity"]
                     file_capacity = int(row["bat_cap"])
-                    assert vehicle_capacity == file_capacity, "Capacity of vehicle {} does not match (in file: {}, in script: {})".format(vehicle_name, file_capacity, vehicle_capacity)
-
+                    assert vehicle_capacity == file_capacity, \
+                        "Capacity of vehicle {} does not match (in file: {}, in script: {})".format(
+                            vehicle_name, file_capacity, vehicle_capacity)
 
                     # set initial charge
                     vehicle_soc = float(row["SoC_end"])
                     last_cs_event = None
                     soc_needed = 0.0
+                    park_start_ts = None
                     park_end_ts = datetime_from_timestep(int(row['park_end']) + 1)
                     # vehicle not actually charged in first row, so skip rest
                     continue
@@ -217,24 +238,35 @@ if __name__ == '__main__':
                 # general sanity checks
                 simbev_soc_start = float(row["SoC_start"])
                 simbev_soc_end = float(row["SoC_end"])
-                assert simbev_soc_start > 0 and simbev_soc_end > 0, "SimBEV created negative SoC for {} in row {}".format(vehicle_name, idx + 2)
+                assert simbev_soc_start > 0 and simbev_soc_end > 0, \
+                    "SimBEV created negative SoC for {} in row {}".format(
+                        vehicle_name, idx + 2)
                 simbev_demand = float(row["chargingdemand"])
-                assert capacity > 0 or simbev_demand == 0, "Charging event without charging station: {} @ row {}".format(vehicle_name, idx + 2)
+                assert capacity > 0 or simbev_demand == 0, \
+                    "Charging event without charging station: {} @ row {}".format(
+                        vehicle_name, idx + 2)
 
                 cs_present = capacity > 0
-                assert (not cs_present) or consumption == 0, "Consumption while charging for {} @ row {}".format(vehicle_name, idx + 2)
+                assert (not cs_present) or consumption == 0, \
+                    "Consumption while charging for {} @ row {}".format(
+                        vehicle_name, idx + 2)
 
                 if not cs_present:
                     # no charging station or don't need to charge
                     # just increase charging demand based on consumption
                     soc_needed += consumption / vehicle_capacity
-                    assert soc_needed <= 1 + vehicle_soc, "Consumption too high for {} in row {}: vehicle charged to {}, needs SoC of {} ({} kW)".format(vehicle_name, idx + 2, vehicle_soc, soc_needed, soc_needed * vehicle_capacity)
+                    assert soc_needed <= 1 + vehicle_soc, \
+                        "Consumption too high for {} in row {}: \
+                        vehicle charged to {}, needs SoC of {} ({} kW)".format(
+                            vehicle_name, idx + 2, vehicle_soc,
+                            soc_needed, soc_needed * vehicle_capacity)
                 else:
                     # charging station present
 
                     if not last_cs_event:
                         # first charge: initial must be enough
-                        assert vehicle_soc >= soc_needed, "Initial charge for {} is not sufficient".format(vehicle_name)
+                        assert vehicle_soc >= soc_needed, \
+                            "Initial charge for {} is not sufficient".format(vehicle_name)
                     else:
                         # update desired SoC from last charging event
                         # this much charge must be in battery when leaving CS
@@ -252,7 +284,9 @@ if __name__ == '__main__':
                         possible_soc = possible_power / vehicle_capacity
 
                         if delta_soc > possible_soc:
-                            print("WARNING: Can't fulfill charging request for {} in ts {:.0f}. Need {:.2f} kWh in {:.2f} h ({:.0f} ts) from {} kW CS, possible: {} kWh".format(
+                            print("WARNING: Can't fulfill charging request for {} in ts {:.0f}. \
+                            Need {:.2f} kWh in {:.2f} h ({:.0f} ts) from {} kW CS, \
+                            possible: {} kWh".format(
                                 vehicle_name,
                                 (park_end_ts - start)/interval,
                                 desired_soc * vehicle_capacity,
@@ -275,7 +309,8 @@ if __name__ == '__main__':
 
                     # setup charging point at location
                     cs_name = "{}_{}".format(vehicle_name, location.split('_')[-1])
-                    if cs_name in charging_stations and charging_stations[cs_name]["max_power"] != capacity:
+                    if (cs_name in charging_stations
+                            and charging_stations[cs_name]["max_power"] != capacity):
                         # same location type, different capacity: build new CS
                         cs_name = "{}_{}".format(cs_name, idx)
                     if cs_name not in charging_stations:
@@ -310,7 +345,7 @@ if __name__ == '__main__':
                         "update": {
                             "connected_charging_station": cs_name,
                             "estimated_time_of_departure": park_end_ts.isoformat(),
-                            "desired_soc": None, # updated later
+                            "desired_soc": None,  # updated later
                             "soc_delta": - soc_needed * 100
                         }
                     }
@@ -323,9 +358,14 @@ if __name__ == '__main__':
 
                     # random price: each price interval, generate new price
 
-                    while not args.include_price_csv and args.price_seed >= 0 and n_intervals >= price_interval * len(events["grid_operator_signals"]):
+                    while (
+                        not args.include_price_csv
+                        and args.price_seed >= 0
+                        and n_intervals >= price_interval * len(events["grid_operator_signals"])
+                    ):
                         # at which timestep is price updated?
-                        price_update_idx = int(len(events["grid_operator_signals"]) * price_interval)
+                        price_update_idx = int(
+                            len(events["grid_operator_signals"]) * price_interval)
                         start_time = datetime_from_timestep(price_update_idx)
                         # price signal known one day ahead
                         signal_time = max(start, start_time - datetime.timedelta(days=1))
@@ -352,7 +392,7 @@ if __name__ == '__main__':
                                 }
                             })
 
-    assert len(vehicles)>0, "No vehicles found in {}".format(args.simbev)
+    assert len(vehicles) > 0, "No vehicles found in {}".format(args.simbev)
 
     j = {
         "scenario": {
@@ -365,7 +405,7 @@ if __name__ == '__main__':
             "vehicles": vehicles,
             "grid_connectors": {
                 "GC1": {
-                  "max_power": 10000
+                    "max_power": 10000
                 }
             },
             "charging_stations": charging_stations

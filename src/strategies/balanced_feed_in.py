@@ -1,6 +1,4 @@
-import datetime
-
-from src import events, util
+from src import util
 from src.strategy import Strategy
 
 
@@ -16,7 +14,6 @@ class BalancedFeedIn(Strategy):
 
         super().__init__(constants, start_time, **kwargs)
         self.description = "balanced (feed-in)"
-
 
     def step(self, event_list=[]):
         super().step(event_list)
@@ -83,11 +80,11 @@ class BalancedFeedIn(Strategy):
                         # reset SOC
                         vehicle.battery.soc = old_soc
 
-                        if delta_soc - charged_soc > self.EPS: #charged_soc < delta_soc
+                        if delta_soc - charged_soc > self.EPS:  # charged_soc < delta_soc
                             # power not enough
                             safe = False
                             min_power = power
-                        else: #charged_soc >= delta_soc:
+                        else:  # charged_soc >= delta_soc:
                             # power too much or just right (may be possible with less power)
                             safe = True
                             max_power = power
@@ -106,9 +103,13 @@ class BalancedFeedIn(Strategy):
                 charging_stations[cs_id] = gc.add_load(cs_id, avg_power)
 
                 # can active charging station bear minimum load?
-                assert cs.max_power >= cs.current_power - self.EPS, "{} - {} over maximum load ({} > {})".format(self.current_time, cs_id, cs.current_power, cs.max_power)
+                assert cs.max_power >= cs.current_power - self.EPS, (
+                    "{} - {} over maximum load ({} > {})".format(
+                        self.current_time, cs_id, cs.current_power, cs.max_power))
                 # can grid connector bear load?
-                assert  gc.cur_max_power >= gc.get_current_load() - self.EPS, "{} - {} over maximum load ({} > {})".format(self.current_time, cs.parent, gc_current_power, gc.cur_max_power)
+                assert gc.cur_max_power >= gc.get_current_load() - self.EPS, (
+                    "{} - {} over maximum load ({} > {})".format(
+                        self.current_time, cs.parent, gc.get_current_load(), gc.cur_max_power))
 
                 # take note of final vehicle SOC
                 socs[vehicle_id] = vehicle.battery.soc

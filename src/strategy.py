@@ -1,7 +1,7 @@
 from copy import deepcopy
 from importlib import import_module
 
-from src import events, util
+from src import events
 
 
 def class_from_str(strategy_name):
@@ -29,7 +29,7 @@ class Strategy():
         self.current_time += self.interval
 
         self.world_state.future_events += event_list
-        self.world_state.future_events.sort(key = lambda ev: ev.start_time)
+        self.world_state.future_events.sort(key=lambda ev: ev.start_time)
 
         while True:
             if len(self.world_state.future_events) == 0:
@@ -43,10 +43,12 @@ class Strategy():
 
             if type(ev) == events.ExternalLoad:
                 connector = self.world_state.grid_connectors[ev.grid_connector_id]
-                assert ev.name not in self.world_state.charging_stations, "External load must not be from charging station"
-                connector.current_loads[ev.name] = ev.value # not reset after last event
+                assert ev.name not in self.world_state.charging_stations, (
+                    "External load must not be from charging station")
+                connector.current_loads[ev.name] = ev.value  # not reset after last event
             elif type(ev) == events.EnergyFeedIn:
-                assert ev.name not in self.world_state.charging_stations, "Energy feed-in must not be from charging station"
+                assert ev.name not in self.world_state.charging_stations, (
+                    "Energy feed-in must not be from charging station")
                 connector = self.world_state.grid_connectors[ev.grid_connector_id]
                 connector.current_loads[ev.name] = -ev.value
             elif type(ev) == events.GridOperatorSignal:
@@ -67,19 +69,23 @@ class Strategy():
 
             elif type(ev) == events.VehicleEvent:
                 vehicle = self.world_state.vehicles[ev.vehicle_id]
-                for k,v in ev.update.items():
+                for k, v in ev.update.items():
                     setattr(vehicle, k, v)
                 if ev.event_type == "departure":
                     vehicle.connected_charging_station = None
-                    assert vehicle.battery.soc >= (1-self.margin)*vehicle.desired_soc, "{}: Vehicle {} is below desired SOC ({} < {})".format(ev.start_time.isoformat(), ev.vehicle_id, vehicle.battery.soc, vehicle.desired_soc)
+                    assert vehicle.battery.soc >= (1-self.margin)*vehicle.desired_soc, (
+                        "{}: Vehicle {} is below desired SOC ({} < {})".format(
+                            ev.start_time.isoformat(), ev.vehicle_id,
+                            vehicle.battery.soc, vehicle.desired_soc))
                 elif ev.event_type == "arrival":
                     assert vehicle.connected_charging_station is not None
                     assert hasattr(vehicle, 'soc_delta')
                     vehicle.battery.soc += vehicle.soc_delta
-                    assert vehicle.battery.soc >= 0, 'SOC of vehicle {} should not be negative. SOC is {}, soc_delta was {}'.format(ev.vehicle_id, vehicle.battery.soc, vehicle.soc_delta)
+                    assert vehicle.battery.soc >= 0, (
+                        'SOC of vehicle {} should not be negative. \
+                        SOC is {}, soc_delta was {}'.format(
+                            ev.vehicle_id, vehicle.battery.soc, vehicle.soc_delta))
                     delattr(vehicle, 'soc_delta')
-
-
             else:
                 raise Exception("Unknown event type: {}".format(ev))
 
@@ -93,4 +99,5 @@ class Strategy():
 
             # check for associated costs
             if not connector.cost:
-                raise Exception("Connector {} has no associated costs at {}".format(name, self.current_time))
+                raise Exception(
+                    "Connector {} has no associated costs at {}".format(name, self.current_time))

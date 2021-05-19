@@ -1,6 +1,7 @@
 import copy
 from math import exp, log
 
+
 class Battery:
     def __init__(self, capacity, loading_curve, soc, efficiency=0.95):
         self.capacity = capacity
@@ -41,8 +42,8 @@ class Battery:
         # compute average power for each linear section
         # update SOC
         # computes for whole time or until SOC is 100% (no next section)
-        while hours > EPS and target_soc - self.soc > EPS: #self.soc < 100.0:
-            while x2 - self.soc < EPS: # self.soc >= x2:
+        while hours > EPS and target_soc - self.soc > EPS:  # self.soc < 100.0:
+            while x2 - self.soc < EPS:  # self.soc >= x2:
                 # get next section
                 idx_1 += 1
                 idx_2 += 1
@@ -73,7 +74,7 @@ class Battery:
             # what is earlier, breakpoint or interval end?
             t = min(t, hours)
 
-            if m==0:
+            if m == 0:
                 # simple case: charging with constant power, regardless of SOC
                 new_soc = self.soc + (n/c * t)*100
             else:
@@ -155,4 +156,4 @@ class Battery:
         return power
 
     def __str__(self):
-        return 'Battery {}'.format({ k: str(v) for k, v in vars(self).items() })
+        return 'Battery {}'.format({k: str(v) for k, v in vars(self).items()})

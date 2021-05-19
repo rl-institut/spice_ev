@@ -11,8 +11,10 @@ from loading_curve import LoadingCurve
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='Show energy load from CSV files')
-    parser.add_argument('--timesteps', '-n', type=int, default=200, help='number of simulation timesteps')
-    parser.add_argument('--resolution', '-t', type=int, default=15, help='resolution of timestep in minutes')
+    parser.add_argument('--timesteps', '-n', type=int, default=200,
+                        help='number of simulation timesteps')
+    parser.add_argument('--resolution', '-t', type=int, default=15,
+                        help='resolution of timestep in minutes')
     args = parser.parse_args()
 
     capacity = 100
@@ -26,11 +28,12 @@ if __name__ == '__main__':
     pwr2 = 0
 
     socs = []
-    td = timedelta(minutes = args.resolution)
+    td = timedelta(minutes=args.resolution)
     ts_per_hour = timedelta(hours=1) / td
     for i in range(args.timesteps):
         pwr1 += battery.load(td, battery.loading_curve.max_power, 100)["avg_power"] / ts_per_hour
-        pwr2 += compare.load_iterative(td, compare.loading_curve.max_power)["avg_power"] / ts_per_hour
+        pwr2 += compare.load_iterative(
+            td, compare.loading_curve.max_power)["avg_power"] / ts_per_hour
         socs.append([battery.soc, compare.soc])
 
     print("computed: {} kW, iterative: {} kW".format(pwr1, pwr2))

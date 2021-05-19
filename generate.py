@@ -9,20 +9,39 @@ import random
 from src.util import datetime_from_isoformat, set_options_from_config
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Generate scenarios as JSON files for vehicle charging modelling')
+    parser = argparse.ArgumentParser(
+        description='Generate scenarios as JSON files for vehicle charging modelling')
     parser.add_argument('output', help='output file name (example.json)')
-    parser.add_argument('--cars', metavar=('N', 'TYPE'), nargs=2, action='append', type=str, help='set number of cars for a vehicle type, e.g. `--cars 100 sprinter` or `--cars 13 golf`')
-    parser.add_argument('--days', metavar='N', type=int, default=30, help='set duration of scenario as number of days')
-    parser.add_argument('--interval', metavar='MIN', type=int, default=15, help='set number of minutes for each timestep (Δt)')
-    parser.add_argument('--desired-soc', metavar='SOC', type=int, default=80, help='set desired SOC (0%% - 100%%) for each charging process')
-    parser.add_argument('--battery', '-b', type=int, action='append', help='add battery with specified capacity in kWh (-1 for variable capacity))')
+    parser.add_argument('--cars', metavar=('N', 'TYPE'), nargs=2, action='append', type=str,
+                        help='set number of cars for a vehicle type, \
+                        e.g. `--cars 100 sprinter` or `--cars 13 golf`')
+    parser.add_argument('--days', metavar='N', type=int, default=30,
+                        help='set duration of scenario as number of days')
+    parser.add_argument('--interval', metavar='MIN', type=int, default=15,
+                        help='set number of minutes for each timestep (Δt)')
+    parser.add_argument('--desired-soc', metavar='SOC', type=int, default=80,
+                        help='set desired SOC (0%% - 100%%) for each charging process')
+    parser.add_argument('--battery', '-b', type=int, action='append',
+                        help='add battery with specified capacity in kWh \
+                        (-1 for variable capacity))')
 
-    parser.add_argument('--include-ext-load-csv', help='include CSV for external load. You may define custom options with --include-ext-csv-option')
-    parser.add_argument('--include-ext-csv-option', '-eo', metavar=('KEY', 'VALUE'), nargs=2, action='append', help='append additional argument to external load')
-    parser.add_argument('--include-feed-in-csv', help='include CSV for energy feed-in, e.g., local PV. You may define custom options with --include-feed-in-csv-option')
-    parser.add_argument('--include-feed-in-csv-option', '-fo', metavar=('KEY', 'VALUE'), nargs=2, action='append', help='append additional argument to feed-in load')
-    parser.add_argument('--include-price-csv', help='include CSV for energy price. You may define custom options with --include-price-csv-option')
-    parser.add_argument('--include-price-csv-option', '-po', metavar=('KEY', 'VALUE'), nargs=2, default=[], action='append', help='append additional argument to price signals')
+    parser.add_argument('--include-ext-load-csv',
+                        help='include CSV for external load. \
+                        You may define custom options with --include-ext-csv-option')
+    parser.add_argument('--include-ext-csv-option', '-eo', metavar=('KEY', 'VALUE'),
+                        nargs=2, action='append',
+                        help='append additional argument to external load')
+    parser.add_argument('--include-feed-in-csv',
+                        help='include CSV for energy feed-in, e.g., local PV. \
+                        You may define custom options with --include-feed-in-csv-option')
+    parser.add_argument('--include-feed-in-csv-option', '-fo', metavar=('KEY', 'VALUE'),
+                        nargs=2, action='append', help='append additional argument to feed-in load')
+    parser.add_argument('--include-price-csv',
+                        help='include CSV for energy price. \
+                        You may define custom options with --include-price-csv-option')
+    parser.add_argument('--include-price-csv-option', '-po', metavar=('KEY', 'VALUE'),
+                        nargs=2, default=[], action='append',
+                        help='append additional argument to price signals')
     parser.add_argument('--config', help='Use config file to set arguments')
 
     args = parser.parse_args()
@@ -32,21 +51,22 @@ if __name__ == '__main__':
     if not args.cars:
         args.cars = [['2', 'golf'], ['3', 'sprinter']]
 
-    start = datetime.datetime(year=2020, month=1, day=1, tzinfo=datetime.timezone(datetime.timedelta(hours=2)))
-    stop  = start + datetime.timedelta(days=args.days)
+    start = datetime.datetime(year=2020, month=1, day=1,
+                              tzinfo=datetime.timezone(datetime.timedelta(hours=2)))
+    stop = start + datetime.timedelta(days=args.days)
     interval = datetime.timedelta(minutes=args.interval)
 
     # CONSTANTS
-    avg_distance = vars(args).get("avg_distance", 40) # km
+    avg_distance = vars(args).get("avg_distance", 40)  # km
     std_distance = vars(args).get("std_distance", 2.155)
 
     # VEHICLE TYPES
     vehicle_types = {
         "sprinter": {
             "name": "sprinter",
-            "capacity": 70, # kWh
-            "mileage": 40, # kWh / 100km
-            "charging_curve": [[0, 11], [80, 11], [100, 0]], # SOC -> kWh
+            "capacity": 70,  # kWh
+            "mileage": 40,  # kWh / 100km
+            "charging_curve": [[0, 11], [80, 11], [100, 0]],  # SOC -> kWh
             "min_charging_power": 0,
             "count": 0
         },
@@ -62,12 +82,11 @@ if __name__ == '__main__':
 
     for count, vehicle_type in args.cars:
         assert vehicle_type in vehicle_types,\
-        'The given vehicle type "{}" is not valid. Should be one of {}'\
-        .format(vehicle_type, list(vehicle_types.keys()))
+            'The given vehicle type "{}" is not valid. Should be one of {}'\
+            .format(vehicle_type, list(vehicle_types.keys()))
 
         count = int(count)
         vehicle_types[vehicle_type]['count'] = count
-
 
     # VEHICLES WITH THEIR CHARGING STATION
     vehicles = {}
@@ -78,9 +97,9 @@ if __name__ == '__main__':
             v_name = "{}_{}".format(name, i)
             cs_name = "CS_" + v_name
             is_connected = True
-            depart = start + datetime.timedelta(days=1, hours=6, minutes=15 * random.randint(0,4))
+            depart = start + datetime.timedelta(days=1, hours=6, minutes=15 * random.randint(0, 4))
             desired_soc = args.desired_soc
-            soc = random.randint(50,100)
+            soc = random.randint(50, 100)
             vehicles[v_name] = {
                 "connected_charging_station": cs_name,
                 "estimated_time_of_departure": depart.isoformat(),
@@ -98,7 +117,7 @@ if __name__ == '__main__':
         batteries["BAT{}".format(idx+1)] = {
             "parent": "GC1",
             "capacity": capacity,
-            "charging_curve": [[0,50],[80,50],[100,0]]
+            "charging_curve": [[0, 50], [80, 50], [100, 0]]
         }
 
     events = {
@@ -114,7 +133,7 @@ if __name__ == '__main__':
         options = {
             "csv_file": filename,
             "start_time": start.isoformat(),
-            "step_duration_s": 900, # 15 minutes
+            "step_duration_s": 900,  # 15 minutes
             "grid_connector_id": "GC1",
             "column": "energy"
         }
@@ -129,7 +148,7 @@ if __name__ == '__main__':
         options = {
             "csv_file": filename,
             "start_time": start.isoformat(),
-            "step_duration_s": 3600, # 60 minutes
+            "step_duration_s": 3600,  # 60 minutes
             "grid_connector_id": "GC1",
             "column": "energy"
         }
@@ -144,12 +163,12 @@ if __name__ == '__main__':
         options = {
             "csv_file": filename,
             "start_time": start.isoformat(),
-            "step_duration_s": 3600, # 60 minutes
+            "step_duration_s": 3600,  # 60 minutes
             "grid_connector_id": "GC1",
             "column": "price [ct/kWh]"
         }
         for key, value in args.include_price_csv_option:
-                options[key] = value
+            options[key] = value
         events['energy_price_from_csv'] = options
     else:
         events['grid_operator_signals'].append({
@@ -162,7 +181,7 @@ if __name__ == '__main__':
             }
         })
 
-    daily  = datetime.timedelta(days=1)
+    daily = datetime.timedelta(days=1)
     hourly = datetime.timedelta(hours=1)
 
     # create vehicle events
@@ -174,6 +193,7 @@ if __name__ == '__main__':
         now += daily
 
         if not args.include_price_csv:
+            evening_by_month = datetime.timedelta(days=1, hours=22-abs(6-now.month))
             # generate grid op signal for next day
             events['grid_operator_signals'] += [{
                 # day (6-evening): 15ct
@@ -184,11 +204,11 @@ if __name__ == '__main__':
                     "type": "fixed",
                     "value": 0.15 + random.gauss(0, 0.05)
                 }
-            },{
+            }, {
                 # night (depending on month - 6): 5ct
                 "signal_time": now.isoformat(),
                 "grid_connector_id": "GC1",
-                "start_time": (now + datetime.timedelta(days=1, hours=22-abs(6-now.month))).isoformat(),
+                "start_time": (now + evening_by_month).isoformat(),
                 "cost": {
                     "type": "fixed",
                     "value": 0.05 + random.gauss(0, 0.03)
@@ -208,7 +228,7 @@ if __name__ == '__main__':
             soc_delta = distance * mileage / capacity
 
             # departure
-            dep_str  = v.get('departure', v["estimated_time_of_departure"])
+            dep_str = v.get('departure', v["estimated_time_of_departure"])
             dep_time = datetime_from_isoformat(dep_str)
             # now + datetime.timedelta(hours=6, minutes=15 * random.randint(0,4))
             # always 8h
@@ -232,9 +252,11 @@ if __name__ == '__main__':
             # plan next day
             if now.weekday() == 5:
                 # today is Saturday, tomorrow is Sunday: no work
-                next_dep_time = now + datetime.timedelta(days=2, hours=6, minutes=15 * random.randint(0,4))
+                next_dep_time = now + \
+                    datetime.timedelta(days=2, hours=6, minutes=15 * random.randint(0, 4))
             else:
-                next_dep_time = now + datetime.timedelta(days=1, hours=6, minutes=15 * random.randint(0,4))
+                next_dep_time = now + \
+                    datetime.timedelta(days=1, hours=6, minutes=15 * random.randint(0, 4))
 
             next_distance = random.gauss(avg_distance, std_distance)
             next_distance = min(max(17, next_distance), 120)
@@ -271,7 +293,7 @@ if __name__ == '__main__':
             "vehicles": vehicles,
             "grid_connectors": {
                 "GC1": {
-                  "max_power": 630
+                    "max_power": 630
                 }
             },
             "charging_stations": charging_stations,

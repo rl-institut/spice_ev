@@ -11,23 +11,26 @@ class Events:
     """
     def __init__(self, obj, dir_path):
         # optional
-        self.external_load_lists = dict({k: EnergyValuesList(v, dir_path) for k, v in obj.get('external_load', {}).items()})
-        self.energy_feed_in_lists = dict({k: EnergyValuesList(v, dir_path) for k, v in obj.get('energy_feed_in', {}).items()})
-        self.grid_operator_signals = list([GridOperatorSignal(x) for x in obj.get('grid_operator_signals')])
-        self.grid_operator_signals += get_energy_price_list_from_csv(obj.get('energy_price_from_csv', None), dir_path)
-        self.vehicle_events = list([VehicleEvent(x) for x in obj.get('vehicle_events')])
-
+        self.external_load_lists = dict(
+            {k: EnergyValuesList(v, dir_path) for k, v in obj.get('external_load', {}).items()})
+        self.energy_feed_in_lists = dict(
+            {k: EnergyValuesList(v, dir_path) for k, v in obj.get('energy_feed_in', {}).items()})
+        self.grid_operator_signals = list(
+            [GridOperatorSignal(x) for x in obj.get('grid_operator_signals')])
+        self.grid_operator_signals += get_energy_price_list_from_csv(
+            obj.get('energy_price_from_csv', None), dir_path)
+        self.vehicle_events = list(
+            [VehicleEvent(x) for x in obj.get('vehicle_events')])
 
     def get_event_steps(self, start_time, n_intervals, interval):
         steps = list([[] for _ in range(n_intervals)])
-
-        current_time = start_time
 
         all_events = self.vehicle_events + self.grid_operator_signals
         for name, load_list in self.external_load_lists.items():
             all_events.extend(load_list.get_events(name, ExternalLoad))
         for name, feed_in_list in self.energy_feed_in_lists.items():
-            all_events.extend(feed_in_list.get_events(name, EnergyFeedIn, has_perfect_foresight=True))
+            all_events.extend(
+                feed_in_list.get_events(name, EnergyFeedIn, has_perfect_foresight=True))
 
         ignored = 0
 
@@ -35,7 +38,8 @@ class Events:
             index = ceil((event.signal_time - start_time) / interval)
 
             if index < 0:
-                print('Warning: Event is before start of scenario, placing at first time step:', event)
+                print('Warning: Event is before start of scenario, \
+                placing at first time step:', event)
                 steps[0].append(event)
             elif index >= n_intervals:
                 ignored += 1
@@ -119,6 +123,7 @@ class GridOperatorSignal(Event):
         ]
         util.set_attr_from_dict(obj, self, keys, optional_keys)
 
+
 def get_energy_price_list_from_csv(obj, dir_path):
     if not obj:
         return []
@@ -142,6 +147,7 @@ def get_energy_price_list_from_csv(obj, dir_path):
                 "cost": {"type": "fixed", "value": float(row[column])}
             }))
     return events
+
 
 class VehicleEvent(Event):
     def __init__(self, obj):

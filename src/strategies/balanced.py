@@ -1,6 +1,3 @@
-import datetime
-
-from src import events
 from src.strategy import Strategy
 
 
@@ -16,7 +13,6 @@ class Balanced(Strategy):
 
         super().__init__(constants, start_time, **kwargs)
         self.description = "balanced"
-
 
     def step(self, event_list=[]):
         super().step(event_list)
@@ -58,11 +54,11 @@ class Balanced(Strategy):
                         # reset SOC
                         vehicle.battery.soc = old_soc
 
-                        if delta_soc - charged_soc > self.EPS: #charged_soc < delta_soc
+                        if delta_soc - charged_soc > self.EPS:  # charged_soc < delta_soc
                             # power not enough
                             safe = False
                             min_power = power
-                        else: #charged_soc >= delta_soc:
+                        else:  # charged_soc >= delta_soc:
                             # power too much or just right (may be possible with less power)
                             safe = True
                             max_power = power
@@ -73,7 +69,6 @@ class Balanced(Strategy):
                 else:
                     # power precomputed: use again
                     power = cs.current_power
-
 
                 gc = self.world_state.grid_connectors[cs.parent]
                 gc_power_left = max(0, gc.cur_max_power - sum(gc.current_loads.values()))
@@ -93,7 +88,8 @@ class Balanced(Strategy):
                     cs.current_power = 0
 
                 assert vehicle.battery.soc <= 100
-                assert vehicle.battery.soc >= 0, 'SOC of {} is {}'.format(vehicle_id, vehicle.battery.soc)
+                assert vehicle.battery.soc >= 0, (
+                    'SOC of {} is {}'.format(vehicle_id, vehicle.battery.soc))
 
                 charging_stations[cs_id] = gc.add_load(cs_id, avg_power)
 
@@ -104,12 +100,16 @@ class Balanced(Strategy):
                 cs.current_power = 0
             else:
                 # can active charging station bear minimum load?
-                assert cs.max_power >= cs.current_power - self.EPS, "{} - {} over maximum load ({} > {})".format(self.current_time, cs_id, cs.current_power, cs.max_power)
+                assert cs.max_power >= cs.current_power - self.EPS, (
+                    "{} - {} over maximum load ({} > {})".format(
+                        self.current_time, cs_id, cs.current_power, cs.max_power))
                 # can grid connector bear load?
                 gc = self.world_state.grid_connectors[cs.parent]
                 gc_current_power = sum(gc.current_loads.values())
-                assert  gc.cur_max_power >= gc_current_power - self.EPS, "{} - {} over maximum load ({} > {})".format(self.current_time, cs.parent, gc_current_power, gc.cur_max_power)
+                assert gc.cur_max_power >= gc_current_power - self.EPS, (
+                    "{} - {} over maximum load ({} > {})".format(
+                        self.current_time, cs.parent, gc_current_power, gc.cur_max_power))
 
-        socs={vid: v.battery.soc for vid, v in self.world_state.vehicles.items()}
+        socs = {vid: v.battery.soc for vid, v in self.world_state.vehicles.items()}
 
         return {'current_time': self.current_time, 'commands': charging_stations, 'socs': socs}

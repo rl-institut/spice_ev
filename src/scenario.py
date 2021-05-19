@@ -1,10 +1,6 @@
 #!/usr/bin/env python3
 
-import argparse
 import datetime
-import json
-import math
-import os
 
 from src import constants, events, strategy, util
 
@@ -21,10 +17,11 @@ class Scenario:
 
         # compute time stuff
         self.start_time = util.datetime_from_isoformat(scenario['start_time'])
-        self.interval =  datetime.timedelta(minutes=scenario['interval'])
+        self.interval = datetime.timedelta(minutes=scenario['interval'])
 
         # compute n_intervals or stop_time
-        assert (scenario.get('stop_time') != None) ^ (scenario.get('n_intervals') != None), 'Give either stop_time or n_intervals, not both'
+        assert (scenario.get('stop_time') is None) ^ (scenario.get('n_intervals') is None), (
+            'Give either stop_time or n_intervals, not both')
         if 'n_intervals' in scenario:
             self.n_intervals = scenario['n_intervals']
             self.stop_time = self.start_time + self.interval * self.n_intervals
@@ -38,7 +35,6 @@ class Scenario:
             gc_id = ext_load_list.grid_connector_id
             gc = self.constants.grid_connectors[gc_id]
             gc.add_avg_ext_load_week(ext_load_list, self.interval)
-
 
     def run(self, strategy_name, options):
         # run scenario
@@ -57,7 +53,6 @@ class Scenario:
         batteryLevels = {k: [] for k in self.constants.batteries.keys()}
         connChargeByTS = []
 
-
         for step_i in range(self.n_intervals):
             # run single timestep
             try:
@@ -65,7 +60,8 @@ class Scenario:
             except Exception as e:
                 print('*'*42)
                 print(e)
-                print("Aborting simulation in timestep {} ({})".format(step_i + 1, strat.current_time))
+                print("Aborting simulation in timestep {} ({})".format(
+                    step_i + 1, strat.current_time))
                 strat.description = "*** {} (ABORTED) ***".format(strat.description)
                 break
             gcs = strat.world_state.grid_connectors.values()
@@ -76,7 +72,8 @@ class Scenario:
             curLoad = 0
             for gc in gcs:
                 # loads without charging stations (external + feed-in)
-                stepLoads = {k: v for k,v in gc.current_loads.items() if k not in self.constants.charging_stations.keys()}
+                stepLoads = {k: v for k, v in gc.current_loads.items()
+                             if k not in self.constants.charging_stations.keys()}
                 extLoads.append(stepLoads)
                 # sum up loads (with charging stations), compute cost
                 gc_load = gc.get_current_load()
@@ -100,8 +97,10 @@ class Scenario:
             for batName, bat in strat.world_state.batteries.items():
                 batteryLevels[batName].append(bat.soc / 100 * bat.capacity)
 
-            connChargeByTS.append([v.connected_charging_station for v in strat.world_state.vehicles.values() if v.connected_charging_station is not None])
-
+            connChargeByTS.append(
+                [v.connected_charging_station for v in strat.world_state.vehicles.values()
+                    if v.connected_charging_station is not None])
+        # next simulation timestep
 
         print("Costs:", int(sum(costs)))
         print("Renewable energy feed-in: {} kW, unused: {} kW ({}%)".format(
@@ -114,7 +113,16 @@ class Scenario:
 
         if options.get('output', None):
             cs_ids = sorted(strat.world_state.charging_stations.keys())
-            uc_keys = ["work", "business", "school", "shopping", "private/ridesharing", "leisure", "home", "hub"]
+            uc_keys = [
+                "work",
+                "business",
+                "school",
+                "shopping",
+                "private/ridesharing",
+                "leisure",
+                "home",
+                "hub"
+            ]
 
             round_to_places = 2
 
@@ -160,13 +168,16 @@ class Scenario:
                     # get sum of all current CS power
                     row.append(round(sum(r['commands'].values()), round_to_places))
                     # sum up all charging power for each use case
-                    row += [round(sum([cs_value for cs_id, cs_value in r['commands'].items() if cs_id in cs_by_uc[uc_key]]), round_to_places) for uc_key in uc_keys_present]
+                    row += [round(sum([cs_value for cs_id, cs_value in r['commands'].items()
+                                       if cs_id in cs_by_uc[uc_key]]),
+                            round_to_places) for uc_key in uc_keys_present]
 
                     # get total number of occupied CS
                     row.append(len(connChargeByTS[idx]))
                     # get number of occupied CS for each use case
-                    row += [sum([1 if uc_key in cs_id else 0 for cs_id in connChargeByTS[idx]]) for uc_key in uc_keys_present]
-
+                    row += [
+                        sum([1 if uc_key in cs_id else 0
+                            for cs_id in connChargeByTS[idx]]) for uc_key in uc_keys_present]
 
                     # get individual charging power
                     row += [round(r['commands'].get(cs_id, 0), round_to_places) for cs_id in cs_ids]
@@ -179,15 +190,15 @@ class Scenario:
 
             print('Done. Create plots...')
 
-            socs  = []
+            socs = []
             sum_cs = []
             xlabels = []
 
             for r in results:
                 xlabels.append(r['current_time'])
 
+                cur_cs = []
                 cur_car = []
-                cur_cs  = []
                 for v_id in sorted(self.constants.vehicles):
                     cur_car.append(r['socs'].get(v_id, None))
                 socs.append(cur_car)
@@ -198,7 +209,6 @@ class Scenario:
             # untangle external loads (with feed-in)
             loads = {}
             for i, step in enumerate(extLoads):
-                currentLoad = 0
                 for k, v in step.items():
                     if k not in loads:
                         # new key, not present before
@@ -250,7 +260,7 @@ class Scenario:
             ax.set_title('Power')
             ax.set(ylabel='Power in kW')
             ax.legend()
-            ax.xaxis_date() # xaxis are datetime objects
+            ax.xaxis_date()  # xaxis are datetime objects
 
             # price
             ax = plt.subplot(2, 2, 4)
@@ -262,7 +272,8 @@ class Scenario:
 
             # figure title
             fig = plt.gcf()
-            fig.suptitle('Strategy: {}: {}€'.format(strat.description, int(sum(costs))), fontweight='bold')
+            fig.suptitle('Strategy: {}: {}€'.format(
+                strat.description, int(sum(costs))), fontweight='bold')
 
-            fig.autofmt_xdate() # rotate xaxis labels (dates) to fit
+            fig.autofmt_xdate()  # rotate xaxis labels (dates) to fit
             plt.show()

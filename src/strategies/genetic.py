@@ -1,24 +1,26 @@
+from src import events, util
+from src.strategy import Strategy
 from copy import deepcopy
 import datetime
 import multiprocessing as mp
 import random
 import traceback
+
+
 def tb(e):
     traceback.print_exception(type(e), e, e.__traceback__)
-
-from src import events, util
-from src.strategy import Strategy
 
 
 def fp(individual):
     return hash(str(individual))
     # return str(individual)
 
+
 def fitness_function(idx, individual, vehicles, intervals, pred_gc, start_time, interval):
 
     # print(start_time, idx, vehicle_types, intervals, pred_gc, interval)
     current_time = start_time - interval
-    assert individual[1] == None
+    assert individual[1] is None
     fitness = 0
     for ts_idx, ts_info in enumerate(individual[0]):
         num_ts = intervals[ts_idx]
@@ -26,14 +28,14 @@ def fitness_function(idx, individual, vehicles, intervals, pred_gc, start_time, 
             current_time += interval
             gc_info = pred_gc[str(current_time.time())]
             power = gc_info['ext_load']
-            power_left = gc_info['max_power'] - power
 
             for v_idx, vehicle in enumerate(vehicles):
                 value = ts_info[v_idx]
                 ind_power = value * vehicle.battery.loading_curve.max_power
-                if current_time < vehicle.estimated_time_of_departure and vehicle.battery.soc < vehicle.desired_soc:
+                if (current_time < vehicle.estimated_time_of_departure
+                        and vehicle.battery.soc < vehicle.desired_soc):
                     # load vehicle
-                    power += vehicle.battery.load(interval,ind_power)['avg_power']
+                    power += vehicle.battery.load(interval, ind_power)['avg_power']
                 elif vehicle.battery.soc < vehicle.desired_soc * 0.95:
                     # fail: desired SOC not reached
                     return idx, individual
@@ -44,26 +46,21 @@ def fitness_function(idx, individual, vehicles, intervals, pred_gc, start_time, 
             else:
                 fitness += util.get_cost(power, gc_info['cost'])
 
-    """
-    for vehicle in vehicles.values():
-        if vehicle.battery.soc < vehicle.desired_soc * 0.95:
-            # fail: desired SOC not reached after one day
-            return idx, individual
-    """
-
     individual[1] = fitness
 
     return idx, individual
+
 
 class Genetic(Strategy):
     """
     Charging strategy computed by genetic algorithm.
     """
+
     def __init__(self, constants, start_time, **kwargs):
         # defaults
-        self.INTERVALS = [1,1,2,4,8,16,16,32] # 24 hours
-        self.POPSIZE = 8# 32
-        self.GENERATIONS = 2 #10
+        self.INTERVALS = [1, 1, 2, 4, 8, 16, 16, 32]  # 24 hours
+        self.POPSIZE = 8  # 32
+        self.GENERATIONS = 2  # 10
         self.N_CORE = mp.cpu_count()
 
         super().__init__(constants, start_time, **kwargs)
@@ -112,8 +109,7 @@ class Genetic(Strategy):
 
         # peek into future events for grid op signals
         event_idx = 0
-        timesteps_per_day = int(datetime.timedelta(days =1) / self.interval)
-        timesteps_per_hour=     datetime.timedelta(hours=1) / self.interval
+        timesteps_per_day = int(datetime.timedelta(days=1) / self.interval)
         cur_time = self.current_time - self.interval
         for _ in range(timesteps_per_day):
             cur_time += self.interval
@@ -154,10 +150,10 @@ class Genetic(Strategy):
 
         if not(vehicles):
             # no charging
-            socs={vid: v.battery.soc for vid, v in self.world_state.vehicles.items()}
+            socs = {vid: v.battery.soc for vid, v in self.world_state.vehicles.items()}
             return {'current_time': self.current_time, 'commands': {}, 'socs': socs}
 
-        evaluated  = set()
+        evaluated = set()
         self.population = []
 
         for gen in range(self.GENERATIONS):
@@ -211,7 +207,7 @@ class Genetic(Strategy):
                     evaluated.add(fingerprint)
             else:
                 print("Warning: number of retries exceeded. \
-{} new configurations generated.".format(len(children)))
+                    {} new configurations generated.".format(len(children)))
 
             if len(children) == 0:
                 # no new children could be generated
@@ -229,9 +225,11 @@ class Genetic(Strategy):
                 # print(individual)
                 if individual[1] is None:  # not evaluated yet
                     pool.apply_async(
-                        fitness_function, (idx, individual, deepcopy(vehicles), self.INTERVALS, self.pred_gc, self.current_time, self.interval),
+                        fitness_function, (idx, individual, deepcopy(
+                            vehicles), self.INTERVALS, self.pred_gc,
+                            self.current_time, self.interval),
                         callback=self.set_fitness,
-                        error_callback=tb #self.err_callback
+                        error_callback=tb  # self.err_callback
                     )
             pool.close()
             pool.join()
@@ -257,7 +255,6 @@ class Genetic(Strategy):
         best = self.population[0][0][0]
         delta_soc = 0
 
-        power_left = gc.cur_max_power - actual_load
         for v_idx, vehicle in enumerate(vehicles):
             value = best[v_idx]
             ind_power = value * vehicle.battery.loading_curve.max_power
@@ -266,12 +263,14 @@ class Genetic(Strategy):
             charging_stations[cs_id] = gc.add_load(cs_id, power)
 
             assert vehicle.battery.soc <= 100
-            assert vehicle.battery.soc >= 0, 'SOC of {} is {}'.format(vehicle_id, vehicle.battery.soc)
+            assert vehicle.battery.soc >= 0, 'SOC of {} is {}'.format(
+                vehicle_id, vehicle.battery.soc)
 
             delta_soc += vehicle.get_delta_soc()
 
         # print(self.current_time, self.population[0][1])
-        print("{}: {}€, {} need charging, {} avg delta SOC".format(self.current_time, int(self.population[0][1]), len(vehicles), round(delta_soc / len(vehicles),2)))
+        print("{}: {}€, {} need charging, {} avg delta SOC".format(self.current_time, int(
+            self.population[0][1]), len(vehicles), round(delta_soc / len(vehicles), 2)))
 
-        socs={vid: v.battery.soc for vid, v in self.world_state.vehicles.items()}
+        socs = {vid: v.battery.soc for vid, v in self.world_state.vehicles.items()}
         return {'current_time': self.current_time, 'commands': charging_stations, 'socs': socs}

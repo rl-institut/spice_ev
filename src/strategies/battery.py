@@ -20,19 +20,20 @@ class Battery(Strategy):
 
         self.USE_COST = True
 
-        self.LOAD_STRAT = 'needy' # greedy, needy, balanced
+        self.LOAD_STRAT = 'needy'  # greedy, needy, balanced
 
         # init parent class Strategy. May override defaults
         super().__init__(constants, start_time, **kwargs)
-        self.description = "battery (constant {}, {})".format("cost" if self.USE_COST else "power", self.LOAD_STRAT)
+        self.description = "battery (constant {}, {})".format(
+            "cost" if self.USE_COST else "power", self.LOAD_STRAT)
 
         # set order of vehicles to load
         if self.LOAD_STRAT == 'greedy':
-            self.sort_key=lambda v: v.estimated_time_of_departure
+            self.sort_key = lambda v: v.estimated_time_of_departure
         elif self.LOAD_STRAT == 'needy':
-            self.sort_key=lambda v: -v.get_delta_soc()*v.battery.capacity
+            self.sort_key = lambda v: -v.get_delta_soc()*v.battery.capacity
         elif self.LOAD_STRAT == 'balanced':
-            self.sort_key=lambda v: 0 # order does not matter
+            self.sort_key = lambda v: 0  # order does not matter
         else:
             raise NotImplementedError(self.LOAD_STRAT)
 
@@ -95,7 +96,7 @@ class Battery(Strategy):
                 ext_load = gc.get_avg_ext_load(cur_time, self.interval)
                 ext_load -= feed_in
 
-             # new timestep info
+            # new timestep info
             timesteps.append({
                 'max': max_power,
                 'ext': ext_load,
@@ -125,14 +126,14 @@ class Battery(Strategy):
             min_lvl = cur_max_cost
             max_lvl = min_lvl
             # charge all vehicles, regardless of SOC
-            vehicles= self.world_state.vehicles
+            vehicles = self.world_state.vehicles
         else:
             cur_lvl = None
             min_lvl = min_cost if self.USE_COST else 0
             max_lvl = max_cost if self.USE_COST else gc.cur_max_power
             # remove all vehicles from simulation where desired SOC is reached
             vehicles = {
-                vid: v for vid,v in self.world_state.vehicles.items()
+                vid: v for vid, v in self.world_state.vehicles.items()
                 if v.battery.soc < v.desired_soc
             }
             # copy vehicles and battery for simulation (don't change SOC of originals)
@@ -150,7 +151,7 @@ class Battery(Strategy):
             idx += 1
             # binary search: try out average of min and max
             cur_lvl = (max_lvl + min_lvl) / 2
-            sim_time  = self.current_time - self.interval
+            sim_time = self.current_time - self.interval
 
             # reset vehicle and battery SOC
             for vid, vehicle in sim_vehicles.items():
@@ -166,7 +167,8 @@ class Battery(Strategy):
                 # check that any vehicle in need of charging still has time
                 safe = True
                 for vehicle in sim_vehicles.values():
-                    needs_charging = vehicle.battery.soc < ((1.0 - self.SOC_MARGIN) * vehicle.desired_soc)
+                    desired_soc_with_margin = (1.0 - self.SOC_MARGIN) * vehicle.desired_soc
+                    needs_charging = vehicle.battery.soc < desired_soc_with_margin
                     has_left = sim_time >= vehicle.estimated_time_of_departure
                     if needs_charging:
                         if has_left:
@@ -189,12 +191,11 @@ class Battery(Strategy):
                     max_lvl = cur_lvl
                     break
 
-
                 # still vehicles left to charge
 
                 # get power level for next 24h
-                ext_power  = ts_info['ext']
-                bat_power  = sim_battery.get_available_power(self.interval)
+                ext_power = ts_info['ext']
+                bat_power = sim_battery.get_available_power(self.interval)
                 if self.USE_COST:
                     # how much energy can be loaded with current cost?
                     # cur_lvl SHOULD be achievable (ValueError otherwise)
@@ -212,13 +213,13 @@ class Battery(Strategy):
                 used_power = sum(cs_info.values())
 
                 # adjust simulated battery SOC
-                if used_power + ext_power < grid_power:
+                extra_power = used_power + ext_power - grid_power
+                if extra_power < 0:
                     # less power used than available: use surplus to charge battery
-                    sim_battery.load(self.interval, grid_power - used_power - ext_power)
+                    sim_battery.load(self.interval, -extra_power)
                 else:
                     # extra power used: drain battery by difference
-                    sim_battery.unload(self.interval, used_power + ext_power - grid_power)
-                    used_bat_power = sim_battery.unload(self.interval, used_power + ext_power - grid_power)['avg_power']
+                    used_bat_power = sim_battery.unload(self.interval, extra_power)['avg_power']
                     assert bat_power >= used_bat_power
 
             # after all timesteps done: check all vehicles are loaded
@@ -250,16 +251,17 @@ class Battery(Strategy):
         used_power = sum(cs_info.values())
 
         # adjust simulated battery SOC
-        if used_power + ext_power < grid_power:
+        extra_power = used_power + ext_power - grid_power
+        if extra_power < 0:
             # less power used than available: use surplus to charge battery
-            bat_power = battery.load(self.interval, grid_power - used_power - ext_power)['avg_power']
+            bat_power = battery.load(self.interval, -extra_power)['avg_power']
         else:
             # extra power used: drain battery by difference
-            bat_power = -battery.unload(self.interval, used_power + ext_power - grid_power)['avg_power']
+            bat_power = -battery.unload(self.interval, extra_power)['avg_power']
             # this might not be enough, rest is taken from grid
         gc.add_load(bat_id, bat_power)
 
-        socs={vid: v.battery.soc for vid, v in self.world_state.vehicles.items()}
+        socs = {vid: v.battery.soc for vid, v in self.world_state.vehicles.items()}
         return {'current_time': self.current_time, 'commands': charging_stations, 'socs': socs}
 
     def load_vehicles(self, vehicles, power):
@@ -286,7 +288,6 @@ class Battery(Strategy):
 
         # load vehicles below desired SOC first
         used_power = 0
-        energy_loaded = 0
         for vehicle in needy_vehicles:
             if power - used_power > 0:
                 # power left to distribute
@@ -328,7 +329,7 @@ class Battery(Strategy):
 
                 # load with power p
                 p = min(cs_remaining_power, p)
-                avg_power = vehicle.battery.load(self.interval,p)['avg_power']
+                avg_power = vehicle.battery.load(self.interval, p)['avg_power']
                 used_power += avg_power
                 try:
                     charging_stations[cs_id] += avg_power

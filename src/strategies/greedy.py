@@ -1,13 +1,11 @@
-from src import events
 from src.strategy import Strategy
 
 
 class Greedy(Strategy):
     def __init__(self, constants, start_time, **kwargs):
-        self.CONCURRENCY=1.0
+        self.CONCURRENCY = 1.0
         super().__init__(constants, start_time, **kwargs)
         self.description = "greedy"
-
 
     def step(self, event_list=[]):
         super().step(event_list)
@@ -26,7 +24,7 @@ class Greedy(Strategy):
                 cs_power_left = (self.CONCURRENCY * cs.max_power) - charging_stations.get(cs_id, 0)
                 if cs_power_left < cs.min_power:
                     cs_power_left = 0
-                max_power =  min(cs_power_left, gc_power_left)
+                max_power = min(cs_power_left, gc_power_left)
 
                 load_result = vehicle.battery.load(self.interval, max_power)
                 avg_power = load_result['avg_power']
@@ -34,7 +32,8 @@ class Greedy(Strategy):
                 charging_stations[cs_id] = gc.add_load(cs_id, avg_power)
 
                 assert vehicle.battery.soc <= 100
-                assert vehicle.battery.soc >= 0, 'SOC of {} is {}'.format(vehicle_id, vehicle.battery.soc)
+                assert vehicle.battery.soc >= 0, (
+                    'SOC of {} is {}'.format(vehicle_id, vehicle.battery.soc))
 
             socs[vehicle_id] = vehicle.battery.soc
 

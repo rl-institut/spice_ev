@@ -30,12 +30,11 @@ class I2c(Strategy):
         super().step(event_list)
 
         # gather info about grid connectors
-        timestamp = str(self.current_time.time())
         gcs = {}
         for gc_id, gc in self.world_state.grid_connectors.items():
 
             gcs[gc_id] = {
-                'vehicles': {}, # vehicles to be charged connected to this GC
+                'vehicles': {},  # vehicles to be charged connected to this GC
                 # 'batteries': [],
                 'ts': [],       # timestep infos
                 'max_power': gc.cur_max_power,
@@ -61,7 +60,7 @@ class I2c(Strategy):
         # in this time, all vehicles must be charged
         # get future events and predict external load and cost for each timestep
         event_idx = 0
-        timesteps_per_day = int(datetime.timedelta(days =1) / self.interval)
+        timesteps_per_day = int(datetime.timedelta(days=1) / self.interval)
 
         cur_time = self.current_time - self.interval
         for timestep_idx in range(timesteps_per_day):
@@ -103,7 +102,7 @@ class I2c(Strategy):
                     # update GC info
                     gc_id = event.grid_connector_id
                     gcs[gc_id]['feed_in'] = event.value
-
+            # end of useful events
 
             # compute available power and associated costs
             for gc_id, gc in self.world_state.grid_connectors.items():
@@ -133,11 +132,12 @@ class I2c(Strategy):
 
         if sum(len(gc['ts']) for gc in gcs.values()) == 0:
             # no timesteps -> no charging at any grid connector
-            socs={vid: v.battery.soc for vid, v in self.world_state.vehicles.items()}
-            return {'current_time': self.current_time, 'commands': {}, 'socs': socs}
+            soc = {vid: v.battery.soc for vid, v in self.world_state.vehicles.items()}
+            return {'current_time': self.current_time, 'commands': {}, 'socs': soc}
 
         charging_stations = {}
-        # find minimum cost -> minimal viable power per vehicle so it is charged when leaving or after 24h
+        # find minimum cost
+        # -> minimal viable power per vehicle so it is charged when leaving or after 24h
         for gc_id, gc_info in gcs.items():
             gc = self.world_state.grid_connectors[gc_id]
 
@@ -149,35 +149,27 @@ class I2c(Strategy):
             cur_cost_one = util.get_cost(1, gc.cost)
 
             # order vehicles by time needed
-            vehicles = sorted(gc_info["vehicles"].values(), key=lambda v: v.battery.capacity*v.battery.soc/self.world_state.charging_stations[v.connected_charging_station].max_power)
+            vehicles = sorted(
+                gc_info["vehicles"].values(),
+                key=lambda v: (v.battery.capacity * v.battery.soc) /
+                self.world_state.charging_stations[v.connected_charging_station].max_power)
 
             if cur_cost_one <= self.PRICE_THRESHOLD:
                 # negative or no cost: charge as much as possible
                 # give most energy to vehicles that need most
                 # nah, just greedy (easier for simulation)
 
-                # total_energy_needed = sum([v.battery.capacity * v.battery.soc / 100 for v in vehicles])
-
-                # get maximum available power
-                # current load might be negative (feed-in)
-                gc_power = gc.cur_max_power - gc.get_current_load()
                 charging_stations = {}
 
                 for vehicle in vehicles:
                     cs_id = vehicle.connected_charging_station
                     cs = self.world_state.charging_stations[cs_id]
-                    """
-                    delta_soc = 1.0 - vehicle.battery.soc/100
-                    # get fraction of needed energy from total energy
-                    f = delta_soc * vehicle.battery.capacity / total_energy_needed
-                    p = f * gc_power
-                    """
                     # charge with maximum power
                     p = gc.cur_max_power - gc.get_current_load()
                     p = util.clamp_power(p, vehicle, cs)
 
                     # load
-                    avg_power = vehicle.battery.load(self.interval,p)['avg_power']
+                    avg_power = vehicle.battery.load(self.interval, p)['avg_power']
                     charging_stations[cs_id] = gc.add_load(cs_id, avg_power)
                     cs.current_power += avg_power
 
@@ -201,7 +193,7 @@ class I2c(Strategy):
                         idx += 1
                         # binary search: try out average of min and max
                         cur_costs = (cur_max + cur_min) / 2
-                        sim_time  = self.current_time - self.interval
+                        sim_time = self.current_time - self.interval
                         # reset vehicle SOC
                         sim_vehicle.battery.soc = vehicle.battery.soc
 
@@ -223,7 +215,7 @@ class I2c(Strategy):
                                 p = util.clamp_power(p, sim_vehicle, cs)
 
                                 # load
-                                avg_power = sim_vehicle.battery.load(self.interval,p)
+                                avg_power = sim_vehicle.battery.load(self.interval, p)
                             elif sim_vehicle.battery.soc < vehicle.desired_soc:
                                 # price above threshold, sim_vehicle needs charging
                                 # how much energy can be loaded with current cost?
@@ -234,7 +226,7 @@ class I2c(Strategy):
                                 # can charge with max_power then
                                 p = p or ts_info['max'] - ts_info['ext']
                                 p = util.clamp_power(p, sim_vehicle, cs)
-                                sim_vehicle.battery.load(self.interval,p)
+                                sim_vehicle.battery.load(self.interval, p)
                             # end of simulated timestep
 
                         # test that vehicle has charged enough when leaving CS
@@ -252,5 +244,5 @@ class I2c(Strategy):
                     avg_power = vehicle.battery.load(self.interval, p)['avg_power']
                     charging_stations[cs_id] = gc.add_load(cs_id, avg_power)
 
-        socs={vid: v.battery.soc for vid, v in self.world_state.vehicles.items()}
+        socs = {vid: v.battery.soc for vid, v in self.world_state.vehicles.items()}
         return {'current_time': self.current_time, 'commands': charging_stations, 'socs': socs}
