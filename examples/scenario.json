@@ -1,0 +1,117 @@
+{
+  "scenario": {
+    "start_time": "2020-01-01T00:00:00+02:00",
+    "interval": 15,
+    "n_intervals": 97
+  },
+  "constants": {
+    "vehicle_types": {
+        "sprinter": {
+            "name": "sprinter",
+            "capacity": 70,
+            "max_charging_power": 7,
+            "charging_curve": [[0, 7], [80, 7], [100, 0]]
+        },
+        "kleinwagen": {
+            "name": "E-Golf",
+            "capacity": 50,
+            "max_charging_power": 22,
+            "charging_curve": [[0, 22], [80, 22], [100, 0]]
+        }
+    },
+    "vehicles": {
+        "V1": {
+            "connected_charging_station": "C1",
+            "estimated_time_of_departure": "2020-01-02T00:08:00+02:00",
+            "desired_soc": 90,
+            "soc": 100,
+            "vehicle_type": "sprinter"
+        },
+        "V2": {
+            "connected_charging_station": null,
+            "estimated_time_of_departure": null,
+            "soc": 85,
+            "vehicle_type": "sprinter"
+        }
+    },
+    "grid_connectors": {
+        "GC1": {
+          "max_power": 200
+        }
+    },
+    "charging_stations": {
+        "C1": {
+            "max_power": 100,
+            "parent": "GC1"
+        },
+        "C2": {
+            "max_power": 50,
+            "parent": "GC1"
+        },
+        "C3": {
+            "max_power": 50,
+            "parent": "GC1"
+        }
+    }
+  },
+  "events": {
+    "external_load": {
+      "building_1": {
+        "start_time": "2020-01-02T00:08:00+02:00",
+        "step_duration_s": 900,
+        "grid_connector_id": "GC1",
+        "values": [
+          12,
+          23,
+          12,
+          12
+        ]
+      }
+    },
+    "grid_operator_signals": [
+      {
+        "signal_time": "2019-12-31T23:00:00+02:00",
+        "grid_connector_id": "GC1",
+        "start_time": "2020-01-01T00:00:00+02:00",
+        "max_power": null,
+        "cost": {
+          "type": "polynomial",
+          "value": [1.0, 0.0, 1.0]
+        }
+      },
+      {
+        "signal_time": "2019-12-31T23:00:00+02:00",
+        "grid_connector_id": "GC1",
+        "start_time": "2020-01-01T00:15:00+02:00",
+        "max_power": null,
+        "cost": {
+          "type": "fixed",
+          "value": 100
+        }
+      }
+    ],
+    "vehicle_events": [
+      {
+        "signal_time": "2019-12-31T23:00:00+02:00",
+        "start_time": "2020-01-01T08:00:00+02:00",
+        "vehicle_id": "V1",
+        "event_type": "departure",
+        "update": {
+            "estimated_time_of_arrival": null
+        }
+      },
+      {
+        "signal_time": "2019-12-31T23:00:00+02:00",
+        "start_time": "2020-01-01T17:00:00+02:00",
+        "vehicle_id": "V1",
+        "event_type": "arrival",
+        "update": {
+            "connected_charging_station": "C1",
+            "estimated_time_of_departure": "2020-01-03T00:08:00+02:00",
+            "desired_soc": 90,
+            "soc_delta": -12
+        }
+      }
+    ]
+  }
+}

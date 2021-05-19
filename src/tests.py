@@ -29,15 +29,6 @@ def get_test_json():
 
 class TestScenario(unittest.TestCase):
 
-    def test_file(self):
-        with open('tests/test_scenario.json', 'r') as f:
-            scenario.Scenario(json.load(f), 'tests/')
-
-    def test_greedy(self):
-        with open('tests/test_scenario.json', 'r') as f:
-            s = scenario.Scenario(json.load(f), 'tests/')
-        s.run('greedy', {})
-
     def test_scenario_times(self):
         j = get_test_json()
         s = scenario.Scenario(j)
@@ -50,6 +41,14 @@ class TestScenario(unittest.TestCase):
         del j['scenario']['n_intervals']
         s = scenario.Scenario(j)
         self.assertEqual(s.n_intervals, 4)
+
+    def test_file(self):
+        with open('examples/scenario.json', 'r') as f:
+            scenario.Scenario(json.load(f), "")
+
+    def test_greedy(self):
+        s = scenario.Scenario(get_test_json(), None)
+        s.run('greedy', {})
 
 
 def approx_eq(x, y, eps=1e-3):
