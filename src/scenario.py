@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import datetime
+import traceback
 
 from src import constants, events, strategy, util
 
@@ -39,31 +40,48 @@ class Scenario:
     def run(self, strategy_name, options):
         # run scenario
         options['interval'] = self.interval
+        options['events'] = self.events
         strat = strategy.class_from_str(strategy_name)(self.constants, self.start_time, **options)
 
         event_steps = self.events.get_event_steps(self.start_time, self.n_intervals, self.interval)
 
+        socs = []
         costs = []
         prices = []
         results = []
         extLoads = []
         totalLoad = []
+        disconnect = []
         totalFeedIn = 0
         unusedFeedIn = 0
         batteryLevels = {k: [] for k in self.constants.batteries.keys()}
         connChargeByTS = []
 
         for step_i in range(self.n_intervals):
+
+            width = 10
+            display_step = self.n_intervals / width
+            # only print full steps
+            if int(step_i / display_step) != int((step_i + 1) / display_step):
+                progress = (step_i+1) / self.n_intervals
+                print("\r[{}{}]".format(
+                    '#'*round(progress*width),
+                    '.'*round((1-progress)*width)
+                ), end="", flush=True)
+
             # run single timestep
             try:
                 res = strat.step(event_steps[step_i])
             except Exception as e:
-                print('*'*42)
+                print('\n', '*'*42)
                 print(e)
                 print("Aborting simulation in timestep {} ({})".format(
                     step_i + 1, strat.current_time))
                 strat.description = "*** {} (ABORTED) ***".format(strat.description)
+                traceback.print_exc()
                 break
+            results.append(res)
+
             gcs = strat.world_state.grid_connectors.values()
 
             # get current loads
@@ -88,21 +106,51 @@ class Scenario:
                 # sum up unused feed-in power (negative total power)
                 unusedFeedIn -= min(gc.get_current_load(), 0)
 
+            # get SOC and connected CS of all connected vehicles
+            cur_cs = []
+            cur_dis = []
+            cur_socs = []
+            for vidx, vid in enumerate(sorted(strat.world_state.vehicles.keys())):
+                vehicle = strat.world_state.vehicles[vid]
+                if vehicle.connected_charging_station:
+                    cur_cs.append(vehicle.connected_charging_station)
+                    cur_dis.append(None)
+                    cur_socs.append(vehicle.battery.soc)
+                    if len(socs) > 0 and socs[-1][vidx] is None:
+                        # just arrived -> update disconnect
+                        # find departure
+                        start_idx = step_i-1
+                        while start_idx >= 0 and socs[start_idx][vidx] is None:
+                            start_idx -= 1
+                        if start_idx < 0:
+                            # first charge, no info about old soc
+                            continue
+                        # get start soc
+                        start_soc = socs[start_idx][vidx]
+                        # compute linear equation
+                        m = (vehicle.battery.soc - start_soc) / (step_i - start_idx - 1)
+                        # update timesteps between start and now
+                        for idx in range(start_idx, step_i):
+                            disconnect[idx][vidx] = m * (idx - start_idx) + start_soc
+                else:
+                    cur_socs.append(None)
+                    cur_dis.append(None)  # placeholder
+
+            # append accumulated info
+            socs.append(cur_socs)
             costs.append(cost)
             prices.append(price)
             totalLoad.append(max(curLoad, 0))
+            disconnect.append(cur_dis)
+            connChargeByTS.append(cur_cs)
 
-            results.append(res)
-
+            # get battery levels
             for batName, bat in strat.world_state.batteries.items():
                 batteryLevels[batName].append(bat.soc / 100 * bat.capacity)
 
-            connChargeByTS.append(
-                [v.connected_charging_station for v in strat.world_state.vehicles.values()
-                    if v.connected_charging_station is not None])
         # next simulation timestep
 
-        print("Costs:", int(sum(costs)))
+        print("\nCosts:", int(sum(costs)))
         print("Renewable energy feed-in: {} kW, unused: {} kW ({}%)".format(
             round(totalFeedIn),
             round(unusedFeedIn),
@@ -190,18 +238,12 @@ class Scenario:
 
             print('Done. Create plots...')
 
-            socs = []
             sum_cs = []
             xlabels = []
 
             for r in results:
                 xlabels.append(r['current_time'])
-
                 cur_cs = []
-                cur_car = []
-                for v_id in sorted(self.constants.vehicles):
-                    cur_car.append(r['socs'].get(v_id, None))
-                socs.append(cur_car)
                 for cs_id in sorted(self.constants.charging_stations):
                     cur_cs.append(r['commands'].get(cs_id, 0.0))
                 sum_cs.append(cur_cs)
@@ -238,6 +280,9 @@ class Scenario:
             ax.set_title('Vehicles')
             ax.set(ylabel='SOC in %')
             lines = ax.step(xlabels, socs)
+            # reset color cycle, so lines have same color
+            ax.set_prop_cycle(None)
+            ax.plot(xlabels, disconnect, '--')
             if len(self.constants.vehicles) <= 10:
                 ax.legend(lines, sorted(self.constants.vehicles.keys()))
 
