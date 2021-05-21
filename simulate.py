@@ -11,15 +11,10 @@ from src.util import set_options_from_config
 if __name__ == '__main__':
 
     strategies = [
-        'greedy', 'greedy_feed_in', 'greedy_foresight',
-        'parity',
-        'balanced', 'balanced_feed_in',
-        'foresight',
-        'genetic',
-        'i2c',
+        'greedy', 'greedy_market',
+        'balanced',
         'inverse',
         'v2g',
-        'battery'
     ]
 
     parser = argparse.ArgumentParser(
