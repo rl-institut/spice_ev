@@ -116,7 +116,6 @@ class GreedyMarket(Strategy):
         # order timesteps by cost for 1 kWh
         sorted_ts = sorted((util.get_cost(1, e["cost"]), idx) for idx, e in enumerate(timesteps))
 
-        charging_stations = {}
         for vid, vehicle in vehicles:
             cs_id = vehicle.connected_charging_station
             cs = self.world_state.charging_stations[cs_id]
@@ -129,6 +128,7 @@ class GreedyMarket(Strategy):
                 avg_power = vehicle.battery.load(self.interval, p)['avg_power']
                 charging_stations[cs_id] = gc.add_load(cs_id, avg_power)
                 cs.current_power += avg_power
+                # no further computation for this vehicle in this timestep
                 continue
 
             # price above threshold: charge at times with low cost
@@ -258,7 +258,8 @@ class GreedyMarket(Strategy):
         # distribute surplus power to vehicles
         # power is clamped to CS max_power
         for vid, vehicle in vehicles:
-            cs = self.world_state.charging_stations[vehicle.connected_charging_station]
+            cs_id = vehicle.connected_charging_station
+            cs = self.world_state.charging_stations[cs_id]
             if gc.get_current_load() < 0:
                 # surplus power
                 power = util.clamp_power(-gc.get_current_load(), vehicle, cs)
