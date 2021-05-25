@@ -63,10 +63,10 @@ class Scenario:
             display_step = self.n_intervals / width
             # only print full steps
             if int(step_i / display_step) != int((step_i + 1) / display_step):
-                progress = (step_i+1) / self.n_intervals
-                print("\r[{}{}]".format(
-                    '#'*round(progress*width),
-                    '.'*round((1-progress)*width)
+                progress = int(width * (step_i + 1) / self.n_intervals)
+                print("[{}{}]\r".format(
+                    '#' * progress,
+                    '.' * (width - progress)
                 ), end="", flush=True)
 
             # run single timestep
@@ -150,7 +150,7 @@ class Scenario:
 
         # next simulation timestep
 
-        print("\nCosts:", int(sum(costs)))
+        print("Costs: {:.2f} €".format(sum(costs)))
         print("Renewable energy feed-in: {} kW, unused: {} kW ({}%)".format(
             round(totalFeedIn),
             round(unusedFeedIn),
