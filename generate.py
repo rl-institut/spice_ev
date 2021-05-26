@@ -4,14 +4,14 @@ import argparse
 import datetime
 import json
 import random
-# from math import exp, log
+from os import path
 
 from src.util import datetime_from_isoformat, set_options_from_config
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         description='Generate scenarios as JSON files for vehicle charging modelling')
-    parser.add_argument('output', help='output file name (example.json)')
+    parser.add_argument('output', nargs='?', help='output file name (example.json)')
     parser.add_argument('--cars', metavar=('N', 'TYPE'), nargs=2, action='append', type=str,
                         help='set number of cars for a vehicle type, \
                         e.g. `--cars 100 sprinter` or `--cars 13 golf`')
@@ -19,11 +19,11 @@ if __name__ == '__main__':
                         help='set duration of scenario as number of days')
     parser.add_argument('--interval', metavar='MIN', type=int, default=15,
                         help='set number of minutes for each timestep (Δt)')
-    parser.add_argument('--desired-soc', metavar='SOC', type=int, default=80,
-                        help='set desired SOC (0%% - 100%%) for each charging process')
-    parser.add_argument('--battery', '-b', type=int, action='append',
-                        help='add battery with specified capacity in kWh \
-                        (-1 for variable capacity))')
+    parser.add_argument('--min-soc', metavar='SOC', type=int, default=80,
+                        help='set minimum desired SOC (0%% - 100%%) for each charging process')
+    parser.add_argument('--battery', '-b', default=[], nargs=2, type=float, action='append',
+                        help='add battery with specified capacity in kWh and C-rate \
+                        (-1 for variable capacity, second argument is fixed power))')
 
     parser.add_argument('--include-ext-load-csv',
                         help='include CSV for external load. \
@@ -47,6 +47,9 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     set_options_from_config(args, check=False, verbose=False)
+
+    if args.output is None:
+        raise SystemExit("The following argument is required: output")
 
     if not args.cars:
         args.cars = [['2', 'golf'], ['3', 'sprinter']]
@@ -98,12 +101,11 @@ if __name__ == '__main__':
             cs_name = "CS_" + v_name
             is_connected = True
             depart = start + datetime.timedelta(days=1, hours=6, minutes=15 * random.randint(0, 4))
-            desired_soc = args.desired_soc
             soc = random.randint(50, 100)
             vehicles[v_name] = {
                 "connected_charging_station": cs_name,
                 "estimated_time_of_departure": depart.isoformat(),
-                "desired_soc": desired_soc,
+                "desired_soc": args.min_soc,
                 "soc": soc,
                 "vehicle_type": name
             }
@@ -113,11 +115,16 @@ if __name__ == '__main__':
                 "parent": "GC1"
             }
 
-    for idx, capacity in enumerate(args.battery or []):
+    for idx, (capacity, c_rate) in enumerate(args.battery):
+        if capacity > 0:
+            max_power = c_rate * capacity
+        else:
+            # unlimited battery: set power directly
+            max_power = c_rate
         batteries["BAT{}".format(idx+1)] = {
             "parent": "GC1",
             "capacity": capacity,
-            "charging_curve": [[0, 50], [80, 50], [100, 0]]
+            "charging_curve": [[0, max_power], [100, max_power]]
         }
 
     events = {
@@ -126,6 +133,10 @@ if __name__ == '__main__':
         "energy_feed_in": {},
         "vehicle_events": []
     }
+
+    # save path and options for CSV timeseries
+    # all paths are relative to output file
+    target_path = path.dirname(args.output)
 
     if args.include_ext_load_csv:
         filename = args.include_ext_load_csv
@@ -141,6 +152,10 @@ if __name__ == '__main__':
             for key, value in args.include_ext_csv_option:
                 options[key] = value
         events['external_load'][basename] = options
+        # check if CSV file exists
+        ext_csv_path = path.join(target_path, filename)
+        if not path.exists(ext_csv_path):
+            print("Warning: external csv file '{}' does not exist yet".format(ext_csv_path))
 
     if args.include_feed_in_csv:
         filename = args.include_feed_in_csv
@@ -156,6 +171,9 @@ if __name__ == '__main__':
             for key, value in args.include_feed_in_csv_option:
                 options[key] = value
         events['energy_feed_in'][basename] = options
+        feed_in_path = path.join(target_path, filename)
+        if not path.exists(feed_in_path):
+            print("Warning: feed-in csv file '{}' does not exist yet".format(feed_in_path))
 
     if args.include_price_csv:
         filename = args.include_price_csv
@@ -170,6 +188,9 @@ if __name__ == '__main__':
         for key, value in args.include_price_csv_option:
             options[key] = value
         events['energy_price_from_csv'] = options
+        price_csv_path = path.join(target_path, filename)
+        if not path.exists(price_csv_path):
+            print("Warning: price csv file '{}' does not exist yet".format(price_csv_path))
     else:
         events['grid_operator_signals'].append({
             "signal_time": start.isoformat(),
@@ -183,6 +204,9 @@ if __name__ == '__main__':
 
     daily = datetime.timedelta(days=1)
     hourly = datetime.timedelta(hours=1)
+
+    # count number of trips where desired_soc is above min_soc
+    trips_above_min_soc = 0
 
     # create vehicle events
     # each day, each vehicle leaves between 6 and 7 and returns after using some battery power
@@ -264,6 +288,10 @@ if __name__ == '__main__':
             v['distance'] = next_distance
             v["departure"] = next_dep_time.isoformat()
 
+            desired_soc = soc_needed * (1 + vars(args).get("buffer", 0.1))
+            trips_above_min_soc += desired_soc > args.min_soc
+            desired_soc = max(args.min_soc, desired_soc)
+
             events["vehicle_events"].append({
                 "signal_time": arrival_time.isoformat(),
                 "start_time": arrival_time.isoformat(),
@@ -272,7 +300,7 @@ if __name__ == '__main__':
                 "update": {
                     "connected_charging_station": "CS_" + v_id,
                     "estimated_time_of_departure": next_dep_time.isoformat(),
-                    "desired_soc": args.desired_soc or (soc_needed * 1.1),
+                    "desired_soc": desired_soc,
                     "soc_delta": -soc_delta
                 }
             })
@@ -301,6 +329,9 @@ if __name__ == '__main__':
         },
         "events": events
     }
+
+    if trips_above_min_soc:
+        print("{} trips use more than {}% capacity".format(trips_above_min_soc, args.min_soc))
 
     # Write JSON
     with open(args.output, 'w') as f:
