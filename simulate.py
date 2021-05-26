@@ -26,7 +26,7 @@ if __name__ == '__main__':
         description='SpiceEV - \
         Simulation Program for Individual Charging Events of Electric Vehicles. \
         Simulate different charging strategies for a given scenario.')
-    parser.add_argument('file', help='Set the scenario JSON file')
+    parser.add_argument('input', nargs='?', help='Set the scenario JSON file')
     parser.add_argument('--strategy', '-s', default='greedy',
                         help='Specify the charging strategy. One of {}. You may define \
                         custom options with --strategy-option.'.format(', '.join(strategies)))
@@ -44,6 +44,9 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     set_options_from_config(args, check=True, verbose=False)
+
+    if args.input is None or not os.path.exists(args.input):
+        raise SystemExit("Please specify a valid input file.")
 
     options = {
         'visual': args.visual,
@@ -68,8 +71,8 @@ if __name__ == '__main__':
                 options[opt_key] = opt_val
 
     # Read JSON
-    with open(args.file, 'r') as f:
-        s = Scenario(json.load(f), os.path.dirname(args.file))
+    with open(args.input, 'r') as f:
+        s = Scenario(json.load(f), os.path.dirname(args.input))
 
     # RUN!
     s.run(strategy_name, options)
