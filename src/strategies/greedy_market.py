@@ -23,9 +23,18 @@ class GreedyMarket(Strategy):
         for cs in self.world_state.charging_stations.values():
             cs.max_power = self.CONCURRENCY * cs.max_power
 
-        # perfect foresight for vehicle events
-        for event in self.events.vehicle_events:
-            event.signal_time = start_time
+        # adjust foresight for vehicle and price events
+        horizon_timedelta = datetime.timedelta(hours=self.HORIZON)
+        changed = 0
+        for event in self.events.vehicle_events + self.events.grid_operator_signals:
+            old_signal_time = event.signal_time
+            # make events known at least HORIZON hours in advance
+            event.signal_time = min(event.signal_time, event.start_time - horizon_timedelta)
+            # make sure events don't signal before start
+            event.signal_time = max(event.signal_time, start_time)
+            changed += event.signal_time < old_signal_time
+        if changed:
+            print(changed, "events signaled earlier")
 
     def step(self, event_list=[]):
         super().step(event_list)
@@ -245,7 +254,8 @@ class GreedyMarket(Strategy):
 
                 if ts_idx == 0 and power > 0:
                     # current timestep: charge for real
-                    avg_power = vehicle.battery.load(self.interval, power)['avg_power']
+                    avg_power = vehicle.battery.load(
+                        self.interval, power, vehicle.desired_soc)['avg_power']
                     charging_stations[cs_id] = gc.add_load(cs_id, avg_power)
                     cs.current_power += avg_power
 
