@@ -255,7 +255,7 @@ class GreedyMarket(Strategy):
                 if ts_idx == 0 and power > 0:
                     # current timestep: charge for real
                     avg_power = vehicle.battery.load(
-                        self.interval, power, vehicle.desired_soc)['avg_power']
+                        self.interval, power)['avg_power']
                     charging_stations[cs_id] = gc.add_load(cs_id, avg_power)
                     cs.current_power += avg_power
 
