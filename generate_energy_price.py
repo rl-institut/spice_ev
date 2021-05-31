@@ -12,7 +12,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         description='Generate energy price as CSV. \
         These files can be included when generating JSON files.')
-    parser.add_argument('output', help='output file name (example_price.csv)')
+    parser.add_argument('output', nargs='?', help='output file name (example_price.csv)')
     parser.add_argument('--start', default='2021-01-04T00:00:00+01:00',
                         help='first start time in isoformat')
     parser.add_argument('--interval', metavar='H', type=int, default=1,
@@ -24,6 +24,9 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     set_options_from_config(args, check=False, verbose=False)
+
+    if args.output is None:
+        raise SystemExit("The following argument is required: output")
 
     # all prices in ct/kWh
     # min, max and std deviation can be set from config
@@ -42,7 +45,7 @@ if __name__ == '__main__':
 
     with open(args.output, 'w') as f:
         # write header
-        f.write("date,time,price [ct/kWh]")
+        f.write("date,time,{}".format(vars(args).get("column", "price [ct/kWh]")))
 
         for i in range(args.n_intervals):
             cur_time = i*interval + start
