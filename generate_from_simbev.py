@@ -254,9 +254,14 @@ if __name__ == '__main__':
                 # general sanity checks
                 simbev_soc_start = float(row["SoC_start"])
                 simbev_soc_end = float(row["SoC_end"])
-                assert simbev_soc_start > 0 and simbev_soc_end > 0, \
+                assert simbev_soc_start >= 0 and simbev_soc_end >= 0, \
                     "SimBEV created negative SoC for {} in row {}".format(
                         vehicle_name, idx + 2)
+                if simbev_soc_start == 0:
+                    print("WARNING: SoC_start == 0 in row {}".format(idx + 2))
+                if simbev_soc_end == 0:
+                    print("WARNING: SoC_end == 0 in row {}".format(idx + 2))
+
                 simbev_demand = float(row["chargingdemand"])
                 assert capacity > 0 or simbev_demand == 0, \
                     "Charging event without charging station: {} @ row {}".format(
