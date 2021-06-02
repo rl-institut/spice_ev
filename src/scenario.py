@@ -60,10 +60,10 @@ class Scenario:
         for step_i in range(self.n_intervals):
 
             width = 10
-            display_step = self.n_intervals / width
+            display_step = self.n_intervals / (width + 1)
             # only print full steps
-            if int(step_i / display_step) != int((step_i + 1) / display_step):
-                progress = int(width * (step_i + 1) / self.n_intervals)
+            if step_i // display_step != (step_i - 1) // display_step:
+                progress = width * (step_i + 1) // self.n_intervals
                 print("[{}{}]\r".format(
                     '#' * progress,
                     '.' * (width - progress)
