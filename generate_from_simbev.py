@@ -23,6 +23,8 @@ if __name__ == '__main__':
                         Negative values for fixed price in cents')
     parser.add_argument('--min-soc', metavar='S', type=float, default=0.5,
                         help='Set minimum desired SoC for each charging event. Default: 0.5')
+    parser.add_argument('--min-soc-threshold', type=float, default=0.05,
+                        help='SoC below this threshold trigger a warning. Default: 0.05')
 
     # csv files
     parser.add_argument('--include-ext-load-csv',
@@ -254,13 +256,15 @@ if __name__ == '__main__':
                 # general sanity checks
                 simbev_soc_start = float(row["SoC_start"])
                 simbev_soc_end = float(row["SoC_end"])
+                # SoC must not be negative
                 assert simbev_soc_start >= 0 and simbev_soc_end >= 0, \
                     "SimBEV created negative SoC for {} in row {}".format(
                         vehicle_name, idx + 2)
-                if simbev_soc_start == 0:
-                    print("WARNING: SoC_start == 0 in row {}".format(idx + 2))
-                if simbev_soc_end == 0:
-                    print("WARNING: SoC_end == 0 in row {}".format(idx + 2))
+                # might want to avoid very low battery levels (configurable in config)
+                soc_threshold = args.min_soc_threshold
+                if simbev_soc_start < soc_threshold or simbev_soc_end < soc_threshold:
+                    print("WARNING: SimBEV created very low SoC for {} in row {}"
+                          .format(vehicle_name, idx + 2))
 
                 simbev_demand = float(row["chargingdemand"])
                 assert capacity > 0 or simbev_demand == 0, \
