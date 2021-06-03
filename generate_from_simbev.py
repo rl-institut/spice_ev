@@ -14,7 +14,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         description='Generate scenarios as JSON files for vehicle charging modelling \
         from vehicle timeseries (e.g. SimBEV output).')
-    parser.add_argument('output', help='output file name (example.json)')
+    parser.add_argument('output', nargs='?', help='output file name (example.json)')
     parser.add_argument('--simbev', metavar='DIR', type=str, help='set directory with SimBEV files')
     parser.add_argument('--interval', metavar='MIN', type=int, default=15,
                         help='set number of minutes for each timestep (Δt)')
@@ -48,7 +48,9 @@ if __name__ == '__main__':
 
     set_options_from_config(args, check=True, verbose=False)
 
-    assert args.simbev, "Need SimBEV output folder (use --simbev)"
+    missing = [arg for arg in ["output", "simbev"] if vars(args).get(arg) is None]
+    if missing:
+        raise SystemExit("The following arguments are required: {}".format(", ".join(missing)))
 
     # first monday of 2021
     # SimBEV uses MiD data and creates data for an exemplary week, so there are no exact dates.
@@ -122,6 +124,10 @@ if __name__ == '__main__':
         "vehicle_events": []
     }
 
+    # save path and options for CSV timeseries
+    # all paths are relative to output file
+    target_path = Path(args.output).parent
+
     # external load CSV
     if args.include_ext_load_csv:
         filename = args.include_ext_load_csv
@@ -136,6 +142,10 @@ if __name__ == '__main__':
         for key, value in args.include_ext_csv_option:
             options[key] = value
         events['external_load'][basename] = options
+        # check if CSV file exists
+        ext_csv_path = target_path.joinpath(filename)
+        if not ext_csv_path.exists():
+            print("Warning: external csv file '{}' does not exist yet".format(ext_csv_path))
 
     # energy feed-in CSV (e.g. from PV)
     if args.include_feed_in_csv:
@@ -151,6 +161,9 @@ if __name__ == '__main__':
         for key, value in args.include_feed_in_csv_option:
             options[key] = value
         events['energy_feed_in'][basename] = options
+        feed_in_path = target_path.joinpath(filename)
+        if not feed_in_path.exists():
+            print("Warning: feed-in csv file '{}' does not exist yet".format(feed_in_path))
 
     # energy price CSV
     if args.include_price_csv:
@@ -166,6 +179,9 @@ if __name__ == '__main__':
         for key, value in args.include_price_csv_option:
             options[key] = value
         events['energy_price_from_csv'] = options
+        price_csv_path = target_path.joinpath(filename)
+        if not price_csv_path.exists():
+            print("Warning: price csv file '{}' does not exist yet".format(price_csv_path))
 
         if args.price_seed:
             # CSV and price_seed given
