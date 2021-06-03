@@ -56,8 +56,9 @@ class Strategy():
                 if ev.cost:
                     # set power cost
                     connector.cost = ev.cost
-                # set target power from schedule
-                connector.target = ev.target
+                if ev.target is not None:
+                    # set target power from schedule
+                    connector.target = ev.target
                 # set max power from event
                 if connector.max_power:
                     if ev.max_power is None:

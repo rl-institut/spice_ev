@@ -97,5 +97,4 @@ class Schedule(Strategy):
                 cs_id = vehicle.connected_charging_station
                 charging_stations[cs_id] = gc.add_load(cs_id, avg_power)
 
-        socs = {vid: v.battery.soc for vid, v in self.world_state.vehicles.items()}
-        return {'current_time': self.current_time, 'commands': charging_stations, 'socs': socs}
+        return {'current_time': self.current_time, 'commands': charging_stations}
