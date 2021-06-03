@@ -27,6 +27,7 @@ class GridConnector:
         optional_keys = [
             ('current_loads', dict, {}),
             ('cost', dict, {}),
+            ('target', float, None),
         ]
         util.set_attr_from_dict(obj, self, keys, optional_keys)
         self.avg_ext_load = None

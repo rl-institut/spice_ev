@@ -56,6 +56,7 @@ class Scenario:
         unusedFeedIn = 0
         batteryLevels = {k: [] for k in self.constants.batteries.keys()}
         connChargeByTS = []
+        gcPowerSchedule = {gcID: [] for gcID in self.constants.grid_connectors.keys()}
 
         for step_i in range(self.n_intervals):
 
@@ -82,13 +83,11 @@ class Scenario:
                 break
             results.append(res)
 
-            gcs = strat.world_state.grid_connectors.values()
-
             # get current loads
             cost = 0
             price = []
             curLoad = 0
-            for gc in gcs:
+            for gcID, gc in strat.world_state.grid_connectors.items():
                 # loads without charging stations (external + feed-in)
                 stepLoads = {k: v for k, v in gc.current_loads.items()
                              if k not in self.constants.charging_stations.keys()}
@@ -96,9 +95,14 @@ class Scenario:
                 # sum up loads (with charging stations), compute cost
                 gc_load = gc.get_current_load()
                 # price in ct/kWh -> get price in EUR
-                cost += util.get_cost(max(gc_load, 0), gc.cost) / 100
-                price.append(util.get_cost(1, gc.cost))
+                if gc.cost:
+                    cost += util.get_cost(max(gc_load, 0), gc.cost) / 100
+                    price.append(util.get_cost(1, gc.cost))
+                else:
+                    price.append(0)
                 curLoad += gc_load
+
+                gcPowerSchedule[gcID].append(gc.target)
 
                 # sum up total feed-in power
                 feed_in_keys = self.events.energy_feed_in_lists.keys()
@@ -299,6 +303,11 @@ class Scenario:
             ax.plot(xlabels, list([sum(cs) for cs in sum_cs]), label="CS")
             for name, values in loads.items():
                 ax.plot(xlabels, values, label=name)
+            # draw schedule
+            for gcID, schedule in gcPowerSchedule.items():
+                if any(s is not None for s in schedule):
+                    # schedule exists
+                    ax.plot(xlabels, schedule, label="Schedule {}".format(gcID))
 
             ax.plot(xlabels, totalLoad, label="total")
             # ax.axhline(color='k', linestyle='--', linewidth=1)

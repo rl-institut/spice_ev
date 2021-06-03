@@ -56,6 +56,8 @@ class Strategy():
                 if ev.cost:
                     # set power cost
                     connector.cost = ev.cost
+                # set target power from schedule
+                connector.target = ev.target
                 # set max power from event
                 if connector.max_power:
                     if ev.max_power is None:
@@ -66,6 +68,10 @@ class Strategy():
                 else:
                     # connector max power not set
                     connector.cur_max_power = ev.max_power
+                # sanitiy check: scheduled target must not exceed max power
+                if connector.target is not None and connector.cur_max_power is not None:
+                    assert connector.target <= connector.cur_max_power, (
+                        "Schedule exceeds power of {}".format(ev.grid_connector_id))
 
             elif type(ev) == events.VehicleEvent:
                 vehicle = self.world_state.vehicles[ev.vehicle_id]
@@ -97,7 +103,8 @@ class Strategy():
                 if load_name in self.world_state.batteries.keys():
                     del connector.current_loads[load_name]
 
-            # check for associated costs
-            if not connector.cost:
+            # check GC: must have costs (dict, may be empty) or schedule (float/None)
+            if not connector.cost and connector.target is None:
                 raise Exception(
-                    "Connector {} has no associated costs at {}".format(name, self.current_time))
+                    "Connector {} has neither associated costs nor schedule at {}"
+                    .format(name, self.current_time))

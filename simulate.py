@@ -15,6 +15,7 @@ if __name__ == '__main__':
         'balanced',
         'inverse',
         'v2g',
+        'schedule',
     ]
 
     parser = argparse.ArgumentParser(

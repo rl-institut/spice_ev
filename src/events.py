@@ -16,9 +16,11 @@ class Events:
         self.energy_feed_in_lists = dict(
             {k: EnergyValuesList(v, dir_path) for k, v in obj.get('energy_feed_in', {}).items()})
         self.grid_operator_signals = list(
-            [GridOperatorSignal(x) for x in obj.get('grid_operator_signals')])
+            [GridOperatorSignal(x) for x in obj.get('grid_operator_signals', [])])
         self.grid_operator_signals += get_energy_price_list_from_csv(
             obj.get('energy_price_from_csv', None), dir_path)
+        self.grid_operator_signals += get_schedule_from_csv(
+            obj.get('schedule_from_csv', None), dir_path)
         self.vehicle_events = list(
             [VehicleEvent(x) for x in obj.get('vehicle_events')])
 
@@ -120,6 +122,7 @@ class GridOperatorSignal(Event):
         optional_keys = [
             ('max_power', float, None),
             ('cost', dict, None),
+            ('target', float, None),
         ]
         util.set_attr_from_dict(obj, self, keys, optional_keys)
 
@@ -147,6 +150,81 @@ def get_energy_price_list_from_csv(obj, dir_path):
                 "cost": {"type": "fixed", "value": float(row[column])}
             }))
     return events
+
+
+def get_schedule_from_csv(obj, dir_path):
+    """
+    Read out schedule CSV file, generate list of GridOperatorSignal events
+    Only changed target values generate a new event
+    Ignore any timestamp in file, assume constant stride
+    """
+
+    # no CSV file/no info: skip
+    if not obj:
+        return []
+
+    schedule = []
+    col = obj['column']
+
+    # fallback if timesteps can't be parsed
+    start = util.datetime_from_isoformat(obj.get("start_time", None))
+    interval = datetime.timedelta(seconds=obj.get("step_duration_s", None))
+
+    # remember last target value
+    last_target = None
+
+    csv_path = os.path.join(dir_path, obj['csv_file'])
+    with open(csv_path, newline='') as csvfile:
+        # reader = csv.DictReader(csvfile, delimiter=',', quotechar='"')
+        # assert col in reader.fieldnames, "'{}' is not a column of {}".format(col, obj['csv_file'])
+        reader = csv.reader(csvfile, delimiter=',', quotechar='"')
+        header = next(reader)
+        try:
+            col_idx = header.index(col)
+        except ValueError:
+            raise SystemExit("'{}' is not a column of {}".format(col, obj['csv_file']))
+
+        for idx, row in enumerate(reader):
+            # only generate events for changed schedule, so compare target values
+            target = float(row[col_idx])
+            if target != last_target:
+                # targets different: generate new event
+                last_target = target
+
+                # get start_time
+                try:
+                    # read out event start time from first column
+                    start_time = util.datetime_from_isoformat(row[0])
+                    if not start_time.tzinfo:
+                        # make timezone-aware for comparison
+                        start_time = start_time.replace(
+                            tzinfo=datetime.timezone(datetime.timedelta(hours=2)))
+                    # default for start: use first start_time
+                    start = start or start_time
+                except ValueError:
+                    # could not parse time: get start time from position in file
+                    start_time = idx * interval + start
+
+                # convention: schedule sent one day before at 9am, valid from noon
+                if start_time.hour < 12:
+                    signal_time = start_time - datetime.timedelta(days=2)
+                else:
+                    signal_time = start_time - datetime.timedelta(days=1)
+                signal_time = signal_time.replace(hour=9, minute=0, second=0)
+                # don't signal before start of simulation
+                signal_time = max(start, signal_time)
+
+                assert signal_time <= start_time, (
+                    "Wrong signal in {} at index {}, starts before being sent (check your dates!)"
+                    .format(obj['csv_file'], idx + 1))
+
+                schedule.append(GridOperatorSignal({
+                    "start_time": start_time.isoformat(),
+                    "signal_time": signal_time.isoformat(),
+                    "grid_connector_id": obj["grid_connector_id"],
+                    "target": target,
+                }))
+    return schedule
 
 
 class VehicleEvent(Event):
