@@ -59,9 +59,11 @@ def main():
     scheduler.save_schedule(args.output)
 
     # Update scenario with schedule info
+    start_time = df.index.min() - datetime.timedelta(days=1)
+    start_time = start_time.replace(tzinfo=datetime.timezone(datetime.timedelta(hours=2)))
     scenario_json['events']['schedule_from_csv'] = {
         'column': 'signal_kw',
-        'start_time': (df.index.min() - datetime.timedelta(days=1)).isoformat(),
+        'start_time': start_time.isoformat(),
         'step_duration_s': 900,
         'csv_file': args.output,
         'grid_connector_id': 'GC_1'

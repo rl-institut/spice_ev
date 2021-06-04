@@ -29,11 +29,16 @@ class Scheduler:
         # Add empty signal column
         time_series_df['signal_kw'] = 0
         time_series_df['iso_datetime'] = [dt.replace(
-            tzinfo=datetime.timezone(datetime.timedelta(hours=2))).isoformat() for dt in time_series_df.index]
+            tzinfo=datetime.timezone(datetime.timedelta(hours=2))).isoformat()
+                                          for dt in time_series_df.index]
         # Get the maximum load of the year
         max_load_edis = time_series_df['brutto'].max()
         # Add the priority to the dataframe in ascending order (lowest->highest priority)
-        time_series_df['priority'] = time_series_df.apply(add_priority, args=(max_load_edis, max_load_range), axis=1)
+        time_series_df['priority'] = time_series_df.apply(
+            add_priority,
+            args=(max_load_edis, max_load_range),
+            axis=1
+        )
         self.time_series_df = time_series_df
         self.max_load_total = max_load_total
 
@@ -59,13 +64,15 @@ class Scheduler:
         while flexibility > 0:
             if priority > 4:
                 raise ValueError('Division of flexibility is impossible')
-            idx = self.time_series_df.index[datefilter & (self.time_series_df['priority'] == priority)].tolist()
+            idx = self.time_series_df.index[datefilter &
+                                            (self.time_series_df['priority'] == priority)].tolist()
             steps = len(idx)
             if steps == 0:
                 # No steps found. Flexibility has to be used in other criterias
                 pass
             elif min_steps <= steps <= max_steps:
-                # The flexibility can be divided equally on all steps without breaking min/max load values
+                # The flexibility can be divided equally on all steps without breaking min/max
+                # load values
                 self.time_series_df.loc[idx, 'signal_kw'] += 4 * flexibility / steps
                 return
             elif steps > max_steps:
@@ -75,7 +82,8 @@ class Scheduler:
                 return
             elif steps < min_steps:
                 # Equally dividing the flexibility would result in loads > max load
-                # -> All matching entries receive the maximum load. The remaining flexibility is returned
+                # -> All matching entries receive the maximum load.
+                # The remaining flexibility is further distributed
                 used_flexibility = steps / 4 * max_load
                 self.time_series_df.loc[idx, 'signal_kw'] += max_load
                 flexibility -= used_flexibility
@@ -84,14 +92,17 @@ class Scheduler:
     def add_flexibility_for_date_and_vehicle_groups(self, date, vehicle_groups):
         """
         param date: The start date of the flexibility window
-        param vehicle_groups: a list of flexibilities containing flexibility (kWh), min load (kW), start_time, end_time
+        param vehicle_groups: a list of flexibilities containing flexibility (kWh), min load (kW),
+        start_time, end_time
         """
         for flexibility, min_load, max_load, start_time, end_time in vehicle_groups:
             date_filter = self.get_date_filter(date, start_time, end_time)
             self.spread_flexibility_on_priorities(date_filter, flexibility,
                                                   min_load, max_load)
 
-        self.time_series_df['signal_percent'] = self.time_series_df['signal_kw'] / self.max_load_total
+        self.time_series_df['signal_percent'] = \
+            self.time_series_df['signal_kw'] / self.max_load_total
 
     def save_schedule(self, filename):
-        self.time_series_df[['iso_datetime', 'signal_kw', 'signal_percent']].to_csv(filename, index=False)
+        save_columns = ['iso_datetime', 'signal_kw', 'signal_percent']
+        self.time_series_df[save_columns].to_csv(filename, index=False)
