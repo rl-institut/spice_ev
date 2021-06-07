@@ -65,43 +65,43 @@ if __name__ == '__main__':
     vehicle_types = {
         "bev_luxury": {
             "name": "bev_luxury",
-            "capacity": 90,  # kWh
-            "mileage": 40,  # kWh / 100km
+            "capacity": 110,  # kWh
+            "mileage": 20.96,  # kWh / 100km
             "charging_curve": [[0, 300], [80, 300], [100, 300]],  # SOC -> kWh
             "min_charging_power": 0,
         },
         "bev_medium": {
             "name": "bev_medium",
-            "capacity": 65,  # kWh
-            "mileage": 40,  # kWh / 100km
+            "capacity": 90,  # kWh
+            "mileage": 17.46,  # kWh / 100km
             "charging_curve": [[0, 150], [80, 150], [100, 150]],  # SOC -> kWh
             "min_charging_power": 0,
         },
         "bev_mini": {
             "name": "bev_mini",
-            "capacity": 30,  # kWh
-            "mileage": 40,  # kWh / 100km
+            "capacity": 60,  # kWh
+            "mileage": 13.97,  # kWh / 100km
             "charging_curve": [[0, 50], [80, 50], [100, 50]],  # SOC -> kWh
             "min_charging_power": 0,
         },
         "phev_luxury": {
             "name": "phev_luxury",
-            "capacity": 40,  # kWh
-            "mileage": 40,  # kWh / 100km
+            "capacity": 30,  # kWh
+            "mileage": 21.38,  # kWh / 100km
             "charging_curve": [[0, 22], [80, 22], [100, 0]],  # SOC -> kWh
             "min_charging_power": 0,
         },
         "phev_medium": {
             "name": "phev_medium",
-            "capacity": 100,  # kWh
-            "mileage": 30,  # kWh / 100km
+            "capacity": 20,  # kWh
+            "mileage": 17.82,  # kWh / 100km
             "charging_curve": [[0, 22], [80, 22], [100, 0]],  # SOC -> kWh
             "min_charging_power": 0,
         },
         "phev_mini": {
             "name": "phev_mini",
-            "capacity": 70,  # kWh
-            "mileage": 25,  # kWh / 100km
+            "capacity": 14,  # kWh
+            "mileage": 14.25,  # kWh / 100km
             "charging_curve": [[0, 22], [80, 22], [100, 0]],  # SOC -> kWh
             "min_charging_power": 0,
         },
