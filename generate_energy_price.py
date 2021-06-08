@@ -8,23 +8,10 @@ import random
 from src.util import datetime_from_isoformat, set_options_from_config
 
 
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser(
-        description='Generate energy price as CSV. \
-        These files can be included when generating JSON files.')
-    parser.add_argument('output', nargs='?', help='output file name (example_price.csv)')
-    parser.add_argument('--start', default='2021-01-04T00:00:00+01:00',
-                        help='first start time in isoformat')
-    parser.add_argument('--interval', metavar='H', type=int, default=1,
-                        help='number of hours for each timestep (Δt)')
-    parser.add_argument('--n-intervals', '-n', type=int, default=24*7, help='number of timesteps')
-    parser.add_argument('--price-seed', type=int, default=None,
-                        help='random seed for energy market prices')
-    parser.add_argument('--config', help='Use config file to set arguments')
-    args = parser.parse_args()
-
-    set_options_from_config(args, check=False, verbose=False)
-
+def generate_energy_price(args):
+    """Generates energy price CSV.
+    args: argparse.Namespace
+    """
     if args.output is None:
         raise SystemExit("The following argument is required: output")
 
@@ -57,3 +44,23 @@ if __name__ == '__main__':
 
             f.write("\n{},{:02d}:{:02d},{:.2f}".format(
                 cur_time.date().isoformat(), cur_time.hour, cur_time.minute, price))
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(
+        description='Generate energy price as CSV. \
+        These files can be included when generating JSON files.')
+    parser.add_argument('output', nargs='?', help='output file name (example_price.csv)')
+    parser.add_argument('--start', default='2021-01-04T00:00:00+01:00',
+                        help='first start time in isoformat')
+    parser.add_argument('--interval', metavar='H', type=int, default=1,
+                        help='number of hours for each timestep (Δt)')
+    parser.add_argument('--n-intervals', '-n', type=int, default=24 * 7, help='number of timesteps')
+    parser.add_argument('--price-seed', type=int, default=None,
+                        help='random seed for energy market prices')
+    parser.add_argument('--config', help='Use config file to set arguments')
+    args = parser.parse_args()
+
+    set_options_from_config(args, check=False, verbose=False)
+
+    generate_energy_price(args)

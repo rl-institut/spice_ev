@@ -8,46 +8,11 @@ from os import path
 
 from src.util import datetime_from_isoformat, set_options_from_config
 
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser(
-        description='Generate scenarios as JSON files for vehicle charging modelling')
-    parser.add_argument('output', nargs='?', help='output file name (example.json)')
-    parser.add_argument('--cars', metavar=('N', 'TYPE'), nargs=2, action='append', type=str,
-                        help='set number of cars for a vehicle type, \
-                        e.g. `--cars 100 sprinter` or `--cars 13 golf`')
-    parser.add_argument('--days', metavar='N', type=int, default=30,
-                        help='set duration of scenario as number of days')
-    parser.add_argument('--interval', metavar='MIN', type=int, default=15,
-                        help='set number of minutes for each timestep (Δt)')
-    parser.add_argument('--min-soc', metavar='SOC', type=int, default=80,
-                        help='set minimum desired SOC (0%% - 100%%) for each charging process')
-    parser.add_argument('--battery', '-b', default=[], nargs=2, type=float, action='append',
-                        help='add battery with specified capacity in kWh and C-rate \
-                        (-1 for variable capacity, second argument is fixed power))')
 
-    parser.add_argument('--include-ext-load-csv',
-                        help='include CSV for external load. \
-                        You may define custom options with --include-ext-csv-option')
-    parser.add_argument('--include-ext-csv-option', '-eo', metavar=('KEY', 'VALUE'),
-                        nargs=2, action='append',
-                        help='append additional argument to external load')
-    parser.add_argument('--include-feed-in-csv',
-                        help='include CSV for energy feed-in, e.g., local PV. \
-                        You may define custom options with --include-feed-in-csv-option')
-    parser.add_argument('--include-feed-in-csv-option', '-fo', metavar=('KEY', 'VALUE'),
-                        nargs=2, action='append', help='append additional argument to feed-in load')
-    parser.add_argument('--include-price-csv',
-                        help='include CSV for energy price. \
-                        You may define custom options with --include-price-csv-option')
-    parser.add_argument('--include-price-csv-option', '-po', metavar=('KEY', 'VALUE'),
-                        nargs=2, default=[], action='append',
-                        help='append additional argument to price signals')
-    parser.add_argument('--config', help='Use config file to set arguments')
-
-    args = parser.parse_args()
-
-    set_options_from_config(args, check=False, verbose=False)
-
+def generate(args):
+    """Generates a scenario JSON from input Parameters
+    args: argparse.Namespace
+    """
     if args.output is None:
         raise SystemExit("The following argument is required: output")
 
@@ -336,3 +301,46 @@ if __name__ == '__main__':
     # Write JSON
     with open(args.output, 'w') as f:
         json.dump(j, f, indent=2)
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(
+        description='Generate scenarios as JSON files for vehicle charging modelling')
+    parser.add_argument('output', nargs='?', help='output file name (example.json)')
+    parser.add_argument('--cars', metavar=('N', 'TYPE'), nargs=2, action='append', type=str,
+                        help='set number of cars for a vehicle type, \
+                        e.g. `--cars 100 sprinter` or `--cars 13 golf`')
+    parser.add_argument('--days', metavar='N', type=int, default=30,
+                        help='set duration of scenario as number of days')
+    parser.add_argument('--interval', metavar='MIN', type=int, default=15,
+                        help='set number of minutes for each timestep (Δt)')
+    parser.add_argument('--min-soc', metavar='SOC', type=int, default=80,
+                        help='set minimum desired SOC (0%% - 100%%) for each charging process')
+    parser.add_argument('--battery', '-b', default=[], nargs=2, type=float, action='append',
+                        help='add battery with specified capacity in kWh and C-rate \
+                        (-1 for variable capacity, second argument is fixed power))')
+
+    parser.add_argument('--include-ext-load-csv',
+                        help='include CSV for external load. \
+                        You may define custom options with --include-ext-csv-option')
+    parser.add_argument('--include-ext-csv-option', '-eo', metavar=('KEY', 'VALUE'),
+                        nargs=2, action='append',
+                        help='append additional argument to external load')
+    parser.add_argument('--include-feed-in-csv',
+                        help='include CSV for energy feed-in, e.g., local PV. \
+                        You may define custom options with --include-feed-in-csv-option')
+    parser.add_argument('--include-feed-in-csv-option', '-fo', metavar=('KEY', 'VALUE'),
+                        nargs=2, action='append', help='append additional argument to feed-in load')
+    parser.add_argument('--include-price-csv',
+                        help='include CSV for energy price. \
+                        You may define custom options with --include-price-csv-option')
+    parser.add_argument('--include-price-csv-option', '-po', metavar=('KEY', 'VALUE'),
+                        nargs=2, default=[], action='append',
+                        help='append additional argument to price signals')
+    parser.add_argument('--config', help='Use config file to set arguments')
+
+    args = parser.parse_args()
+
+    set_options_from_config(args, check=False, verbose=False)
+
+    generate(args)

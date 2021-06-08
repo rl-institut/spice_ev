@@ -10,46 +10,10 @@ import random
 from src.util import set_options_from_config
 
 
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser(
-        description='Generate scenarios as JSON files for vehicle charging modelling \
-        from vehicle timeseries (e.g. SimBEV output).')
-    parser.add_argument('output', nargs='?', help='output file name (example.json)')
-    parser.add_argument('--simbev', metavar='DIR', type=str, help='set directory with SimBEV files')
-    parser.add_argument('--interval', metavar='MIN', type=int, default=15,
-                        help='set number of minutes for each timestep (Δt)')
-    parser.add_argument('--price-seed', metavar='X', type=int, default=0,
-                        help='set seed when generating energy market prices. \
-                        Negative values for fixed price in cents')
-    parser.add_argument('--min-soc', metavar='S', type=float, default=0.5,
-                        help='Set minimum desired SoC for each charging event. Default: 0.5')
-    parser.add_argument('--min-soc-threshold', type=float, default=0.05,
-                        help='SoC below this threshold trigger a warning. Default: 0.05')
-
-    # csv files
-    parser.add_argument('--include-ext-load-csv',
-                        help='include CSV for external load. \
-                        You may define custom options with --include-ext-csv-option')
-    parser.add_argument('--include-ext-csv-option', '-eo', metavar=('KEY', 'VALUE'),
-                        nargs=2, default=[], action='append',
-                        help='append additional argument to external load')
-    parser.add_argument('--include-feed-in-csv',
-                        help='include CSV for energy feed-in, e.g., local PV. \
-                        You may define custom options with --include-feed-in-csv-option')
-    parser.add_argument('--include-feed-in-csv-option', '-fo', metavar=('KEY', 'VALUE'),
-                        nargs=2, default=[], action='append',
-                        help='append additional argument to feed-in load')
-    parser.add_argument('--include-price-csv',
-                        help='include CSV for energy price. \
-                        You may define custom options with --include-price-csv-option')
-    parser.add_argument('--include-price-csv-option', '-po', metavar=('KEY', 'VALUE'),
-                        nargs=2, default=[], action='append',
-                        help='append additional argument to price signals')
-    parser.add_argument('--config', help='Use config file to set arguments')
-    args = parser.parse_args()
-
-    set_options_from_config(args, check=True, verbose=False)
-
+def generate_from_simbev(args):
+    """Generate a scenario JSON from simBEV results.
+    args: argparse.Namespace
+    """
     missing = [arg for arg in ["output", "simbev"] if vars(args).get(arg) is None]
     if missing:
         raise SystemExit("The following arguments are required: {}".format(", ".join(missing)))
@@ -441,3 +405,46 @@ if __name__ == '__main__':
     # Write JSON
     with open(args.output, 'w') as f:
         json.dump(j, f, indent=2)
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(
+        description='Generate scenarios as JSON files for vehicle charging modelling \
+        from vehicle timeseries (e.g. SimBEV output).')
+    parser.add_argument('output', nargs='?', help='output file name (example.json)')
+    parser.add_argument('--simbev', metavar='DIR', type=str, help='set directory with SimBEV files')
+    parser.add_argument('--interval', metavar='MIN', type=int, default=15,
+                        help='set number of minutes for each timestep (Δt)')
+    parser.add_argument('--price-seed', metavar='X', type=int, default=0,
+                        help='set seed when generating energy market prices. \
+                        Negative values for fixed price in cents')
+    parser.add_argument('--min-soc', metavar='S', type=float, default=0.5,
+                        help='Set minimum desired SoC for each charging event. Default: 0.5')
+    parser.add_argument('--min-soc-threshold', type=float, default=0.05,
+                        help='SoC below this threshold trigger a warning. Default: 0.05')
+
+    # csv files
+    parser.add_argument('--include-ext-load-csv',
+                        help='include CSV for external load. \
+                        You may define custom options with --include-ext-csv-option')
+    parser.add_argument('--include-ext-csv-option', '-eo', metavar=('KEY', 'VALUE'),
+                        nargs=2, default=[], action='append',
+                        help='append additional argument to external load')
+    parser.add_argument('--include-feed-in-csv',
+                        help='include CSV for energy feed-in, e.g., local PV. \
+                        You may define custom options with --include-feed-in-csv-option')
+    parser.add_argument('--include-feed-in-csv-option', '-fo', metavar=('KEY', 'VALUE'),
+                        nargs=2, default=[], action='append',
+                        help='append additional argument to feed-in load')
+    parser.add_argument('--include-price-csv',
+                        help='include CSV for energy price. \
+                        You may define custom options with --include-price-csv-option')
+    parser.add_argument('--include-price-csv-option', '-po', metavar=('KEY', 'VALUE'),
+                        nargs=2, default=[], action='append',
+                        help='append additional argument to price signals')
+    parser.add_argument('--config', help='Use config file to set arguments')
+    args = parser.parse_args()
+
+    set_options_from_config(args, check=True, verbose=False)
+
+    generate_from_simbev(args)
