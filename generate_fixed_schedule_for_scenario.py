@@ -1,14 +1,29 @@
 #!/usr/bin/env python3
 
 import argparse
+import csv
 import datetime
 import json
 import os
 
-import pandas as pd
-
 from src.scenario import Scenario
 from src.scheduler import Scheduler
+
+TIMEZONE = datetime.timezone(datetime.timedelta(hours=2))
+
+
+def add_priority(row, max_network_load, max_load_range):
+    if row['abregelung'] < 0:
+        # Highest priority when eeg-plants are shut down
+        return 1
+    if row['brutto'] < 0:
+        # second highest priority when the load is smaller than the feed in
+        return 2
+    if row['brutto'] > (1 - max_load_range) * max_network_load:
+        # Lowest priority when the load is already high
+        return 4
+    # In all other cases
+    return 3
 
 
 def main():
@@ -18,8 +33,10 @@ def main():
     parser.add_argument('--input', help='input file name of time series(nsm_example.csv)')
     parser.add_argument('--output', help='output file name of schedule(nsm_example.csv)')
     parser.add_argument('--scenario', help='scenario file name (example.json)')
-    parser.add_argument('--max_load_range', default=0.1, help='Area around max_load that should be discouraged')
-    parser.add_argument('--year', default=2020, help='Year of the final schedule (not of the input)')
+    parser.add_argument('--max_load_range', default=0.1,
+                        help='Area around max_load that should be discouraged')
+    parser.add_argument('--year', default=2020,
+                        help='Year of the final schedule (not of the input)')
     parser.add_argument('--flexibility_per_car', default=16, help='Flexibility of each car in kWh')
     parser.add_argument('--start_time', default='20:00:00', help='Start time of flexibility window')
     parser.add_argument('--end_time', default='05:45:00', help='End time of flexibility window')
@@ -43,24 +60,54 @@ def main():
         )
 
     # Load time series data
-    df = pd.read_csv(args.input, index_col=0, parse_dates=True)
+    csv_file = list(csv.DictReader(open(args.input)))
 
-    # Change year to chosen year, since we only have data for 2018
-    df.index = [dt.replace(year=args.year) for dt in df.index]
+    loads = [float(x['brutto']) for x in csv_file]
+    parsed_datetimes = set()
+    unique_dates = set()
+    time_series = list()
+    for row in csv_file:
+        if row['timestamp'] in parsed_datetimes:
+            # Removes duplicates if there are any
+            continue
+        parsed_datetimes.add(row['timestamp'])
+        # parse date and change year and timezone according to args
+        row['timestamp'] = datetime.datetime.strptime(row['timestamp'], "%Y-%m-%d %H:%M:%S") \
+            .replace(year=args.year) \
+            .replace(tzinfo=TIMEZONE)
+        row['iso_datetime'] = row['timestamp'].isoformat()
 
-    scheduler = Scheduler(df, args.max_load_range, max_load)
+        # parse numbers from string
+        row['abregelung'] = float(row['abregelung'])
+        row['brutto'] = float(row['brutto'])
 
-    # Get the dates in the dataframe and calculate the schedule for the whole range
-    dates = df.index.map(lambda t: t.date()).unique()
-    for date in dates:
-        scheduler.add_flexibility_for_date_and_vehicle_groups(date, vehicle_groups)
+        # Add the priority
+        row['priority'] = add_priority(row, max(loads), args.max_load_range)
+        unique_dates.add(row['timestamp'].date())
+        # Add fahrplan signal of 0 (default value)
+        row['signal_kw'] = 0
+
+        time_series.append(row)
+
+    scheduler = Scheduler(time_series)
+
+    start_time = datetime.time.fromisoformat(args.start_time).replace(tzinfo=TIMEZONE)
+    end_time = datetime.time.fromisoformat(args.end_time).replace(tzinfo=TIMEZONE)
+    for date in unique_dates:
+        datetime_from = datetime.datetime.combine(date, start_time)
+        datetime_until = datetime.datetime.combine(date + datetime.timedelta(days=1), end_time)
+        scheduler.add_flexibility_for_date_and_vehicle_groups(datetime_from,
+                                                              datetime_until,
+                                                              vehicle_groups)
+
+    # Add percentage signal
+    scheduler.add_percentage_signal(max_load)
 
     # Save schedule to chosen destination
     scheduler.save_schedule(args.output)
 
     # Update scenario with schedule info
-    start_time = df.index.min() - datetime.timedelta(days=1)
-    start_time = start_time.replace(tzinfo=datetime.timezone(datetime.timedelta(hours=2)))
+    start_time = scheduler.time_series[0]['timestamp'] - datetime.timedelta(days=1)
     scenario_json['events']['schedule_from_csv'] = {
         'column': 'signal_kw',
         'start_time': start_time.isoformat(),
