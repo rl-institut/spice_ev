@@ -5,12 +5,17 @@ from src.util import clamp_power
 class Schedule(Strategy):
     def __init__(self, constants, start_time, **kwargs):
         self.CONCURRENCY = 1.0
-        self.LOAD_STRAT = 'greedy'  # greedy, balanced
+        self.EPS = 1e-3
+        self.LOAD_STRAT = 'needy'  # greedy, balanced
         super().__init__(constants, start_time, **kwargs)
-        self.description = "schedule"
 
+        self.description = "schedule ({})".format(self.LOAD_STRAT)
         if self.LOAD_STRAT == "greedy":
-            self.sort_key = lambda v: v[0].estimated_time_of_departure
+            self.sort_key = lambda v: (
+                v[0].battery.soc >= v[0].desired_soc,
+                v[0].estimated_time_of_departure)
+        elif self.LOAD_STRAT == "needy":
+            self.sort_key = lambda v: -v[0].get_delta_soc()
         elif self.LOAD_STRAT == "balanced":
             # only relevant if not enough power to charge all vehicles
             self.sort_key = lambda v: v[0].estimated_time_of_departure
@@ -38,13 +43,22 @@ class Schedule(Strategy):
             vehicles = sorted(vehicles, key=self.sort_key)
 
             total_power = gc.target - gc.get_current_load()
-            if total_power == 0:
-                # no power scheduled: skip this GC
+
+            total_power_needed = 0
+            for vehicle, _ in vehicles:
+                soc_needed = 1 - (vehicle.battery.soc / 100)
+                power_needed = soc_needed * vehicle.battery.capacity
+                total_power_needed += power_needed
+
+            if total_power < self.EPS or total_power_needed < self.EPS:
+                # no power scheduled or all cars fully charged: skip this GC
                 continue
 
             if self.LOAD_STRAT == "balanced":
-                old_len = len(vehicles)
                 # distribute power to vehicles
+                # remove vehicles at capacity limit
+                vehicles = [v for v in vehicles if v[0].battery.soc < 100 - self.EPS]
+
                 # distributed power must be enough for all vehicles (check lower limit)
                 # as this might not be enough, remove vehicles from queue
 
@@ -70,7 +84,7 @@ class Schedule(Strategy):
                         if clamp_power(power, vehicle, cs) == 0:
                             safe = False
                             break
-                while not safe:
+                while not safe and len(vehicles) > 0:
                     # still not enough power to charge all vehicles in need
                     # remove vehicles one by one,
                     # beginning with those with longest remaining standing time
@@ -82,13 +96,15 @@ class Schedule(Strategy):
                             safe = False
                             break
                 # only vehicles that can really be charged remain in vehicles now
-                if old_len > len(vehicles):
-                    print(len(vehicles), "->", old_len)
 
             for vehicle, cs in vehicles:
                 if self.LOAD_STRAT == "greedy":
                     # charge until scheduled target is reached
                     power = gc.target - gc.get_current_load()
+                elif self.LOAD_STRAT == "needy":
+                    soc_needed = 1 - (vehicle.battery.soc / 100)
+                    power_needed = soc_needed * vehicle.battery.capacity
+                    power = total_power * (power_needed / total_power_needed)
                 elif self.LOAD_STRAT == "balanced":
                     power = total_power / len(vehicles)
 
