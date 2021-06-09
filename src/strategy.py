@@ -82,9 +82,8 @@ class Strategy():
                     assert hasattr(vehicle, 'soc_delta')
                     vehicle.battery.soc += vehicle.soc_delta
                     assert vehicle.battery.soc >= 0, (
-                        'SOC of vehicle {} should not be negative. \
-                        SOC is {}, soc_delta was {}'.format(
-                            ev.vehicle_id, vehicle.battery.soc, vehicle.soc_delta))
+                        'SOC of vehicle {} should not be negative. SOC is {}, soc_delta was {}'
+                        .format(ev.vehicle_id, vehicle.battery.soc, vehicle.soc_delta))
                     delattr(vehicle, 'soc_delta')
             else:
                 raise Exception("Unknown event type: {}".format(ev))
