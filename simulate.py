@@ -12,6 +12,14 @@ def simulate(args):
     """Simulate with input-JSON.
     args: argparse.Namespace
     """
+
+    strategies = [
+        'greedy', 'greedy_market',
+        'balanced',
+        'inverse',
+        'v2g',
+    ]
+
     if args.input is None or not os.path.exists(args.input):
         raise SystemExit("Please specify a valid input file.")
 
