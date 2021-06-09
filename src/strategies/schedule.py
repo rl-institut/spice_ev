@@ -15,7 +15,8 @@ class Schedule(Strategy):
                 v[0].battery.soc >= v[0].desired_soc,
                 v[0].estimated_time_of_departure)
         elif self.LOAD_STRAT == "needy":
-            self.sort_key = lambda v: -v[0].get_delta_soc()
+            # charge cars with not much power needed first, may leave more for others
+            self.sort_key = lambda v: v[0].get_delta_soc() * v[0].battery.capacity
         elif self.LOAD_STRAT == "balanced":
             # only relevant if not enough power to charge all vehicles
             self.sort_key = lambda v: v[0].estimated_time_of_departure
@@ -44,13 +45,12 @@ class Schedule(Strategy):
 
             total_power = gc.target - gc.get_current_load()
 
-            total_power_needed = 0
+            power_needed = []
             for vehicle, _ in vehicles:
                 soc_needed = 1 - (vehicle.battery.soc / 100)
-                power_needed = soc_needed * vehicle.battery.capacity
-                total_power_needed += power_needed
+                power_needed.append(soc_needed * vehicle.battery.capacity)
 
-            if total_power < self.EPS or total_power_needed < self.EPS:
+            if total_power < self.EPS or sum(power_needed) < self.EPS:
                 # no power scheduled or all cars fully charged: skip this GC
                 continue
 
@@ -61,7 +61,6 @@ class Schedule(Strategy):
 
                 # distributed power must be enough for all vehicles (check lower limit)
                 # as this might not be enough, remove vehicles from queue
-
                 # naive: distribute evenly
                 safe = True
                 for vehicle, cs in vehicles:
@@ -74,7 +73,7 @@ class Schedule(Strategy):
                     # remove vehicles with sufficient charge
                     need_charging_vehicles = []
                     for vehicle, cs in vehicles:
-                        if vehicle.desired_soc < vehicle.battery.soc:
+                        if vehicle.battery.soc < vehicle.desired_soc:
                             need_charging_vehicles.append((vehicle, cs))
                     vehicles = need_charging_vehicles
                     # try to distribute again
@@ -102,9 +101,10 @@ class Schedule(Strategy):
                     # charge until scheduled target is reached
                     power = gc.target - gc.get_current_load()
                 elif self.LOAD_STRAT == "needy":
-                    soc_needed = 1 - (vehicle.battery.soc / 100)
-                    power_needed = soc_needed * vehicle.battery.capacity
-                    power = total_power * (power_needed / total_power_needed)
+                    # get fraction of precalculated power need to overall power need
+                    total_power_needed = sum(power_needed)
+                    power_available = gc.target - gc.get_current_load()
+                    power = power_available * (power_needed.pop(0) / total_power_needed)
                 elif self.LOAD_STRAT == "balanced":
                     power = total_power / len(vehicles)
 
