@@ -287,7 +287,7 @@ if __name__ == '__main__':
                     # no charging station or don't need to charge
                     # just increase charging demand based on consumption
                     soc_needed += consumption / vehicle_capacity
-                    assert soc_needed <= 1 + vehicle_soc, \
+                    assert soc_needed <= 1 + vehicle_soc + args.numeric_tolerance, \
                         "Consumption too high for {} in row {}: \
                         vehicle charged to {}, needs SoC of {} ({} kW)".format(
                             vehicle_name, idx + 3, vehicle_soc,
@@ -297,7 +297,7 @@ if __name__ == '__main__':
 
                     if not last_cs_event:
                         # first charge: initial must be enough
-                        assert vehicle_soc >= soc_needed, \
+                        assert vehicle_soc >= soc_needed - args.numeric_tolerance, \
                             "Initial charge for {} is not sufficient".format(vehicle_name)
                     else:
                         # update desired SoC from last charging event
