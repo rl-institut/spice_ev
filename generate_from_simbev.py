@@ -6,8 +6,9 @@ import datetime
 import json
 from pathlib import Path
 import random
+import operator as op
 
-from src.util import set_options_from_config
+from src.util import set_options_from_config, compare_rounded
 
 
 if __name__ == '__main__':
@@ -281,7 +282,7 @@ if __name__ == '__main__':
                     # no charging station or don't need to charge
                     # just increase charging demand based on consumption
                     soc_needed += consumption / vehicle_capacity
-                    assert soc_needed <= 1 + vehicle_soc, \
+                    assert compare_rounded(soc_needed, op.le, 1 + vehicle_soc), \
                         "Consumption too high for {} in row {}: \
                         vehicle charged to {}, needs SoC of {} ({} kW)".format(
                             vehicle_name, idx + 3, vehicle_soc,
@@ -291,7 +292,7 @@ if __name__ == '__main__':
 
                     if not last_cs_event:
                         # first charge: initial must be enough
-                        assert vehicle_soc >= soc_needed, \
+                        assert compare_rounded(vehicle_soc, op.ge, soc_needed), \
                             "Initial charge for {} is not sufficient".format(vehicle_name)
                     else:
                         # update desired SoC from last charging event
