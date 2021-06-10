@@ -117,3 +117,11 @@ def set_options_from_config(args, check=False, verbose=True):
         # Give overview of options
         if verbose:
             print("Options: {}".format(vars(args)))
+
+
+def compare_rounded(val, operator, ref, dec=10):
+    """
+    Compares rounded (decimal precision `dec`) actual value `val` and expected
+    value `ref` using `operator`.
+    """
+    return operator(round(val, dec), round(ref, dec))
