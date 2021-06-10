@@ -289,7 +289,9 @@ if __name__ == '__main__':
                     soc_needed += consumption / vehicle_capacity
                     assert soc_needed <= 1 + vehicle_soc + args.numeric_tolerance, \
                         "Consumption too high for {} in row {}: \
-                        vehicle charged to {}, needs SoC of {} ({} kW)".format(
+                         vehicle charged to {}, needs SoC of {} ({} kW). " \
+                        "This might be caused by rounding differences, " \
+                        "consider to increase the arg '--numeric-tolerance'.".format(
                             vehicle_name, idx + 3, vehicle_soc,
                             soc_needed, soc_needed * vehicle_capacity)
                 else:
@@ -298,7 +300,10 @@ if __name__ == '__main__':
                     if not last_cs_event:
                         # first charge: initial must be enough
                         assert vehicle_soc >= soc_needed - args.numeric_tolerance, \
-                            "Initial charge for {} is not sufficient".format(vehicle_name)
+                            "Initial charge for {} is not sufficient. " \
+                            "This might be caused by rounding differences, " \
+                            "consider to increase the arg '--numeric-tolerance'.".format(
+                                vehicle_name)
                     else:
                         # update desired SoC from last charging event
                         # this much charge must be in battery when leaving CS
