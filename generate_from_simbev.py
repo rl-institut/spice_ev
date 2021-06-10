@@ -46,6 +46,12 @@ if __name__ == '__main__':
                         nargs=2, default=[], action='append',
                         help='append additional argument to price signals')
     parser.add_argument('--config', help='Use config file to set arguments')
+
+    # other stuff
+    parser.add_argument('--numeric_tolerance', metavar='TOL', type=float, default=1e-10,
+                        help='Tolerance used for sanity checks, required due to possible '
+                             'rounding differences between simBEV and spiceEV. Default: 1e-10')
+
     args = parser.parse_args()
 
     set_options_from_config(args, check=True, verbose=False)
