@@ -6,9 +6,8 @@ import datetime
 import json
 from pathlib import Path
 import random
-import operator as op
 
-from src.util import set_options_from_config, compare_rounded
+from src.util import set_options_from_config
 
 
 if __name__ == '__main__':
@@ -47,6 +46,12 @@ if __name__ == '__main__':
                         nargs=2, default=[], action='append',
                         help='append additional argument to price signals')
     parser.add_argument('--config', help='Use config file to set arguments')
+
+    # other stuff
+    parser.add_argument('--numeric_tolerance', metavar='TOL', type=float, default=1e-10,
+                        help='Tolerance used for sanity checks, required due to possible '
+                             'rounding differences between simBEV and spiceEV. Default: 1e-10')
+
     args = parser.parse_args()
 
     set_options_from_config(args, check=True, verbose=False)
@@ -282,7 +287,7 @@ if __name__ == '__main__':
                     # no charging station or don't need to charge
                     # just increase charging demand based on consumption
                     soc_needed += consumption / vehicle_capacity
-                    assert compare_rounded(soc_needed, op.le, 1 + vehicle_soc), \
+                    assert soc_needed <= 1 + vehicle_soc + args.numeric_tolerance, \
                         "Consumption too high for {} in row {}: \
                         vehicle charged to {}, needs SoC of {} ({} kW)".format(
                             vehicle_name, idx + 3, vehicle_soc,
@@ -292,7 +297,7 @@ if __name__ == '__main__':
 
                     if not last_cs_event:
                         # first charge: initial must be enough
-                        assert compare_rounded(vehicle_soc, op.ge, soc_needed), \
+                        assert vehicle_soc >= soc_needed - args.numeric_tolerance, \
                             "Initial charge for {} is not sufficient".format(vehicle_name)
                     else:
                         # update desired SoC from last charging event
