@@ -18,7 +18,7 @@ if __name__ == '__main__':
     parser.add_argument('--simbev', metavar='DIR', type=str, help='set directory with SimBEV files')
     parser.add_argument('--interval', metavar='MIN', type=int, default=15,
                         help='set number of minutes for each timestep (Δt)')
-    parser.add_argument('--price-seed', metavar='X', type=int, default=0,
+    parser.add_argument('--price-seed', metavar='X', type=int,
                         help='set seed when generating energy market prices. \
                         Negative values for fixed price in cents')
     parser.add_argument('--min-soc', metavar='S', type=float, default=0.5,
@@ -188,7 +188,7 @@ if __name__ == '__main__':
         if args.price_seed:
             # CSV and price_seed given
             print("WARNING: Multiple price sources detected. Using CSV.")
-    elif args.price_seed < 0:
+    elif args.price_seed is not None and args.price_seed < 0:
         # use single, fixed price
         events["grid_operator_signals"].append({
             "signal_time": start.isoformat(),
@@ -391,7 +391,7 @@ if __name__ == '__main__':
 
                     while (
                         not args.include_price_csv
-                        and args.price_seed >= 0
+                        and (args.price_seed is None or args.price_seed >= 0)
                         and n_intervals >= price_interval * len(events["grid_operator_signals"])
                     ):
                         # at which timestep is price updated?
