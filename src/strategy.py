@@ -81,7 +81,7 @@ class Strategy():
                     assert vehicle.connected_charging_station is not None
                     assert hasattr(vehicle, 'soc_delta')
                     vehicle.battery.soc += vehicle.soc_delta
-                    assert vehicle.battery.soc >= 0, (
+                    assert vehicle.battery.soc >= 0 - 1e-5, (
                         'SOC of vehicle {} should not be negative. \
                         SOC is {}, soc_delta was {}'.format(
                             ev.vehicle_id, vehicle.battery.soc, vehicle.soc_delta))
