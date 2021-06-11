@@ -27,8 +27,8 @@ class Scenario:
             self.n_intervals = scenario['n_intervals']
             self.stop_time = self.start_time + self.interval * self.n_intervals
         else:
-            stop_time = util.datetime_from_isoformat(scenario['stop_time'])
-            delta = stop_time - self.start_time
+            self.stop_time = util.datetime_from_isoformat(scenario['stop_time'])
+            delta = self.stop_time - self.start_time
             self.n_intervals = delta / self.interval
 
         # compute average load for each timeslot
