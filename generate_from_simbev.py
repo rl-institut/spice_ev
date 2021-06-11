@@ -232,6 +232,12 @@ if __name__ == '__main__':
                 continue
             # vehicle type must be known
             assert v_type in vehicle_types, "Unknown type for {}: {}".format(vehicle_name, v_type)
+            if vehicle_name in vehicles:
+                num_similar_name = sum([1 for v in vehicles.keys() if v.startswith(vehicle_name)])
+                vehicle_name_new = "{}_{}".format(vehicle_name, num_similar_name + 1)
+                print("WARNING: Vehicle name {} is not unique! Renamed to {}".format(
+                    vehicle_name, vehicle_name_new))
+                vehicle_name = vehicle_name_new
             # save initial vehicle data
             vehicles[vehicle_name] = {
                 "connected_charging_station": None,
