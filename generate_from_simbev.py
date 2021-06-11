@@ -48,7 +48,7 @@ if __name__ == '__main__':
     parser.add_argument('--config', help='Use config file to set arguments')
 
     # other stuff
-    parser.add_argument('--numeric-tolerance', metavar='TOL', type=float, default=1e-10,
+    parser.add_argument('--eps', metavar='EPS', type=float, default=1e-10,
                         help='Tolerance used for sanity checks, required due to possible '
                              'rounding differences between simBEV and spiceEV. Default: 1e-10')
 
@@ -287,11 +287,11 @@ if __name__ == '__main__':
                     # no charging station or don't need to charge
                     # just increase charging demand based on consumption
                     soc_needed += consumption / vehicle_capacity
-                    assert soc_needed <= 1 + vehicle_soc + args.numeric_tolerance, (
+                    assert soc_needed <= 1 + vehicle_soc + args.eps, (
                         "Consumption too high for {} in row {}: "
                         "vehicle charged to {}, needs SoC of {} ({} kW). "
                         "This might be caused by rounding differences, "
-                        "consider to increase the arg '--numeric-tolerance'.".format(
+                        "consider to increase the arg '--eps'.".format(
                             vehicle_name, idx + 3, vehicle_soc,
                             soc_needed, soc_needed * vehicle_capacity))
                 else:
@@ -299,10 +299,10 @@ if __name__ == '__main__':
 
                     if not last_cs_event:
                         # first charge: initial must be enough
-                        assert vehicle_soc >= soc_needed - args.numeric_tolerance, (
+                        assert vehicle_soc >= soc_needed - args.eps, (
                             "Initial charge for {} is not sufficient. "
                             "This might be caused by rounding differences, "
-                            "consider to increase the arg '--numeric-tolerance'.".format(
+                            "consider to increase the arg '--eps'.".format(
                                 vehicle_name))
                     else:
                         # update desired SoC from last charging event
