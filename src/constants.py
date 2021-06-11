@@ -150,10 +150,10 @@ class Vehicle:
 
         # Add battery object to vehicles
         self.battery = battery.Battery(
-            capacity = self.vehicle_type.capacity,
-            loading_curve = self.vehicle_type.charging_curve,
-            soc = self.soc,
-            efficiency = self.vehicle_type.battery_efficiency
+            capacity=self.vehicle_type.capacity,
+            loading_curve=self.vehicle_type.charging_curve,
+            soc=self.soc,
+            efficiency=self.vehicle_type.battery_efficiency
         )
         del self.soc
 
