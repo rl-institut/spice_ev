@@ -57,14 +57,14 @@ def generate_from_simbev(args):
         },
         "phev_medium": {
             "name": "phev_medium",
-            "capacity": 100,  # kWh
+            "capacity": 20,  # kWh
             "mileage": 30,  # kWh / 100km
             "charging_curve": [[0, 22], [80, 22], [100, 0]],  # SOC -> kWh
             "min_charging_power": 0,
         },
         "phev_mini": {
             "name": "phev_mini",
-            "capacity": 70,  # kWh
+            "capacity": 15,  # kWh
             "mileage": 25,  # kWh / 100km
             "charging_curve": [[0, 22], [80, 22], [100, 0]],  # SOC -> kWh
             "min_charging_power": 0,

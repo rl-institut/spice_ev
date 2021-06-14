@@ -64,7 +64,6 @@ def generate(args):
         for i in range(t["count"]):
             v_name = "{}_{}".format(name, i)
             cs_name = "CS_" + v_name
-            is_connected = True
             depart = start + datetime.timedelta(days=1, hours=6, minutes=15 * random.randint(0, 4))
             soc = random.randint(50, 100)
             vehicles[v_name] = {
@@ -168,7 +167,6 @@ def generate(args):
         })
 
     daily = datetime.timedelta(days=1)
-    hourly = datetime.timedelta(hours=1)
 
     # count number of trips where desired_soc is above min_soc
     trips_above_min_soc = 0
