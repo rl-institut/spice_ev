@@ -25,6 +25,9 @@ if __name__ == '__main__':
                         help='Set minimum desired SoC for each charging event. Default: 0.5')
     parser.add_argument('--min-soc-threshold', type=float, default=0.05,
                         help='SoC below this threshold trigger a warning. Default: 0.05')
+    parser.add_argument('--verbose', '-v', action='count', default=0,
+                        help='Set verbosity level. Use this multiple times for more output. '
+                        'Default: only errors, 1: warnings, 2: debug')
 
     # csv files
     parser.add_argument('--include-ext-load-csv',
@@ -54,7 +57,7 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    set_options_from_config(args, check=True, verbose=False)
+    set_options_from_config(args, check=True, verbose=args.verbose >= 2)
 
     missing = [arg for arg in ["output", "simbev"] if vars(args).get(arg) is None]
     if missing:
@@ -152,7 +155,7 @@ if __name__ == '__main__':
         events['external_load'][basename] = options
         # check if CSV file exists
         ext_csv_path = target_path.joinpath(filename)
-        if not ext_csv_path.exists():
+        if not ext_csv_path.exists() and args.verbose > 0:
             print("Warning: external csv file '{}' does not exist yet".format(ext_csv_path))
 
     # energy feed-in CSV (e.g. from PV)
@@ -170,7 +173,7 @@ if __name__ == '__main__':
             options[key] = value
         events['energy_feed_in'][basename] = options
         feed_in_path = target_path.joinpath(filename)
-        if not feed_in_path.exists():
+        if not feed_in_path.exists() and args.verbose > 0:
             print("Warning: feed-in csv file '{}' does not exist yet".format(feed_in_path))
 
     # energy price CSV
@@ -188,10 +191,10 @@ if __name__ == '__main__':
             options[key] = value
         events['energy_price_from_csv'] = options
         price_csv_path = target_path.joinpath(filename)
-        if not price_csv_path.exists():
+        if not price_csv_path.exists() and args.verbose > 0:
             print("Warning: price csv file '{}' does not exist yet".format(price_csv_path))
 
-        if args.price_seed:
+        if args.price_seed and args.verbose > 0:
             # CSV and price_seed given
             print("WARNING: Multiple price sources detected. Using CSV.")
     elif args.price_seed is not None and args.price_seed < 0:
@@ -218,6 +221,10 @@ if __name__ == '__main__':
     for csv_path in pathlist:
         # get vehicle name from file name
         vehicle_name = str(csv_path.stem)[:-4]
+        if args.verbose >= 2:
+            # debug
+            print("Next vehicle: {}".format(csv_path))
+
         with open(csv_path, newline='') as csvfile:
             reader = csv.DictReader(csvfile)
 
@@ -228,15 +235,18 @@ if __name__ == '__main__':
             try:
                 v_type = row["car_type"]
             except KeyError:
-                print("Skipping {}, probably no vehicle file".format(csv_path))
+                if args.verbose >= 2:
+                    # debug
+                    print("Skipping {}, probably no vehicle file".format(csv_path))
                 continue
             # vehicle type must be known
             assert v_type in vehicle_types, "Unknown type for {}: {}".format(vehicle_name, v_type)
             if vehicle_name in vehicles:
                 num_similar_name = sum([1 for v in vehicles.keys() if v.startswith(vehicle_name)])
                 vehicle_name_new = "{}_{}".format(vehicle_name, num_similar_name + 1)
-                print("WARNING: Vehicle name {} is not unique! Renamed to {}".format(
-                    vehicle_name, vehicle_name_new))
+                if args.verbose > 0:
+                    print("WARNING: Vehicle name {} is not unique! "
+                          "Renamed to {}".format(vehicle_name, vehicle_name_new))
                 vehicle_name = vehicle_name_new
             # save initial vehicle data
             vehicles[vehicle_name] = {
@@ -275,7 +285,9 @@ if __name__ == '__main__':
                         vehicle_name, idx + 3)
                 # might want to avoid very low battery levels (configurable in config)
                 soc_threshold = args.min_soc_threshold
-                if simbev_soc_start < soc_threshold or simbev_soc_end < soc_threshold:
+                if args.verbose > 0 and (
+                        simbev_soc_start < soc_threshold
+                        or simbev_soc_end < soc_threshold):
                     print("WARNING: SimBEV created very low SoC for {} in row {}"
                           .format(vehicle_name, idx + 3))
 
@@ -326,7 +338,7 @@ if __name__ == '__main__':
                         possible_power = cs_power * charge_duration.seconds/3600
                         possible_soc = possible_power / vehicle_capacity
 
-                        if delta_soc > possible_soc:
+                        if delta_soc > possible_soc and args.verbose > 0:
                             print(
                                 "WARNING: Can't fulfill charging request for {} in ts {:.0f}. "
                                 "Need {:.2f} kWh in {:.2f} h ({:.0f} ts) from {} kW CS, "
