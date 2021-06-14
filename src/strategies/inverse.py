@@ -16,8 +16,6 @@ class Inverse(Strategy):
 
         # minimum binary seach depth
         self.ITERATIONS = 16
-        # compare close floating points
-        self.EPS = 1e-5
         self.HORIZON = 24
         self.PRICE_THRESHOLD = 0.001  # EUR/kWh
         self.LOAD_STRAT = 'needy'  # greedy, needy, balanced, individual

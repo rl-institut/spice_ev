@@ -9,7 +9,6 @@ class Balanced(Strategy):
     """
     def __init__(self, constants, start_time, **kwargs):
         # defaults
-        self.EPS = 1e-5
         self.ITERATIONS = 12
         self.PRICE_THRESHOLD = 0.001  # EUR/kWh
 
