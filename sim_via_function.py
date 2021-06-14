@@ -1,4 +1,4 @@
-from simulate import simulate
+from .simulate import simulate
 from argparse import Namespace
 
 # This script is an example on how to build a Namespace object that's required by the simulate function
@@ -14,7 +14,7 @@ def simulate_function(input_file):
 
 
 if __name__ == '__main__':
-    simulate_function("scenario.json")
+    simulate_function("examples/scenario.json")
 
     # simple example using the function to simulate multiple scenarios:
     # scenario_files = ["scenario1.json", "scenario2.json"]

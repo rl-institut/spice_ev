@@ -8,17 +8,19 @@ from src.scenario import Scenario
 from src.util import set_options_from_config
 
 
+STRATEGIES = [
+    'greedy', 'greedy_market',
+    'balanced',
+    'inverse',
+    'v2g',
+]
+
+
 def simulate(args):
     """Simulate with input-JSON.
     args: argparse.Namespace
     """
 
-    strategies = [
-        'greedy', 'greedy_market',
-        'balanced',
-        'inverse',
-        'v2g',
-    ]
 
     if args.input is None or not os.path.exists(args.input):
         raise SystemExit("Please specify a valid input file.")
@@ -33,7 +35,7 @@ def simulate(args):
     if args.strategy:
         # first argument: strategy name
         strategy_name = args.strategy
-        if strategy_name not in strategies:
+        if strategy_name not in STRATEGIES:
             raise NotImplementedError("Unknown strategy: {}".format(strategy_name))
         if args.strategy_option:
             for opt_key, opt_val in args.strategy_option:
@@ -54,12 +56,6 @@ def simulate(args):
 
 
 if __name__ == '__main__':
-    strategies = [
-        'greedy', 'greedy_market',
-        'balanced',
-        'inverse',
-        'v2g',
-    ]
 
     parser = argparse.ArgumentParser(
         description='SpiceEV - \
@@ -68,7 +64,7 @@ if __name__ == '__main__':
     parser.add_argument('input', nargs='?', help='Set the scenario JSON file')
     parser.add_argument('--strategy', '-s', default='greedy',
                         help='Specify the charging strategy. One of {}. You may define \
-                        custom options with --strategy-option.'.format(', '.join(strategies)))
+                        custom options with --strategy-option.'.format(', '.join(STRATEGIES)))
     parser.add_argument('--margin', '-m', metavar='X', type=float, default=0.05,
                         help=('Add margin for desired SOC [0.0 - 1.0].\
                         margin=0.05 means the simulation will not abort if vehicles \
