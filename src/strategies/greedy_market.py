@@ -12,7 +12,6 @@ class GreedyMarket(Strategy):
     def __init__(self, constants, start_time, **kwargs):
         self.CONCURRENCY = 1.0
         self.PRICE_THRESHOLD = 0.001  # EUR/kWh
-        self.EPS = 1e-3
         self.HORIZON = 24  # hours ahead
 
         super().__init__(constants, start_time, **kwargs)

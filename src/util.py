@@ -1,12 +1,18 @@
 import datetime
 import json
 from math import sqrt
+from sys import version_info
 
 
 def datetime_from_isoformat(s):
     if s is None:
         return None
 
+    if (version_info.major, version_info.minor) >= (3, 7):
+        # fromisoformat introduced in Python 3.7
+        return datetime.datetime.fromisoformat(s)
+
+    # fallback: use strptime. Problem is timezone with colon
     # Thanks SO! (https://stackoverflow.com/questions/30999230/how-to-parse-timezone-with-colon)
     if s[-3:-2] == ':':
         s = s[:-3]+s[-2:]

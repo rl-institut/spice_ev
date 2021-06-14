@@ -152,7 +152,7 @@ def generate_from_simbev(args):
         if args.price_seed:
             # CSV and price_seed given
             print("WARNING: Multiple price sources detected. Using CSV.")
-    elif args.price_seed < 0:
+    elif args.price_seed is not None and args.price_seed < 0:
         # use single, fixed price
         events["grid_operator_signals"].append({
             "signal_time": start.isoformat(),
@@ -178,40 +178,47 @@ def generate_from_simbev(args):
         vehicle_name = str(csv_path.stem)[:-4]
         with open(csv_path, newline='') as csvfile:
             reader = csv.DictReader(csvfile)
+
+            # set vehicle info from first data row
+            # update in vehicles, regardless if known before or not
+
+            row = next(reader)
+            try:
+                v_type = row["car_type"]
+            except KeyError:
+                print("Skipping {}, probably no vehicle file".format(csv_path))
+                continue
+            # vehicle type must be known
+            assert v_type in vehicle_types, "Unknown type for {}: {}".format(vehicle_name, v_type)
+            if vehicle_name in vehicles:
+                num_similar_name = sum([1 for v in vehicles.keys() if v.startswith(vehicle_name)])
+                vehicle_name_new = "{}_{}".format(vehicle_name, num_similar_name + 1)
+                print("WARNING: Vehicle name {} is not unique! Renamed to {}".format(
+                    vehicle_name, vehicle_name_new))
+                vehicle_name = vehicle_name_new
+            # save initial vehicle data
+            vehicles[vehicle_name] = {
+                "connected_charging_station": None,
+                "soc": float(row["SoC_end"]) * 100,
+                "vehicle_type": v_type
+            }
+
+            # check that capacities match
+            vehicle_capacity = vehicle_types[v_type]["capacity"]
+            file_capacity = int(row["bat_cap"])
+            assert vehicle_capacity == file_capacity, (
+                "Capacity of vehicle {} does not match (in file: {}, in script: {})"
+                .format(vehicle_name, file_capacity, vehicle_capacity))
+
+            # set initial charge
+            vehicle_soc = float(row["SoC_end"])
+            last_cs_event = None
+            soc_needed = 0.0
+            park_start_ts = None
+            park_end_ts = datetime_from_timestep(int(row['park_end']) + 1)
+
+            # iterate next timesteps
             for idx, row in enumerate(reader):
-                if vehicle_name not in vehicles:
-                    # set vehicle info from first data row
-                    try:
-                        v_type = row["car_type"]
-                    except KeyError:
-                        print("Skipping {}, probably no vehicle file".format(csv_path))
-                        break
-                    # vehicle type must be known
-                    assert v_type in vehicle_types, "Unknown vehicle type for {}: {}".format(
-                        vehicle_name, v_type)
-                    # save initial vehicle data
-                    vehicles[vehicle_name] = {
-                        "connected_charging_station": None,
-                        "soc": float(row["SoC_end"]) * 100,
-                        "vehicle_type": v_type
-                    }
-
-                    # check that capacities match
-                    vehicle_capacity = vehicle_types[v_type]["capacity"]
-                    file_capacity = int(row["bat_cap"])
-                    assert vehicle_capacity == file_capacity, \
-                        "Capacity of vehicle {} does not match (in file: {}, in script: {})".format(
-                            vehicle_name, file_capacity, vehicle_capacity)
-
-                    # set initial charge
-                    vehicle_soc = float(row["SoC_end"])
-                    last_cs_event = None
-                    soc_needed = 0.0
-                    park_start_ts = None
-                    park_end_ts = datetime_from_timestep(int(row['park_end']) + 1)
-                    # vehicle not actually charged in first row, so skip rest
-                    continue
-
                 # read info from row
                 location = row["location"]
                 capacity = float(row["netto_charging_capacity"])
@@ -223,39 +230,44 @@ def generate_from_simbev(args):
                 # SoC must not be negative
                 assert simbev_soc_start >= 0 and simbev_soc_end >= 0, \
                     "SimBEV created negative SoC for {} in row {}".format(
-                        vehicle_name, idx + 2)
+                        vehicle_name, idx + 3)
                 # might want to avoid very low battery levels (configurable in config)
                 soc_threshold = args.min_soc_threshold
                 if simbev_soc_start < soc_threshold or simbev_soc_end < soc_threshold:
                     print("WARNING: SimBEV created very low SoC for {} in row {}"
-                          .format(vehicle_name, idx + 2))
+                          .format(vehicle_name, idx + 3))
 
                 simbev_demand = float(row["chargingdemand"])
                 assert capacity > 0 or simbev_demand == 0, \
                     "Charging event without charging station: {} @ row {}".format(
-                        vehicle_name, idx + 2)
+                        vehicle_name, idx + 3)
 
                 cs_present = capacity > 0
                 assert (not cs_present) or consumption == 0, \
                     "Consumption while charging for {} @ row {}".format(
-                        vehicle_name, idx + 2)
+                        vehicle_name, idx + 3)
 
                 if not cs_present:
                     # no charging station or don't need to charge
                     # just increase charging demand based on consumption
                     soc_needed += consumption / vehicle_capacity
-                    assert soc_needed <= 1 + vehicle_soc, \
-                        "Consumption too high for {} in row {}: \
-                        vehicle charged to {}, needs SoC of {} ({} kW)".format(
-                            vehicle_name, idx + 2, vehicle_soc,
-                            soc_needed, soc_needed * vehicle_capacity)
+                    assert soc_needed <= 1 + vehicle_soc + args.eps, (
+                        "Consumption too high for {} in row {}: "
+                        "vehicle charged to {}, needs SoC of {} ({} kW). "
+                        "This might be caused by rounding differences, "
+                        "consider to increase the arg '--eps'.".format(
+                            vehicle_name, idx + 3, vehicle_soc,
+                            soc_needed, soc_needed * vehicle_capacity))
                 else:
                     # charging station present
 
                     if not last_cs_event:
                         # first charge: initial must be enough
-                        assert vehicle_soc >= soc_needed, \
-                            "Initial charge for {} is not sufficient".format(vehicle_name)
+                        assert vehicle_soc >= soc_needed - args.eps, (
+                            "Initial charge for {} is not sufficient. "
+                            "This might be caused by rounding differences, "
+                            "consider to increase the arg '--eps'.".format(
+                                vehicle_name))
                     else:
                         # update desired SoC from last charging event
                         # this much charge must be in battery when leaving CS
@@ -273,16 +285,18 @@ def generate_from_simbev(args):
                         possible_soc = possible_power / vehicle_capacity
 
                         if delta_soc > possible_soc:
-                            print("WARNING: Can't fulfill charging request for {} in ts {:.0f}. \
-                            Need {:.2f} kWh in {:.2f} h ({:.0f} ts) from {} kW CS, \
-                            possible: {} kWh".format(
-                                vehicle_name,
-                                (park_end_ts - start)/interval,
-                                desired_soc * vehicle_capacity,
-                                charge_duration.seconds/3600,
-                                charge_duration / interval,
-                                cs_power, possible_power
-                            ))
+                            print(
+                                "WARNING: Can't fulfill charging request for {} in ts {:.0f}. "
+                                "Need {:.2f} kWh in {:.2f} h ({:.0f} ts) from {} kW CS, "
+                                "possible: {} kWh"
+                                .format(
+                                    vehicle_name,
+                                    (park_end_ts - start)/interval,
+                                    desired_soc * vehicle_capacity,
+                                    charge_duration.seconds/3600,
+                                    charge_duration / interval,
+                                    cs_power, possible_power
+                                ))
 
                         # update last charge event info: set desired SOC
                         last_cs_event["update"]["desired_soc"] = desired_soc * 100
@@ -349,7 +363,7 @@ def generate_from_simbev(args):
 
                     while (
                         not args.include_price_csv
-                        and args.price_seed >= 0
+                        and (args.price_seed is None or args.price_seed >= 0)
                         and n_intervals >= price_interval * len(events["grid_operator_signals"])
                     ):
                         # at which timestep is price updated?
@@ -443,6 +457,12 @@ if __name__ == '__main__':
                         nargs=2, default=[], action='append',
                         help='append additional argument to price signals')
     parser.add_argument('--config', help='Use config file to set arguments')
+
+    # other stuff
+    parser.add_argument('--eps', metavar='EPS', type=float, default=1e-10,
+                        help='Tolerance used for sanity checks, required due to possible '
+                             'rounding differences between simBEV and spiceEV. Default: 1e-10')
+
     args = parser.parse_args()
 
     set_options_from_config(args, check=True, verbose=False)
