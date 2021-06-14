@@ -46,6 +46,12 @@ if __name__ == '__main__':
                         nargs=2, default=[], action='append',
                         help='append additional argument to price signals')
     parser.add_argument('--config', help='Use config file to set arguments')
+
+    # other stuff
+    parser.add_argument('--eps', metavar='EPS', type=float, default=1e-10,
+                        help='Tolerance used for sanity checks, required due to possible '
+                             'rounding differences between simBEV and spiceEV. Default: 1e-10')
+
     args = parser.parse_args()
 
     set_options_from_config(args, check=True, verbose=False)
@@ -287,18 +293,23 @@ if __name__ == '__main__':
                     # no charging station or don't need to charge
                     # just increase charging demand based on consumption
                     soc_needed += consumption / vehicle_capacity
-                    assert soc_needed <= 1 + vehicle_soc, \
-                        "Consumption too high for {} in row {}: \
-                        vehicle charged to {}, needs SoC of {} ({} kW)".format(
+                    assert soc_needed <= 1 + vehicle_soc + args.eps, (
+                        "Consumption too high for {} in row {}: "
+                        "vehicle charged to {}, needs SoC of {} ({} kW). "
+                        "This might be caused by rounding differences, "
+                        "consider to increase the arg '--eps'.".format(
                             vehicle_name, idx + 3, vehicle_soc,
-                            soc_needed, soc_needed * vehicle_capacity)
+                            soc_needed, soc_needed * vehicle_capacity))
                 else:
                     # charging station present
 
                     if not last_cs_event:
                         # first charge: initial must be enough
-                        assert vehicle_soc >= soc_needed, \
-                            "Initial charge for {} is not sufficient".format(vehicle_name)
+                        assert vehicle_soc >= soc_needed - args.eps, (
+                            "Initial charge for {} is not sufficient. "
+                            "This might be caused by rounding differences, "
+                            "consider to increase the arg '--eps'.".format(
+                                vehicle_name))
                     else:
                         # update desired SoC from last charging event
                         # this much charge must be in battery when leaving CS
