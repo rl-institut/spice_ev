@@ -104,7 +104,8 @@ class Schedule(Strategy):
                     # get fraction of precalculated power need to overall power need
                     total_power_needed = sum(power_needed)
                     power_available = gc.target - gc.get_current_load()
-                    power = power_available * (power_needed.pop(0) / total_power_needed)
+                    if total_power_needed > self.EPS:
+                        power = power_available * (power_needed.pop(0) / total_power_needed)
                 elif self.LOAD_STRAT == "balanced":
                     power = total_power / len(vehicles)
 
