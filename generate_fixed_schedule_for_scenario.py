@@ -127,7 +127,6 @@ def add_priority(row, max_network_load, max_load_range):
     return 3
 
 
-
 def get_fleet_info_from_scenario(scenario: Scenario):
     num_cars = 0
     max_load_cars = 0
