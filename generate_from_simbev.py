@@ -112,6 +112,12 @@ def generate_from_simbev(args):
         ext_csv_path = target_path.joinpath(filename)
         if not ext_csv_path.exists() and args.verbose > 0:
             print("Warning: external csv file '{}' does not exist yet".format(ext_csv_path))
+        else:
+            with open(ext_csv_path, newline='') as csvfile:
+                reader = csv.DictReader(csvfile)
+                if not options["column"] in reader.fieldnames:
+                    print("Warning: external csv file {} has no column {}".format(
+                          ext_csv_path, options["column"]))
 
     # energy feed-in CSV (e.g. from PV)
     if args.include_feed_in_csv:
@@ -130,6 +136,12 @@ def generate_from_simbev(args):
         feed_in_path = target_path.joinpath(filename)
         if not feed_in_path.exists() and args.verbose > 0:
             print("Warning: feed-in csv file '{}' does not exist yet".format(feed_in_path))
+        else:
+            with open(feed_in_path, newline='') as csvfile:
+                reader = csv.DictReader(csvfile)
+                if not options["column"] in reader.fieldnames:
+                    print("Warning: feed-in csv file {} has no column {}".format(
+                          feed_in_path, options["column"]))
 
     # energy price CSV
     if args.include_price_csv:
@@ -148,6 +160,12 @@ def generate_from_simbev(args):
         price_csv_path = target_path.joinpath(filename)
         if not price_csv_path.exists() and args.verbose > 0:
             print("Warning: price csv file '{}' does not exist yet".format(price_csv_path))
+        else:
+            with open(price_csv_path, newline='') as csvfile:
+                reader = csv.DictReader(csvfile)
+                if not options["column"] in reader.fieldnames:
+                    print("Warning: price csv file {} has no column {}".format(
+                          price_csv_path, options["column"]))
 
         if args.price_seed and args.verbose > 0:
             # CSV and price_seed given
