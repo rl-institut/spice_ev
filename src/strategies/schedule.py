@@ -4,8 +4,6 @@ from src.util import clamp_power
 
 class Schedule(Strategy):
     def __init__(self, constants, start_time, **kwargs):
-        self.CONCURRENCY = 1.0
-        self.EPS = 1e-3
         self.LOAD_STRAT = 'needy'  # greedy, balanced
         super().__init__(constants, start_time, **kwargs)
 
