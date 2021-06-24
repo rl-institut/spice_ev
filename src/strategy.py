@@ -20,7 +20,10 @@ class Strategy():
         self.world_state.future_events = []
         self.interval = kwargs.get('interval')  # required
         self.current_time = start_time - self.interval
+        # relative allowed difference between battery SoC and desired SoC when leaving
         self.margin = 0.05
+        # tolerance for floating point comparison
+        self.EPS = 1e-5
         # update optional
         for k, v in kwargs.items():
             setattr(self, k, v)
@@ -80,7 +83,7 @@ class Strategy():
                     setattr(vehicle, k, v)
                 if ev.event_type == "departure":
                     vehicle.connected_charging_station = None
-                    assert vehicle.battery.soc >= (1-self.margin)*vehicle.desired_soc, (
+                    assert vehicle.battery.soc >= (1-self.margin)*vehicle.desired_soc - self.EPS, (
                         "{}: Vehicle {} is below desired SOC ({} < {})".format(
                             ev.start_time.isoformat(), ev.vehicle_id,
                             vehicle.battery.soc, vehicle.desired_soc))
@@ -88,10 +91,9 @@ class Strategy():
                     assert vehicle.connected_charging_station is not None
                     assert hasattr(vehicle, 'soc_delta')
                     vehicle.battery.soc += vehicle.soc_delta
-                    assert vehicle.battery.soc >= 0, (
-                        'SOC of vehicle {} should not be negative. \
-                        SOC is {}, soc_delta was {}'.format(
-                            ev.vehicle_id, vehicle.battery.soc, vehicle.soc_delta))
+                    assert vehicle.battery.soc + self.EPS >= 0, (
+                        'SOC of vehicle {} should not be negative. SOC is {}, soc_delta was {}'
+                        .format(ev.vehicle_id, vehicle.battery.soc, vehicle.soc_delta))
                     delattr(vehicle, 'soc_delta')
             else:
                 raise Exception("Unknown event type: {}".format(ev))

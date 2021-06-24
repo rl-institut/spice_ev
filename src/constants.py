@@ -128,6 +128,7 @@ class VehicleType:
         ]
         optional_keys = [
             ('min_charging_power', float, 0.0),
+            ('battery_efficiency', float, 0.95),
         ]
         util.set_attr_from_dict(obj, self, keys, optional_keys)
 
@@ -150,9 +151,10 @@ class Vehicle:
 
         # Add battery object to vehicles
         self.battery = battery.Battery(
-            self.vehicle_type.capacity,
-            self.vehicle_type.charging_curve,
-            self.soc,
+            capacity=self.vehicle_type.capacity,
+            loading_curve=self.vehicle_type.charging_curve,
+            soc=self.soc,
+            efficiency=self.vehicle_type.battery_efficiency
         )
         del self.soc
 

@@ -11,8 +11,6 @@ class V2g(Strategy):
     def __init__(self, constants, start_time, **kwargs):
         # defaults, can be overridden by CLO (through kwargs)
 
-        # compare close floating points
-        self.EPS = 1e-2
         # low pass filter for predicted external cost
         self.LOAD_STRAT = 'needy'  # greedy, needy, balanced
         self.SAFE_DISCHARGE = 0

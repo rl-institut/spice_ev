@@ -10,46 +10,10 @@ import random
 from src.util import set_options_from_config
 
 
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser(
-        description='Generate scenarios as JSON files for vehicle charging modelling \
-        from vehicle timeseries (e.g. SimBEV output).')
-    parser.add_argument('output', nargs='?', help='output file name (example.json)')
-    parser.add_argument('--simbev', metavar='DIR', type=str, help='set directory with SimBEV files')
-    parser.add_argument('--interval', metavar='MIN', type=int, default=15,
-                        help='set number of minutes for each timestep (Δt)')
-    parser.add_argument('--price-seed', metavar='X', type=int, default=0,
-                        help='set seed when generating energy market prices. \
-                        Negative values for fixed price in cents')
-    parser.add_argument('--min-soc', metavar='S', type=float, default=0.5,
-                        help='Set minimum desired SoC for each charging event. Default: 0.5')
-    parser.add_argument('--min-soc-threshold', type=float, default=0.05,
-                        help='SoC below this threshold trigger a warning. Default: 0.05')
-
-    # csv files
-    parser.add_argument('--include-ext-load-csv',
-                        help='include CSV for external load. \
-                        You may define custom options with --include-ext-csv-option')
-    parser.add_argument('--include-ext-csv-option', '-eo', metavar=('KEY', 'VALUE'),
-                        nargs=2, default=[], action='append',
-                        help='append additional argument to external load')
-    parser.add_argument('--include-feed-in-csv',
-                        help='include CSV for energy feed-in, e.g., local PV. \
-                        You may define custom options with --include-feed-in-csv-option')
-    parser.add_argument('--include-feed-in-csv-option', '-fo', metavar=('KEY', 'VALUE'),
-                        nargs=2, default=[], action='append',
-                        help='append additional argument to feed-in load')
-    parser.add_argument('--include-price-csv',
-                        help='include CSV for energy price. \
-                        You may define custom options with --include-price-csv-option')
-    parser.add_argument('--include-price-csv-option', '-po', metavar=('KEY', 'VALUE'),
-                        nargs=2, default=[], action='append',
-                        help='append additional argument to price signals')
-    parser.add_argument('--config', help='Use config file to set arguments')
-    args = parser.parse_args()
-
-    set_options_from_config(args, check=True, verbose=False)
-
+def generate_from_simbev(args):
+    """Generate a scenario JSON from simBEV results.
+    args: argparse.Namespace
+    """
     missing = [arg for arg in ["output", "simbev"] if vars(args).get(arg) is None]
     if missing:
         raise SystemExit("The following arguments are required: {}".format(", ".join(missing)))
@@ -93,14 +57,14 @@ if __name__ == '__main__':
         },
         "phev_medium": {
             "name": "phev_medium",
-            "capacity": 100,  # kWh
+            "capacity": 20,  # kWh
             "mileage": 30,  # kWh / 100km
             "charging_curve": [[0, 22], [80, 22], [100, 0]],  # SOC -> kWh
             "min_charging_power": 0,
         },
         "phev_mini": {
             "name": "phev_mini",
-            "capacity": 70,  # kWh
+            "capacity": 15,  # kWh
             "mileage": 25,  # kWh / 100km
             "charging_curve": [[0, 22], [80, 22], [100, 0]],  # SOC -> kWh
             "min_charging_power": 0,
@@ -146,8 +110,14 @@ if __name__ == '__main__':
         events['external_load'][basename] = options
         # check if CSV file exists
         ext_csv_path = target_path.joinpath(filename)
-        if not ext_csv_path.exists():
+        if not ext_csv_path.exists() and args.verbose > 0:
             print("Warning: external csv file '{}' does not exist yet".format(ext_csv_path))
+        else:
+            with open(ext_csv_path, newline='') as csvfile:
+                reader = csv.DictReader(csvfile)
+                if not options["column"] in reader.fieldnames:
+                    print("Warning: external csv file {} has no column {}".format(
+                          ext_csv_path, options["column"]))
 
     # energy feed-in CSV (e.g. from PV)
     if args.include_feed_in_csv:
@@ -164,8 +134,14 @@ if __name__ == '__main__':
             options[key] = value
         events['energy_feed_in'][basename] = options
         feed_in_path = target_path.joinpath(filename)
-        if not feed_in_path.exists():
+        if not feed_in_path.exists() and args.verbose > 0:
             print("Warning: feed-in csv file '{}' does not exist yet".format(feed_in_path))
+        else:
+            with open(feed_in_path, newline='') as csvfile:
+                reader = csv.DictReader(csvfile)
+                if not options["column"] in reader.fieldnames:
+                    print("Warning: feed-in csv file {} has no column {}".format(
+                          feed_in_path, options["column"]))
 
     # energy price CSV
     if args.include_price_csv:
@@ -182,13 +158,19 @@ if __name__ == '__main__':
             options[key] = value
         events['energy_price_from_csv'] = options
         price_csv_path = target_path.joinpath(filename)
-        if not price_csv_path.exists():
+        if not price_csv_path.exists() and args.verbose > 0:
             print("Warning: price csv file '{}' does not exist yet".format(price_csv_path))
+        else:
+            with open(price_csv_path, newline='') as csvfile:
+                reader = csv.DictReader(csvfile)
+                if not options["column"] in reader.fieldnames:
+                    print("Warning: price csv file {} has no column {}".format(
+                          price_csv_path, options["column"]))
 
-        if args.price_seed:
+        if args.price_seed and args.verbose > 0:
             # CSV and price_seed given
             print("WARNING: Multiple price sources detected. Using CSV.")
-    elif args.price_seed < 0:
+    elif args.price_seed is not None and args.price_seed < 0:
         # use single, fixed price
         events["grid_operator_signals"].append({
             "signal_time": start.isoformat(),
@@ -212,6 +194,10 @@ if __name__ == '__main__':
     for csv_path in pathlist:
         # get vehicle name from file name
         vehicle_name = str(csv_path.stem)[:-4]
+        if args.verbose >= 2:
+            # debug
+            print("Next vehicle: {}".format(csv_path))
+
         with open(csv_path, newline='') as csvfile:
             reader = csv.DictReader(csvfile)
 
@@ -222,10 +208,19 @@ if __name__ == '__main__':
             try:
                 v_type = row["car_type"]
             except KeyError:
-                print("Skipping {}, probably no vehicle file".format(csv_path))
+                if args.verbose >= 2:
+                    # debug
+                    print("Skipping {}, probably no vehicle file".format(csv_path))
                 continue
             # vehicle type must be known
             assert v_type in vehicle_types, "Unknown type for {}: {}".format(vehicle_name, v_type)
+            if vehicle_name in vehicles:
+                num_similar_name = sum([1 for v in vehicles.keys() if v.startswith(vehicle_name)])
+                vehicle_name_new = "{}_{}".format(vehicle_name, num_similar_name + 1)
+                if args.verbose > 0:
+                    print("WARNING: Vehicle name {} is not unique! "
+                          "Renamed to {}".format(vehicle_name, vehicle_name_new))
+                vehicle_name = vehicle_name_new
             # save initial vehicle data
             vehicles[vehicle_name] = {
                 "connected_charging_station": None,
@@ -263,7 +258,9 @@ if __name__ == '__main__':
                         vehicle_name, idx + 3)
                 # might want to avoid very low battery levels (configurable in config)
                 soc_threshold = args.min_soc_threshold
-                if simbev_soc_start < soc_threshold or simbev_soc_end < soc_threshold:
+                if args.verbose > 0 and (
+                        simbev_soc_start < soc_threshold
+                        or simbev_soc_end < soc_threshold):
                     print("WARNING: SimBEV created very low SoC for {} in row {}"
                           .format(vehicle_name, idx + 3))
 
@@ -281,18 +278,23 @@ if __name__ == '__main__':
                     # no charging station or don't need to charge
                     # just increase charging demand based on consumption
                     soc_needed += consumption / vehicle_capacity
-                    assert soc_needed <= 1 + vehicle_soc, \
-                        "Consumption too high for {} in row {}: \
-                        vehicle charged to {}, needs SoC of {} ({} kW)".format(
+                    assert soc_needed <= 1 + vehicle_soc + args.eps, (
+                        "Consumption too high for {} in row {}: "
+                        "vehicle charged to {}, needs SoC of {} ({} kW). "
+                        "This might be caused by rounding differences, "
+                        "consider to increase the arg '--eps'.".format(
                             vehicle_name, idx + 3, vehicle_soc,
-                            soc_needed, soc_needed * vehicle_capacity)
+                            soc_needed, soc_needed * vehicle_capacity))
                 else:
                     # charging station present
 
                     if not last_cs_event:
                         # first charge: initial must be enough
-                        assert vehicle_soc >= soc_needed, \
-                            "Initial charge for {} is not sufficient".format(vehicle_name)
+                        assert vehicle_soc >= soc_needed - args.eps, (
+                            "Initial charge for {} is not sufficient. "
+                            "This might be caused by rounding differences, "
+                            "consider to increase the arg '--eps'.".format(
+                                vehicle_name))
                     else:
                         # update desired SoC from last charging event
                         # this much charge must be in battery when leaving CS
@@ -309,7 +311,7 @@ if __name__ == '__main__':
                         possible_power = cs_power * charge_duration.seconds/3600
                         possible_soc = possible_power / vehicle_capacity
 
-                        if delta_soc > possible_soc:
+                        if delta_soc > possible_soc and args.verbose > 0:
                             print(
                                 "WARNING: Can't fulfill charging request for {} in ts {:.0f}. "
                                 "Need {:.2f} kWh in {:.2f} h ({:.0f} ts) from {} kW CS, "
@@ -388,7 +390,7 @@ if __name__ == '__main__':
 
                     while (
                         not args.include_price_csv
-                        and args.price_seed >= 0
+                        and (args.price_seed is None or args.price_seed >= 0)
                         and n_intervals >= price_interval * len(events["grid_operator_signals"])
                     ):
                         # at which timestep is price updated?
@@ -444,3 +446,55 @@ if __name__ == '__main__':
     # Write JSON
     with open(args.output, 'w') as f:
         json.dump(j, f, indent=2)
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(
+        description='Generate scenarios as JSON files for vehicle charging modelling \
+        from vehicle timeseries (e.g. SimBEV output).')
+    parser.add_argument('output', nargs='?', help='output file name (example.json)')
+    parser.add_argument('--simbev', metavar='DIR', type=str, help='set directory with SimBEV files')
+    parser.add_argument('--interval', metavar='MIN', type=int, default=15,
+                        help='set number of minutes for each timestep (Δt)')
+    parser.add_argument('--price-seed', metavar='X', type=int, default=0,
+                        help='set seed when generating energy market prices. \
+                        Negative values for fixed price in cents')
+    parser.add_argument('--min-soc', metavar='S', type=float, default=0.5,
+                        help='Set minimum desired SoC for each charging event. Default: 0.5')
+    parser.add_argument('--min-soc-threshold', type=float, default=0.05,
+                        help='SoC below this threshold trigger a warning. Default: 0.05')
+    parser.add_argument('--verbose', '-v', action='count', default=0,
+                        help='Set verbosity level. Use this multiple times for more output. '
+                             'Default: only errors, 1: warnings, 2: debug')
+
+    # csv files
+    parser.add_argument('--include-ext-load-csv',
+                        help='include CSV for external load. \
+                        You may define custom options with --include-ext-csv-option')
+    parser.add_argument('--include-ext-csv-option', '-eo', metavar=('KEY', 'VALUE'),
+                        nargs=2, default=[], action='append',
+                        help='append additional argument to external load')
+    parser.add_argument('--include-feed-in-csv',
+                        help='include CSV for energy feed-in, e.g., local PV. \
+                        You may define custom options with --include-feed-in-csv-option')
+    parser.add_argument('--include-feed-in-csv-option', '-fo', metavar=('KEY', 'VALUE'),
+                        nargs=2, default=[], action='append',
+                        help='append additional argument to feed-in load')
+    parser.add_argument('--include-price-csv',
+                        help='include CSV for energy price. \
+                        You may define custom options with --include-price-csv-option')
+    parser.add_argument('--include-price-csv-option', '-po', metavar=('KEY', 'VALUE'),
+                        nargs=2, default=[], action='append',
+                        help='append additional argument to price signals')
+    parser.add_argument('--config', help='Use config file to set arguments')
+
+    # other stuff
+    parser.add_argument('--eps', metavar='EPS', type=float, default=1e-10,
+                        help='Tolerance used for sanity checks, required due to possible '
+                             'rounding differences between simBEV and spiceEV. Default: 1e-10')
+
+    args = parser.parse_args()
+
+    set_options_from_config(args, check=True, verbose=False)
+
+    generate_from_simbev(args)

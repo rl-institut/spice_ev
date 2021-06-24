@@ -154,7 +154,7 @@ class Scenario:
 
         # next simulation timestep
 
-        print("Costs: {:.2f} €".format(sum(costs)))
+        print("Power from grid: {:.0f} kW, Costs: {:.2f} €".format(sum(totalLoad), sum(costs)))
         print("Renewable energy feed-in: {} kW, unused: {} kW ({}%)".format(
             round(totalFeedIn),
             round(unusedFeedIn),
