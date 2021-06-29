@@ -110,7 +110,6 @@ class ScheduleForesight(Strategy):
 
             # get new deviation from target
             cur_dev = (allowed_min_dev + allowed_max_dev) / 2
-            sum_dev = 0
 
             for ts_idx, ts_info in enumerate(gc_info):
                 target = ts_info["target"]
@@ -131,8 +130,7 @@ class ScheduleForesight(Strategy):
                     allowed_min_dev = cur_dev
                     break
 
-                sim_charge = self.charge_vehicles(sim_charging, target + cur_dev, sim_power_needed)
-                sum_dev += target - sum(sim_charge.values())
+                self.charge_vehicles(sim_charging, target + cur_dev, sim_power_needed)
             else:
                 # not failed during simulation
 
@@ -140,13 +138,10 @@ class ScheduleForesight(Strategy):
                     # can be charged with given schedule
                     break
 
-                # get remaining flexibility
-                flexibility = sum([get_power_needed(v) for v in sim_vehicles.values()])
-                if sum_dev > flexibility:
-                    # charged too much
+                # approach target
+                if cur_dev > 0:
                     allowed_max_dev = cur_dev
                 else:
-                    # can be charged more
                     allowed_min_dev = cur_dev
 
         # charge for real
