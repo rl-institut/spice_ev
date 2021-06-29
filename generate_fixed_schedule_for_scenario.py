@@ -87,10 +87,15 @@ def main():
     date = scenario.start_time.date()
     while date <= scenario.stop_time.date():
         datetime_from = datetime.datetime.combine(date, start_time)
-        datetime_until = datetime.datetime.combine(date + datetime.timedelta(days=1), end_time)
+
+        # Set the next date (skips sunday)
+        if datetime_from.weekday() == 5:
+            date = date + datetime.timedelta(days=2)
+        else:
+            date = date + datetime.timedelta(days=1)
+        datetime_until = datetime.datetime.combine(date, end_time)
         add_flexibility_for_date_and_vehicle_groups(time_series, datetime_from,
                                                     datetime_until, vehicle_groups)
-        date = date + datetime.timedelta(days=1)
 
     # Add percentage signal
     add_percentage_signal(time_series, max_load)
@@ -164,13 +169,13 @@ def spread_flexibility_on_priorities(time_series, datetime_from, datetime_until,
     :param min_load: The minimal load in the given flexibility window in kW
     :param max_load: The maximal load in the given flexibility window in kW
     """
-    min_steps = math.ceil(4 * flexibility / max_load)
-    max_steps = math.floor(4 * flexibility / min_load)
     priority = 1
     datetime_idx = get_time_series_indices_for_date_range(time_series,
                                                           datetime_from,
                                                           datetime_until)
     while flexibility > 0:
+        min_steps = math.ceil(4 * flexibility / max_load)
+        max_steps = math.floor(4 * flexibility / min_load)
         if priority > 4:
             raise ValueError('Division of flexibility is impossible')
         idx = [i for i in datetime_idx if time_series[i]['priority'] == priority]
