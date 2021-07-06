@@ -52,8 +52,8 @@ class Scenario:
         extLoads = []
         totalLoad = []
         disconnect = []
-        totalFeedIn = 0
-        unusedFeedIn = 0
+        feedInPower = []
+        unusedFeedIn = []
         batteryLevels = {k: [] for k in self.constants.batteries.keys()}
         connChargeByTS = []
 
@@ -88,6 +88,9 @@ class Scenario:
             cost = 0
             price = []
             curLoad = 0
+            curFeedIn = 0
+            curSurplus = 0
+
             for gc in gcs:
                 # loads without charging stations (external + feed-in)
                 stepLoads = {k: v for k, v in gc.current_loads.items()
@@ -102,9 +105,9 @@ class Scenario:
 
                 # sum up total feed-in power
                 feed_in_keys = self.events.energy_feed_in_lists.keys()
-                totalFeedIn -= sum([gc.current_loads.get(k, 0) for k in feed_in_keys])
+                curFeedIn -= sum([gc.current_loads.get(k, 0) for k in feed_in_keys])
                 # sum up unused feed-in power (negative total power)
-                unusedFeedIn -= min(gc.get_current_load(), 0)
+                curSurplus -= min(gc.get_current_load(), 0)
 
             # get SOC and connected CS of all connected vehicles
             cur_cs = []
@@ -142,6 +145,8 @@ class Scenario:
             prices.append(price)
             totalLoad.append(max(curLoad, 0))
             disconnect.append(cur_dis)
+            feedInPower.append(curFeedIn)
+            unusedFeedIn.append(curSurplus)
             connChargeByTS.append(cur_cs)
 
             # get battery levels
@@ -151,11 +156,14 @@ class Scenario:
         # next simulation timestep
 
         print("Power from grid: {:.0f} kW, Costs: {:.2f} €".format(sum(totalLoad), sum(costs)))
-        print("Renewable energy feed-in: {} kW, unused: {} kW ({}%)".format(
-            round(totalFeedIn),
-            round(unusedFeedIn),
-            round((unusedFeedIn)*100/totalFeedIn) if totalFeedIn > 0 else 0)
-        )
+        totalFeedIn = sum(feedInPower)
+        totalSurplus = sum(unusedFeedIn)
+        if totalFeedIn > 0:
+            print("Renewable energy feed-in: {} kW, unused: {} kW ({}%)".format(
+                round(totalFeedIn),
+                round(totalSurplus),
+                round((totalSurplus)*100/totalFeedIn) if totalFeedIn > 0 else 0)
+            )
         for batName, values in batteryLevels.items():
             print("Maximum stored power for {}: {:.2f} kW".format(batName, max(values)))
 
@@ -193,8 +201,23 @@ class Scenario:
                 # general info
                 header = ["timestep", "time"]
 
+                # timeseries power from grid
+                header.append("grid power")
+
+                # external loads
+                extLoadWithoutFeedIn = [
+                                        sum(ext.values()) + feedInPower[idx]
+                                        for idx, ext in enumerate(extLoads)]
+                hasExtLoads = sum(extLoadWithoutFeedIn) > 0
+                if hasExtLoads:
+                    header.append("ext. load")
+
+                # feed-in
+                if totalFeedIn > 0:
+                    header += ["feed-in", "surplus"]
+
                 # sum of charging power
-                header.append("sum power")
+                header.append("sum CS power")
                 # charging power per use case
                 header += ["sum UC {}".format(uc) for uc in uc_keys_present]
 
@@ -211,6 +234,20 @@ class Scenario:
                 for idx, r in enumerate(results):
                     # general info: timestep index and timestamp
                     row = [idx, r['current_time']]
+
+                    # grid power
+                    row.append(round(totalLoad[idx], round_to_places))
+
+                    # external loads
+                    if hasExtLoads:
+                        row.append(round(extLoadWithoutFeedIn[idx], round_to_places))
+
+                    # feed-in
+                    if totalFeedIn > 0:
+                        row += [
+                                round(feedInPower[idx], round_to_places),
+                                round(unusedFeedIn[idx], round_to_places)
+                        ]
 
                     # charging power
                     # get sum of all current CS power
