@@ -57,17 +57,34 @@ class Scenario:
         batteryLevels = {k: [] for k in self.constants.batteries.keys()}
         connChargeByTS = []
 
+        begin = datetime.datetime.now()
         for step_i in range(self.n_intervals):
 
-            width = 10
-            display_step = self.n_intervals / (width + 1)
-            # only print full steps
-            if step_i // display_step != (step_i - 1) // display_step:
-                progress = width * (step_i + 1) // self.n_intervals
-                print("[{}{}]\r".format(
-                    '#' * progress,
-                    '.' * (width - progress)
-                ), end="", flush=True)
+            if options["timing"]:
+                # show estimated time until finished after each simulation step
+                # get time since start
+                dt = datetime.datetime.now() - begin
+                # compute fraction of work finished
+                f = (step_i + 1) / self.n_intervals
+                # how much time total?
+                total_time = dt / f
+                # how much time left?
+                eta = total_time - dt
+                # remove sub-second resolution from time left
+                eta_str = str(eta).split('.')[0]
+                print("{} / {}, ETA {}\r".format(
+                    step_i, self.n_intervals, eta_str), end="", flush=True)
+            else:
+                # show progress bar
+                width = 10
+                display_step = self.n_intervals / (width + 1)
+                # only print full steps
+                if step_i // display_step != (step_i - 1) // display_step:
+                    progress = width * (step_i + 1) // self.n_intervals
+                    print("[{}{}]\r".format(
+                        '#' * progress,
+                        '.' * (width - progress)
+                    ), end="", flush=True)
 
             # run single timestep
             try:
