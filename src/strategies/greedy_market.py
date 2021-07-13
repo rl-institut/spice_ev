@@ -13,6 +13,7 @@ class GreedyMarket(Strategy):
         self.CONCURRENCY = 1.0
         self.PRICE_THRESHOLD = 0.001  # EUR/kWh
         self.HORIZON = 24  # hours ahead
+        self.SAFE_DISCHARGE = False
 
         super().__init__(constants, start_time, **kwargs)
         assert len(self.world_state.grid_connectors) == 1, "Only one grid connector supported"
@@ -60,6 +61,7 @@ class GreedyMarket(Strategy):
         cur_feed_in = {k: -v for k, v in gc.current_loads.items() if v < 0}
         cur_max_power = gc.cur_max_power
 
+        # ---------- GET NEXT EVENTS ---------- #
         timesteps = []
         vehicle_events = {vid: [] for vid in self.world_state.vehicles.keys()}
 
@@ -124,6 +126,8 @@ class GreedyMarket(Strategy):
         # order timesteps by cost for 1 kWh
         sorted_ts = sorted((util.get_cost(1, e["cost"]), idx) for idx, e in enumerate(timesteps))
 
+        # ---------- ITERATE OVER VEHICLES ---------- #
+
         for vid, vehicle in vehicles:
             cs_id = vehicle.connected_charging_station
             cs = self.world_state.charging_stations[cs_id]
@@ -141,7 +145,7 @@ class GreedyMarket(Strategy):
 
             # price above threshold: charge at times with low cost
             # take note of achieved soc, desired_soc for each standing period
-            charged_vec = [vehicle.battery.soc >= vehicle.desired_soc]
+            charged_vec = [vehicle.battery.soc >= vehicle.desired_soc - self.EPS]
             # generate profile for each timestep
             vehicle_info = [{
                 # fixed / init at new arrival event
@@ -181,7 +185,7 @@ class GreedyMarket(Strategy):
                         })
                         last_arrival_idx = ts_idx
                         standing = cur_event["standing"]
-                        charged_vec.append(cur_info["soc"] >= cur_info["desired_soc"])
+                        charged_vec.append(cur_info["soc"] >= cur_info["desired_soc"] - self.EPS)
                 vehicle_info.append(cur_info)
             # compute last fraction, depending on how much time left
             stand_horizon = timesteps_ahead - last_arrival_idx
@@ -189,10 +193,12 @@ class GreedyMarket(Strategy):
                 standing = stand_horizon
             for idx in range(last_arrival_idx, timesteps_ahead):
                 vehicle_info[idx]["desired_soc"] *= stand_horizon / standing
-            charged_vec[-1] = vehicle_info[-1]["soc"] >= vehicle_info[-1]["desired_soc"]
+            charged_vec[-1] = vehicle_info[-1]["soc"] >= vehicle_info[-1]["desired_soc"] - self.EPS
+
+            # ---------- SIMULATE CHARGE ---------- #
 
             # iterate timesteps by order of cheapest price
-            for (cost, ts_idx) in sorted_ts:
+            for sorted_idx, (cost, ts_idx) in enumerate(sorted_ts):
                 power = 0
                 ts_info = timesteps[ts_idx]
                 cv_info = vehicle_info[ts_idx]
@@ -246,7 +252,7 @@ class GreedyMarket(Strategy):
                         if cur_info["power"] > 0:
                             sim_battery.load(self.interval, cur_info["power"], desired_soc)
                         cur_info["soc"] = sim_battery.soc
-                        charged_vec[cur_info["stand_idx"]] = sim_battery.soc >= desired_soc
+                        charged_vec[cur_info["stand_idx"]] = sim_battery.soc >= desired_soc - self.EPS
 
                 # allocate charge (no double-spending)
                 ts_info["power"] -= power
@@ -262,6 +268,172 @@ class GreedyMarket(Strategy):
                 if need_charging == 0:
                     # all standing times satisfied -> vehicle done
                     break
+            # normal charging done
+
+            if not vehicle.vehicle_type.v2g:
+                # rest of loop is for V2G only
+                continue
+
+            # ---------- VEHICLE TO GRID ---------- #
+
+            # begin vehicle-to-grid/home at time with highest price
+            v2g_sorted_idx = len(sorted_ts)
+            while v2g_sorted_idx > (sorted_idx + 1):
+                sim_power = None
+                v2g_sorted_idx -= 1
+                v2g_cost, v2g_ts_idx = sorted_ts[v2g_sorted_idx]
+                if v2g_cost < self.PRICE_THRESHOLD:
+                    # too cheap for discharging energy: don't
+                    break
+
+                cv_info = vehicle_info[v2g_ts_idx]
+                cs_id = cv_info["cs_id"]
+                # assert cv_info["power"] == 0
+                if cv_info["power"] != 0:
+                    # already action at this TS
+                    continue
+
+                if cs_id is None:
+                    # not present
+                    continue
+
+                # save current solution for backtracing
+                old_charged_vec = deepcopy(charged_vec)
+                old_vehicle_info = deepcopy(vehicle_info)
+                old_timestep_info = deepcopy(timesteps)
+
+                # use maximum possible power when discharging
+                power = vehicle.battery.loading_curve.max_power
+                # set battery SoC (soc_delta subtracted later)
+                sim_battery.soc = cv_info["soc"] + cv_info["soc_delta"]
+                cv_info["power"] = -power
+                # make power available globally
+                timesteps[v2g_ts_idx]["power"] += power
+
+                if v2g_ts_idx == 0:
+                    # take note of power if current timestep
+                    # don't immediatley apply power, as it is uncertain if is valid
+                    sim_power = -power
+
+                # simulate next timesteps
+                for cur_info in vehicle_info[v2g_ts_idx:]:
+                    sim_battery.soc -= cur_info["soc_delta"]
+                    desired_soc = cur_info["desired_soc"]
+                    if cur_info["power"] > 0:
+                        # charge (even apove desired)
+                        sim_battery.load(self.interval, cur_info["power"])
+                    if cur_info["power"] < 0:
+                        # discharge / no action
+                        target_soc = cur_info["desired_soc"] if self.SAFE_DISCHARGE else 0
+                        sim_battery.unload(self.interval, -cur_info["power"], target_soc=target_soc)
+
+                    cur_info["soc"] = sim_battery.soc
+                    charged_vec[cur_info["stand_idx"]] = sim_battery.soc >= desired_soc
+                # end update next TS
+
+                old_sorted_idx = sorted_idx
+                need_charging = sum([1 - b for b in charged_vec])
+
+                # try to charge enough to offset V2G
+                # check all timesteps with price below that of V2G TS
+                # one more as break condition is at beginning of loop
+                for (cost, ts_idx) in sorted_ts[:(v2g_sorted_idx + 1)]:
+
+                    if need_charging == 0:
+                        break
+
+                    if v2g_cost <= cost:
+                        # same (or lower?) cost for discharging: don't charge
+                        continue
+
+                    # vehicle info at this TS
+                    cv_info = vehicle_info[ts_idx]
+                    # number of past trips with insufficient charge
+                    need_charging_past = sum([1 - b for b in charged_vec[:cv_info["stand_idx"]]])
+                    # number of future trips with insufficient charge
+                    need_charging_future = sum([1 - b for b in charged_vec[cv_info["stand_idx"]:]])
+                    if need_charging_past + need_charging_future == 0:
+                        # discharge can be compensated: stop charging (changes keep applied)
+                        break
+
+                    if need_charging_future == 0:
+                        # charging now does not help
+                        continue
+
+                    if cv_info["power"] != 0:
+                        # power previously applied
+                        continue
+
+                    cs_id = cv_info["cs_id"]
+                    if cs_id is None:
+                        # vehicle not present
+                        continue
+
+                    # TS in present or future with insufficient charge
+                    # charge with full power
+                    cs = self.world_state.charging_stations[cs_id]
+                    power = timesteps[ts_idx]["power"]
+                    power = util.clamp_power(power, vehicle, cs)
+                    # allocate power
+                    cv_info["power"] = power
+                    timesteps[ts_idx]["power"] -= power
+
+                    # reset battery to initial SoC (ignore soc_delta)
+                    sim_battery.soc = cv_info["soc"] + cv_info["soc_delta"]
+                    # simulate from this timestep, update future SoC and charged_vec
+                    for cur_info in vehicle_info[ts_idx:]:
+                        sim_battery.soc -= cur_info["soc_delta"]
+                        desired_soc = cur_info["desired_soc"]
+                        if cur_info["power"] > 0:
+                            # charge
+                            sim_battery.load(self.interval, cur_info["power"])
+                        if cur_info["power"] < 0:
+                            # discharge
+                            target_soc = cur_info["desired_soc"] if self.SAFE_DISCHARGE else 0
+                            sim_battery.unload(self.interval, -cur_info["power"], target_soc)
+                        cur_info["soc"] = sim_battery.soc
+                        charged_vec[cur_info["stand_idx"]] = sim_battery.soc >= desired_soc - self.EPS
+
+                    if ts_idx == 0:
+                        # current timestep: make note of charge (can be charged for real later)
+                        sim_power = power
+                else:
+                    # loop finished without getting break from discharge compensation:
+                    # vehicle could not be charged enough to offset discharge
+                    # reset states
+                    sim_power = None
+                    timesteps = old_timestep_info
+                    sorted_idx = old_sorted_idx
+                    charged_vec = old_charged_vec
+                    vehicle_info = old_vehicle_info
+
+                if sim_power is not None:
+                    # V2G possible, current timestep has power -> apply for real
+                    if sim_power > 0:
+                        # charge
+                        avg_power = vehicle.battery.load(self.interval, sim_power)['avg_power']
+                        charging_stations[cs_id] = gc.add_load(cs_id, avg_power)
+                        cs.current_power += avg_power
+
+                        # print(vid, vars(vehicle))
+                        # print(timesteps)
+                        # print(vehicle_info)
+                        # print(sim_power)
+                        # print(v2g_sorted_idx, v2g_cost, v2g_ts_idx)
+                        # raise Exception("Hi mum")
+
+                    else:
+                        # discharge
+                        target_soc = vehicle.desired_soc if self.SAFE_DISCHARGE else 0
+                        unload_info = vehicle.battery.unload(self.interval, -sim_power, target_soc)
+                        avg_power = unload_info["avg_power"]
+                        charging_stations[cs_id] = gc.add_load(cs_id, -avg_power)
+                        cs.current_power -= avg_power
+                # end apply power
+            # end loop V2G, try next lowest price
+        # end loop vehicle
+
+        # ---------- DISTRIBUTE SURPLUS ---------- #
 
         # all vehicles loaded
         # distribute surplus power to vehicles
