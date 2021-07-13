@@ -60,7 +60,7 @@ class Scenario:
         begin = datetime.datetime.now()
         for step_i in range(self.n_intervals):
 
-            if options["timing"]:
+            if options.get("timing", False):
                 # show estimated time until finished after each simulation step
                 # get time since start
                 dt = datetime.datetime.now() - begin
