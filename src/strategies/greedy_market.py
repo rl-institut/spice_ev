@@ -252,7 +252,8 @@ class GreedyMarket(Strategy):
                         if cur_info["power"] > 0:
                             sim_battery.load(self.interval, cur_info["power"], desired_soc)
                         cur_info["soc"] = sim_battery.soc
-                        charged_vec[cur_info["stand_idx"]] = sim_battery.soc >= desired_soc - self.EPS
+                        is_charged = sim_battery.soc >= desired_soc - self.EPS
+                        charged_vec[cur_info["stand_idx"]] = is_charged
 
                 # allocate charge (no double-spending)
                 ts_info["power"] -= power
@@ -392,7 +393,8 @@ class GreedyMarket(Strategy):
                             target_soc = cur_info["desired_soc"] if self.SAFE_DISCHARGE else 0
                             sim_battery.unload(self.interval, -cur_info["power"], target_soc)
                         cur_info["soc"] = sim_battery.soc
-                        charged_vec[cur_info["stand_idx"]] = sim_battery.soc >= desired_soc - self.EPS
+                        is_charged = sim_battery.soc >= desired_soc - self.EPS
+                        charged_vec[cur_info["stand_idx"]] = is_charged
 
                     if ts_idx == 0:
                         # current timestep: make note of charge (can be charged for real later)
