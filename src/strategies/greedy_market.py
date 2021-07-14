@@ -13,7 +13,7 @@ class GreedyMarket(Strategy):
         self.CONCURRENCY = 1.0
         self.PRICE_THRESHOLD = 0.001  # EUR/kWh
         self.HORIZON = 24  # hours ahead
-        self.SAFE_DISCHARGE = False
+        self.DISCHARGE_LIMIT = 0  # V2G: maximum depth of discharge [0-100]
 
         super().__init__(constants, start_time, **kwargs)
         assert len(self.world_state.grid_connectors) == 1, "Only one grid connector supported"
@@ -325,8 +325,7 @@ class GreedyMarket(Strategy):
                         sim_battery.load(self.interval, cur_info["power"])
                     if cur_info["power"] < 0:
                         # discharge / no action
-                        target_soc = cur_info["desired_soc"] if self.SAFE_DISCHARGE else 0
-                        sim_battery.unload(self.interval, -cur_info["power"], target_soc=target_soc)
+                        sim_battery.unload(self.interval, -cur_info["power"], self.DISCHARGE_LIMIT)
 
                     cur_info["soc"] = sim_battery.soc
                     charged_vec[cur_info["stand_idx"]] = sim_battery.soc >= desired_soc
@@ -390,8 +389,8 @@ class GreedyMarket(Strategy):
                             sim_battery.load(self.interval, cur_info["power"])
                         if cur_info["power"] < 0:
                             # discharge
-                            target_soc = cur_info["desired_soc"] if self.SAFE_DISCHARGE else 0
-                            sim_battery.unload(self.interval, -cur_info["power"], target_soc)
+                            sim_battery.unload(
+                                self.interval, -cur_info["power"], self.DISCHARGE_LIMIT)
                         cur_info["soc"] = sim_battery.soc
                         is_charged = sim_battery.soc >= desired_soc - self.EPS
                         charged_vec[cur_info["stand_idx"]] = is_charged
@@ -426,9 +425,8 @@ class GreedyMarket(Strategy):
 
                     else:
                         # discharge
-                        target_soc = vehicle.desired_soc if self.SAFE_DISCHARGE else 0
-                        unload_info = vehicle.battery.unload(self.interval, -sim_power, target_soc)
-                        avg_power = unload_info["avg_power"]
+                        avg_power = vehicle.battery.unload(
+                            self.interval, -sim_power, self.DISCHARGE_LIMIT)["avg_power"]
                         charging_stations[cs_id] = gc.add_load(cs_id, -avg_power)
                         cs.current_power -= avg_power
                 # end apply power
