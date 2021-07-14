@@ -9,7 +9,7 @@ class Battery:
         self.soc = soc
         self.efficiency = efficiency
 
-    def load(self, timedelta, max_charging_power, target_soc=100.0):
+    def load(self, timedelta, max_charging_power, target_soc=1):
         """ Adjust SOC and return average charging power for a given timedelta
         and maximum charging power.
         """
@@ -41,8 +41,8 @@ class Battery:
 
         # compute average power for each linear section
         # update SOC
-        # computes for whole time or until SOC is 100% (no next section)
-        while hours > EPS and target_soc - self.soc > EPS:  # self.soc < 100.0:
+        # computes for whole time or until target is reached
+        while hours > EPS and target_soc - self.soc > EPS:  # self.soc < target:
             while x2 - self.soc < EPS:  # self.soc >= x2:
                 # get next section
                 idx_1 += 1
@@ -64,10 +64,10 @@ class Battery:
             try:
                 if m == 0:
                     # simple constant charging
-                    t = (x2 - self.soc) * c / (n * 100)
+                    t = (x2 - self.soc) * c / n
                 else:
                     # inverse of exponential function
-                    t = log((x2 + n/m) / (self.soc + n/m)) * c/m / 100
+                    t = log((x2 + n/m) / (self.soc + n/m)) * c/m
             except (ValueError, ZeroDivisionError):
                 t = hours
 
@@ -76,14 +76,14 @@ class Battery:
 
             if m == 0:
                 # simple case: charging with constant power, regardless of SOC
-                new_soc = self.soc + (n/c * t)*100
+                new_soc = self.soc + (n/c * t)
             else:
                 # charge power dependent on SOC
                 # inhomogenous differential equation -> exponential function
-                new_soc = -n/m + (n/m + self.soc) * exp(m/c * 100 * t)
+                new_soc = -n/m + (n/m + self.soc) * exp(m/c * t)
 
             # compute energy and power
-            energy_delta = (new_soc - self.soc) / 100 * c
+            energy_delta = (new_soc - self.soc) * c
             power.append(energy_delta / t / self.efficiency)
             self.soc = new_soc
             hours -= t
@@ -101,7 +101,7 @@ class Battery:
         else:
             avg_power = min(max(max_power, 0), self.loading_curve.max_power)
 
-        delta_soc = max(self.soc - target_soc, 0) / 100
+        delta_soc = max(self.soc - target_soc, 0)
         hours = timedelta.total_seconds() / 3600.0
 
         # how long until target SOC reached?
@@ -113,7 +113,7 @@ class Battery:
 
         # discharge battery with average power over time
         delta_energy = avg_power * t
-        delta_soc = delta_energy / self.capacity * 100
+        delta_soc = delta_energy / self.capacity
         self.soc -= delta_soc
         avg_power = delta_energy / t * self.efficiency if t > 0 else 0
         return {'avg_power': avg_power, 'soc_delta': delta_soc}
@@ -135,12 +135,12 @@ class Battery:
             loading_power = clamped.power_from_soc(self.soc)
             avg_power += loading_power
             energy_delta = loading_power / 3600
-            delta_soc = 100.0 * energy_delta / self.capacity * self.efficiency
+            delta_soc = energy_delta / self.capacity * self.efficiency
             self.soc += delta_soc
 
-            if self.soc >= 100:
-                avg_power -= (loading_power * (100 - self.soc) / delta_soc / self.efficiency)
-                self.soc = 100
+            if self.soc >= 1:
+                avg_power -= (loading_power * (1 - self.soc) / delta_soc / self.efficiency)
+                self.soc = 1
                 break
 
         avg_power /= seconds

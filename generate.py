@@ -34,7 +34,7 @@ def generate(args):
             "name": "sprinter",
             "capacity": 70,  # kWh
             "mileage": 40,  # kWh / 100km
-            "charging_curve": [[0, 11], [80, 11], [100, 0]],  # SOC -> kWh
+            "charging_curve": [[0, 11], [0.8, 11], [1, 0]],  # SOC -> kWh
             "min_charging_power": 0,
             "count": 0
         },
@@ -42,7 +42,7 @@ def generate(args):
             "name": "E-Golf",
             "capacity": 50,
             "mileage": 16,
-            "charging_curve": [[0, 22], [80, 22], [100, 0]],
+            "charging_curve": [[0, 22], [0.8, 22], [1, 0]],
             "min_charging_power": 0,
             "count": 0
         }
@@ -65,7 +65,7 @@ def generate(args):
             v_name = "{}_{}".format(name, i)
             cs_name = "CS_" + v_name
             depart = start + datetime.timedelta(days=1, hours=6, minutes=15 * random.randint(0, 4))
-            soc = random.randint(50, 100)
+            soc = random.uniform(0.5, 1)
             vehicles[v_name] = {
                 "connected_charging_station": cs_name,
                 "estimated_time_of_departure": depart.isoformat(),
@@ -88,7 +88,7 @@ def generate(args):
         batteries["BAT{}".format(idx+1)] = {
             "parent": "GC1",
             "capacity": capacity,
-            "charging_curve": [[0, max_power], [100, max_power]]
+            "charging_curve": [[0, max_power], [1, max_power]]
         }
 
     events = {
@@ -208,7 +208,8 @@ def generate(args):
                 break
 
             capacity = vehicle_types[v["vehicle_type"]]["capacity"]
-            mileage = vehicle_types[v["vehicle_type"]]["mileage"]
+            # convert mileage per 100 km in 1 km
+            mileage = vehicle_types[v["vehicle_type"]]["mileage"] / 100
 
             # get distance for the day (computed before)
             distance = v.get("distance", random.gauss(avg_distance, std_distance))
@@ -312,8 +313,8 @@ if __name__ == '__main__':
                         help='set duration of scenario as number of days')
     parser.add_argument('--interval', metavar='MIN', type=int, default=15,
                         help='set number of minutes for each timestep (Δt)')
-    parser.add_argument('--min-soc', metavar='SOC', type=int, default=80,
-                        help='set minimum desired SOC (0%% - 100%%) for each charging process')
+    parser.add_argument('--min-soc', metavar='SOC', type=int, default=0.8,
+                        help='set minimum desired SOC (0 - 1) for each charging process')
     parser.add_argument('--battery', '-b', default=[], nargs=2, type=float, action='append',
                         help='add battery with specified capacity in kWh and C-rate \
                         (-1 for variable capacity, second argument is fixed power))')

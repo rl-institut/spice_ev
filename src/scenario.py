@@ -168,7 +168,7 @@ class Scenario:
 
             # get battery levels
             for batName, bat in strat.world_state.batteries.items():
-                batteryLevels[batName].append(bat.soc / 100 * bat.capacity)
+                batteryLevels[batName].append(bat.soc * bat.capacity)
 
         # next simulation timestep
 
@@ -332,7 +332,7 @@ class Scenario:
             # vehicles
             ax = plt.subplot(2, plots_top_row, 1)
             ax.set_title('Vehicles')
-            ax.set(ylabel='SOC in %')
+            ax.set(ylabel='SoC')
             lines = ax.step(xlabels, socs)
             # reset color cycle, so lines have same color
             ax.set_prop_cycle(None)

@@ -3,8 +3,8 @@ class LoadingCurve:
     """ The loading curve is described by a 2D graph with given known points.
     Values between known points are computed by linear interpolation.
 
-    x-axis: SOC in percent, 0 - 100%
-    y-axis: Possible charging power in kW 0 - ∞ kW
+    x-axis: state of charge [0 - 1]
+    y-axis: possible charging power in kW [0 - ∞ kW]
     """
     def __init__(self, points):
         self.points = []
@@ -14,12 +14,12 @@ class LoadingCurve:
             self.points.append((p[0], p[1]))
             self.max_power = max(p[1], self.max_power)
         assert self.points[0][0] == 0.0
-        assert self.points[-1][0] == 100.0
+        assert self.points[-1][0] == 1
 
     def power_from_soc(self, soc):
         """ Perform a lookup
         """
-        assert soc >= 0 and soc <= 100
+        assert 0 <= soc <= 1
 
         for i, p in enumerate(self.points):
             if p[0] >= soc:
