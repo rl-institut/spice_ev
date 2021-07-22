@@ -197,8 +197,15 @@ class GreedyMarket(Strategy):
 
             # ---------- SIMULATE CHARGE ---------- #
 
+            need_charging = sum([1 - b for b in charged_vec])
+            power_vec = [0]*len(timesteps)
+
             # iterate timesteps by order of cheapest price
             for sorted_idx, (cost, ts_idx) in enumerate(sorted_ts):
+                if need_charging == 0:
+                    # all standing times satisfied -> no need to charge
+                    continue
+
                 power = 0
                 ts_info = timesteps[ts_idx]
                 cv_info = vehicle_info[ts_idx]
@@ -246,17 +253,17 @@ class GreedyMarket(Strategy):
                     cv_info["power"] = power
                     # reset battery to initial SoC (ignore soc_delta)
                     sim_battery.soc = cv_info["soc"] + cv_info["soc_delta"]
-                    for cur_info in vehicle_info[ts_idx:]:
+                    for cur_idx, cur_info in enumerate(vehicle_info[ts_idx:]):
                         sim_battery.soc -= cur_info["soc_delta"]
                         desired_soc = cur_info["desired_soc"]
                         if cur_info["power"] > 0:
-                            sim_battery.load(self.interval, cur_info["power"], desired_soc)
+                            info = sim_battery.load(self.interval, cur_info["power"], desired_soc)
+                            power_vec[ts_idx + cur_idx] = info["avg_power"]
                         cur_info["soc"] = sim_battery.soc
                         is_charged = sim_battery.soc >= desired_soc - self.EPS
                         charged_vec[cur_info["stand_idx"]] = is_charged
 
-                # allocate charge (no double-spending)
-                ts_info["power"] -= power
+                    need_charging = sum([1 - b for b in charged_vec])
 
                 if ts_idx == 0 and power > 0:
                     # current timestep: charge for real
@@ -265,19 +272,20 @@ class GreedyMarket(Strategy):
                     charging_stations[cs_id] = gc.add_load(cs_id, avg_power)
                     cs.current_power += avg_power
 
-                need_charging = sum([1 - b for b in charged_vec])
-                if need_charging == 0:
-                    # all standing times satisfied -> vehicle done
-                    break
             # normal charging done
 
             if not vehicle.vehicle_type.v2g:
                 # rest of loop is for V2G only
+                # adjust available power
+                for ts_idx, ts_info in enumerate(timesteps):
+                    ts_info["power"] += power_vec[ts_idx]
                 continue
 
             # ---------- VEHICLE TO GRID ---------- #
 
             # begin vehicle-to-grid/home at time with highest price
+            # and stop once it reaches charging timestep
+            # off-by-one: v2g_sorted_idx is immediately decreased by one
             v2g_sorted_idx = len(sorted_ts)
             while v2g_sorted_idx > (sorted_idx + 1):
                 sim_power = None
@@ -289,7 +297,6 @@ class GreedyMarket(Strategy):
 
                 cv_info = vehicle_info[v2g_ts_idx]
                 cs_id = cv_info["cs_id"]
-                # assert cv_info["power"] == 0
                 if cv_info["power"] != 0:
                     # already action at this TS
                     continue
@@ -304,6 +311,7 @@ class GreedyMarket(Strategy):
                 old_timestep_info = deepcopy(timesteps)
 
                 # use maximum possible power when discharging
+                # assumption: can discharge with max loading curve power, regardless of SoC
                 power = vehicle.battery.loading_curve.max_power
                 # set battery SoC (soc_delta subtracted later)
                 sim_battery.soc = cv_info["soc"] + cv_info["soc_delta"]
@@ -317,15 +325,19 @@ class GreedyMarket(Strategy):
                     sim_power = -power
 
                 # simulate next timesteps
-                for cur_info in vehicle_info[v2g_ts_idx:]:
+                for cur_idx, cur_info in enumerate(vehicle_info[v2g_ts_idx:]):
                     sim_battery.soc -= cur_info["soc_delta"]
                     desired_soc = cur_info["desired_soc"]
                     if cur_info["power"] > 0:
-                        # charge (even apove desired)
-                        sim_battery.load(self.interval, cur_info["power"])
+                        # charge (even above desired)
+                        avg_power = sim_battery.load(self.interval, cur_info["power"])["avg_power"]
+                        power_vec[v2g_ts_idx + cur_idx] = avg_power
                     if cur_info["power"] < 0:
                         # discharge / no action
-                        sim_battery.unload(self.interval, -cur_info["power"], self.DISCHARGE_LIMIT)
+                        power = -cur_info["power"]
+                        limit = self.DISCHARGE_LIMIT
+                        avg_power = sim_battery.unload(self.interval, power, limit)["avg_power"]
+                        power_vec[v2g_ts_idx + cur_idx] = avg_power
 
                     cur_info["soc"] = sim_battery.soc
                     charged_vec[cur_info["stand_idx"]] = sim_battery.soc >= desired_soc
@@ -381,16 +393,19 @@ class GreedyMarket(Strategy):
                     # reset battery to initial SoC (ignore soc_delta)
                     sim_battery.soc = cv_info["soc"] + cv_info["soc_delta"]
                     # simulate from this timestep, update future SoC and charged_vec
-                    for cur_info in vehicle_info[ts_idx:]:
+                    for cur_idx, cur_info in enumerate(vehicle_info[ts_idx:]):
                         sim_battery.soc -= cur_info["soc_delta"]
                         desired_soc = cur_info["desired_soc"]
                         if cur_info["power"] > 0:
                             # charge
-                            sim_battery.load(self.interval, cur_info["power"])
+                            info = sim_battery.load(self.interval, cur_info["power"])
+                            power_vec[v2g_ts_idx + cur_idx] = info["avg_power"]
                         if cur_info["power"] < 0:
                             # discharge
-                            sim_battery.unload(
-                                self.interval, -cur_info["power"], self.DISCHARGE_LIMIT)
+                            power = -cur_info["power"]
+                            limit = self.DISCHARGE_LIMIT
+                            info = sim_battery.unload(self.interval, power, self.DISCHARGE_LIMIT)
+                            power_vec[v2g_ts_idx + cur_idx] = info["avg_power"]
                         cur_info["soc"] = sim_battery.soc
                         is_charged = sim_battery.soc >= desired_soc - self.EPS
                         charged_vec[cur_info["stand_idx"]] = is_charged
@@ -415,14 +430,6 @@ class GreedyMarket(Strategy):
                         avg_power = vehicle.battery.load(self.interval, sim_power)['avg_power']
                         charging_stations[cs_id] = gc.add_load(cs_id, avg_power)
                         cs.current_power += avg_power
-
-                        # print(vid, vars(vehicle))
-                        # print(timesteps)
-                        # print(vehicle_info)
-                        # print(sim_power)
-                        # print(v2g_sorted_idx, v2g_cost, v2g_ts_idx)
-                        # raise Exception("Hi mum")
-
                     else:
                         # discharge
                         avg_power = vehicle.battery.unload(
@@ -430,7 +437,13 @@ class GreedyMarket(Strategy):
                         charging_stations[cs_id] = gc.add_load(cs_id, -avg_power)
                         cs.current_power -= avg_power
                 # end apply power
-            # end loop V2G, try next lowest price
+            # end loop V2G
+
+            # update timesteps info: adjust available power
+            for ts_idx, ts_info in enumerate(timesteps):
+                ts_info["power"] += power_vec[ts_idx]
+
+            # try next lowest price
         # end loop vehicle
 
         # ---------- DISTRIBUTE SURPLUS ---------- #
