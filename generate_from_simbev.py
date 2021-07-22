@@ -8,6 +8,8 @@ from pathlib import Path
 import random
 
 from src.util import set_options_from_config
+from src.battery import Battery
+from src.loading_curve import LoadingCurve
 
 
 def generate_from_simbev(args):
@@ -232,18 +234,28 @@ def generate_from_simbev(args):
             # check that capacities match
             vehicle_capacity = vehicle_types[v_type]["capacity"]
             file_capacity = int(row["bat_cap"])
-            assert vehicle_capacity == file_capacity, (
-                "Capacity of vehicle {} does not match (in file: {}, in script: {})"
-                .format(vehicle_name, file_capacity, vehicle_capacity))
+            if vehicle_capacity != file_capacity:
+                print("WARNING: capacities of car type {} don't match "
+                      "(in file: {}, in script: {}). Using value from file.".
+                      format(v_type, file_capacity, vehicle_capacity))
+                vehicle_capacity = file_capacity
+                vehicle_types[v_type]["capacity"] = file_capacity
 
             # set initial charge
             last_cs_event = None
             soc_needed = 0.0
             park_start_ts = None
             park_end_ts = datetime_from_timestep(int(row['park_end']) + 1)
+            battery = Battery(
+                capacity=vehicle_capacity,
+                loading_curve=LoadingCurve(vehicle_types[v_type]["charging_curve"]),
+                soc=vehicle_soc,
+                efficiency=vehicle_types[v_type].get("efficiency", 0.95)
+            )
 
             # iterate next timesteps
             for idx, row in enumerate(reader):
+                is_charge_event = False
                 # read info from row
                 location = row["location"]
                 capacity = float(row["netto_charging_capacity"])
@@ -274,67 +286,96 @@ def generate_from_simbev(args):
                     "Consumption while charging for {} @ row {}".format(
                         vehicle_name, idx + 3)
 
-                if not cs_present:
-                    # no charging station or don't need to charge
-                    # just increase charging demand based on consumption
-                    soc_needed += consumption / vehicle_capacity
-                    assert soc_needed <= 1 + vehicle_soc + args.eps, (
-                        "Consumption too high for {} in row {}: "
-                        "vehicle charged to {}, needs SoC of {} ({} kW). "
-                        "This might be caused by rounding differences, "
-                        "consider to increase the arg '--eps'.".format(
-                            vehicle_name, idx + 3, vehicle_soc,
-                            soc_needed, soc_needed * vehicle_capacity))
-                else:
-                    # charging station present
+                # actual driving and charging behavior
+                if args.use_simbev_soc:
+                    if cs_present and float(row["chargingdemand"]) > 0:
+                        # arrival at new CS: use info from SimBEV directly
+                        is_charge_event = True
+                        desired_soc = float(row["SoC_end"])
+                        delta_soc = (vehicle_soc - float(row["SoC_start"]))
 
-                    if not last_cs_event:
-                        # first charge: initial must be enough
-                        assert vehicle_soc >= soc_needed - args.eps, (
-                            "Initial charge for {} is not sufficient. "
+                        # check if feasible: simulate with battery
+                        # set battery SoC to level when arriving
+                        battery.soc = float(row["SoC_start"])
+                        charge_duration = (int(row["park_end"]) - int(row["park_start"])) * interval
+                        battery.load(charge_duration, capacity)
+                        if battery.soc < float(row["SoC_end"]) and args.verbose > 0:
+                            print("WARNING: Can't fulfill charging request for {} in ts {:.0f}. "
+                                  "Desired SoC is set to {:.3f}, possible: {:.3f}"
+                                  .format(
+                                    vehicle_name, int(row["park_end"]),
+                                    desired_soc, battery.soc
+                                  ))
+                        vehicle_soc = desired_soc
+                        desired_soc *= 100  # float -> percent for file
+                else:
+                    # compute needed power and desired SoC independently from SimBEV
+                    if not cs_present:
+                        # no charging station or don't need to charge
+                        # just increase charging demand based on consumption
+                        soc_needed += consumption / vehicle_capacity
+                        assert soc_needed <= 1 + vehicle_soc + args.eps, (
+                            "Consumption too high for {} in row {}: "
+                            "vehicle charged to {}, needs SoC of {} ({} kW). "
                             "This might be caused by rounding differences, "
                             "consider to increase the arg '--eps'.".format(
-                                vehicle_name))
+                                vehicle_name, idx + 3, vehicle_soc,
+                                soc_needed, soc_needed * vehicle_capacity))
                     else:
-                        # update desired SoC from last charging event
-                        # this much charge must be in battery when leaving CS
-                        # to reach next CS (the one from current row)
-                        desired_soc = max(args.min_soc, soc_needed)
+                        # charging station present
+                        is_charge_event = True
 
-                        # this much must be charged
-                        delta_soc = max(desired_soc - vehicle_soc, 0)
+                        if not last_cs_event:
+                            # first charge: initial must be enough
+                            assert vehicle_soc >= soc_needed - args.eps, (
+                                "Initial charge for {} is not sufficient. "
+                                "This might be caused by rounding differences, "
+                                "consider to increase the arg '--eps'.".format(
+                                    vehicle_name))
+                        else:
+                            # update desired SoC from last charging event
+                            # this much charge must be in battery when leaving CS
+                            # to reach next CS (the one from current row)
+                            desired_soc = max(args.min_soc, soc_needed)
 
-                        # check if charging is possible in ideal case
-                        cs_name = last_cs_event["update"]["connected_charging_station"]
-                        cs_power = charging_stations[cs_name]["max_power"]
-                        charge_duration = park_end_ts - park_start_ts
-                        possible_power = cs_power * charge_duration.seconds/3600
-                        possible_soc = possible_power / vehicle_capacity
+                            # this much must be charged
+                            delta_soc = max(desired_soc - vehicle_soc, 0)
 
-                        if delta_soc > possible_soc and args.verbose > 0:
-                            print(
-                                "WARNING: Can't fulfill charging request for {} in ts {:.0f}. "
-                                "Need {:.2f} kWh in {:.2f} h ({:.0f} ts) from {} kW CS, "
-                                "possible: {} kWh"
-                                .format(
-                                    vehicle_name,
-                                    (park_end_ts - start)/interval,
-                                    desired_soc * vehicle_capacity,
-                                    charge_duration.seconds/3600,
-                                    charge_duration / interval,
-                                    cs_power, possible_power
-                                ))
+                            # check if charging is possible in ideal case
+                            cs_name = last_cs_event["update"]["connected_charging_station"]
+                            cs_power = charging_stations[cs_name]["max_power"]
+                            charge_duration = park_end_ts - park_start_ts
+                            possible_power = cs_power * charge_duration.seconds/3600
+                            possible_soc = possible_power / vehicle_capacity
 
-                        # update last charge event info: set desired SOC
-                        last_cs_event["update"]["desired_soc"] = desired_soc
-                        events["vehicle_events"].append(last_cs_event)
+                            if delta_soc > possible_soc and args.verbose > 0:
+                                print(
+                                    "WARNING: Can't fulfill charging request for {} in ts {:.0f}. "
+                                    "Need {:.2f} kWh in {:.2f} h ({:.0f} ts) from {} kW CS, "
+                                    "possible: {} kWh"
+                                    .format(
+                                        vehicle_name,
+                                        (park_end_ts - start)/interval,
+                                        desired_soc * vehicle_capacity,
+                                        charge_duration.seconds/3600,
+                                        charge_duration / interval,
+                                        cs_power, possible_power
+                                    ))
 
-                        # simulate charging
-                        vehicle_soc = max(vehicle_soc, desired_soc)
+                            # update last charge event info: set desired SOC
+                            last_cs_event["update"]["desired_soc"] = desired_soc
+                            events["vehicle_events"].append(last_cs_event)
 
-                    # update vehicle SOC: with how much SOC does car arrive at new CS?
-                    vehicle_soc -= soc_needed
+                            # simulate charging
+                            vehicle_soc = max(vehicle_soc, desired_soc)
 
+                        # reset desired SoC for next trip
+                        desired_soc = None
+
+                        # update vehicle SOC: with how much SOC does car arrive at new CS?
+                        vehicle_soc -= soc_needed
+
+                if is_charge_event:
                     # initialize new charge event
 
                     # setup charging point at location
@@ -367,6 +408,7 @@ def generate_from_simbev(args):
                     # arrival at new CS
                     park_end_idx = int(row["park_end"]) + 1
                     park_end_ts = datetime_from_timestep(park_end_idx)
+                    delta_soc = delta_soc if args.use_simbev_soc else soc_needed
                     last_cs_event = {
                         "signal_time": park_start_ts.isoformat(),
                         "start_time": park_start_ts.isoformat(),
@@ -375,10 +417,14 @@ def generate_from_simbev(args):
                         "update": {
                             "connected_charging_station": cs_name,
                             "estimated_time_of_departure": park_end_ts.isoformat(),
-                            "desired_soc": None,  # updated later
-                            "soc_delta": - soc_needed
+                            "desired_soc": desired_soc,  # may be None, updated later
+                            "soc_delta": - delta_soc
                         }
                     }
+
+                    if args.use_simbev_soc:
+                        # append charge event right away
+                        events["vehicle_events"].append(last_cs_event)
 
                     # reset distance (needed charge) to next CS
                     soc_needed = 0.0
@@ -463,6 +509,8 @@ if __name__ == '__main__':
                         help='Set minimum desired SoC for each charging event. Default: 0.5')
     parser.add_argument('--min-soc-threshold', type=float, default=0.05,
                         help='SoC below this threshold trigger a warning. Default: 0.05')
+    parser.add_argument('--use-simbev-soc', action='store_true',
+                        help='Use SoC columns from SimBEV files')
     parser.add_argument('--verbose', '-v', action='count', default=0,
                         help='Set verbosity level. Use this multiple times for more output. '
                              'Default: only errors, 1: warnings, 2: debug')
@@ -495,6 +543,6 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    set_options_from_config(args, check=True, verbose=False)
+    set_options_from_config(args, check=True, verbose=args.verbose >= 2)
 
     generate_from_simbev(args)
