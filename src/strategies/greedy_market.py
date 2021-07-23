@@ -201,10 +201,13 @@ class GreedyMarket(Strategy):
             power_vec = [0]*len(timesteps)
 
             # iterate timesteps by order of cheapest price
-            for sorted_idx, (cost, ts_idx) in enumerate(sorted_ts):
+            sorted_idx = -1
+            for cost, ts_idx in sorted_ts:
                 if need_charging == 0:
                     # all standing times satisfied -> no need to charge
                     continue
+
+                sorted_idx += 1
 
                 power = 0
                 ts_info = timesteps[ts_idx]
@@ -399,13 +402,13 @@ class GreedyMarket(Strategy):
                         if cur_info["power"] > 0:
                             # charge
                             info = sim_battery.load(self.interval, cur_info["power"])
-                            power_vec[v2g_ts_idx + cur_idx] = info["avg_power"]
+                            power_vec[ts_idx + cur_idx] = info["avg_power"]
                         if cur_info["power"] < 0:
                             # discharge
                             power = -cur_info["power"]
                             limit = self.DISCHARGE_LIMIT
                             info = sim_battery.unload(self.interval, power, self.DISCHARGE_LIMIT)
-                            power_vec[v2g_ts_idx + cur_idx] = info["avg_power"]
+                            power_vec[ts_idx + cur_idx] = info["avg_power"]
                         cur_info["soc"] = sim_battery.soc
                         is_charged = sim_battery.soc >= desired_soc - self.EPS
                         charged_vec[cur_info["stand_idx"]] = is_charged
