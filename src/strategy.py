@@ -84,9 +84,15 @@ class Strategy():
                     assert vehicle.connected_charging_station is not None
                     assert hasattr(vehicle, 'soc_delta')
                     vehicle.battery.soc += vehicle.soc_delta
-                    assert vehicle.battery.soc + self.EPS >= 0, (
-                        'SOC of vehicle {} should not be negative. SOC is {}, soc_delta was {}'
-                        .format(ev.vehicle_id, vehicle.battery.soc, vehicle.soc_delta))
+                    if vehicle.battery.soc + self.EPS < 0:
+                        if self.allow_negative_soc:
+                            print('Warning: SOC of vehicle {} became negative. SOC is {}, continuing with SOC = 0'
+                                  .format(ev.vehicle_id, vehicle.battery.soc))
+                            vehicle.battery.soc = 0
+                        else:
+                            raise ValueError(
+                                'SOC of vehicle {} should not be negative. SOC is {}, soc_delta was {}'
+                                .format(ev.vehicle_id, vehicle.battery.soc, vehicle.soc_delta))
                     delattr(vehicle, 'soc_delta')
             else:
                 raise Exception("Unknown event type: {}".format(ev))
