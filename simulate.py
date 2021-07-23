@@ -28,7 +28,7 @@ def simulate(args):
         'visual': args.visual,
         'margin': args.margin,
         'output': args.output,
-        'negative_soc': args.allow_negative_soc,
+        'allow_negative_soc': args.allow_negative_soc,
     }
 
     # parse strategy options
