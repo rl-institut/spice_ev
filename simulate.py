@@ -25,6 +25,7 @@ def simulate(args):
         raise SystemExit("Please specify a valid input file.")
 
     options = {
+        'timing': args.eta,
         'visual': args.visual,
         'margin': args.margin,
         'output': args.output,
@@ -73,6 +74,9 @@ if __name__ == '__main__':
                         nargs=2, action='append',
                         help='Append additional options to the charging strategy.')
     parser.add_argument('--visual', '-v', action='store_true', help='Show plots of the results')
+    parser.add_argument('--eta', action='store_true',
+                        help='Show estimated time to finish simulation after each step, \
+                        instead of progress bar. Not recommended for fast computations.')
     parser.add_argument('--output', '-o', help='Generate output file')
     parser.add_argument('--config', help='Use config file to set arguments')
     args = parser.parse_args()

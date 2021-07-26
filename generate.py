@@ -16,6 +16,8 @@ def generate(args):
     if args.output is None:
         raise SystemExit("The following argument is required: output")
 
+    random.seed(args.seed)
+
     if not args.cars:
         args.cars = [['2', 'golf'], ['3', 'sprinter']]
 
@@ -114,6 +116,8 @@ def generate(args):
         }
         if args.include_ext_csv_option:
             for key, value in args.include_ext_csv_option:
+                if key == "step_duration_s":
+                    value = int(value)
                 options[key] = value
         events['external_load'][basename] = options
         # check if CSV file exists
@@ -133,6 +137,8 @@ def generate(args):
         }
         if args.include_feed_in_csv_option:
             for key, value in args.include_feed_in_csv_option:
+                if key == "step_duration_s":
+                    value = int(value)
                 options[key] = value
         events['energy_feed_in'][basename] = options
         feed_in_path = path.join(target_path, filename)
@@ -150,6 +156,8 @@ def generate(args):
             "column": "price [ct/kWh]"
         }
         for key, value in args.include_price_csv_option:
+            if key == "step_duration_s":
+                value = int(value)
             options[key] = value
         events['energy_price_from_csv'] = options
         price_csv_path = path.join(target_path, filename)
@@ -317,6 +325,7 @@ if __name__ == '__main__':
     parser.add_argument('--battery', '-b', default=[], nargs=2, type=float, action='append',
                         help='add battery with specified capacity in kWh and C-rate \
                         (-1 for variable capacity, second argument is fixed power))')
+    parser.add_argument('--seed', default=None, type=int, help='set random seed')
 
     parser.add_argument('--include-ext-load-csv',
                         help='include CSV for external load. \
