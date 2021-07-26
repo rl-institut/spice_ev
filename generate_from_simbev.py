@@ -32,43 +32,43 @@ def generate_from_simbev(args):
         "bev_luxury": {
             "name": "bev_luxury",
             "capacity": 90,  # kWh
-            "mileage": 40,  # kWh / 100km
-            "charging_curve": [[0, 300], [80, 300], [100, 300]],  # SOC -> kWh
+            "mileage": 40,  # kWh / 100 km
+            "charging_curve": [[0, 300], [0.8, 300], [1, 300]],  # SOC -> kWh
             "min_charging_power": 0,
         },
         "bev_medium": {
             "name": "bev_medium",
             "capacity": 65,  # kWh
-            "mileage": 40,  # kWh / 100km
-            "charging_curve": [[0, 150], [80, 150], [100, 150]],  # SOC -> kWh
+            "mileage": 40,  # kWh / 100 km
+            "charging_curve": [[0, 150], [0.8, 150], [1, 150]],  # SOC -> kWh
             "min_charging_power": 0,
         },
         "bev_mini": {
             "name": "bev_mini",
             "capacity": 30,  # kWh
-            "mileage": 40,  # kWh / 100km
-            "charging_curve": [[0, 50], [80, 50], [100, 50]],  # SOC -> kWh
+            "mileage": 40,  # kWh / 100 km
+            "charging_curve": [[0, 50], [0.8, 50], [1, 50]],  # SOC -> kWh
             "min_charging_power": 0,
         },
         "phev_luxury": {
             "name": "phev_luxury",
             "capacity": 40,  # kWh
-            "mileage": 40,  # kWh / 100km
-            "charging_curve": [[0, 22], [80, 22], [100, 0]],  # SOC -> kWh
+            "mileage": 40,  # kWh / 100 km
+            "charging_curve": [[0, 22], [0.8, 22], [1, 0]],  # SOC -> kWh
             "min_charging_power": 0,
         },
         "phev_medium": {
             "name": "phev_medium",
             "capacity": 20,  # kWh
-            "mileage": 30,  # kWh / 100km
-            "charging_curve": [[0, 22], [80, 22], [100, 0]],  # SOC -> kWh
+            "mileage": 30,  # kWh / 100 km
+            "charging_curve": [[0, 22], [0.8, 22], [1, 0]],  # SOC -> kWh
             "min_charging_power": 0,
         },
         "phev_mini": {
             "name": "phev_mini",
             "capacity": 15,  # kWh
-            "mileage": 25,  # kWh / 100km
-            "charging_curve": [[0, 22], [80, 22], [100, 0]],  # SOC -> kWh
+            "mileage": 25,  # kWh / 100 km
+            "charging_curve": [[0, 22], [0.8, 22], [1, 0]],  # SOC -> kWh
             "min_charging_power": 0,
         },
     }
@@ -224,9 +224,10 @@ def generate_from_simbev(args):
                           "Renamed to {}".format(vehicle_name, vehicle_name_new))
                 vehicle_name = vehicle_name_new
             # save initial vehicle data
+            vehicle_soc = float(row["SoC_end"])
             vehicles[vehicle_name] = {
                 "connected_charging_station": None,
-                "soc": float(row["SoC_end"]) * 100,
+                "soc": vehicle_soc,
                 "vehicle_type": v_type
             }
 
@@ -241,7 +242,6 @@ def generate_from_simbev(args):
                 vehicle_types[v_type]["capacity"] = file_capacity
 
             # set initial charge
-            vehicle_soc = float(row["SoC_end"])
             last_cs_event = None
             soc_needed = 0.0
             park_start_ts = None
@@ -363,7 +363,7 @@ def generate_from_simbev(args):
                                     ))
 
                             # update last charge event info: set desired SOC
-                            last_cs_event["update"]["desired_soc"] = desired_soc * 100
+                            last_cs_event["update"]["desired_soc"] = desired_soc
                             events["vehicle_events"].append(last_cs_event)
 
                             # simulate charging
@@ -418,7 +418,7 @@ def generate_from_simbev(args):
                             "connected_charging_station": cs_name,
                             "estimated_time_of_departure": park_end_ts.isoformat(),
                             "desired_soc": desired_soc,  # may be None, updated later
-                            "soc_delta": - delta_soc * 100
+                            "soc_delta": - delta_soc
                         }
                     }
 

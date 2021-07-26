@@ -461,8 +461,8 @@ class Inverse(Strategy):
             if soc < vehicle.desired_soc:
                 # below desired SOC
                 needy_vehicles.append(vehicle)
-                desired_energy_need += soc / 100 * vehicle.battery.capacity
-            max_energy_need += (1 - soc/100) * vehicle.battery.capacity
+                desired_energy_need += soc * vehicle.battery.capacity
+            max_energy_need += (1 - soc) * vehicle.battery.capacity
 
         # load vehicles below desired SOC first
         used_power = 0
@@ -472,7 +472,7 @@ class Inverse(Strategy):
                 if self.LOAD_STRAT == 'greedy':
                     p = power - used_power
                 elif self.LOAD_STRAT == 'needy':
-                    vehicle_energy_need = vehicle.get_delta_soc() / 100 * vehicle.battery.capacity
+                    vehicle_energy_need = vehicle.get_delta_soc() * vehicle.battery.capacity
                     f = vehicle_energy_need / desired_energy_need
                     p = power * f
                 elif self.LOAD_STRAT == 'balanced':
@@ -489,7 +489,7 @@ class Inverse(Strategy):
                     avg_power = load['avg_power']
                     charging_stations[cs_id] = avg_power
                     used_power += avg_power
-                    max_energy_need -= load['soc_delta']/100 * vehicle.battery.capacity
+                    max_energy_need -= load['soc_delta'] * vehicle.battery.capacity
 
         # distribute surplus
         surplus_power = power - used_power
@@ -501,7 +501,7 @@ class Inverse(Strategy):
                 if self.LOAD_STRAT == 'greedy':
                     p = power - used_power
                 elif self.LOAD_STRAT == 'needy' and max_energy_need > 0:
-                    delta_soc = 1.0 - vehicle.battery.soc/100
+                    delta_soc = 1.0 - vehicle.battery.soc
                     f = delta_soc * vehicle.battery.capacity / max_energy_need
                     p = f * surplus_power
                 elif self.LOAD_STRAT == 'balanced':

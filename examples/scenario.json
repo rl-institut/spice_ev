@@ -10,27 +10,27 @@
             "name": "sprinter",
             "capacity": 70,
             "max_charging_power": 7,
-            "charging_curve": [[0, 7], [80, 7], [100, 0]]
+            "charging_curve": [[0, 7], [0.8, 7], [1, 0]]
         },
         "kleinwagen": {
             "name": "E-Golf",
             "capacity": 50,
             "max_charging_power": 22,
-            "charging_curve": [[0, 22], [80, 22], [100, 0]]
+            "charging_curve": [[0, 22], [0.8, 22], [1, 0]]
         }
     },
     "vehicles": {
         "V1": {
             "connected_charging_station": "C1",
             "estimated_time_of_departure": "2020-01-02T00:08:00+02:00",
-            "desired_soc": 90,
-            "soc": 100,
+            "desired_soc": 0.9,
+            "soc": 1,
             "vehicle_type": "sprinter"
         },
         "V2": {
             "connected_charging_station": null,
             "estimated_time_of_departure": null,
-            "soc": 85,
+            "soc": 0.85,
             "vehicle_type": "sprinter"
         }
     },
@@ -41,7 +41,7 @@
     },
     "charging_stations": {
         "C1": {
-            "max_power": 100,
+            "max_power": 75,
             "parent": "GC1"
         },
         "C2": {
@@ -70,7 +70,7 @@
     },
     "grid_operator_signals": [
       {
-        "signal_time": "2019-12-31T23:00:00+02:00",
+        "signal_time": "2020-01-01T00:00:00+02:00",
         "grid_connector_id": "GC1",
         "start_time": "2020-01-01T00:00:00+02:00",
         "max_power": null,
@@ -80,19 +80,19 @@
         }
       },
       {
-        "signal_time": "2019-12-31T23:00:00+02:00",
+        "signal_time": "2020-01-01T00:00:00+02:00",
         "grid_connector_id": "GC1",
         "start_time": "2020-01-01T00:15:00+02:00",
         "max_power": null,
         "cost": {
           "type": "fixed",
-          "value": 100
+          "value": 42
         }
       }
     ],
     "vehicle_events": [
       {
-        "signal_time": "2019-12-31T23:00:00+02:00",
+        "signal_time": "2020-01-01T08:00:00+02:00",
         "start_time": "2020-01-01T08:00:00+02:00",
         "vehicle_id": "V1",
         "event_type": "departure",
@@ -101,15 +101,15 @@
         }
       },
       {
-        "signal_time": "2019-12-31T23:00:00+02:00",
+        "signal_time": "2020-01-01T17:00:00+02:00",
         "start_time": "2020-01-01T17:00:00+02:00",
         "vehicle_id": "V1",
         "event_type": "arrival",
         "update": {
             "connected_charging_station": "C1",
             "estimated_time_of_departure": "2020-01-03T00:08:00+02:00",
-            "desired_soc": 90,
-            "soc_delta": -12
+            "desired_soc": 0.90,
+            "soc_delta": -0.12
         }
       }
     ]
