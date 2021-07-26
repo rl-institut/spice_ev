@@ -87,7 +87,7 @@ class Strategy():
                     vehicle.battery.soc += vehicle.soc_delta
                     if vehicle.battery.soc + self.EPS < 0:
                         if self.allow_negative_soc:
-                            print('Warning: SOC of vehicle {} became negative at {}. SOC is {},'
+                            print('Warning: SOC of vehicle {} became negative at {}. SOC is {}, '
                                   'continuing with SOC = 0'
                                   .format(ev.vehicle_id, self.current_time, vehicle.battery.soc))
                             vehicle.battery.soc = 0
