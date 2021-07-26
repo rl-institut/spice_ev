@@ -307,7 +307,6 @@ def generate_from_simbev(args):
                                     desired_soc, battery.soc
                                   ))
                         vehicle_soc = desired_soc
-                        desired_soc *= 100  # float -> percent for file
                 else:
                     # compute needed power and desired SoC independently from SimBEV
                     if not cs_present:
