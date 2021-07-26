@@ -17,8 +17,8 @@ if __name__ == '__main__':
                         help='resolution of timestep in minutes')
     args = parser.parse_args()
 
-    capacity = 100
-    charging_curve = LoadingCurve([[0, 11], [80, 11], [100, 0]])
+    capacity = 150
+    charging_curve = LoadingCurve([[0, 11], [0.8, 11], [1, 0]])
     soc = 0
     efficiency = 0.5
     battery = Battery(capacity, charging_curve, soc, efficiency)
@@ -31,7 +31,7 @@ if __name__ == '__main__':
     td = timedelta(minutes=args.resolution)
     ts_per_hour = timedelta(hours=1) / td
     for i in range(args.timesteps):
-        pwr1 += battery.load(td, battery.loading_curve.max_power, 100)["avg_power"] / ts_per_hour
+        pwr1 += battery.load(td, battery.loading_curve.max_power)["avg_power"] / ts_per_hour
         pwr2 += compare.load_iterative(
             td, compare.loading_curve.max_power)["avg_power"] / ts_per_hour
         socs.append([battery.soc, compare.soc])
@@ -40,5 +40,5 @@ if __name__ == '__main__':
 
     fig, axes = plt.subplots()
     lines = axes.plot(socs)
-    axes.legend(lines, ["simulate", "compare"])
+    axes.legend(lines, ["simulate", "iterative"])
     plt.show()

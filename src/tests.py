@@ -6,6 +6,7 @@ from src import battery, loading_curve, scenario
 
 
 def get_test_json():
+    # get minimum working json example
     return {
         "scenario": {
             "start_time": "2020-01-01T00:00:00+02:00",
@@ -30,23 +31,28 @@ def get_test_json():
 class TestScenario(unittest.TestCase):
 
     def test_scenario_times(self):
+        # corect number of timesteps?
         j = get_test_json()
         s = scenario.Scenario(j)
         self.assertEqual(s.n_intervals, 35040)
 
+        # either n_intervals or stop time, not both
         j['scenario']['stop_time'] = "2020-01-01T01:00:00+02:00"
         with self.assertRaises(AssertionError):
             s = scenario.Scenario(j)
 
+        # remove n_intervals, stop time remains: success, four timesteps
         del j['scenario']['n_intervals']
         s = scenario.Scenario(j)
         self.assertEqual(s.n_intervals, 4)
 
     def test_file(self):
+        # open from file
         with open('examples/scenario.json', 'r') as f:
             scenario.Scenario(json.load(f), "")
 
     def test_greedy(self):
+        # test basic strategy
         s = scenario.Scenario(get_test_json(), None)
         s.run('greedy', {})
 
@@ -57,43 +63,48 @@ def approx_eq(x, y, eps=1e-3):
 
 class TestLoadingCurve(unittest.TestCase):
     def test_creation(self):
-        points = [(50.0, 100.0), (0.0, 100.0), (100.0, 0.0)]
+        # basic loading curve
+        points = [(0.5, 42), (0, 42), (1, 0)]
         lc = loading_curve.LoadingCurve(points)
         assert lc.points[0][0] == 0.0
 
     def test_power_from_soc(self):
-        points = [(0.0, 100.0), (50.0, 100.0), (100.0, 0.0)]
+        # test correct inverse
+        points = [(0, 42), (0.5, 42), (1, 0)]
         lc = loading_curve.LoadingCurve(points)
 
-        assert lc.power_from_soc(0) == 100.0
-        assert lc.power_from_soc(25) == 100.0
-        assert lc.power_from_soc(50) == 100.0
-        assert lc.power_from_soc(75) == 50.0
-        assert lc.power_from_soc(100) == 0.0
-        assert lc.power_from_soc(100) != 100
+        assert lc.power_from_soc(0.00) == 42.0
+        assert lc.power_from_soc(0.25) == 42.0
+        assert lc.power_from_soc(0.50) == 42.0
+        assert lc.power_from_soc(0.75) == 21.0
+        assert lc.power_from_soc(1.00) == 0.0
+
+        # simple line
+        points = [(0, 1), (1, 0)]
+        lc = loading_curve.LoadingCurve(points)
+        for x in range(101):
+            assert lc.power_from_soc(x/100) == 1 - x/100
 
     def test_clamp(self):
-        points = [(0.0, 100.0), (50.0, 100.0), (100.0, 0.0)]
+        # test clamped loading curve
+        points = [(0, 42), (0.5, 42), (1, 0)]
         lc = loading_curve.LoadingCurve(points)
-        lc2 = lc.clamped(100)
+        lc2 = lc.clamped(42)
 
+        # clamped at max value: no change
         for x in range(101):
-            assert lc.power_from_soc(x) == lc2.power_from_soc(x)
+            assert lc.power_from_soc(x/100) == lc2.power_from_soc(x/100)
 
-        lc2 = lc.clamped(75)
+        # clamped below max value: take min
+        lc2 = lc.clamped(32)
         for x in range(101):
-            assert approx_eq(min(75, lc.power_from_soc(x)), lc2.power_from_soc(x))
-
-        points = [(0.0, 100.0), (50.0, 50), (100.0, 0.0)]
-        lc = loading_curve.LoadingCurve(points)
-        lc2 = lc.clamped(75)
-        for x in range(101):
-            assert approx_eq(min(75, lc.power_from_soc(x)), lc2.power_from_soc(x))
+            assert approx_eq(min(32, lc.power_from_soc(x/100)), lc2.power_from_soc(x/100))
 
 
 class TestBattery(unittest.TestCase):
     def test_creation(self):
-        points = [(0.0, 100.0), (50.0, 100.0), (100.0, 0.0)]
+        # basic battery instance
+        points = [(0, 42), (0.5, 42), (1, 0)]
         lc = loading_curve.LoadingCurve(points)
         bat = battery.Battery(100, lc, 0)
         print(bat)
@@ -102,9 +113,9 @@ class TestBattery(unittest.TestCase):
     def test_load(self):
         import matplotlib.pyplot as plt
 
-        points = [(0.0, 100.0), (50.0, 100.0), (100.0, 0.0)]
+        points = [(0, 42), (0.5, 42), (1, 0)]
         lc = loading_curve.LoadingCurve(points)
-        bat = battery.Battery(100, lc, 0)
+        bat = battery.Battery(42, lc, 0)
 
         x = []
         y = []
@@ -112,7 +123,7 @@ class TestBattery(unittest.TestCase):
         for t in range(3600*3):
             x.append(t)
             y.append(bat.soc)
-            bat.load(tdelta, 100)
+            bat.load(tdelta, 42)
 
         fig, ax = plt.subplots()
         ax.plot(x, y)
@@ -122,7 +133,7 @@ class TestBattery(unittest.TestCase):
     def test_charging(self):
         # charge one battery with 10 kW for one hour and another battery with 1 kW for 10 hours
         # SoC and used energy must be the same
-        points = [(0.0, 100.0), (50.0, 100.0), (100.0, 0.0)]
+        points = [(0, 42), (0.5, 42), (1, 0)]
         lc = loading_curve.LoadingCurve(points)
         b1 = battery.Battery(100, lc, 0)
         b2 = battery.Battery(100, lc, 0)
