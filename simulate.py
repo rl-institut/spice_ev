@@ -28,7 +28,6 @@ def simulate(args):
         'visual': args.visual,
         'margin': args.margin,
         'output': args.output,
-        'allow_negative_soc': args.allow_negative_soc,
     }
 
     # parse strategy options
@@ -77,7 +76,6 @@ if __name__ == '__main__':
     parser.add_argument('--eta', action='store_true',
                         help='Show estimated time to finish simulation after each step, \
                         instead of progress bar. Not recommended for fast computations.')
-    parser.add_argument('--allow_negative_soc', action='store_true', help='Generate output file')
     parser.add_argument('--output', '-o', help='Generate output file')
     parser.add_argument('--config', help='Use config file to set arguments')
     args = parser.parse_args()
