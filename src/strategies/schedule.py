@@ -45,7 +45,7 @@ class Schedule(Strategy):
 
             power_needed = []
             for vehicle, _ in vehicles:
-                soc_needed = 1 - (vehicle.battery.soc / 100)
+                soc_needed = 1 - vehicle.battery.soc
                 power_needed.append(soc_needed * vehicle.battery.capacity)
 
             if total_power < self.EPS or sum(power_needed) < self.EPS:
@@ -55,7 +55,7 @@ class Schedule(Strategy):
             if self.LOAD_STRAT == "balanced":
                 # distribute power to vehicles
                 # remove vehicles at capacity limit
-                vehicles = [v for v in vehicles if v[0].battery.soc < 100 - self.EPS]
+                vehicles = [v for v in vehicles if v[0].battery.soc < 1 - self.EPS]
 
                 # distributed power must be enough for all vehicles (check lower limit)
                 # as this might not be enough, remove vehicles from queue
