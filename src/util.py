@@ -42,6 +42,12 @@ def get_cost(x, cost_dict):
             cost += coeff * base
             base *= x
         return cost
+    elif cost_dict["type"] == "step":
+        steps = cost_dict["value"]
+        for i, val in enumerate(steps):
+            if steps[i][1] <= cost_dict["size"] <= steps[i + 1][1]:
+                profit = x * val[1]
+        return profit
     else:
         raise NotImplementedError
 
