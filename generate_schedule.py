@@ -279,7 +279,7 @@ def generate_schedule(args):
             label="priorities")
         axes[2].legend()
         axes[2].set_xlim([0, s.n_intervals])
-        axes[2].set_yticks([1,2,3,4])
+        axes[2].set_yticks([1, 2, 3, 4])
         plt.show()
 
 
