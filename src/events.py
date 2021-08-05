@@ -179,6 +179,7 @@ def get_schedule_from_csv(obj, dir_path):
         # assert col in reader.fieldnames, "'{}' is not a column of {}".format(col, obj['csv_file'])
         reader = csv.reader(csvfile, delimiter=',', quotechar='"')
         header = next(reader)
+        header = list(map(lambda x: x.strip(), header))
         try:
             col_idx = header.index(col)
         except ValueError:
