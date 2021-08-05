@@ -52,6 +52,38 @@ def get_cost(x, cost_dict):
         raise NotImplementedError
 
 
+def look_up(x, points, type='step'):
+    """ Perform a lookup
+    """
+    assert x >= 0
+
+    for i, p in enumerate(points):
+        if p[0] >= x:
+            if i == 0:
+                # first point
+                return p[1]
+            else:
+                prev_point = points[i - 1]
+
+                if type == 'step':
+                    value = prev_point[1]
+                elif type == 'linear':
+                    x_a = prev_point[0]
+                    x_b = p[0]
+                    t = (x - x_a) / (x_b - x_a)
+                    val_a = prev_point[1]
+                    val_b = p[1]
+
+                    # lerp
+                    value = val_a + (val_b - val_a) * t
+                elif type == 'poly':
+                    raise NotImplementedError
+                else:
+                    raise ValueError(type)
+
+                return value
+
+
 def get_power(y, cost_dict):
     # how much power for a given price?
     if y is None:
