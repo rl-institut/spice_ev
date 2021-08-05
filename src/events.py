@@ -16,7 +16,7 @@ class Events:
         self.energy_feed_in_lists = dict(
             {k: EnergyValuesList(v, dir_path) for k, v in obj.get('energy_feed_in', {}).items()})
         self.grid_operator_signals = list(
-            [GridOperatorSignal(x) for x in obj.get('grid_operator_signals')])
+            [GridOperatorSignal(x) for x in obj.get('grid_operator_signals', [])])
         self.grid_operator_signals += get_energy_price_list_from_csv(
             obj.get('energy_price_from_csv', None), dir_path)
         self.vehicle_events = list(
