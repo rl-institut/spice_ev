@@ -164,7 +164,7 @@ class Scenario:
             socs.append(cur_socs)
             costs.append(cost)
             prices.append(price)
-            totalLoad.append(max(curLoad, 0))
+            totalLoad.append(curLoad)
             disconnect.append(cur_dis)
             feedInPower.append(curFeedIn)
             unusedFeedIn.append(curSurplus)
@@ -217,10 +217,18 @@ class Scenario:
 
             uc_keys_present = cs_by_uc.keys()
 
+            scheduleKeys = []
+            for gcID in sorted(gcPowerSchedule.keys()):
+                if any(s is not None for s in gcPowerSchedule[gcID]):
+                    scheduleKeys.append(gcID)
+
             with open(options['output'], 'w') as output_file:
                 # write header
                 # general info
                 header = ["timestep", "time"]
+
+                # schedule (where exists)
+                header += ["schedule {}".format(gcID) for gcID in scheduleKeys]
 
                 # timeseries power from grid
                 header.append("grid power")
@@ -255,6 +263,11 @@ class Scenario:
                 for idx, r in enumerate(results):
                     # general info: timestep index and timestamp
                     row = [idx, r['current_time']]
+
+                    # schedule
+                    row += [
+                        round(gcPowerSchedule[gcID][idx], round_to_places)
+                        for gcID in scheduleKeys]
 
                     # grid power
                     row.append(round(totalLoad[idx], round_to_places))
