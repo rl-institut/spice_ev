@@ -2,12 +2,12 @@
 
 import argparse
 import csv
+import datetime
 import json
 import os
 
 from src import scenario, strategy, util
 
-PRIO_BELOW_MAX = 0.9  # try to stay below 90% of max load
 EPS = 1e-8
 
 
@@ -73,7 +73,7 @@ def generate_flex_band(scenario):
                     # just arrived
                     charging_power = v.battery.loading_curve.max_power
                     vehicle_power_needed = max(v.get_delta_soc(), 0) * v.battery.capacity
-                    v.battery.soc = v.desired_soc
+                    v.battery.soc = max(v.battery.soc, v.desired_soc)
                     v2g = v.battery.get_available_power(s.interval) if v.vehicle_type.v2g else 0
                     cars[vid] = [charging_power, vehicle_power_needed, v2g]
 
@@ -133,6 +133,8 @@ def generate_schedule(args):
 
     assert len(s.constants.grid_connectors) == 1, "Only one grid connector supported"
 
+    ts_per_hour = datetime.timedelta(hours=1) / s.interval
+
     # compute flexibility potential (min/max) for each timestep
     flex = generate_flex_band(s)
 
@@ -156,7 +158,7 @@ def generate_schedule(args):
         if surplus[t] > 0:
             # highest priority: surplus (must be capped)
             priorities[t] = 1
-        elif brutto[t] > PRIO_BELOW_MAX * max_load:
+        elif brutto[t] > (1 - args.max_load_range) * max_load:
             # don't charge if load close to max load
             priorities[t] = 2
         elif brutto[t] < 0:
@@ -168,7 +170,7 @@ def generate_schedule(args):
 
     for interval in flex["intervals"]:
         # loop until all needs satisfied
-        power_needed = interval["needed"]
+        power_needed = interval["needed"] * ts_per_hour
 
         for priority in [2, 4]:
             # power close to max or default: discharge V2G
@@ -277,6 +279,7 @@ def generate_schedule(args):
             label="priorities")
         axes[2].legend()
         axes[2].set_xlim([0, s.n_intervals])
+        axes[2].set_yticks([1,2,3,4])
         plt.show()
 
 
@@ -290,7 +293,7 @@ if __name__ == '__main__':
     parser.add_argument('--output', '-o',
                         help='Specify schedule file name, '
                         'defaults to <scenario>_schedule.csv')
-    parser.add_argument('--max_load_range', default=0.1,
+    parser.add_argument('--max-load-range', default=0.1, type=float,
                         help='Area around max_load that should be discouraged')
     parser.add_argument('--flexibility_per_car', default=16, help='Flexibility of each car in kWh')
     parser.add_argument('--start_time', default='20:00:00', help='Start time of flexibility window')
