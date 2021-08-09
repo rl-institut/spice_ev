@@ -72,8 +72,8 @@ class Scenario:
                 eta = total_time - dt
                 # remove sub-second resolution from time left
                 eta_str = str(eta).split('.')[0]
-                print("{} / {}, ETA {}".format(
-                    step_i, self.n_intervals, eta_str), end='\r', flush=True)
+                print("\r{} / {}, ETA {}".format(
+                    step_i, self.n_intervals, eta_str), end='', flush=True)
             else:
                 # show progress bar
                 width = 10
@@ -81,10 +81,10 @@ class Scenario:
                 # only print full steps
                 if step_i // display_step != (step_i - 1) // display_step:
                     progress = width * (step_i + 1) // self.n_intervals
-                    print("[{}{}]".format(
+                    print("\r[{}{}]".format(
                         '#' * progress,
                         '.' * (width - progress)
-                    ), end='\r', flush=True)
+                    ), end='', flush=True)
 
             # run single timestep
             try:
@@ -172,7 +172,8 @@ class Scenario:
 
         # next simulation timestep
 
-        print("Power from grid: {:.0f} kW, Costs: {:.2f} €".format(sum(totalLoad), sum(costs)))
+        # display simulation info
+        print("\rPower from grid: {:.0f} kW, Costs: {:.2f} €".format(sum(totalLoad), sum(costs)))
         totalFeedIn = sum(feedInPower)
         totalSurplus = sum(unusedFeedIn)
         if totalFeedIn > 0:
