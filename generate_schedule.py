@@ -295,9 +295,6 @@ if __name__ == '__main__':
                         'defaults to <scenario>_schedule.csv')
     parser.add_argument('--max-load-range', default=0.1, type=float,
                         help='Area around max_load that should be discouraged')
-    parser.add_argument('--flexibility_per_car', default=16, help='Flexibility of each car in kWh')
-    parser.add_argument('--start_time', default='20:00:00', help='Start time of flexibility window')
-    parser.add_argument('--end_time', default='05:45:00', help='End time of flexibility window')
     parser.add_argument('--visual', '-v', action='store_true', help='Plot flexibility and schedule')
     parser.add_argument('--config', help='Use config file to set arguments')
 
