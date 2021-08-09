@@ -112,7 +112,9 @@ class ScheduleForesight(Strategy):
         deviation = 0
         # keep track of previous values so as not to run in circles
         prev_power_deltas = []
-        while True:
+        max_dev = gc.max_power - gc.target
+        min_dev = -gc.max_power - gc.target
+        while min_dev <= deviation <= max_dev:
             # reset SoC
             for vid, sim_vehicle in sim_vehicles.items():
                 sim_vehicle.battery.soc = vehicles[vid].battery.soc
