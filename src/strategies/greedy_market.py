@@ -47,6 +47,8 @@ class GreedyMarket(Strategy):
 
         # dict to hold charging commands
         charging_stations = {}
+        # list including ID of all V2G charging stations, used to compute remaining GC power
+        discharging_stations = []
         # reset charging station power (nothing charged yet in this timestep)
         for cs in self.world_state.charging_stations.values():
             cs.current_power = 0
@@ -439,6 +441,7 @@ class GreedyMarket(Strategy):
                             self.interval, -sim_power, self.DISCHARGE_LIMIT)["avg_power"]
                         charging_stations[cs_id] = gc.add_load(cs_id, -avg_power)
                         cs.current_power -= avg_power
+                        discharging_stations.append(cs_id)
                 # end apply power
             # end loop V2G
 
@@ -457,30 +460,33 @@ class GreedyMarket(Strategy):
         for vid, vehicle in vehicles:
             cs_id = vehicle.connected_charging_station
             cs = self.world_state.charging_stations[cs_id]
-            if gc.get_current_load() < 0:
+            avail_power = gc.get_current_load(exclude=discharging_stations)
+            if avail_power < 0:
                 # surplus power
-                power = util.clamp_power(-gc.get_current_load(), vehicle, cs)
+                power = util.clamp_power(-avail_power, vehicle, cs)
                 avg_power = vehicle.battery.load(self.interval, power)['avg_power']
                 charging_stations[cs_id] = gc.add_load(cs_id, avg_power)
                 cs.current_power += avg_power
 
         # charge/discharge batteries
-        for b_id, battery in self.world_state.batteries.items():
+        for bat_id, battery in self.world_state.batteries.items():
+            avail_power = gc.get_current_load(exclude=discharging_stations)
             if util.get_cost(1, gc.cost) <= self.PRICE_THRESHOLD:
                 # low price: charge with full power
-                power = gc.cur_max_power - gc.get_current_load()
+                power = gc.cur_max_power - avail_power
                 power = 0 if power < battery.min_charging_power else power
                 avg_power = battery.load(self.interval, power)['avg_power']
-                gc.add_load(b_id, avg_power)
-            elif gc.get_current_load() < 0:
+                gc.add_load(bat_id, avg_power)
+            elif avail_power < 0:
                 # surplus energy: charge
-                power = -gc.get_current_load()
+                power = -avail_power
                 power = 0 if power < battery.min_charging_power else power
                 avg_power = battery.load(self.interval, power)['avg_power']
-                gc.add_load(b_id, avg_power)
+                gc.add_load(bat_id, avg_power)
             else:
                 # GC draws power: use stored energy to support GC
-                bat_power = battery.unload(self.interval, gc.get_current_load())['avg_power']
-                gc.add_load(b_id, -bat_power)
+                bat_power = battery.unload(self.interval, avail_power)['avg_power']
+                gc.add_load(bat_id, -bat_power)
+                discharging_stations.append(bat_id)
 
         return {'current_time': self.current_time, 'commands': charging_stations}
