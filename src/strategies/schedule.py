@@ -112,4 +112,23 @@ class Schedule(Strategy):
                 cs_id = vehicle.connected_charging_station
                 charging_stations[cs_id] = gc.add_load(cs_id, avg_power)
 
+        # adjust deviation with batteries
+        for bid, battery in self.world_state.batteries.items():
+            gc_id = battery.parent
+            gc = self.world_state.grid_connectors[gc_id]
+            if gc.target is None:
+                # no schedule set
+                continue
+            # get difference between target and GC load
+            power = gc.target - gc.get_current_load()
+            if power < 0:
+                # discharge
+                bat_power = -battery.unload(self.interval, -power)["avg_power"]
+            elif power > battery.min_charging_power:
+                # charge
+                bat_power = battery.load(self.interval, power)["avg_power"]
+            else:
+                # positive difference, but below minimum charging power
+                bat_power = 0
+            gc.add_load(bid, bat_power)
         return {'current_time': self.current_time, 'commands': charging_stations}
