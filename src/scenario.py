@@ -30,7 +30,7 @@ class Scenario:
         else:
             self.stop_time = util.datetime_from_isoformat(scenario['stop_time'])
             delta = self.stop_time - self.start_time
-            self.n_intervals = delta / self.interval
+            self.n_intervals = delta // self.interval
 
         # compute average load for each timeslot
         for ext_load_list in self.events.external_load_lists.values():
