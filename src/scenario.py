@@ -193,12 +193,12 @@ class Scenario:
         for batName, values in batteryLevels.items():
             print("Maximum stored power for {}: {:.2f} kW".format(batName, max(values)))
 
-        if options["save_timeseries"] or options["save_results"]:
+        if options.get("save_timeseries", False) or options.get("save_results", False):
             # get flexibility band
             from generate_schedule import generate_flex_band
             flex = generate_flex_band(self)
 
-        if options["save_results"]:
+        if options.get("save_results", False):
             # save general simulation info to JSON file
             ext = options["save_results"].split('.')[-1]
             if ext != "json":
@@ -371,7 +371,7 @@ class Scenario:
             with open(options['save_results'], 'w') as results_file:
                 json.dump(json_results, results_file, indent=2)
 
-        if options["save_timeseries"]:
+        if options.get("save_timeseries", False):
             # save power use for each timestep in file
 
             # check file extension
