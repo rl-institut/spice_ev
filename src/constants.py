@@ -180,7 +180,7 @@ class StationaryBattery(battery.Battery):
 
         battery.Battery.__init__(
             self,
-            self.capacity if self.capacity >= 0 else 2**31,  # may be unknown (set unlimited)
+            self.capacity if self.capacity >= 0 else 2**64,  # may be unknown (set unlimited)
             self.charging_curve,
             self.soc,
             self.efficiency
