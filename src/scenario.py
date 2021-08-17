@@ -252,7 +252,7 @@ class Scenario:
                 "16-22": avg_flex_per_window[2],
                 "22-04": avg_flex_per_window[3],
                 "unit": "kW",
-                "info": "Average Flex-power range per time window"
+                "info": "Average flexible power range per time window"
             }
 
             # sum of used energy per window
@@ -285,19 +285,20 @@ class Scenario:
                 "single": avg_stand_time,
                 "total": avg_total_standing_time,
                 "unit": "h",
-                "info": "Average duration of a single charge event and total time spent charging"
+                "info": "Average duration of a single standing event and "
+                        "average total time standing time of all vehicles"
             }
 
             # percent of standing time in time window
             perc_stand_window = list(map(
-                lambda x: x/total_standing if total_standing > 0 else 0,
+                lambda x: x * 100 / total_standing if total_standing > 0 else 0,
                 map(sum, count_window)))
             json_results["standing per window"] = {
                 "04-10": perc_stand_window[0],
                 "10-16": perc_stand_window[1],
                 "16-22": perc_stand_window[2],
                 "22-04": perc_stand_window[3],
-                "unit": None,
+                "unit": "%",
                 "info": "Share of standing time per time window"
             }
 
@@ -326,21 +327,21 @@ class Scenario:
             json_results["avg drawn power"] = {
                 "value": avg_drawn,
                 "unit": "kW",
-                "info": "Drawn power, averaged over all time time steps"
+                "info": "Drawn power, averaged over all time steps"
             }
 
             # feed-in
             json_results["feed-in"] = {
-                "value": totalFeedIn,
+                "value": totalFeedIn / ts_per_hour,
                 "unit": "kWh",
-                "info": "Total energy fed in from renewable energies"
+                "info": "Total energy fed in from renewable power plants"
             }
 
             # charging cycles
             # stationary batteries
             total_bat_cap = 0
             for batID, battery in self.constants.batteries.items():
-                if battery.capacity > 2**30:
+                if battery.capacity > 2**63:
                     # unlimited capacity
                     max_cap = max(batteryLevels[batName])
                     print("Battery {} is unlimited, set capacity to {} kWh".format(batID, max_cap))
@@ -351,7 +352,7 @@ class Scenario:
                 total_bat_energy = 0
                 for loads in extLoads:
                     for batID in self.constants.batteries.keys():
-                        total_bat_energy += max(loads.get(batID, 0), 0)
+                        total_bat_energy += max(loads.get(batID, 0), 0) / ts_per_hour
                 json_results["stationary battery cycles"] = {
                     "value": total_bat_energy / total_bat_cap,
                     "unit": None,
@@ -364,7 +365,7 @@ class Scenario:
             json_results["vehicle battery cycles"] = {
                 "value": total_car_energy/total_car_cap,
                 "unit": None,
-                "info": "Number of load cycles of vehicles (averaged)"
+                "info": "Number of load cycles per vehicle (averaged)"
             }
 
             # write to file
