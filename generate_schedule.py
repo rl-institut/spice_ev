@@ -213,20 +213,44 @@ def generate_schedule(args):
 
     # create schedule for batteries
     batteries = flex["batteries"]  # members: stored, power, free
-    if batteries:
-        for t in range(s.n_intervals):
-            if priorities[t] % 2:
+
+    # find periods of same priority
+    t_start = 0
+    t_end = 0
+    while t_end < len(priorities):
+        if priorities[t_end] != priorities[t_start]:
+            # different priority started
+            duration = t_end - t_start
+            # (dis)charge depending on priority
+            if priorities[t_start] % 2:
                 # prio 1/3: charge
-                power = min(batteries["power"], batteries["free"], flex["max"][t] - schedule[t])
-                batteries["stored"] += power
-                batteries["free"] -= power
-                schedule[t] += power
+                energy = batteries["free"]
             else:
                 # prio 2/4: discharge
-                power = min(batteries["power"], batteries["stored"], schedule[t] - flex["min"][t])
-                batteries["stored"] -= power
-                batteries["free"] += power
-                schedule[t] -= power
+                energy = -batteries["stored"]
+            print(priorities[t_start], duration, energy)
+            # distribute energy over period of same priority
+            for t in range(t_start, t_end):
+                if energy > 0:
+                    # charge
+                    p = min(
+                        batteries["power"],
+                        energy * ts_per_hour / duration,
+                        flex["max"][t] - schedule[t])
+                else:
+                    # discharge
+                    p = -min(
+                        batteries["power"],
+                        -energy * ts_per_hour / duration,
+                        schedule[t] - flex["min"][t])
+                batteries["stored"] += p
+                batteries["free"] -= p
+                schedule[t] += p
+                energy -= p / ts_per_hour
+            # keep track of next period
+            t_start = t_end
+        # search end of priority
+        t_end += 1
 
     args.output = args.output or '.'.join(args.scenario.split('.')[:-1]) + "_schedule.csv"
     print("Writing to", args.output)
