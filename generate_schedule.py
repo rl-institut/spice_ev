@@ -247,6 +247,8 @@ def generate_schedule(args):
                 batteries["free"] -= e
                 schedule[t] += e * ts_per_hour
                 energy -= e
+                assert batteries["stored"] >= -EPS and batteries["free"] >= -EPS, (
+                       "Battery fail: negative energy")
             # keep track of next period
             t_start = t_end
         # search end of priority
