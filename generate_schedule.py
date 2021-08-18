@@ -228,25 +228,25 @@ def generate_schedule(args):
             else:
                 # prio 2/4: discharge
                 energy = -batteries["stored"]
-            print(priorities[t_start], duration, energy)
             # distribute energy over period of same priority
             for t in range(t_start, t_end):
+                t_left = duration - (t - t_start)
                 if energy > 0:
                     # charge
-                    p = min(
-                        batteries["power"],
-                        energy * ts_per_hour / duration,
-                        flex["max"][t] - schedule[t])
+                    e = min(
+                        batteries["power"] / ts_per_hour,
+                        energy / t_left,
+                        (flex["max"][t] - schedule[t]) / ts_per_hour)
                 else:
                     # discharge
-                    p = -min(
-                        batteries["power"],
-                        -energy * ts_per_hour / duration,
-                        schedule[t] - flex["min"][t])
-                batteries["stored"] += p
-                batteries["free"] -= p
-                schedule[t] += p
-                energy -= p / ts_per_hour
+                    e = -min(
+                        batteries["power"] / ts_per_hour,
+                        -energy / t_left,
+                        (schedule[t] - flex["min"][t]) / ts_per_hour)
+                batteries["stored"] += e
+                batteries["free"] -= e
+                schedule[t] += e * ts_per_hour
+                energy -= e
             # keep track of next period
             t_start = t_end
         # search end of priority
