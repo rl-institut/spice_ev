@@ -71,7 +71,7 @@ def generate(args):
             vehicles[v_name] = {
                 "connected_charging_station": cs_name,
                 "estimated_time_of_departure": depart.isoformat(),
-                "desired_soc": args.min_soc,
+                "desired_soc": None,
                 "soc": soc,
                 "vehicle_type": name
             }
@@ -263,6 +263,8 @@ def generate(args):
             desired_soc = soc_needed * (1 + vars(args).get("buffer", 0.1))
             trips_above_min_soc += desired_soc > args.min_soc
             desired_soc = max(args.min_soc, desired_soc)
+            # update initial desired SoC
+            v["desired_soc"] = v["desired_soc"] or desired_soc
 
             events["vehicle_events"].append({
                 "signal_time": arrival_time.isoformat(),
