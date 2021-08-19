@@ -57,7 +57,7 @@ class Strategy():
                 connector.current_loads[ev.name] = -ev.value
             elif type(ev) == events.GridOperatorSignal:
                 connector = self.world_state.grid_connectors[ev.grid_connector_id]
-                if ev.cost:
+                if ev.cost is not None:
                     # set power cost
                     connector.cost = ev.cost
                 if ev.target is not None:
