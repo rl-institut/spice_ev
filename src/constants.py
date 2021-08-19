@@ -160,6 +160,11 @@ class Vehicle:
     def get_delta_soc(self):
         return self.desired_soc - self.battery.soc
 
+    def get_energy_needed(self, full=False):
+        # calculate energy needed to reach desired SoC (positive or zero)
+        target_soc = 1 if full else self.desired_soc
+        return max(target_soc - self.battery.soc, 0) * self.battery.capacity
+
 
 class StationaryBattery(battery.Battery):
     def __init__(self, obj):

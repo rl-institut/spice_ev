@@ -3,6 +3,7 @@ import json
 import unittest
 
 from src import battery, loading_curve, scenario
+from src.strategies.peak_load_window import PeakLoadWindow
 
 
 def get_test_json():
@@ -144,6 +145,32 @@ class TestBattery(unittest.TestCase):
             p2 += b2.load(td, 1)["avg_power"]
         assert approx_eq(b1.soc, b2.soc), "SoC different: {} vs {}".format(b1.soc, b2.soc)
         assert approx_eq(p1, p2), "Used power different: {} vs {}".format(p1, p2)
+
+
+class TestPeakLoadWindow(unittest.TestCase):
+
+    def test_time_window(self):
+        j = get_test_json()
+        s = scenario.Scenario(j)
+        options = {"interval": s.interval}
+        strat = PeakLoadWindow(s.constants, s.start_time, **options)
+
+        not_in_window = [
+            datetime.datetime(2021, 8, 31, 23, 59),
+            datetime.datetime(2022, 9, 1, 0, 00),
+            datetime.datetime(2023, 12, 31, 20, 0),
+            datetime.datetime(2024, 9, 1, 20, 0),
+        ]
+        in_window = [
+            datetime.datetime(2021, 9, 1, 16, 30),
+            datetime.datetime(2022, 9, 3, 19, 59),
+            datetime.datetime(2023, 1, 1, 18, 0),
+        ]
+
+        for dt in not_in_window:
+            assert not strat.datetime_within_window(dt)
+        for dt in in_window:
+            assert strat.datetime_within_window(dt)
 
 
 if __name__ == '__main__':
