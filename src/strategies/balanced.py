@@ -113,6 +113,11 @@ class Balanced(Strategy):
                 avg_power = vehicle.battery.load(self.interval, power)['avg_power']
                 charging_stations[cs_id] = gc.add_load(cs_id, avg_power)
                 cs.current_power += avg_power
+            elif vehicle.get_delta_soc() < 0 and vehicle.vehicle_type.v2g:
+                # GC draws power, surplus in vehicle and V2G capable: support GC
+                avg_power = vehicle.battery.unload(self.interval, gc.get_current_load(), vehicle.desired_soc)['avg_power']
+                charging_stations[cs_id] = gc.add_load(cs_id, -avg_power)
+                cs.current_power -= avg_power
 
         # charge/discharge batteries
         for b_id, battery in self.world_state.batteries.items():
