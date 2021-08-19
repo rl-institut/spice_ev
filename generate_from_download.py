@@ -9,8 +9,8 @@ from pathlib import Path  # used to check if given CSV files exist
 from src.util import set_options_from_config
 
 
-def generate_from_iav(args):
-    """Generate a scenario JSON from simBEV results.
+def generate_from_download(args):
+    """Generate a scenario JSON from JSON file with LIS event data.
     args: argparse.Namespace
     """
     missing = [arg for arg in ["input", "output"] if vars(args).get(arg) is None]
@@ -20,16 +20,16 @@ def generate_from_iav(args):
     with open(args.input, 'r') as f:
         input_json = json.load(f)
 
-    CAPACITY = 67  # kWh
+    CAPACITY = 76  # kWh
 
     vehicle_types = {
         "sprinter": {
             "name": "sprinter",
             "capacity": CAPACITY,
             "mileage": 40,  # kWh / 100km
-            "charging_curve": [[0, 11], [0.8, 11], [1, 11]],  # SOC -> kWh
+            "charging_curve": [[0, 11], [1, 11]],  # SOC -> kWh
             "min_charging_power": 0,
-            "count": 22
+            "count": 20
         },
     }
 
@@ -66,6 +66,9 @@ def generate_from_iav(args):
         # process charge event
         arrival_time = datetime.datetime.fromtimestamp(event["meterStartDate"] / 1000)
         departure_time = datetime.datetime.fromtimestamp(event["meterStopDate"] / 1000)
+        # make times timezone-aware (from Unix timestamp -> UTC)
+        arrival_time = arrival_time.replace(tzinfo=datetime.timezone.utc)
+        departure_time = departure_time.replace(tzinfo=datetime.timezone.utc)
         # update scenario time bounds
         start_time = min(start_time, arrival_time) if start_time else arrival_time
         stop_time = max(stop_time, departure_time) if stop_time else departure_time
@@ -119,6 +122,11 @@ def generate_from_iav(args):
         else:
             vehicle_queue.append((v_id, departure_time))
 
+    # align start_time to next interval
+    interval = datetime.timedelta(minutes=args.interval)
+    min_datetime = datetime.datetime.min.replace(tzinfo=datetime.timezone.utc)
+    start_time = start_time + (min_datetime - start_time) % interval
+
     # save path and options for CSV timeseries
     # all paths are relative to output file
     target_path = Path(args.output).parent
@@ -139,7 +147,7 @@ def generate_from_iav(args):
         events['external_load'][basename] = options
         # check if CSV file exists
         ext_csv_path = target_path.joinpath(filename)
-        if not ext_csv_path.exists() and args.verbose > 0:
+        if not ext_csv_path.exists():
             print("Warning: external csv file '{}' does not exist yet".format(ext_csv_path))
         else:
             with open(ext_csv_path, newline='') as csvfile:
@@ -163,7 +171,7 @@ def generate_from_iav(args):
             options[key] = value
         events['energy_feed_in'][basename] = options
         feed_in_path = target_path.joinpath(filename)
-        if not feed_in_path.exists() and args.verbose > 0:
+        if not feed_in_path.exists():
             print("Warning: feed-in csv file '{}' does not exist yet".format(feed_in_path))
         else:
             with open(feed_in_path, newline='') as csvfile:
@@ -187,7 +195,7 @@ def generate_from_iav(args):
             options[key] = value
         events['energy_price_from_csv'] = options
         price_csv_path = target_path.joinpath(filename)
-        if not price_csv_path.exists() and args.verbose > 0:
+        if not price_csv_path.exists():
             print("Warning: price csv file '{}' does not exist yet".format(price_csv_path))
         else:
             with open(price_csv_path, newline='') as csvfile:
@@ -196,6 +204,21 @@ def generate_from_iav(args):
                     print("Warning: price csv file {} has no column {}".format(
                           price_csv_path, options["column"]))
 
+    # stationary batteries
+    batteries = {}
+    for idx, (capacity, c_rate) in enumerate(args.battery):
+        if capacity > 0:
+            max_power = c_rate * capacity
+        else:
+            # unlimited battery: set power directly
+            max_power = c_rate
+        batteries["BAT{}".format(idx+1)] = {
+            "parent": "GC1",
+            "capacity": capacity,
+            "charging_curve": [[0, max_power], [1, max_power]]
+        }
+
+    # gather all information in one dictionary
     j = {
         "scenario": {
             "start_time": start_time.isoformat(),
@@ -207,10 +230,12 @@ def generate_from_iav(args):
             "vehicles": vehicles,
             "grid_connectors": {
                 "GC1": {
-                    "max_power": 10000
+                    "max_power": args.gc_power,
+                    "cost": {"type": "fixed", "value": 0.3}
                 }
             },
-            "charging_stations": charging_stations
+            "charging_stations": charging_stations,
+            "batteries": batteries
         },
         "events": events
     }
@@ -222,13 +247,20 @@ def generate_from_iav(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
-        description='Generate scenarios as JSON files for vehicle charging modelling from IAV file')
+        description='Generate a JSON scenario file from downloaded JSON file with LIS event data')
     parser.add_argument('input', nargs='?', help='input file name (response.json)')
     parser.add_argument('output', nargs='?', help='output file name (example.json)')
     parser.add_argument('--interval', metavar='MIN', type=int, default=15,
                         help='set number of minutes for each timestep (Δt)')
     parser.add_argument('--min-soc', metavar='SOC', type=float, default=1,
                         help='set minimum desired SOC (0 - 1) for each charging process')
+
+    parser.add_argument('--gc-power', metavar='P', type=float, default=630,
+                        help='set maximum power of grid connector')
+    parser.add_argument('--battery', '-b', metavar=('CAP', 'C-RATE'),
+                        default=[], nargs=2, type=float, action='append',
+                        help='add battery with specified capacity in kWh and C-rate \
+                        (-1 for variable capacity, second argument is fixed power))')
 
     # csv files
     parser.add_argument('--include-ext-load-csv',
@@ -252,4 +284,4 @@ if __name__ == '__main__':
     parser.add_argument('--config', help='Use config file to set arguments')
     args = parser.parse_args()
     set_options_from_config(args, check=True, verbose=False)
-    generate_from_iav(args)
+    generate_from_download(args)
