@@ -30,6 +30,7 @@ class GridConnector:
         ]
         util.set_attr_from_dict(obj, self, keys, optional_keys)
         self.avg_ext_load = None
+        self.cur_max_power = self.max_power
 
     def add_load(self, key, value):
         # add power __value__ to current_loads dict under __key__
