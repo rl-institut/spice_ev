@@ -54,7 +54,7 @@ class Scenario:
         totalLoad = []
         disconnect = []
         feedInPower = []
-        unusedFeedIn = []
+        stepsPerHour = datetime.timedelta(hours=1) / self.interval
         batteryLevels = {k: [] for k in self.constants.batteries.keys()}
         connChargeByTS = []
         gcPowerSchedule = {gcID: [] for gcID in self.constants.grid_connectors.keys()}
@@ -107,7 +107,6 @@ class Scenario:
             price = []
             curLoad = 0
             curFeedIn = 0
-            curSurplus = 0
 
             for gcID, gc in strat.world_state.grid_connectors.items():
                 # loads without charging stations (external + feed-in)
@@ -118,7 +117,9 @@ class Scenario:
                 gc_load = gc.get_current_load()
                 # price in ct/kWh -> get price in EUR
                 if gc.cost:
-                    cost += util.get_cost(max(gc_load, 0), gc.cost) / 100
+                    power = max(gc_load, 0)
+                    energy = power / stepsPerHour
+                    cost += util.get_cost(energy, gc.cost) / 100
                     price.append(util.get_cost(1, gc.cost))
                 else:
                     price.append(0)
@@ -129,8 +130,6 @@ class Scenario:
                 # sum up total feed-in power
                 feed_in_keys = self.events.energy_feed_in_lists.keys()
                 curFeedIn -= sum([gc.current_loads.get(k, 0) for k in feed_in_keys])
-                # sum up unused feed-in power (negative total power)
-                curSurplus -= min(gc.get_current_load(), 0)
 
             # get SOC and connected CS of all connected vehicles
             cur_cs = []
@@ -169,7 +168,6 @@ class Scenario:
             totalLoad.append(curLoad)
             disconnect.append(cur_dis)
             feedInPower.append(curFeedIn)
-            unusedFeedIn.append(curSurplus)
             connChargeByTS.append(cur_cs)
 
             # get battery levels
@@ -181,17 +179,8 @@ class Scenario:
         # adjust step_i: n_intervals or failed simulation step
         step_i += 1
 
-        print("Power from grid: {:.0f} kW, Costs: {:.2f} €".format(sum(totalLoad), sum(costs)))
-        totalFeedIn = sum(feedInPower)
-        totalSurplus = sum(unusedFeedIn)
-        if totalFeedIn > 0:
-            print("Renewable energy feed-in: {} kW, unused: {} kW ({}%)".format(
-                round(totalFeedIn),
-                round(totalSurplus),
-                round((totalSurplus)*100/totalFeedIn) if totalFeedIn > 0 else 0)
-            )
-        for batName, values in batteryLevels.items():
-            print("Maximum stored power for {}: {:.2f} kW".format(batName, max(values)))
+        print("Energy from grid: {:.0f} kWh, Costs: {:.2f} €".format(
+            sum(totalLoad)/stepsPerHour, sum(costs)))
 
         if options.get("save_timeseries", False) or options.get("save_results", False):
             # get flexibility band
@@ -242,8 +231,6 @@ class Scenario:
                 var_load = totalLoad[idx] - fixed_load
                 max_variable_load = max(max_variable_load, var_load)
 
-            ts_per_hour = datetime.timedelta(hours=1) / self.interval
-
             # avg flex per window
             avg_flex_per_window = [sum([t[0] for t in w]) / len(w) if w else 0 for w in load_window]
             json_results["avg flex per window"] = {
@@ -256,7 +243,7 @@ class Scenario:
             }
 
             # sum of used energy per window
-            sum_energy_per_window = [sum([t[1] for t in w]) / ts_per_hour for w in load_window]
+            sum_energy_per_window = [sum([t[1] for t in w]) / stepsPerHour for w in load_window]
             json_results["sum of energy per window"] = {
                 "04-10": sum_energy_per_window[0],
                 "10-16": sum_energy_per_window[1],
@@ -274,13 +261,13 @@ class Scenario:
                     counts = counts[:-1]
             num_loads = sum(map(len, load_count))
             if num_loads > 0:
-                avg_stand_time = sum(map(sum, load_count)) / ts_per_hour / num_loads
+                avg_stand_time = sum(map(sum, load_count)) / stepsPerHour / num_loads
             else:
                 avg_stand_time = 0
             # avg total standing time
             # count per car: list(zip(*count_window))
             total_standing = sum(map(sum, count_window))
-            avg_total_standing_time = total_standing / len(self.constants.vehicles) / ts_per_hour
+            avg_total_standing_time = total_standing / len(self.constants.vehicles) / stepsPerHour
             json_results["avg standing time"] = {
                 "single": avg_stand_time,
                 "total": avg_total_standing_time,
@@ -330,12 +317,20 @@ class Scenario:
                 "info": "Drawn power, averaged over all time steps"
             }
 
-            # feed-in
-            json_results["feed-in"] = {
-                "value": totalFeedIn / ts_per_hour,
+            # total feed-in energy
+            json_results["feed-in energy"] = {
+                "value": sum(feedInPower) / stepsPerHour,
                 "unit": "kWh",
-                "info": "Total energy fed in from renewable power plants"
+                "info": "Total energy from renewable energy sources"
             }
+
+            # battery sizes
+            bat_dict = {batName: max(values) for batName, values in batteryLevels.items()}
+            bat_dict.update({
+                "unit": "kWh",
+                "info": "Maximum stored energy in each battery by name"
+            })
+            json_results["max. stored energy in batteries"] = bat_dict
 
             # charging cycles
             # stationary batteries
@@ -352,7 +347,7 @@ class Scenario:
                 total_bat_energy = 0
                 for loads in extLoads:
                     for batID in self.constants.batteries.keys():
-                        total_bat_energy += max(loads.get(batID, 0), 0) / ts_per_hour
+                        total_bat_energy += max(loads.get(batID, 0), 0) / stepsPerHour
                 json_results["stationary battery cycles"] = {
                     "value": total_bat_energy / total_bat_cap,
                     "unit": None,
@@ -413,28 +408,31 @@ class Scenario:
                 if any(s is not None for s in gcPowerSchedule[gcID]):
                     scheduleKeys.append(gcID)
 
+            # any loads except CS present?
+            hasExtLoads = any(extLoads)
+
             with open(options['save_timeseries'], 'w') as timeseries_file:
                 # write header
                 # general info
                 header = ["timestep", "time"]
 
-                # schedule (where exists)
-                header += ["schedule {}".format(gcID) for gcID in scheduleKeys]
-
                 # timeseries power from grid
-                header.append("grid power")
+                header.append("grid power [kW]")
 
-                # external loads
-                extLoadWithoutFeedIn = [
-                                        sum(ext.values()) + feedInPower[idx]
-                                        for idx, ext in enumerate(extLoads)]
-                hasExtLoads = sum(extLoadWithoutFeedIn) > 0
                 if hasExtLoads:
-                    header.append("ext. load")
+                    # external loads (e.g., building)
+                    header.append("ext.load [kW]")
 
                 # feed-in
-                if totalFeedIn > 0:
-                    header += ["feed-in", "surplus"]
+                if any(feedInPower):
+                    header.append("feed-in [kW]")
+
+                if self.constants.batteries:
+                    header += ["battery power [kW]", "bat. stored energy [kWh]"]
+
+                # flex + schedule
+                header += ["flex min [kW]", "flex base [kW]", "flex max [kW]"]
+                header += ["schedule {} [kW]".format(gcID) for gcID in scheduleKeys]
 
                 # sum of charging power
                 header.append("sum CS power")
@@ -455,24 +453,45 @@ class Scenario:
                     # general info: timestep index and timestamp
                     row = [idx, r['current_time']]
 
-                    # schedule
-                    row += [
-                        round(gcPowerSchedule[gcID][idx], round_to_places)
-                        for gcID in scheduleKeys]
-
                     # grid power
                     row.append(round(totalLoad[idx], round_to_places))
 
                     # external loads
                     if hasExtLoads:
-                        row.append(round(extLoadWithoutFeedIn[idx], round_to_places))
+                        sumExtLoads = sum([
+                            v for k, v in extLoads[idx].items()
+                            if k in self.events.external_load_lists])
+                        row.append(round(sumExtLoads, round_to_places))
 
                     # feed-in
-                    if totalFeedIn > 0:
+                    if any(feedInPower):
+                        row.append(round(feedInPower[idx], round_to_places))
+
+                    # batteries
+                    if self.constants.batteries:
                         row += [
-                                round(feedInPower[idx], round_to_places),
-                                round(unusedFeedIn[idx], round_to_places)
+                            # battery power
+                            round(sum([
+                                v for k, v in extLoads[idx].items()
+                                if k in self.constants.batteries]),
+                                round_to_places),
+                            # battery levels
+                            round(
+                                sum([levels[idx] for levels in batteryLevels.values()]),
+                                round_to_places
+                            )
                         ]
+
+                    # flex
+                    row += [
+                        round(flex["min"][idx], round_to_places),
+                        round(flex["base"][idx], round_to_places),
+                        round(flex["max"][idx], round_to_places)
+                    ]
+                    # schedule
+                    row += [
+                        round(gcPowerSchedule[gcID][idx], round_to_places)
+                        for gcID in scheduleKeys]
 
                     # charging power
                     # get sum of all current CS power
