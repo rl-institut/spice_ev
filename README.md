@@ -40,6 +40,12 @@ Include this energy price in scenario:
 ```
 Please note that included file paths are relative to the scenario file location. Consider this directory structure:
 
+Calculate and include schedule:
+```sh
+./generate_fixed_schedule_for_scenario.py --scenario example.json --input data/timeseries/NSM_1.csv --output data/schedules/NSM_1.csv
+```
+Please note that included file paths are relative to the scenario file location. Consider this directory structure:
+
 ```sh
 ├── scenarios
 │   ├── price
