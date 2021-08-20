@@ -179,7 +179,7 @@ class Scenario:
         # adjust step_i: n_intervals or failed simulation step
         step_i += 1
 
-        print("Energy from grid: {:.0f} kWh, Costs: {:.2f} €".format(
+        print("Energy drawn from grid: {:.0f} kWh, Costs: {:.2f} €".format(
             sum(totalLoad)/stepsPerHour, sum(costs)))
 
         if options.get("save_timeseries", False) or options.get("save_results", False):
@@ -415,35 +415,33 @@ class Scenario:
                 # write header
                 # general info
                 header = ["timestep", "time"]
-
-                # timeseries power from grid
+                # price
+                if any(prices):
+                    # external loads (e.g., building)
+                    header.append("price [EUR/kWh]")
+                # grid power
                 header.append("grid power [kW]")
-
+                # external loads
                 if hasExtLoads:
                     # external loads (e.g., building)
                     header.append("ext.load [kW]")
-
                 # feed-in
                 if any(feedInPower):
                     header.append("feed-in [kW]")
-
+                # batteries
                 if self.constants.batteries:
                     header += ["battery power [kW]", "bat. stored energy [kWh]"]
-
                 # flex + schedule
                 header += ["flex min [kW]", "flex base [kW]", "flex max [kW]"]
                 header += ["schedule {} [kW]".format(gcID) for gcID in scheduleKeys]
-
                 # sum of charging power
                 header.append("sum CS power")
                 # charging power per use case
                 header += ["sum UC {}".format(uc) for uc in uc_keys_present]
-
                 # total number of occupied charging stations
                 header.append("# occupied CS")
                 # number of occupied CS per UC
                 header += ["# occupied UC {}".format(uc) for uc in uc_keys_present]
-
                 # charging power per CS
                 header += [str(cs_id) for cs_id in cs_ids]
                 timeseries_file.write(','.join(header))
@@ -452,21 +450,20 @@ class Scenario:
                 for idx, r in enumerate(results):
                     # general info: timestep index and timestamp
                     row = [idx, r['current_time']]
-
+                    # price
+                    if any(prices):
+                        row.append(round(prices[idx][0], round_to_places))
                     # grid power
                     row.append(round(totalLoad[idx], round_to_places))
-
                     # external loads
                     if hasExtLoads:
                         sumExtLoads = sum([
                             v for k, v in extLoads[idx].items()
                             if k in self.events.external_load_lists])
                         row.append(round(sumExtLoads, round_to_places))
-
                     # feed-in
                     if any(feedInPower):
                         row.append(round(feedInPower[idx], round_to_places))
-
                     # batteries
                     if self.constants.batteries:
                         row += [
@@ -481,7 +478,6 @@ class Scenario:
                                 round_to_places
                             )
                         ]
-
                     # flex
                     row += [
                         round(flex["min"][idx], round_to_places),
@@ -492,7 +488,6 @@ class Scenario:
                     row += [
                         round(gcPowerSchedule[gcID][idx], round_to_places)
                         for gcID in scheduleKeys]
-
                     # charging power
                     # get sum of all current CS power
                     row.append(round(sum(r['commands'].values()), round_to_places))
@@ -500,17 +495,14 @@ class Scenario:
                     row += [round(sum([cs_value for cs_id, cs_value in r['commands'].items()
                                        if cs_id in cs_by_uc[uc_key]]),
                             round_to_places) for uc_key in uc_keys_present]
-
                     # get total number of occupied CS
                     row.append(len(connChargeByTS[idx]))
                     # get number of occupied CS for each use case
                     row += [
                         sum([1 if uc_key in cs_id else 0
                             for cs_id in connChargeByTS[idx]]) for uc_key in uc_keys_present]
-
                     # get individual charging power
                     row += [round(r['commands'].get(cs_id, 0), round_to_places) for cs_id in cs_ids]
-
                     # write row to file
                     timeseries_file.write('\n' + ','.join(map(lambda x: str(x), row)))
 

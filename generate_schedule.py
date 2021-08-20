@@ -138,30 +138,30 @@ def generate_schedule(args):
     # compute flexibility potential (min/max) for each timestep
     flex = generate_flex_band(s)
 
-    brutto = []
-    surplus = []
+    netto = []
+    curtailment = []
     with open(args.input, 'r', newline='') as f:
         reader = csv.DictReader(f)
         for row_idx, row in enumerate(reader):
             if row_idx >= s.n_intervals:
                 break
-            brutto.append(-float(row["netto"]))
-            surplus.append(-float(row["curtailment"]))
+            netto.append(-float(row["netto"]))
+            curtailment.append(-float(row["curtailment"]))
     # zero-pad for same length as scenario
-    brutto += [0]*(s.n_intervals - len(brutto))
-    surplus += [0]*(s.n_intervals - len(surplus))
-    max_load = max(brutto)
+    netto += [0]*(s.n_intervals - len(netto))
+    curtailment += [0]*(s.n_intervals - len(curtailment))
+    max_load = max(netto)
 
     # set priorities (default: 4)
     priorities = [4]*s.n_intervals
     for t in range(s.n_intervals):
-        if surplus[t] > 0:
-            # highest priority: surplus (must be capped)
+        if curtailment[t] > 0:
+            # highest priority: curtailment (must be capped)
             priorities[t] = 1
-        elif brutto[t] > (1 - args.max_load_range) * max_load:
+        elif netto[t] > (1 - args.max_load_range) * max_load:
             # don't charge if load close to max load
             priorities[t] = 2
-        elif brutto[t] < 0:
+        elif netto[t] < 0:
             # charge if load negative (feed-in)
             priorities[t] = 3
 
@@ -183,7 +183,7 @@ def generate_schedule(args):
                     power_needed += power
 
         for priority in [1, 3, 4]:
-            # surplus or default: take power from grid and make sure vehicles are charged
+            # curtailment or default: take power from grid and make sure vehicles are charged
             if power_needed < EPS:
                 # all vehicles charged
                 break
@@ -293,8 +293,8 @@ def generate_schedule(args):
         # plot input file
         axes[1].step(
             range(s.n_intervals),
-            list(zip(brutto, surplus)),
-            label=["brutto", "surplus"])
+            list(zip(netto, curtailment)),
+            label=["netto", "curtailment"])
         axes[1].legend()
         axes[1].set_xlim([0, s.n_intervals])
         axes[1].set_ylabel("power [kW]")
