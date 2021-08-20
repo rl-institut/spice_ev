@@ -14,12 +14,14 @@ EPS = 1e-8
 def generate_flex_band(scenario):
     # generate flexibility potential with perfect foresight
 
+    assert len(scenario.constants.grid_connectors) == 1, "Only one grid connector supported"
+    gc = list(scenario.constants.grid_connectors.values())[0]
+
     # generate basic strategy
     s = strategy.Strategy(
         scenario.constants, scenario.start_time, **{"interval": scenario.interval})
     event_steps = scenario.events.get_event_steps(
         scenario.start_time, scenario.n_intervals, scenario.interval)
-    gc = list(scenario.constants.grid_connectors.values())[0]
 
     def clamp_to_gc(power):
         # helper function: make sure to stay within GC power limits
@@ -130,8 +132,6 @@ def generate_schedule(args):
         scenario_json = json.load(f)
         scenario_json['events']['schedule_from_csv'] = {}
         s = scenario.Scenario(scenario_json, os.path.dirname(args.scenario))
-
-    assert len(s.constants.grid_connectors) == 1, "Only one grid connector supported"
 
     ts_per_hour = datetime.timedelta(hours=1) / s.interval
 
