@@ -38,6 +38,7 @@ def generate(args):
             "mileage": 40,  # kWh / 100km
             "charging_curve": [[0, 11], [0.8, 11], [1, 0]],  # SOC -> kWh
             "min_charging_power": 0,
+            "v2g": args.v2g,
             "count": 0
         },
         "golf": {
@@ -46,6 +47,7 @@ def generate(args):
             "mileage": 16,
             "charging_curve": [[0, 22], [0.8, 22], [1, 0]],
             "min_charging_power": 0,
+            "v2g": args.v2g,
             "count": 0
         }
     }
@@ -319,6 +321,8 @@ if __name__ == '__main__':
     parser.add_argument('--cars', metavar=('N', 'TYPE'), nargs=2, action='append', type=str,
                         help='set number of cars for a vehicle type, \
                         e.g. `--cars 100 sprinter` or `--cars 13 golf`')
+    parser.add_argument('--v2g', action='store_true',
+                        help='Vehicles have vehicle-to-grid capability')
     parser.add_argument('--days', metavar='N', type=int, default=30,
                         help='set duration of scenario as number of days')
     parser.add_argument('--interval', metavar='MIN', type=int, default=15,
