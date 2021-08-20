@@ -18,10 +18,8 @@ def generate(args):
 
     random.seed(args.seed)
 
-    if not args.cars:
-        args.cars = [['2', 'golf'], ['3', 'sprinter']]
-
-    start = datetime.datetime(year=2020, month=1, day=1,
+    # SIMULATION TIME
+    start = datetime.datetime(year=2021, month=1, day=1,
                               tzinfo=datetime.timezone(datetime.timedelta(hours=2)))
     stop = start + datetime.timedelta(days=args.days)
     interval = datetime.timedelta(minutes=args.interval)
@@ -30,23 +28,27 @@ def generate(args):
     avg_distance = vars(args).get("avg_distance", 40)  # km
     std_distance = vars(args).get("std_distance", 2.155)
 
+    # VEHICLES
+    if not args.cars:
+        args.cars = [['1', 'golf'], ['1', 'sprinter']]
+
     # VEHICLE TYPES
     vehicle_types = {
         "sprinter": {
             "name": "sprinter",
-            "capacity": 70,  # kWh
+            "capacity": 76,  # kWh
             "mileage": 40,  # kWh / 100km
-            "charging_curve": [[0, 11], [0.8, 11], [1, 0]],  # SOC -> kWh
-            "min_charging_power": 0,
+            "charging_curve": [[0, 11], [0.8, 11], [1, 11]],  # kW
+            "min_charging_power": 0,  # kW
             "v2g": args.v2g,
             "count": 0
         },
         "golf": {
             "name": "E-Golf",
-            "capacity": 50,
-            "mileage": 16,
-            "charging_curve": [[0, 22], [0.8, 22], [1, 0]],
-            "min_charging_power": 0,
+            "capacity": 50,  # kWh
+            "mileage": 16,  # kWh/100km
+            "charging_curve": [[0, 22], [0.8, 22], [1, 22]],  # kW
+            "min_charging_power": 0,  # kW
             "v2g": args.v2g,
             "count": 0
         }

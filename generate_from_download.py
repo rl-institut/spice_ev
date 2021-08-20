@@ -20,15 +20,17 @@ def generate_from_download(args):
     with open(args.input, 'r') as f:
         input_json = json.load(f)
 
+    # VEHICLE TYPES
     CAPACITY = 76  # kWh
 
     vehicle_types = {
         "sprinter": {
             "name": "sprinter",
             "capacity": CAPACITY,
-            "mileage": 40,  # kWh / 100km
-            "charging_curve": [[0, 11], [1, 11]],  # SOC -> kWh
-            "min_charging_power": 0,
+            "mileage": 40,  # kWh/100km
+            "charging_curve": [[0, 11], [0.8, 11], [1, 11]],  # kW
+            "min_charging_power": 0,  # kW
+            "v2g": args.v2g,
             "count": 20
         },
     }
@@ -254,7 +256,8 @@ if __name__ == '__main__':
                         help='set number of minutes for each timestep (Δt)')
     parser.add_argument('--min-soc', metavar='SOC', type=float, default=1,
                         help='set minimum desired SOC (0 - 1) for each charging process')
-
+    parser.add_argument('--v2g', action='store_true',
+                        help='Vehicles have vehicle-to-grid capability')
     parser.add_argument('--gc-power', metavar='P', type=float, default=630,
                         help='set maximum power of grid connector')
     parser.add_argument('--battery', '-b', metavar=('CAP', 'C-RATE'),

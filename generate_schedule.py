@@ -35,7 +35,7 @@ def generate_flex_band(scenario):
         "batteries": {
             "stored": 0,
             "power": 0,
-            "free": 0,  # how much can still be stored?
+            "free": 0,  # how much energy can still be stored?
         },
         "intervals": [],
     }
@@ -44,7 +44,7 @@ def generate_flex_band(scenario):
     batteries = s.world_state.batteries.values()
     bat_init_discharge_power = sum([b.get_available_power(s.interval) for b in batteries])
     for b in batteries:
-        if b.capacity > 2**30:
+        if b.capacity > 2**50:
             print("WARNING: battery without capacity detected")
         flex["batteries"]["stored"] += b.soc * b.capacity
         flex["batteries"]["power"] += b.loading_curve.max_power
@@ -145,8 +145,8 @@ def generate_schedule(args):
         for row_idx, row in enumerate(reader):
             if row_idx >= s.n_intervals:
                 break
-            brutto.append(-float(row["brutto"]))
-            surplus.append(-float(row["abregelung"]))
+            brutto.append(-float(row["netto"]))
+            surplus.append(-float(row["curtailment"]))
     # zero-pad for same length as scenario
     brutto += [0]*(s.n_intervals - len(brutto))
     surplus += [0]*(s.n_intervals - len(surplus))
@@ -315,7 +315,7 @@ if __name__ == '__main__':
     parser.add_argument('scenario', nargs='?', help='Scenario input file')
     parser.add_argument('--input',
                         help='Timeseries with power and limit. '
-                        'Columns: abregelung, brutto (timestamp ignored)')
+                        'Columns: curtailment, netto (timestamp ignored)')
     parser.add_argument('--output', '-o',
                         help='Specify schedule file name, '
                         'defaults to <scenario>_schedule.csv')
