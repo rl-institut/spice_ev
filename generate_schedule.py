@@ -177,7 +177,11 @@ def generate_schedule(args):
             for time in interval["time"]:
                 if priorities[time] == priority:
                     # calculate power for V2G
-                    power = schedule[time] - flex["min"][time] - flex["batteries"]["power"]
+                    # get difference between base and min_flex -> flexibility
+                    power = schedule[time] - flex["min"][time]
+                    # subtract battery flex -> only V2G flex remains
+                    # battery may be charged with feed-in, power must not be negative
+                    power = max(power - flex["batteries"]["power"], 0)
                     # discharge
                     schedule[time] -= power
                     power_needed += power
@@ -248,7 +252,9 @@ def generate_schedule(args):
                 schedule[t] += e * ts_per_hour
                 energy -= e
                 assert batteries["stored"] >= -EPS and batteries["free"] >= -EPS, (
-                       "Battery fail: negative energy")
+                   "Battery fail: negative energy")
+                assert flex["min"][t] <= schedule[t] <= flex["max"][t], (
+                    "{}: schedule not within flexibility".format(t))
             # keep track of next period
             t_start = t_end
         # search end of priority
