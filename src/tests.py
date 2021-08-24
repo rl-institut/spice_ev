@@ -151,6 +151,8 @@ class TestPeakLoadWindow(unittest.TestCase):
 
     def test_time_window(self):
         j = get_test_json()
+        # set dummy grid connector
+        j["constants"]["grid_connectors"] = {"dummy": {"max_power": 0}}
         s = scenario.Scenario(j)
         options = {"interval": s.interval}
         strat = PeakLoadWindow(s.constants, s.start_time, **options)
