@@ -87,7 +87,7 @@ class GreedyMarket(Strategy):
                 if type(event) == events.GridOperatorSignal:
                     # update GC info
                     cur_max_power = event.max_power or gc.max_power
-                    cur_cost = event.cost
+                    cur_cost = event.cost or gc.cost
                 elif type(event) == events.EnergyFeedIn:
                     cur_feed_in[event.name] = event.value
                 elif type(event) == events.VehicleEvent:

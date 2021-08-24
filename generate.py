@@ -18,10 +18,8 @@ def generate(args):
 
     random.seed(args.seed)
 
-    if not args.cars:
-        args.cars = [['2', 'golf'], ['3', 'sprinter']]
-
-    start = datetime.datetime(year=2020, month=1, day=1,
+    # SIMULATION TIME
+    start = datetime.datetime(year=2021, month=1, day=1,
                               tzinfo=datetime.timezone(datetime.timedelta(hours=2)))
     stop = start + datetime.timedelta(days=args.days)
     interval = datetime.timedelta(minutes=args.interval)
@@ -30,22 +28,28 @@ def generate(args):
     avg_distance = vars(args).get("avg_distance", 40)  # km
     std_distance = vars(args).get("std_distance", 2.155)
 
+    # VEHICLES
+    if not args.cars:
+        args.cars = [['1', 'golf'], ['1', 'sprinter']]
+
     # VEHICLE TYPES
     vehicle_types = {
         "sprinter": {
             "name": "sprinter",
-            "capacity": 70,  # kWh
+            "capacity": 76,  # kWh
             "mileage": 40,  # kWh / 100km
-            "charging_curve": [[0, 11], [0.8, 11], [1, 0]],  # SOC -> kWh
-            "min_charging_power": 0,
+            "charging_curve": [[0, 11], [0.8, 11], [1, 11]],  # kW
+            "min_charging_power": 0,  # kW
+            "v2g": args.v2g,
             "count": 0
         },
         "golf": {
             "name": "E-Golf",
-            "capacity": 50,
-            "mileage": 16,
-            "charging_curve": [[0, 22], [0.8, 22], [1, 0]],
-            "min_charging_power": 0,
+            "capacity": 50,  # kWh
+            "mileage": 16,  # kWh/100km
+            "charging_curve": [[0, 22], [0.8, 22], [1, 22]],  # kW
+            "min_charging_power": 0,  # kW
+            "v2g": args.v2g,
             "count": 0
         }
     }
@@ -71,7 +75,7 @@ def generate(args):
             vehicles[v_name] = {
                 "connected_charging_station": cs_name,
                 "estimated_time_of_departure": depart.isoformat(),
-                "desired_soc": args.min_soc,
+                "desired_soc": None,
                 "soc": soc,
                 "vehicle_type": name
             }
@@ -263,6 +267,8 @@ def generate(args):
             desired_soc = soc_needed * (1 + vars(args).get("buffer", 0.1))
             trips_above_min_soc += desired_soc > args.min_soc
             desired_soc = max(args.min_soc, desired_soc)
+            # update initial desired SoC
+            v["desired_soc"] = v["desired_soc"] or desired_soc
 
             events["vehicle_events"].append({
                 "signal_time": arrival_time.isoformat(),
@@ -317,6 +323,8 @@ if __name__ == '__main__':
     parser.add_argument('--cars', metavar=('N', 'TYPE'), nargs=2, action='append', type=str,
                         help='set number of cars for a vehicle type, \
                         e.g. `--cars 100 sprinter` or `--cars 13 golf`')
+    parser.add_argument('--v2g', action='store_true',
+                        help='Vehicles have vehicle-to-grid capability')
     parser.add_argument('--days', metavar='N', type=int, default=30,
                         help='set duration of scenario as number of days')
     parser.add_argument('--interval', metavar='MIN', type=int, default=15,

@@ -27,9 +27,11 @@ class GridConnector:
         optional_keys = [
             ('current_loads', dict, {}),
             ('cost', dict, {}),
+            ('target', float, None),
         ]
         util.set_attr_from_dict(obj, self, keys, optional_keys)
         self.avg_ext_load = None
+        self.cur_max_power = self.max_power
 
     def add_load(self, key, value):
         # add power __value__ to current_loads dict under __key__
@@ -128,6 +130,7 @@ class VehicleType:
         optional_keys = [
             ('min_charging_power', float, 0.0),
             ('battery_efficiency', float, 0.95),
+            ('v2g', bool, False),
         ]
         util.set_attr_from_dict(obj, self, keys, optional_keys)
 
@@ -183,7 +186,7 @@ class StationaryBattery(battery.Battery):
 
         battery.Battery.__init__(
             self,
-            self.capacity if self.capacity >= 0 else 2**31,  # may be unknown (set unlimited)
+            self.capacity if self.capacity >= 0 else 2**64,  # may be unknown (set unlimited)
             self.charging_curve,
             self.soc,
             self.efficiency

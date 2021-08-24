@@ -3,6 +3,7 @@
 import argparse
 import json
 import os
+import warnings
 
 from src.scenario import Scenario
 from src.util import set_options_from_config
@@ -13,6 +14,7 @@ STRATEGIES = [
     'balanced',
     'inverse',
     'peak_load_window',
+    'schedule', 'schedule_foresight',
     'v2g',
 ]
 
@@ -28,7 +30,8 @@ def simulate(args):
         'timing': args.eta,
         'visual': args.visual,
         'margin': args.margin,
-        'output': args.output,
+        'save_timeseries': args.save_timeseries,
+        'save_results': args.save_results,
     }
 
     # parse strategy options
@@ -77,10 +80,17 @@ if __name__ == '__main__':
     parser.add_argument('--eta', action='store_true',
                         help='Show estimated time to finish simulation after each step, \
                         instead of progress bar. Not recommended for fast computations.')
-    parser.add_argument('--output', '-o', help='Generate output file')
+    parser.add_argument('--output', '-o', help='Deprecated, use save-timeseries instead')
+    parser.add_argument('--save-timeseries', help='Write timesteps to file')
+    parser.add_argument('--save-results', help='Write general info to file')
     parser.add_argument('--config', help='Use config file to set arguments')
     args = parser.parse_args()
 
     set_options_from_config(args, check=True, verbose=False)
+
+    if args.output:
+        warnings.warn("output argument is deprecated, use save-timeseries instead",
+                      DeprecationWarning)
+        args.save_timeseries = args.save_timeseries or args.output
 
     simulate(args)
