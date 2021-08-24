@@ -19,6 +19,26 @@ def datetime_from_isoformat(s):
     return datetime.datetime.strptime(s, "%Y-%m-%dT%H:%M:%S%z")
 
 
+def datetime_within_window(dt, time_windows):
+    """
+    Checks if a given datetime is within any of the given time windows.
+
+    Structure of time_windows: {season: {
+        "start": datetime with start date and start time,
+        "end": datetime with end date end end time}}
+    The times pertain to all dates within the window.
+    E.g., 14.03. 9:00 - 14.05. 11:00 means 09:00 - 11:00 for all days in two months
+    14.04. 10:00 is within this eaxmple window, 14.04. 12:00 is not
+    """
+    for window in time_windows.values():
+        start = window["start"].replace(year=dt.year)
+        end = window["end"].replace(year=dt.year)
+        if start.date() <= dt.date() <= end.date():
+            # this season
+            return start.time() <= dt.time() < end.time()
+    return False
+
+
 def set_attr_from_dict(source, target, keys, optional_keys):
     """ Set attributes of `target` from a `source` dictionary.
         None values for optional keys are not converted.

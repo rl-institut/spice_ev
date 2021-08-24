@@ -2,8 +2,7 @@ import datetime
 import json
 import unittest
 
-from src import battery, loading_curve, scenario
-from src.strategies.peak_load_window import PeakLoadWindow
+from src import battery, loading_curve, scenario, util
 
 
 def get_test_json():
@@ -147,15 +146,28 @@ class TestBattery(unittest.TestCase):
         assert approx_eq(p1, p2), "Used power different: {} vs {}".format(p1, p2)
 
 
-class TestPeakLoadWindow(unittest.TestCase):
+class UtilTest(unittest.TestCase):
 
     def test_time_window(self):
-        j = get_test_json()
-        # set dummy grid connector
-        j["constants"]["grid_connectors"] = {"dummy": {"max_power": 0}}
-        s = scenario.Scenario(j)
-        options = {"interval": s.interval}
-        strat = PeakLoadWindow(s.constants, s.start_time, **options)
+
+        time_windows = {
+            "autumn": {
+                # 01.09. - 30.11., 16:30 - 20:00
+                "start": datetime.datetime(day=1, month=9, year=1900, hour=16, minute=30),
+                "end": datetime.datetime(day=30, month=11, year=1900, hour=20, minute=0),
+            },
+            # split winter (year changes)
+            "winter1": {
+                # 01.12. - 31.12., 16:30 - 19:30
+                "start": datetime.datetime(day=1, month=12, year=1900, hour=16, minute=30),
+                "end": datetime.datetime(day=31, month=12, year=1900, hour=19, minute=30),
+            },
+            "winter2": {
+                # 01.01. - 28.02., 16:30 - 19:30
+                "start": datetime.datetime(day=1, month=1, year=1900, hour=16, minute=30),
+                "end": datetime.datetime(day=28, month=2, year=1900, hour=19, minute=30),
+            }
+        }
 
         not_in_window = [
             datetime.datetime(2021, 8, 31, 23, 59),
@@ -170,9 +182,9 @@ class TestPeakLoadWindow(unittest.TestCase):
         ]
 
         for dt in not_in_window:
-            assert not strat.datetime_within_window(dt)
+            assert not util.datetime_within_window(dt, time_windows)
         for dt in in_window:
-            assert strat.datetime_within_window(dt)
+            assert util.datetime_within_window(dt, time_windows)
 
 
 if __name__ == '__main__':

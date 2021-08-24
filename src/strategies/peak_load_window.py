@@ -55,22 +55,13 @@ class PeakLoadWindow(Strategy):
 
         assert len(self.world_state.grid_connectors) == 1, "Only one grid connector supported"
 
-    def datetime_within_window(self, dt):
-        for window in self.time_windows.values():
-            start = window["start"].replace(year=dt.year)
-            end = window["end"].replace(year=dt.year)
-            if start.date() <= dt.date() <= end.date():
-                # this season
-                return start.time() <= dt.time() < end.time()
-        return False
-
     def step(self, event_list=[]):
         super().step(event_list)
 
         gc = list(self.world_state.grid_connectors.values())[0]
 
         ts = [{
-            "window": self.datetime_within_window(self.current_time),
+            "window": util.datetime_within_window(self.current_time, self.time_windows),
             "loads": {k: v for k, v in gc.current_loads.items()},
         }]
 
@@ -97,7 +88,7 @@ class PeakLoadWindow(Strategy):
             if timestep_idx > 0:
                 # copy last GC info
                 ts.append(deepcopy(ts[-1]))
-                ts[-1]["window"] = self.datetime_within_window(cur_time)
+                ts[-1]["window"] = util.datetime_within_window(cur_time, self.time_windows)
 
             # get standing times for each charging vehicle
             for vid, vehicle in vehicles.items():
