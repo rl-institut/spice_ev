@@ -74,6 +74,17 @@ class PeakLoadWindow(Strategy):
             "loads": {k: v for k, v in gc.current_loads.items()},
         }]
 
+        # get all vehicles that are still charging
+        vehicles = {}
+        standing = {}
+        energy_needed = 0
+        for vid, v in self.world_state.vehicles.items():
+            if v.connected_charging_station is not None:
+                vehicles[vid] = v
+                energy_needed += v.get_energy_needed(full=True)
+                standing[vid] = 0
+        sum_loads = sum(gc.current_loads.values())
+
         # peek into future events for external loads, feed-in and schedule
         event_idx = 0
         cur_time = self.current_time - self.interval
@@ -88,6 +99,11 @@ class PeakLoadWindow(Strategy):
                 ts.append(deepcopy(ts[-1]))
                 ts[-1]["window"] = self.datetime_within_window(cur_time)
 
+            # get standing times for each charging vehicle
+            for vid, vehicle in vehicles.items():
+                if vehicle.estimated_time_of_departure < cur_time:
+                    standing[vid] += 1
+
             # peek into future events for external load or cost changes
             while True:
                 try:
@@ -101,22 +117,12 @@ class PeakLoadWindow(Strategy):
                 # event handled: don't handle again, so increase index
                 event_idx += 1
                 if type(event) in [events.ExternalLoad, events.EnergyFeedIn]:
-                    ts[-1]["load"][event.name] = event.value
+                    ts[-1]["loads"][event.name] = event.value
             # end of useful events
-
-        # get all vehicles that are still charging
-        vehicles = {}
-        energy_needed = 0
-        for vid, v in self.world_state.vehicles.items():
-            if v.connected_charging_station is not None:
-                vehicles[vid] = v
-                energy_needed += v.get_energy_needed(full=True)
-        sum_loads = sum(gc.current_loads.values())
 
         safe = False
         max_target = gc.max_power
         min_target = -gc.max_power
-        ts_within_window = sum([t["window"] for t in ts])
         sim_vehicles = deepcopy(vehicles)
         sim_batteries = deepcopy(self.world_state.batteries)
         while not safe and (max_target - min_target) > self.EPS:
@@ -125,9 +131,9 @@ class PeakLoadWindow(Strategy):
 
             # reset SoC
             for vid, v in sim_vehicles.items():
-                v.battery.soc = self.world_state.vehicles[vid].battery.soc
+                v.battery.soc = vehicles[vid].battery.soc
             for bid, b in sim_batteries.items():
-                b.soc = self.world_state.batteris[bid].soc
+                b.soc = self.world_state.batteries[bid].soc
 
             for ts_info in ts:
                 cur_time += self.interval
@@ -136,7 +142,8 @@ class PeakLoadWindow(Strategy):
                 sim_charging_vehicles = []
                 sim_energy_needed = 0
                 for v in sim_vehicles.values():
-                    if v.estimated_time_of_departure is not None and v.estimated_time_of_departure >= cur_time:
+                    if (v.estimated_time_of_departure is not None
+                            and v.estimated_time_of_departure <= cur_time):
                         safe &= v.get_delta_soc() < self.EPS
                     else:
                         sim_charging_vehicles.append(v)
@@ -160,8 +167,27 @@ class PeakLoadWindow(Strategy):
                 else:
                     # outside of window: draw power
                     power = max(gc.max_power - cur_loads, 0)
-                    info = self.distribute_power(sim_charging_vehicles, power, sim_energy_needed)
-                    power -= sum(info.values())
+                    if self.LOAD_STRAT == "balanced":
+                        for v in sim_charging_vehicles:
+                            remain_ts = (v.estimated_time_of_departure - cur_time) / self.interval
+                            # get power needed to reach desired SoC
+                            v_power = v.get_energy_needed(full=False) * timesteps_per_hour
+                            # distribute needed power over remaining timesteps
+                            v_power /= remain_ts
+                            # scale with battery efficiency
+                            v_power /= v.battery.efficiency
+                            cs_id = vehicle.connected_charging_station
+                            cs = self.world_state.charging_stations[cs_id]
+                            # clamp power
+                            v_power = util.clamp_power(v_power, vehicle, cs)
+                            # charging
+                            v_power = v.battery.load(self.interval, v_power)["avg_power"]
+                            power -= v_power
+                    else:
+                        # default: distribute power according to LOAD_STRAT
+                        info = self.distribute_power(
+                            sim_charging_vehicles,  power, sim_energy_needed)
+                        power -= sum(info.values())
                     for battery in sim_batteries.values():
                         power -= battery.load(self.interval, power)["avg_power"]
 
@@ -173,26 +199,52 @@ class PeakLoadWindow(Strategy):
                 max_target = target
 
         # charge for real
+        bat_power = 0
         if ts[0]["window"]:
             power = target - sum_loads
             commands = self.distribute_power(vehicles.values(), power, energy_needed)
             power -= sum(commands.values())
             # support with batteries to reach target
-            for battery in self.world_state.batteries.values():
+            for bid, battery in self.world_state.batteries.items():
                 if power > 0:
-                    power -= battery.load(self.interval, power)["avg_power"]
+                    bat_power = battery.load(self.interval, power)["avg_power"]
                 else:
-                    power += battery.unload(self.interval, -power)["avg_power"]
+                    bat_power = -battery.unload(self.interval, -power)["avg_power"]
+                power -= bat_power
+                gc.add_load(bid, bat_power)
         else:
             # outside of window: draw power
             power = max(gc.max_power - sum_loads, 0)
-            commands = self.distribute_power(vehicles.values(), power, energy_needed)
-            power -= sum(commands.values())
-            for battery in self.world_state.batteries.values():
-                power -= battery.load(self.interval, power)["avg_power"]
+            if self.LOAD_STRAT == "balanced":
+                commands = {}
+                for v in vehicles.values():
+                    # estimate remaining standing time
+                    remain_ts = (v.estimated_time_of_departure - self.current_time) / self.interval
+                    # get power needed to reach desired SoC
+                    v_power = v.get_energy_needed(full=False) * timesteps_per_hour
+                    # distribute power over estimated remaining standing time
+                    v_power /= remain_ts
+                    # scale with battery efficiency
+                    v_power /= v.battery.efficiency
+                    cs_id = vehicle.connected_charging_station
+                    cs = self.world_state.charging_stations[cs_id]
+                    v_power = util.clamp_power(v_power, vehicle, cs)
+                    # charging
+                    v_power = v.battery.load(self.interval, v_power)["avg_power"]
+                    gc.add_load(cs_id, v_power)
+                    commands[cs_id] = v_power
+                    power -= v_power
+            else:
+                commands = self.distribute_power(vehicles.values(), power, energy_needed)
+                power -= sum(commands.values())
+            for bid, battery in self.world_state.batteries.items():
+                bat_power = battery.load(self.interval, power)["avg_power"]
+                power -= bat_power
+                gc.add_load(bid, bat_power)
+        for cs_id, avg_power in commands.items():
+            gc.add_load(cs_id, avg_power)
 
         return {'current_time': self.current_time, 'commands': commands}
-
 
     def distribute_power(self, vehicles, total_power, energy_needed):
         # distribute total_power to vehicles in iterable vehicles according to self.LOAD_STRAT
