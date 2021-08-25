@@ -74,7 +74,15 @@ def generate_flex_band(scenario):
                 if cars[vid][0] == 0:
                     # just arrived
                     charging_power = v.battery.loading_curve.max_power
-                    vehicle_power_needed = max(v.get_delta_soc(), 0) * v.battery.capacity
+                    delta_soc = max(v.get_delta_soc(), 0)
+                    # scale with remaining steps
+                    if v.estimated_time_of_departure is not None:
+                        dep = v.estimated_time_of_departure
+                        # try to understand this one
+                        dep = -((scenario.start_time - dep) // s.interval)
+                        factor = min((scenario.n_intervals - step_i) / (dep - step_i), 1)
+                        delta_soc *= factor
+                    vehicle_power_needed = delta_soc * v.battery.capacity
                     v.battery.soc = max(v.battery.soc, v.desired_soc)
                     v2g = v.battery.get_available_power(s.interval) if v.vehicle_type.v2g else 0
                     cars[vid] = [charging_power, vehicle_power_needed, v2g]
