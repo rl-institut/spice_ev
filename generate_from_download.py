@@ -89,8 +89,8 @@ def generate_from_download(args):
             # not enough minimum SoC to make the trip
             print("WARNING: minimum SoC too low, need at least {} (see transaction {})".format(
                 soc_delta, event["transactionId"]))
-        if energy_used > 1:
-            # less than 1 kWh used: dummy /faulty event
+        if energy_used > 1 and event["reason"] == "EVDisconnected" and event["status"] == "Beendet":
+            # less than 1 kWh used or different reason or not finished: dummy /faulty event
 
             # generate events
             events["vehicle_events"].append({
