@@ -78,13 +78,14 @@ class EnergyValuesList:
         ]
         optional_keys = [
             ('values', lambda x: list(map(float, x)), []),
+            ('factor', float, 1),
         ]
         util.set_attr_from_dict(obj, self, keys, optional_keys)
 
         if 'values' in obj and 'csv_file' in obj:
             raise Exception("Either values or csv_file, not both!")
 
-        # Read CSV file of values are not given directly
+        # Read CSV file if values are not given directly
         if not self.values:
             csv_path = os.path.join(dir_path, obj['csv_file'])
             column = obj['column']
@@ -106,7 +107,7 @@ class EnergyValuesList:
                 "start_time": idx_time,
                 "name": name,
                 "grid_connector_id": self.grid_connector_id,
-                "value": value,
+                "value": value * self.factor,
             }))
 
         return eventlist
