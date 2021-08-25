@@ -21,10 +21,10 @@ def generate_trip(args):
     min_distance = vars(args).get("min_distance", 2.5)
     max_distance = vars(args).get("max_distance", 175.33)
     # departure time
-    avg_start = vars(args).get("avg_start", "08:15")  # hh:mm
+    avg_start = vars(args).get("avg_start", "08:30")  # hh:mm
     std_start = vars(args).get("std_start", 0.75)  # hours
     min_start = vars(args).get("min_start", "06:15")
-    max_start = vars(args).get("max_start", "10:15")
+    max_start = vars(args).get("max_start", "10:45")
     # trip duration
     avg_driving = vars(args).get("avg_driving", 7.75)  # hours
     std_driving = vars(args).get("std_driving", 2.25)
