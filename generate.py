@@ -6,7 +6,55 @@ import json
 import random
 from os import path
 
-from src.util import datetime_from_isoformat, set_options_from_config
+from src.util import set_options_from_config
+
+
+def datetime_from_string(s, tzinfo):
+    h, m = map(int, s.split(':'))
+    return datetime.datetime(1972, 1, 1, h, m, tzinfo=tzinfo)
+
+
+def generate_trip(args, tzinfo):
+    # distance of one trip
+    avg_distance = vars(args).get("avg_distance", 44.38)  # km
+    std_distance = vars(args).get("std_distance", 22.59)
+    min_distance = vars(args).get("min_distance", 2.5)
+    max_distance = vars(args).get("max_distance", 175.33)
+    # departure time
+    avg_start = vars(args).get("avg_start", "08:15")  # hh:mm
+    std_start = vars(args).get("std_start", 0.75)  # hours
+    min_start = vars(args).get("min_start", "06:15")
+    max_start = vars(args).get("max_start", "10:15")
+    # trip duration
+    avg_driving = vars(args).get("avg_driving", 7.75)  # hours
+    std_driving = vars(args).get("std_driving", 2.25)
+    min_driving = vars(args).get("min_driving", 4)
+    max_driving = vars(args).get("max_driving", 11)
+
+    # start time
+    start = datetime_from_string(avg_start, tzinfo)
+    # to timestamp (resolution in seconds)
+    start = start.timestamp()
+    # apply normal distribution (hours -> seconds)
+    start = random.gauss(start, std_start * 60 * 60)
+    # back to datetime (ignore sub-minute resolution)
+    start = datetime.datetime.fromtimestamp(start).replace(second=0, microsecond=0, tzinfo=tzinfo)
+    # clamp start
+    min_start = datetime_from_string(min_start, tzinfo)
+    max_start = datetime_from_string(max_start, tzinfo)
+    start = min(max(start, min_start), max_start)
+
+    # get trip duration
+    duration = random.gauss(avg_driving, std_driving)
+    duration = min(max(duration, min_driving), max_driving)
+    stop = start + datetime.timedelta(hours=duration)
+    stop = stop.replace(second=0, microsecond=0)
+
+    # get trip distance
+    distance = random.gauss(avg_distance, std_distance)
+    distance = min(max(distance, min_distance), max_distance)
+
+    return start.time(), stop.time(), distance
 
 
 def generate(args):
@@ -24,10 +72,6 @@ def generate(args):
     stop = start + datetime.timedelta(days=args.days)
     interval = datetime.timedelta(minutes=args.interval)
 
-    # CONSTANTS
-    avg_distance = vars(args).get("avg_distance", 40)  # km
-    std_distance = vars(args).get("std_distance", 2.155)
-
     # VEHICLES
     if not args.cars:
         args.cars = [['1', 'golf'], ['1', 'sprinter']]
@@ -40,7 +84,7 @@ def generate(args):
             "mileage": 40,  # kWh / 100km
             "charging_curve": [[0, 11], [0.8, 11], [1, 11]],  # kW
             "min_charging_power": 0,  # kW
-            "v2g": args.v2g,
+            "v2g": vars(args).get("v2g", False),
             "count": 0
         },
         "golf": {
@@ -49,7 +93,7 @@ def generate(args):
             "mileage": 16,  # kWh/100km
             "charging_curve": [[0, 22], [0.8, 22], [1, 22]],  # kW
             "min_charging_power": 0,  # kW
-            "v2g": args.v2g,
+            "v2g": vars(args).get("v2g", False),
             "count": 0
         }
     }
@@ -70,18 +114,18 @@ def generate(args):
         for i in range(t["count"]):
             v_name = "{}_{}".format(name, i)
             cs_name = "CS_" + v_name
-            depart = start + datetime.timedelta(days=1, hours=6, minutes=15 * random.randint(0, 4))
-            soc = random.uniform(0.5, 1)
             vehicles[v_name] = {
                 "connected_charging_station": cs_name,
-                "estimated_time_of_departure": depart.isoformat(),
+                "estimated_time_of_departure": None,
                 "desired_soc": None,
-                "soc": soc,
+                "soc": args.min_soc,
                 "vehicle_type": name
             }
 
+            cs_power = max([v[1] for v in t['charging_curve']])
             charging_stations[cs_name] = {
-                "max_power": max([v[1] for v in t['charging_curve']]),
+                "max_power": cs_power,
+                "min_power": 0.1 * cs_power,
                 "parent": "GC1"
             }
 
@@ -167,139 +211,127 @@ def generate(args):
         price_csv_path = path.join(target_path, filename)
         if not path.exists(price_csv_path):
             print("Warning: price csv file '{}' does not exist yet".format(price_csv_path))
-    else:
-        events['grid_operator_signals'].append({
-            "signal_time": start.isoformat(),
-            "grid_connector_id": "GC1",
-            "start_time": start.isoformat(),
-            "cost": {
-                "type": "polynomial",
-                "value": [0.0, 0.1, 0.0]
-            }
-        })
 
     daily = datetime.timedelta(days=1)
 
     # count number of trips where desired_soc is above min_soc
     trips_above_min_soc = 0
 
-    # create vehicle events
-    # each day, each vehicle leaves between 6 and 7 and returns after using some battery power
+    # create vehicle and price events
+    # each day (except Sunday), each vehicle leaves and returns after using some battery power
 
-    now = start
-    while now < stop:
-        # next day. First day is off
+    now = start - daily
+    while now < stop + 2*daily:
         now += daily
 
-        if not args.include_price_csv:
-            evening_by_month = datetime.timedelta(days=1, hours=22-abs(6-now.month))
-            # generate grid op signal for next day
+        # create vehicle events for this day
+        for v_id, v in vehicles.items():
+            if now.weekday() == 6:
+                # no driving on Sunday
+                break
+
+            # get vehicle infos
+            capacity = vehicle_types[v["vehicle_type"]]["capacity"]
+            # convert mileage per 100 km in 1 km
+            mileage = vehicle_types[v["vehicle_type"]]["mileage"] / 100
+
+            # generate trip event
+            dep_time, arr_time, distance = generate_trip(args, now.tzinfo)
+            departure = datetime.datetime.combine(now.date(), dep_time, now.tzinfo)
+            arrival = datetime.datetime.combine(now.date(), arr_time, now.tzinfo)
+            soc_delta = distance * mileage / capacity
+
+            desired_soc = soc_delta * (1 + vars(args).get("buffer", 0.1))
+            desired_soc = max(args.min_soc, desired_soc)
+            # update initial desired SoC
+            v["desired_soc"] = v["desired_soc"] or desired_soc
+            update = {
+                "estimated_time_of_departure": departure.isoformat(),
+                "desired_soc": desired_soc
+            }
+
+            if "last_arrival_idx" in v:
+                # update last arrival event
+                events["vehicle_events"][v["last_arrival_idx"]]["update"].update(update)
+            else:
+                # first event for this car: update directly
+                v.update(update)
+
+            if now >= stop:
+                # after end of scenario: keep generating trips, but don't include in scenario
+                continue
+
+            trips_above_min_soc += desired_soc > args.min_soc
+
+            events["vehicle_events"].append({
+                "signal_time": departure.isoformat(),
+                "start_time": departure.isoformat(),
+                "vehicle_id": v_id,
+                "event_type": "departure",
+                "update": {
+                    "estimated_time_of_arrival": arrival.isoformat()
+                }
+            })
+
+            v["last_arrival_idx"] = len(events["vehicle_events"])
+
+            events["vehicle_events"].append({
+                "signal_time": arrival.isoformat(),
+                "start_time": arrival.isoformat(),
+                "vehicle_id": v_id,
+                "event_type": "arrival",
+                "update": {
+                    "connected_charging_station": "CS_" + v_id,
+                    "estimated_time_of_departure": None,
+                    "desired_soc": None,
+                    "soc_delta": -soc_delta
+                }
+            })
+
+        # generate prices for the day
+        if not args.include_price_csv and now < stop:
+            morning = now + datetime.timedelta(hours=6)
+            evening_by_month = now + datetime.timedelta(hours=22-abs(6-now.month))
             events['grid_operator_signals'] += [{
                 # day (6-evening): 15ct
-                "signal_time": now.isoformat(),
+                "signal_time": max(start, now-daily).isoformat(),
                 "grid_connector_id": "GC1",
-                "start_time": (now + datetime.timedelta(days=1, hours=6)).isoformat(),
+                "start_time": morning.isoformat(),
                 "cost": {
                     "type": "fixed",
                     "value": 0.15 + random.gauss(0, 0.05)
                 }
             }, {
                 # night (depending on month - 6): 5ct
-                "signal_time": now.isoformat(),
+                "signal_time": max(start, now-daily).isoformat(),
                 "grid_connector_id": "GC1",
-                "start_time": (now + evening_by_month).isoformat(),
+                "start_time": evening_by_month.isoformat(),
                 "cost": {
                     "type": "fixed",
                     "value": 0.05 + random.gauss(0, 0.03)
                 }
             }]
 
-        for v_id, v in vehicles.items():
-            if now.weekday() == 6:
-                # no work on Sunday
-                break
+    # end of scenario
 
-            capacity = vehicle_types[v["vehicle_type"]]["capacity"]
-            # convert mileage per 100 km in 1 km
-            mileage = vehicle_types[v["vehicle_type"]]["mileage"] / 100
-
-            # get distance for the day (computed before)
-            distance = v.get("distance", random.gauss(avg_distance, std_distance))
-            soc_delta = distance * mileage / capacity
-
-            # departure
-            dep_str = v.get('departure', v["estimated_time_of_departure"])
-            dep_time = datetime_from_isoformat(dep_str)
-            # now + datetime.timedelta(hours=6, minutes=15 * random.randint(0,4))
-            # always 8h
-            t_delta = datetime.timedelta(hours=8)
-            # 40 km -> 6h
-            # l = log(1 - 6/8) / 40
-            # t_delta = datetime.timedelta(hours=8 * (1 - exp(l * distance)))
-            # t_delta = t_delta - datetime.timedelta(microseconds=t_delta.microseconds)
-            arrival_time = dep_time + t_delta
-
-            events["vehicle_events"].append({
-                "signal_time": now.isoformat(),
-                "start_time": dep_time.isoformat(),
-                "vehicle_id": v_id,
-                "event_type": "departure",
-                "update": {
-                    "estimated_time_of_arrival": arrival_time.isoformat()
-                }
-            })
-
-            # plan next day
-            if now.weekday() == 5:
-                # today is Saturday, tomorrow is Sunday: no work
-                next_dep_time = now + \
-                    datetime.timedelta(days=2, hours=6, minutes=15 * random.randint(0, 4))
-            else:
-                next_dep_time = now + \
-                    datetime.timedelta(days=1, hours=6, minutes=15 * random.randint(0, 4))
-
-            next_distance = random.gauss(avg_distance, std_distance)
-            next_distance = min(max(17, next_distance), 120)
-            soc_needed = next_distance * mileage / capacity
-            v['distance'] = next_distance
-            v["departure"] = next_dep_time.isoformat()
-
-            desired_soc = soc_needed * (1 + vars(args).get("buffer", 0.1))
-            trips_above_min_soc += desired_soc > args.min_soc
-            desired_soc = max(args.min_soc, desired_soc)
-            # update initial desired SoC
-            v["desired_soc"] = v["desired_soc"] or desired_soc
-
-            events["vehicle_events"].append({
-                "signal_time": arrival_time.isoformat(),
-                "start_time": arrival_time.isoformat(),
-                "vehicle_id": v_id,
-                "event_type": "arrival",
-                "update": {
-                    "connected_charging_station": "CS_" + v_id,
-                    "estimated_time_of_departure": next_dep_time.isoformat(),
-                    "desired_soc": desired_soc,
-                    "soc_delta": -soc_delta
-                }
-            })
-
-    # reset initial SOC
+    # remove temporary information
     for v in vehicles.values():
-        del v["distance"]
-        del v["departure"]
+        del v["last_arrival_idx"]
 
     j = {
         "scenario": {
             "start_time": start.isoformat(),
-            "interval": int(interval.days * 24 * 60 + interval.seconds/60),
-            "n_intervals": int((stop - start) / interval)
+            # "stop_time": stop.isoformat(),
+            "interval": interval.days * 24 * 60 + interval.seconds // 60,
+            "n_intervals": (stop - start) // interval
         },
         "constants": {
             "vehicle_types": vehicle_types,
             "vehicles": vehicles,
             "grid_connectors": {
                 "GC1": {
-                    "max_power": 630
+                    "max_power": 630,
+                    "cost": {"type": "fixed", "value": 0.3}
                 }
             },
             "charging_stations": charging_stations,
@@ -309,7 +341,7 @@ def generate(args):
     }
 
     if trips_above_min_soc:
-        print("{} trips use more than {}% capacity".format(trips_above_min_soc, args.min_soc))
+        print("{} trips use more than {}% capacity".format(trips_above_min_soc, args.min_soc * 100))
 
     # Write JSON
     with open(args.output, 'w') as f:
@@ -323,13 +355,11 @@ if __name__ == '__main__':
     parser.add_argument('--cars', metavar=('N', 'TYPE'), nargs=2, action='append', type=str,
                         help='set number of cars for a vehicle type, \
                         e.g. `--cars 100 sprinter` or `--cars 13 golf`')
-    parser.add_argument('--v2g', action='store_true',
-                        help='Vehicles have vehicle-to-grid capability')
     parser.add_argument('--days', metavar='N', type=int, default=30,
                         help='set duration of scenario as number of days')
     parser.add_argument('--interval', metavar='MIN', type=int, default=15,
                         help='set number of minutes for each timestep (Δt)')
-    parser.add_argument('--min-soc', metavar='SOC', type=int, default=0.8,
+    parser.add_argument('--min-soc', metavar='SOC', type=float, default=0.8,
                         help='set minimum desired SOC (0 - 1) for each charging process')
     parser.add_argument('--battery', '-b', default=[], nargs=2, type=float, action='append',
                         help='add battery with specified capacity in kWh and C-rate \
