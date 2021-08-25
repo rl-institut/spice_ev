@@ -258,7 +258,7 @@ if __name__ == '__main__':
                         help='set minimum desired SOC (0 - 1) for each charging process')
     parser.add_argument('--v2g', action='store_true',
                         help='Vehicles have vehicle-to-grid capability')
-    parser.add_argument('--gc-power', metavar='P', type=float, default=630,
+    parser.add_argument('--gc-power', metavar='P', type=float, default=530,
                         help='set maximum power of grid connector')
     parser.add_argument('--battery', '-b', metavar=('CAP', 'C-RATE'),
                         default=[], nargs=2, type=float, action='append',
