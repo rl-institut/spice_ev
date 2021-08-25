@@ -330,7 +330,7 @@ def generate(args):
             "vehicles": vehicles,
             "grid_connectors": {
                 "GC1": {
-                    "max_power": 630,
+                    "max_power": vars(args).get("gc_power", 530),
                     "cost": {"type": "fixed", "value": 0.3}
                 }
             },
