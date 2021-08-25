@@ -9,12 +9,12 @@ from os import path
 from src.util import set_options_from_config
 
 
-def datetime_from_string(s, tzinfo):
+def datetime_from_string(s):
     h, m = map(int, s.split(':'))
-    return datetime.datetime(1972, 1, 1, h, m, tzinfo=tzinfo)
+    return datetime.datetime(1972, 1, 1, h, m)
 
 
-def generate_trip(args, tzinfo):
+def generate_trip(args):
     # distance of one trip
     avg_distance = vars(args).get("avg_distance", 44.38)  # km
     std_distance = vars(args).get("std_distance", 22.59)
@@ -32,16 +32,16 @@ def generate_trip(args, tzinfo):
     max_driving = vars(args).get("max_driving", 11)
 
     # start time
-    start = datetime_from_string(avg_start, tzinfo)
+    start = datetime_from_string(avg_start)
     # to timestamp (resolution in seconds)
     start = start.timestamp()
     # apply normal distribution (hours -> seconds)
     start = random.gauss(start, std_start * 60 * 60)
     # back to datetime (ignore sub-minute resolution)
-    start = datetime.datetime.fromtimestamp(start).replace(second=0, microsecond=0, tzinfo=tzinfo)
+    start = datetime.datetime.fromtimestamp(start).replace(second=0, microsecond=0)
     # clamp start
-    min_start = datetime_from_string(min_start, tzinfo)
-    max_start = datetime_from_string(max_start, tzinfo)
+    min_start = datetime_from_string(min_start)
+    max_start = datetime_from_string(max_start)
     start = min(max(start, min_start), max_start)
 
     # get trip duration
@@ -236,7 +236,7 @@ def generate(args):
             mileage = vehicle_types[v["vehicle_type"]]["mileage"] / 100
 
             # generate trip event
-            dep_time, arr_time, distance = generate_trip(args, now.tzinfo)
+            dep_time, arr_time, distance = generate_trip(args)
             departure = datetime.datetime.combine(now.date(), dep_time, now.tzinfo)
             arrival = datetime.datetime.combine(now.date(), arr_time, now.tzinfo)
             soc_delta = distance * mileage / capacity
