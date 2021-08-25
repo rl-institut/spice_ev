@@ -326,12 +326,13 @@ class Scenario:
             }
 
             # battery sizes
-            bat_dict = {batName: max(values) for batName, values in batteryLevels.items()}
-            bat_dict.update({
-                "unit": "kWh",
-                "info": "Maximum stored energy in each battery by name"
-            })
-            json_results["max. stored energy in batteries"] = bat_dict
+            if batteryLevels:
+                bat_dict = {batName: max(values) for batName, values in batteryLevels.items()}
+                bat_dict.update({
+                    "unit": "kWh",
+                    "info": "Maximum stored energy in each battery by name"
+                })
+                json_results["max. stored energy in batteries"] = bat_dict
 
             # charging cycles
             # stationary batteries
