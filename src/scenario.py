@@ -293,7 +293,8 @@ class Scenario:
             intervals = flex["intervals"]
             avg_needed_energy = sum([i["needed"] for i in intervals]) / len(intervals)
             json_results["avg needed energy"] = {
-                "value": avg_needed_energy,
+                # avg energy per standing period and vehicle
+                "value": avg_needed_energy / len(self.constants.vehicles),
                 "unit": "kWh",
                 "info": "Average amount of energy needed to reach the desired SoC"
                         " (averaged over all vehicles and charge events)"
