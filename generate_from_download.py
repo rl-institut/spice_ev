@@ -124,10 +124,8 @@ def generate_from_download(args):
         else:
             vehicle_queue.append((v_id, departure_time))
 
-    # align start_time to next interval
-    interval = datetime.timedelta(minutes=args.interval)
-    min_datetime = datetime.datetime.min.replace(tzinfo=datetime.timezone.utc)
-    start_time = start_time + (min_datetime - start_time) % interval
+    # set start time to midnight (most CSV start at midnight)
+    start_time = start_time.replace(hour=0, minute=0, second=0, microsecond=0)
 
     # save path and options for CSV timeseries
     # all paths are relative to output file
