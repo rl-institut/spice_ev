@@ -2,7 +2,7 @@ import datetime
 import json
 import unittest
 
-from src import battery, loading_curve, scenario
+from src import battery, loading_curve, scenario, util
 
 
 def get_test_json():
@@ -144,6 +144,47 @@ class TestBattery(unittest.TestCase):
             p2 += b2.load(td, 1)["avg_power"]
         assert approx_eq(b1.soc, b2.soc), "SoC different: {} vs {}".format(b1.soc, b2.soc)
         assert approx_eq(p1, p2), "Used power different: {} vs {}".format(p1, p2)
+
+
+class UtilTest(unittest.TestCase):
+
+    def test_time_window(self):
+
+        time_windows = {
+            "autumn": {
+                # 01.09. - 30.11., 16:30 - 20:00
+                "start": datetime.datetime(day=1, month=9, year=1900, hour=16, minute=30),
+                "end": datetime.datetime(day=30, month=11, year=1900, hour=20, minute=0),
+            },
+            # split winter (year changes)
+            "winter1": {
+                # 01.12. - 31.12., 16:30 - 19:30
+                "start": datetime.datetime(day=1, month=12, year=1900, hour=16, minute=30),
+                "end": datetime.datetime(day=31, month=12, year=1900, hour=19, minute=30),
+            },
+            "winter2": {
+                # 01.01. - 28.02., 16:30 - 19:30
+                "start": datetime.datetime(day=1, month=1, year=1900, hour=16, minute=30),
+                "end": datetime.datetime(day=28, month=2, year=1900, hour=19, minute=30),
+            }
+        }
+
+        not_in_window = [
+            datetime.datetime(2021, 8, 31, 23, 59),
+            datetime.datetime(2022, 9, 1, 0, 00),
+            datetime.datetime(2023, 12, 31, 20, 0),
+            datetime.datetime(2024, 9, 1, 20, 0),
+        ]
+        in_window = [
+            datetime.datetime(2021, 9, 1, 16, 30),
+            datetime.datetime(2022, 9, 3, 19, 59),
+            datetime.datetime(2023, 1, 1, 18, 0),
+        ]
+
+        for dt in not_in_window:
+            assert not util.datetime_within_window(dt, time_windows)
+        for dt in in_window:
+            assert util.datetime_within_window(dt, time_windows)
 
 
 if __name__ == '__main__':
