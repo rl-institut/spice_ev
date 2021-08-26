@@ -136,7 +136,6 @@ class PeakLoadWindow(Strategy):
             # reset SoC
             for vid, v in sim_vehicles.items():
                 v.battery.soc = vehicles[vid].battery.soc
-                assert vid in v.connected_charging_station
             for bid, b in sim_batteries.items():
                 b.soc = self.world_state.batteries[bid].soc
 
