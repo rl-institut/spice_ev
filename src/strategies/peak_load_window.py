@@ -75,13 +75,12 @@ class PeakLoadWindow(Strategy):
         energy_needed = 0
         for vid, v in self.world_state.vehicles.items():
             if v.connected_charging_station is not None:
-                assert vid in v.connected_charging_station
                 vehicles[vid] = v
                 energy_needed += v.get_energy_needed(full=False)
                 standing[vid] = 0
                 if v.estimated_time_of_departure is not None:
                     # how many timesteps left until leaving?
-                    v.dep_ts = -(self.current_time - v.estimated_time_of_departure) // self.interval
+                    v.dep_ts = -((self.current_time - v.estimated_time_of_departure) // self.interval)
                 else:
                     # no departure time given: assume whole day
                     v.dep_ts = timesteps_per_day
@@ -149,8 +148,8 @@ class PeakLoadWindow(Strategy):
                 sim_energy_needed = 0
                 # check if desired SoC is met when leaving or take note of energy needed
                 for v in sim_vehicles.values():
-                    if (v.estimated_time_of_departure is not None
-                            and v.estimated_time_of_departure <= cur_time):
+                    if v.dep_ts <= ts_idx:
+                        # vehicle left: check if charged enough
                         safe &= v.get_delta_soc() < self.EPS
                     else:
                         sim_charging_vehicles.append(v)
