@@ -87,7 +87,7 @@ class ScheduleForesight(Strategy):
                 event_idx += 1
                 if type(event) == events.GridOperatorSignal:
                     # update GC info
-                    gc_info[-1]["target"] = event.target or 0
+                    gc_info[-1]["target"] = event.target or gc_info[-1]["target"]
                 elif type(event) == events.ExternalLoad:
                     gc_info[-1]["ext_load"][event.name] = event.value
                 elif type(event) == events.EnergyFeedIn:
