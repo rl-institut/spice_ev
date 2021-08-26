@@ -80,7 +80,8 @@ class PeakLoadWindow(Strategy):
                 standing[vid] = 0
                 if v.estimated_time_of_departure is not None:
                     # how many timesteps left until leaving?
-                    v.dep_ts = -((self.current_time - v.estimated_time_of_departure) // self.interval)
+                    standing_time = v.estimated_time_of_departure - self.current_time
+                    v.dep_ts = -(-standing_time // self.interval)
                 else:
                     # no departure time given: assume whole day
                     v.dep_ts = timesteps_per_day
