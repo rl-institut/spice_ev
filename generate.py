@@ -154,7 +154,7 @@ def generate(args):
 
     if args.include_ext_load_csv:
         filename = args.include_ext_load_csv
-        basename = filename.split('.')[0]
+        basename = path.splitext(path.basename(filename))[0]
         options = {
             "csv_file": filename,
             "start_time": start.isoformat(),
@@ -175,7 +175,7 @@ def generate(args):
 
     if args.include_feed_in_csv:
         filename = args.include_feed_in_csv
-        basename = filename.split('.')[0]
+        basename = path.splitext(path.basename(filename))[0]
         options = {
             "csv_file": filename,
             "start_time": start.isoformat(),
@@ -195,7 +195,7 @@ def generate(args):
 
     if args.include_price_csv:
         filename = args.include_price_csv
-        basename = filename.split('.')[0]
+        # basename = path.splitext(path.basename(filename))[0]
         options = {
             "csv_file": filename,
             "start_time": start.isoformat(),
