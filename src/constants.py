@@ -28,6 +28,7 @@ class GridConnector:
             ('current_loads', dict, {}),
             ('cost', dict, {}),
             ('target', float, None),
+            ('window', bool, True),
         ]
         util.set_attr_from_dict(obj, self, keys, optional_keys)
         self.avg_ext_load = None

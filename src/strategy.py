@@ -63,6 +63,8 @@ class Strategy():
                 if ev.target is not None:
                     # set target power from schedule
                     connector.target = ev.target
+                if ev.window is not None:
+                    connector.window = ev.window
                 # set max power from event
                 if connector.max_power:
                     if ev.max_power is None:

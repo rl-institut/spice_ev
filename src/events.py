@@ -124,6 +124,7 @@ class GridOperatorSignal(Event):
             ('max_power', float, None),
             ('cost', dict, None),
             ('target', float, None),
+            ('window', bool, True),
         ]
         util.set_attr_from_dict(obj, self, keys, optional_keys)
 
@@ -166,6 +167,7 @@ def get_schedule_from_csv(obj, dir_path):
 
     schedule = []
     col = obj['column']
+    window_col = obj.get('window_column', 'charge')
 
     # fallback if timesteps can't be parsed
     start = util.datetime_from_isoformat(obj.get("start_time", None))
@@ -173,6 +175,7 @@ def get_schedule_from_csv(obj, dir_path):
 
     # remember last target value
     last_target = None
+    last_window = None
 
     csv_path = os.path.join(dir_path, obj['csv_file'])
     with open(csv_path, newline='') as csvfile:
@@ -186,12 +189,17 @@ def get_schedule_from_csv(obj, dir_path):
         except ValueError:
             raise SystemExit("'{}' is not a column of {}".format(col, obj['csv_file']))
 
+        window_col_idx = header.index(window_col) if window_col in header else None
+
         for idx, row in enumerate(reader):
             # only generate events for changed schedule, so compare target values
             target = float(row[col_idx])
-            if target != last_target:
-                # targets different: generate new event
+            window = row[window_col_idx].strip() == '1' if window_col_idx is not None else None
+
+            if target != last_target or window != last_window:
+                # targets/window different: generate new event
                 last_target = target
+                last_window = window
 
                 # get start_time
                 try:
@@ -225,6 +233,7 @@ def get_schedule_from_csv(obj, dir_path):
                     "signal_time": signal_time.isoformat(),
                     "grid_connector_id": obj["grid_connector_id"],
                     "target": target,
+                    "window": window,
                 }))
     return schedule
 
