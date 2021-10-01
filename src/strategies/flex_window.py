@@ -254,7 +254,7 @@ class FlexWindow(Strategy):
 
             # reset SoC
             cur_vehicles = sim_vehicles
-            for i,v in enumerate(sim_vehicles):
+            for i, v in enumerate(sim_vehicles):
                 v.battery.soc = old_soc[i]
 
             cur_time = self.current_time - self.interval
