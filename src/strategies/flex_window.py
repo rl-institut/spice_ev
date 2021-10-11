@@ -297,11 +297,11 @@ class FlexWindow(Strategy):
                 vehicles, gc.max_power - gc.get_current_load(), total_energy_needed)
 
         for cs_id, power in commands.items():
+            old_power = power
             commands[cs_id] = gc.add_load(cs_id, power)
+            assert commands[cs_id] == old_power
             # cs.current_power += power
 
-        # print(total_power, total_energy_needed, sum(commands.values()))
-        # raise Exception
         return commands
 
     def distribute_power(self, vehicles, total_power, total_needed):
