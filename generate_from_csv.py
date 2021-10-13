@@ -17,17 +17,14 @@ def generate_from_csv(args):
     """Generate a scenario JSON from JSON file with LIS event data.
     args: argparse.Namespace
     """
-    # missing = [arg for arg in ["input", "output"] if vars(args).get(arg) is None]
-    # if missing:
-    #     raise SystemExit("The following arguments are required: {}".format(", ".join(missing)))
-    #
-    # with open(args.input, 'r') as f:
-    #     input_json = json.load(f)
+    missing = [arg for arg in ["input_file", "output"] if vars(args).get(arg) is None]
+    if missing:
+        raise SystemExit("The following arguments are required: {}".format(", ".join(missing)))
 
     #arguments:
     interval = datetime.timedelta(minutes=args.interval)
     # read csv input file
-    input = pd.read_csv("/home/inia/Dokumente/331_EBusse_Potsdam/src/data_vip/outputs/spice_ev_input/Uebersicht_SOC_PRIO_SOC_UA_SOC_PP_shift_vt.csv", index_col=0)
+    input = pd.read_csv(args.input_file, index_col=0)
 
     input["vehicle_type"] = input["vehicle_type"] + "-" + input["charging_type"]
 
