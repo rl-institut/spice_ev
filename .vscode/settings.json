@@ -1,0 +1,8 @@
+{
+    "python.linting.pylintEnabled": true,
+    "python.linting.enabled": false,
+    "python.linting.pylintArgs": ["--generated-members", "GridConnector"],
+
+
+    "vim.useSystemClipboard": true 
+}
