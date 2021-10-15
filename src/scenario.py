@@ -451,21 +451,22 @@ class Scenario:
                 # write timesteps
                 for idx, r in enumerate(results):
                     # general info: timestep index and timestamp
-                    row = [idx, r['current_time']]
+                    # TZ removed for spreadsheet software
+                    row = [idx, r['current_time'].replace(tzinfo=None)]
                     # price
                     if any(prices):
                         row.append(round(prices[idx][0], round_to_places))
-                    # grid power
-                    row.append(round(totalLoad[idx], round_to_places))
+                    # grid power (negative since grid power is fed into system)
+                    row.append(-1 * round(totalLoad[idx], round_to_places))
                     # external loads
                     if hasExtLoads:
                         sumExtLoads = sum([
                             v for k, v in extLoads[idx].items()
                             if k in self.events.external_load_lists])
                         row.append(round(sumExtLoads, round_to_places))
-                    # feed-in
+                    # feed-in (negative since grid power is fed into system) 
                     if any(feedInPower):
-                        row.append(round(feedInPower[idx], round_to_places))
+                        row.append(-1 * round(feedInPower[idx], round_to_places))
                     # batteries
                     if self.constants.batteries:
                         row += [
