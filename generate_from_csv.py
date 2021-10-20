@@ -156,7 +156,7 @@ def generate_from_csv(args):
         basename = path.splitext(path.basename(filename))[0]
         options = {
             "csv_file": filename,
-            "start_time": start.astimezone().replace(microsecond=0).isoformat(),
+            "start_time": start.isoformat(),
             "step_duration_s": 900,  # 15 minutes
             "grid_connector_id": "GC1",
             "column": "energy"
