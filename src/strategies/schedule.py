@@ -20,8 +20,6 @@ class Schedule(Strategy):
             self.sort_key = lambda v: v[0].estimated_time_of_departure
         else:
             "Unknown charging startegy: {}".format(self.LOAD_STRAT)
-        
-        self.count = 0
 
     def step(self, event_list=[]):
         super().step(event_list)
