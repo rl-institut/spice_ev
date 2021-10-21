@@ -20,6 +20,8 @@ class Schedule(Strategy):
             self.sort_key = lambda v: v[0].estimated_time_of_departure
         else:
             "Unknown charging startegy: {}".format(self.LOAD_STRAT)
+        
+        self.count = 0
 
     def step(self, event_list=[]):
         super().step(event_list)
@@ -108,7 +110,7 @@ class Schedule(Strategy):
                     power = total_power / len(vehicles)
 
                 power = clamp_power(power, vehicle, cs)
-                avg_power = vehicle.battery.load(self.interval, power)["avg_power"]
+                avg_power = vehicle.battery.load(self.interval, power, target_soc=vehicle.desired_soc)["avg_power"]
                 cs_id = vehicle.connected_charging_station
                 charging_stations[cs_id] = gc.add_load(cs_id, avg_power)
 

@@ -129,7 +129,7 @@ class VehicleType:
         ]
         optional_keys = [
             ('min_charging_power', float, 0.0),
-            ('battery_efficiency', float, 0.95),
+            ('battery_efficiency', float, 1.0),
             ('v2g', bool, False),
         ]
         util.set_attr_from_dict(obj, self, keys, optional_keys)

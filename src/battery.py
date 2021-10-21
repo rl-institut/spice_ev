@@ -19,6 +19,7 @@ class Battery:
 
         # get interval in hours
         hours = timedelta.total_seconds() / 3600.0
+        timedelta_hours = hours
 
         # get loading curve clamped to maximum value
         clamped = self.loading_curve.clamped(max_charging_power)
@@ -90,6 +91,10 @@ class Battery:
 
         # get average power in all segments
         avg_power = sum(power)/len(power) if len(power) else 0
+        # in case charging does not occur over the entire time period
+        if hours > EPS:
+            avg_power *= (1 - (hours/timedelta_hours))
+
         return {'avg_power': avg_power, 'soc_delta': self.soc - old_soc}
 
     def unload(self, timedelta, max_power=None, target_soc=0):
