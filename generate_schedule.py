@@ -24,8 +24,9 @@ def generate_flex_band(scenario, core_standing_time=None):
         scenario.start_time, scenario.n_intervals, scenario.interval)
 
     if core_standing_time is not None:
-        core_standing_time.update({key: datetime.time(*value) 
-                                   for key, value in core_standing_time["window"].items()})
+        core_standing_time_start, core_standing_time_end = [
+            datetime.time(*core_standing_time[key]) for key in ['start', 'end']
+            ]
 
     def clamp_to_gc(power):
         # helper function: make sure to stay within GC power limits
@@ -33,6 +34,10 @@ def generate_flex_band(scenario, core_standing_time=None):
     
 
     def is_timestep_in_core_standing_time(step_i):
+        ''' If core standing times are provided, the function 
+        determines whether a given timestep step_i is within 
+        those provided standing time or not.
+        '''
         if core_standing_time is None:
             return True
 
@@ -42,9 +47,9 @@ def generate_flex_band(scenario, core_standing_time=None):
             return True
 
         current_time = current_datetime.time()
-        if core_standing_time['end'] < core_standing_time['start']:
-            return current_time >= core_standing_time['start'] or current_time < core_standing_time['end']
-        return core_standing_time['start'] <= current_time <= core_standing_time['end']
+        if core_standing_time_end < core_standing_time_start:
+            return current_time >= core_standing_time_start or current_time < core_standing_time_end
+        return core_standing_time_start <= current_time <= core_standing_time_end
 
 
     cars = {vid: [0, 0, 0] for vid in s.world_state.vehicles}
@@ -308,6 +313,7 @@ def generate_schedule(args):
         'csv_file': os.path.relpath(args.output, os.path.dirname(args.scenario)),
         'grid_connector_id': list(s.constants.grid_connectors.keys())[0]
     }
+    scenario_json['scenario']['core_standing_time'] = args.core_standing_time
     with open(args.scenario, 'w') as f:
         json.dump(scenario_json, f, indent=2)
 
