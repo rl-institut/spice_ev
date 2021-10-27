@@ -11,7 +11,7 @@ from src import scenario, strategy, util
 EPS = 1e-8
 
 
-def generate_flex_band(scenario):
+def generate_flex_band(scenario, core_standing_time=None):
     # generate flexibility potential with perfect foresight
 
     assert len(scenario.constants.grid_connectors) == 1, "Only one grid connector supported"
@@ -23,9 +23,23 @@ def generate_flex_band(scenario):
     event_steps = scenario.events.get_event_steps(
         scenario.start_time, scenario.n_intervals, scenario.interval)
 
+    if core_standing_time is not None:
+        core_standing_time = \
+                    {key: datetime.time(*value) for key, value in core_standing_time.items()}
+
     def clamp_to_gc(power):
         # helper function: make sure to stay within GC power limits
         return min(max(power, -gc.max_power), gc.max_power)
+    
+
+    def is_timestep_in_core_standing_time(step_i):
+        if core_standing_time is None:
+            return True
+        current_time = (scenario.start_time + step_i * scenario.interval).time()
+        if core_standing_time['end'] < core_standing_time['start']:
+            return current_time >= core_standing_time['start'] or current_time < core_standing_time['end']
+        return core_standing_time['start'] <= current_time <= core_standing_time['end']
+
 
     cars = {vid: [0, 0, 0] for vid in s.world_state.vehicles}
     flex = {
@@ -57,9 +71,9 @@ def generate_flex_band(scenario):
 
     for step_i in range(scenario.n_intervals):
         s.step(event_steps[step_i])
-
+        currently_in_core_standing_time = is_timestep_in_core_standing_time(step_i)
         # basic value: external load, feed-in power
-        base_flex = sum([gc.get_current_load() for gc in s.world_state.grid_connectors.values()])
+        base_flex = sum([gc.get_current_load() for gc in s.world_state.grid_connectors.values()]) #what does base flex represent
 
         num_cars_present = 0
 
@@ -96,7 +110,7 @@ def generate_flex_band(scenario):
                 power = min(v[1], pv_support)
                 v[1] -= power
                 pv_support -= power
-                base_flex += power
+                base_flex += power 
 
             # get sums from cars dict
             vehicle_flex, needed, v2g_flex = map(sum, zip(*cars.values()))
@@ -108,7 +122,8 @@ def generate_flex_band(scenario):
                 })
             info = flex["intervals"][-1]
             info["needed"] = needed
-            info["time"].append(step_i)
+            if currently_in_core_standing_time:
+                info["time"].append(step_i)
         else:
             # all vehicles left
             if vehicles_present:
@@ -144,7 +159,7 @@ def generate_schedule(args):
     ts_per_hour = datetime.timedelta(hours=1) / s.interval
 
     # compute flexibility potential (min/max) for each timestep
-    flex = generate_flex_band(s)
+    flex = generate_flex_band(s, args.core_standing_time)
 
     netto = []
     curtailment = []
@@ -335,6 +350,7 @@ if __name__ == '__main__':
                         'defaults to <scenario>_schedule.csv')
     parser.add_argument('--max-load-range', default=0.1, type=float,
                         help='Area around max_load that should be discouraged')
+    parser.add_argument('--core_standing_time', help='Define start and end time of core standing time in the format hh:mm-hh:mm')
     parser.add_argument('--visual', '-v', action='store_true', help='Plot flexibility and schedule')
     parser.add_argument('--config', help='Use config file to set arguments')
 
