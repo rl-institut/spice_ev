@@ -39,6 +39,42 @@ def datetime_within_window(dt, time_windows):
     return False
 
 
+def timestep_within_window(step_i, start_time, interval, time_windows):
+    """
+    Checks if timestep is core standing times.
+
+    Args:
+        step_i: Time step in simulation (int)
+        start_time: Start time of the simulation (datetime)
+        time_frames: Provides time_windows to check 
+            e.g. {time_windows:[{'start': (22,0), 'end':(5,0)}]
+                full_days: [6,7]}
+    """
+
+    if time_windows is None:
+        return True
+
+    current_datetime = start_time + step_i * interval
+    if any([day_off == current_datetime.isoweekday() 
+            for day_off in time_windows.get('full_days', [])]):
+        return True
+        
+    for time_window in time_windows['times']:
+        core_standing_time_start, core_standing_time_end = [
+            datetime.time(*time_window[key]) for key in ['start', 'end']
+            ]
+
+        current_time = current_datetime.time()
+        if core_standing_time_end < core_standing_time_start:
+            if (current_time >= core_standing_time_start or current_time < core_standing_time_end):
+                return True
+        else: 
+            if core_standing_time_start <= current_time <= core_standing_time_end:
+                return True
+
+    return False
+
+
 def set_attr_from_dict(source, target, keys, optional_keys):
     """ Set attributes of `target` from a `source` dictionary.
         None values for optional keys are not converted.

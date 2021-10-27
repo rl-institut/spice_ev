@@ -23,35 +23,11 @@ def generate_flex_band(scenario, core_standing_time=None):
     event_steps = scenario.events.get_event_steps(
         scenario.start_time, scenario.n_intervals, scenario.interval)
 
-    if core_standing_time is not None:
-        core_standing_time_start, core_standing_time_end = [
-            datetime.time(*core_standing_time[key]) for key in ['start', 'end']
-            ]
 
     def clamp_to_gc(power):
         # helper function: make sure to stay within GC power limits
         return min(max(power, -gc.max_power), gc.max_power)
     
-
-    def is_timestep_in_core_standing_time(step_i):
-        ''' If core standing times are provided, the function 
-        determines whether a given timestep step_i is within 
-        those provided standing time or not.
-        '''
-        if core_standing_time is None:
-            return True
-
-        current_datetime = scenario.start_time + step_i * scenario.interval
-        if any([day_off == current_datetime.isoweekday() 
-                for day_off in core_standing_time.get('days_off', [])]):
-            return True
-
-        current_time = current_datetime.time()
-        if core_standing_time_end < core_standing_time_start:
-            return current_time >= core_standing_time_start or current_time < core_standing_time_end
-        return core_standing_time_start <= current_time <= core_standing_time_end
-
-
     cars = {vid: [0, 0, 0] for vid in s.world_state.vehicles}
     flex = {
         "min": [],
@@ -82,7 +58,8 @@ def generate_flex_band(scenario, core_standing_time=None):
 
     for step_i in range(scenario.n_intervals):
         s.step(event_steps[step_i])
-        currently_in_core_standing_time = is_timestep_in_core_standing_time(step_i)
+        currently_in_core_standing_time = \
+                util.timestep_within_window(step_i, scenario.start_time, scenario.interval, core_standing_time)
         # basic value: external load, feed-in power
         base_flex = sum([gc.get_current_load() for gc in s.world_state.grid_connectors.values()]) #what does base flex represent
 
