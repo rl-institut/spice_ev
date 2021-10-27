@@ -24,8 +24,8 @@ def generate_flex_band(scenario, core_standing_time=None):
         scenario.start_time, scenario.n_intervals, scenario.interval)
 
     if core_standing_time is not None:
-        core_standing_time = \
-                    {key: datetime.time(*value) for key, value in core_standing_time.items()}
+        core_standing_time.update({key: datetime.time(*value) 
+                                   for key, value in core_standing_time["window"].items()})
 
     def clamp_to_gc(power):
         # helper function: make sure to stay within GC power limits
@@ -35,7 +35,13 @@ def generate_flex_band(scenario, core_standing_time=None):
     def is_timestep_in_core_standing_time(step_i):
         if core_standing_time is None:
             return True
-        current_time = (scenario.start_time + step_i * scenario.interval).time()
+
+        current_datetime = scenario.start_time + step_i * scenario.interval
+        if any([day_off == current_datetime.isoweekday() 
+                for day_off in core_standing_time.get('days_off', [])]):
+            return True
+
+        current_time = current_datetime.time()
         if core_standing_time['end'] < core_standing_time['start']:
             return current_time >= core_standing_time['start'] or current_time < core_standing_time['end']
         return core_standing_time['start'] <= current_time <= core_standing_time['end']
