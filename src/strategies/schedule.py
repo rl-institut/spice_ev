@@ -1,5 +1,5 @@
 from src.strategy import Strategy
-from src.util import clamp_power
+from src.util import clamp_power, timestep_within_window
 
 
 class Schedule(Strategy):
@@ -20,10 +20,9 @@ class Schedule(Strategy):
             self.sort_key = lambda v: v[0].estimated_time_of_departure
         else:
             "Unknown charging startegy: {}".format(self.LOAD_STRAT)
+    
 
-    def step(self, event_list=[]):
-        super().step(event_list)
-
+    def charge_cars(self):
         charging_stations = {}
 
         vehicles_at_gc = {gc_id: [] for gc_id in self.world_state.grid_connectors.keys()}
@@ -112,6 +111,10 @@ class Schedule(Strategy):
                 cs_id = vehicle.connected_charging_station
                 charging_stations[cs_id] = gc.add_load(cs_id, avg_power)
 
+        return charging_stations
+
+
+    def utilize_stationary_batteries(self):
         # adjust deviation with batteries
         for bid, battery in self.world_state.batteries.items():
             gc_id = battery.parent
@@ -131,4 +134,16 @@ class Schedule(Strategy):
                 # positive difference, but below minimum charging power
                 bat_power = 0
             gc.add_load(bid, bat_power)
+
+
+    def step(self, event_list=[]):
+        super().step(event_list)
+
+        charging_stations = {}
+
+        if timestep_within_window(self.core_standing_time, current_datetime=self.current_time):
+            charging_stations = self.charge_cars()
+
+        self.utilize_stationary_batteries()
+
         return {'current_time': self.current_time, 'commands': charging_stations}
