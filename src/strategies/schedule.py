@@ -44,7 +44,7 @@ class Schedule(Strategy):
 
             power_needed = []
             for vehicle, _ in vehicles:
-                soc_needed = 1 - vehicle.battery.soc
+                soc_needed = vehicle.desired_soc - vehicle.battery.soc
                 power_needed.append(soc_needed * vehicle.battery.capacity)
 
             if total_power < self.EPS or sum(power_needed) < self.EPS:
