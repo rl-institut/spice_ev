@@ -64,7 +64,7 @@ def generate_flex_band(scenario, core_standing_time=None):
                                             start_time=scenario.start_time,
                                             interval=scenario.interval)
         # basic value: external load, feed-in power
-        base_flex = sum([gc.get_current_load() for gc in s.world_state.grid_connectors.values()]) #what does base flex represent
+        base_flex = sum([gc.get_current_load() for gc in s.world_state.grid_connectors.values()]) 
 
         num_cars_present = 0
 
