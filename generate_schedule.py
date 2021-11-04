@@ -44,6 +44,7 @@ def generate_flex_band(scenario, core_standing_time=None):
     # get battery info: how much can be discharged in beginning, how much if fully charged?
     batteries = s.world_state.batteries.values()
     bat_init_discharge_power = sum([b.get_available_power(s.interval) for b in batteries])
+    bat_efficiency_avg = 0
     for b in batteries:
         if b.capacity > 2**50:
             print("WARNING: battery without capacity detected")
@@ -51,7 +52,10 @@ def generate_flex_band(scenario, core_standing_time=None):
         flex["batteries"]["power"] += b.loading_curve.max_power
         flex["batteries"]["free"] += (1 - b.soc) * b.capacity
         b.soc = 1
+        bat_efficiency_avg += b.efficiency
     bat_full_discharge_power = sum([b.get_available_power(s.interval) for b in batteries])
+    bat_efficiency_avg /= len(batteries)
+    flex["batteries"]["efficiency"] = bat_efficiency_avg
 
     vehicles_present = False
     power_needed = 0
@@ -123,18 +127,19 @@ def generate_flex_band(scenario, core_standing_time=None):
             vehicle_flex = power_needed = v2g_flex = 0
         vehicles_present = num_cars_present > 0
 
-        battery_flex = bat_init_discharge_power if step_i == 0 else bat_full_discharge_power
+        battery_flex_discharge = bat_init_discharge_power if step_i == 0 else bat_full_discharge_power
+        battery_flex_charge = battery_flex_discharge / bat_efficiency_avg
         # PV surplus can also feed batteries
-        pv_to_battery = min(battery_flex, pv_support)
-        battery_flex -= pv_to_battery
+        pv_to_battery = min(battery_flex_charge, pv_support)
+        battery_flex_charge -= pv_to_battery
         pv_support -= pv_to_battery
         base_flex += pv_to_battery
 
         flex["base"].append(clamp_to_gc(base_flex))
         # min: no vehicle charging, discharge from batteries and V2G
-        flex["min"].append(clamp_to_gc(base_flex - battery_flex - v2g_flex))
+        flex["min"].append(clamp_to_gc(base_flex - battery_flex_discharge - v2g_flex))
         # max: all vehicle and batteries charging
-        flex["max"].append(clamp_to_gc(base_flex + vehicle_flex + battery_flex))
+        flex["max"].append(clamp_to_gc(base_flex + vehicle_flex + battery_flex_charge))
 
     return flex
 
@@ -242,10 +247,10 @@ def generate_schedule(args):
             # (dis)charge depending on priority
             if priorities[t_start] % 2:
                 # prio 1/3: charge
-                energy = batteries["free"]
+                energy = batteries["free"] / batteries["efficiency"]
             else:
                 # prio 2/4: discharge
-                energy = -batteries["stored"]
+                energy = -batteries["stored"] * batteries["efficiency"]
             # distribute energy over period of same priority
             for t in range(t_start, t_end):
                 t_left = duration - (t - t_start)
@@ -255,14 +260,16 @@ def generate_schedule(args):
                         batteries["power"] / ts_per_hour,
                         energy / t_left,
                         (flex["max"][t] - schedule[t]) / ts_per_hour)
+                    e_bat_change = e * batteries["efficiency"]
                 else:
                     # discharge
                     e = -min(
-                        batteries["power"] / ts_per_hour,
+                        (batteries["power"] * batteries["efficiency"]) / ts_per_hour,
                         -energy / t_left,
                         (schedule[t] - flex["min"][t]) / ts_per_hour)
-                batteries["stored"] += e
-                batteries["free"] -= e
+                    e_bat_change = e / batteries["efficiency"]
+                batteries["stored"] += e_bat_change
+                batteries["free"] -= e_bat_change
                 schedule[t] += e * ts_per_hour
                 energy -= e
                 assert batteries["stored"] >= -EPS and batteries["free"] >= -EPS, (
