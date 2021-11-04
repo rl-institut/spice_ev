@@ -124,9 +124,9 @@ class Schedule(Strategy):
                 continue
             # get difference between target and GC load
             power = gc.target - gc.get_current_load()
-            if power < 0:
+            if power < -self.EPS:
                 # discharge
-                bat_power = -battery.unload(self.interval, -power)["avg_power"]
+                bat_power = -battery.unload(self.interval, -power / battery.efficiency)["avg_power"]
             elif power > battery.min_charging_power:
                 # charge
                 bat_power = battery.load(self.interval, power)["avg_power"]
