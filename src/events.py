@@ -38,12 +38,13 @@ class Events:
 
         for event in all_events:
             index = ceil((event.signal_time - start_time) / interval)
+            relevant = ceil((event.start_time - start_time) / interval) < n_intervals
 
             if index < 0:
                 print('Warning: Event is before start of scenario, \
                 placing at first time step:', event)
                 steps[0].append(event)
-            elif index >= n_intervals:
+            elif index >= n_intervals or not relevant:
                 ignored += 1
             else:
                 steps[index].append(event)
