@@ -441,7 +441,7 @@ class Scenario:
                     header += ["battery power [kW]", "bat. stored energy [kWh]"]
                 # flex + schedule
                 header += ["flex min [kW]", "flex base [kW]", "flex max [kW]"]
-                header += ["charge".format(gcID) for gcID in scheduleKeys] #todo: changes this from "schedule {} [kW]"
+                header += ["charge".format(gcID) for gcID in scheduleKeys] #todo: changed this from "schedule {} [kW]"
                 # sum of charging power
                 header.append("sum CS power")
                 # charging power per use case
@@ -598,17 +598,17 @@ class Scenario:
             ax.xaxis_date()  # xaxis are datetime objects
 
             # price
-            # ax = plt.subplot(2, 2, 4)                                         # todo: uncomment to plot prices
-            # lines = ax.step(xlabels, prices)
-            # ax.set_title('Price for 1 kWh')
-            # ax.set(ylabel='€')
-            # if len(self.constants.grid_connectors) <= 10:
-            #     ax.legend(lines, sorted(self.constants.grid_connectors.keys()))
-            #
-            # # figure title
-            # fig = plt.gcf()
-            # fig.suptitle('Strategy: {}: {}€'.format(
-            #     strat.description, int(sum(costs))), fontweight='bold')
-            #
-            # fig.autofmt_xdate()  # rotate xaxis labels (dates) to fit
+            ax = plt.subplot(2, 2, 4)
+            lines = ax.step(xlabels, prices)
+            ax.set_title('Price for 1 kWh')
+            ax.set(ylabel='€')
+            if len(self.constants.grid_connectors) <= 10:
+                ax.legend(lines, sorted(self.constants.grid_connectors.keys()))
+
+            # figure title
+            fig = plt.gcf()
+            fig.suptitle('Strategy: {}: {}€'.format(
+                strat.description, int(sum(costs))), fontweight='bold')
+
+            fig.autofmt_xdate()  # rotate xaxis labels (dates) to fit
             plt.show()
