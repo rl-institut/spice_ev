@@ -53,6 +53,25 @@ class Events:
 
         return steps
 
+    def get_external_load_perfect_forseight(self, start_time, interval):
+
+        steps = 0
+
+        all_events = []
+        for name, load_list in self.external_load_lists.items():
+            all_events.extend(load_list.get_events(name, ExternalLoad))
+        for name, feed_in_list in self.energy_feed_in_lists.items():
+            all_events.extend(
+                feed_in_list.get_events(name, EnergyFeedIn, has_perfect_foresight=True))
+
+        for event in all_events:
+            index = ceil((event.signal_time - start_time) / interval)
+
+            if index == 0:
+                steps = event.value
+
+        return steps
+
 
 class Event:
     def __str__(self):
