@@ -58,6 +58,7 @@ class Scenario:
         batteryLevels = {k: [] for k in self.constants.batteries.keys()}
         connChargeByTS = []
         gcPowerSchedule = {gcID: [] for gcID in self.constants.grid_connectors.keys()}
+        gcWindowSchedule = {gcID: [] for gcID in self.constants.grid_connectors.keys()}
 
         begin = datetime.datetime.now()
         for step_i in range(self.n_intervals):
@@ -126,6 +127,11 @@ class Scenario:
                 curLoad += gc_load
 
                 gcPowerSchedule[gcID].append(gc.target)
+                if gc.window:
+                    window = 100
+                else:
+                    window = 0
+                gcWindowSchedule[gcID].append(window)
 
                 # sum up total feed-in power
                 feed_in_keys = self.events.energy_feed_in_lists.keys()
@@ -435,7 +441,7 @@ class Scenario:
                     header += ["battery power [kW]", "bat. stored energy [kWh]"]
                 # flex + schedule
                 header += ["flex min [kW]", "flex base [kW]", "flex max [kW]"]
-                header += ["schedule {} [kW]".format(gcID) for gcID in scheduleKeys]
+                header += ["charge".format(gcID) for gcID in scheduleKeys] #todo: changes this from "schedule {} [kW]"
                 # sum of charging power
                 header.append("sum CS power")
                 # charging power per use case
@@ -490,6 +496,9 @@ class Scenario:
                     # schedule
                     row += [
                         round(gcPowerSchedule[gcID][idx], round_to_places)
+                        for gcID in scheduleKeys]
+                    row += [
+                        round(gcWindowSchedule[gcID][idx], round_to_places)
                         for gcID in scheduleKeys]
                     # charging power
                     # get sum of all current CS power
@@ -576,10 +585,10 @@ class Scenario:
             for name, values in loads.items():
                 ax.plot(xlabels, values, label=name)
             # draw schedule
-            for gcID, schedule in gcPowerSchedule.items():
+            for gcID, schedule in gcWindowSchedule.items():                      #todo: changes from  gcPowerSchedule.items()
                 if any(s is not None for s in schedule):
                     # schedule exists
-                    ax.plot(xlabels, schedule, label="Schedule {}".format(gcID))
+                    ax.plot(xlabels, schedule, label="window".format(gcID))
 
             ax.plot(xlabels, totalLoad, label="total")
             # ax.axhline(color='k', linestyle='--', linewidth=1)
@@ -589,17 +598,17 @@ class Scenario:
             ax.xaxis_date()  # xaxis are datetime objects
 
             # price
-            ax = plt.subplot(2, 2, 4)
-            lines = ax.step(xlabels, prices)
-            ax.set_title('Price for 1 kWh')
-            ax.set(ylabel='€')
-            if len(self.constants.grid_connectors) <= 10:
-                ax.legend(lines, sorted(self.constants.grid_connectors.keys()))
-
-            # figure title
-            fig = plt.gcf()
-            fig.suptitle('Strategy: {}: {}€'.format(
-                strat.description, int(sum(costs))), fontweight='bold')
-
-            fig.autofmt_xdate()  # rotate xaxis labels (dates) to fit
+            # ax = plt.subplot(2, 2, 4)                                         # todo: uncomment to plot prices
+            # lines = ax.step(xlabels, prices)
+            # ax.set_title('Price for 1 kWh')
+            # ax.set(ylabel='€')
+            # if len(self.constants.grid_connectors) <= 10:
+            #     ax.legend(lines, sorted(self.constants.grid_connectors.keys()))
+            #
+            # # figure title
+            # fig = plt.gcf()
+            # fig.suptitle('Strategy: {}: {}€'.format(
+            #     strat.description, int(sum(costs))), fontweight='bold')
+            #
+            # fig.autofmt_xdate()  # rotate xaxis labels (dates) to fit
             plt.show()
