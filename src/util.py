@@ -83,6 +83,18 @@ def timestep_within_window(time_windows, current_datetime=None, timestep=None, s
     return False
 
 
+def dt_to_end_of_time_window(current_time, time_windows, interval):
+    duration = datetime.timedelta()
+    
+    while timestep_within_window(time_windows=time_windows
+                                ,current_datetime=current_time + duration):
+        duration += interval        
+
+    return duration
+
+
+
+
 def set_attr_from_dict(source, target, keys, optional_keys):
     """ Set attributes of `target` from a `source` dictionary.
         None values for optional keys are not converted.

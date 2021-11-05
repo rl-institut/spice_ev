@@ -37,6 +37,7 @@ def generate_flex_band(scenario, core_standing_time=None):
             "stored": 0,
             "power": 0,
             "free": 0,  # how much energy can still be stored?
+            "efficiency": 0 # average efficiency across all batteries
         },
         "intervals": [],
     }
@@ -44,18 +45,17 @@ def generate_flex_band(scenario, core_standing_time=None):
     # get battery info: how much can be discharged in beginning, how much if fully charged?
     batteries = s.world_state.batteries.values()
     bat_init_discharge_power = sum([b.get_available_power(s.interval) for b in batteries])
-    bat_efficiency_avg = 0
     for b in batteries:
         if b.capacity > 2**50:
             print("WARNING: battery without capacity detected")
         flex["batteries"]["stored"] += b.soc * b.capacity
         flex["batteries"]["power"] += b.loading_curve.max_power
         flex["batteries"]["free"] += (1 - b.soc) * b.capacity
+        flex["batteries"]["efficiency"] += b.efficiency
         b.soc = 1
-        bat_efficiency_avg += b.efficiency
     bat_full_discharge_power = sum([b.get_available_power(s.interval) for b in batteries])
-    bat_efficiency_avg /= len(batteries)
-    flex["batteries"]["efficiency"] = bat_efficiency_avg
+    flex["batteries"]["efficiency"] = \
+                    flex["batteries"]["efficiency"] / len(batteries) if len(batteries) else 1
 
     vehicles_present = False
     power_needed = 0
@@ -128,7 +128,7 @@ def generate_flex_band(scenario, core_standing_time=None):
         vehicles_present = num_cars_present > 0
 
         battery_flex_discharge = bat_init_discharge_power if step_i == 0 else bat_full_discharge_power
-        battery_flex_charge = battery_flex_discharge / bat_efficiency_avg
+        battery_flex_charge = battery_flex_discharge / flex["batteries"]["efficiency"]
         # PV surplus can also feed batteries
         pv_to_battery = min(battery_flex_charge, pv_support)
         battery_flex_charge -= pv_to_battery

@@ -29,7 +29,7 @@ class Events:
 
         all_events = self.vehicle_events + self.grid_operator_signals
         for name, load_list in self.external_load_lists.items():
-            all_events.extend(load_list.get_events(name, ExternalLoad))
+            all_events.extend(load_list.get_events(name, ExternalLoad, has_perfect_foresight=True))
         for name, feed_in_list in self.energy_feed_in_lists.items():
             all_events.extend(
                 feed_in_list.get_events(name, EnergyFeedIn, has_perfect_foresight=True))
