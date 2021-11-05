@@ -46,15 +46,10 @@ class FlexWindow(Strategy):
 
         gc = list(self.world_state.grid_connectors.values())[0]
 
-        # get power that can be drawn from battery in this timestep
-        avail_bat_power = sum([
-            bat.get_available_power(self.interval) for bat in self.world_state.batteries.values()])
-
         # reset charging station power (nothing charged yet in this timestep)
         for cs in self.world_state.charging_stations.values():
             cs.current_power = 0
 
-        cur_window = gc.window
         cur_feed_in = {k: -v for k, v in gc.current_loads.items() if v < 0}
         cur_max_power = gc.cur_max_power
 
@@ -67,9 +62,16 @@ class FlexWindow(Strategy):
         timesteps_ahead = int(datetime.timedelta(hours=self.HORIZON) / self.interval)
 
         cur_time = self.current_time - self.interval
+
+        try:
+            step_event = self.world_state.future_events[event_idx]
+            cur_window = step_event.window
+        except IndexError:
+            # no more events
+            cur_window = gc.window
+        gc.window = cur_window
         for timestep_idx in range(timesteps_ahead):
             cur_time += self.interval
-
             # peek into future events
             while True:
                 try:
@@ -87,46 +89,64 @@ class FlexWindow(Strategy):
                     cur_window = event.window or cur_window
                 elif type(event) == events.EnergyFeedIn:
                     cur_feed_in[event.name] = event.value
-                # vehicle events ignored (use vehicle info such as estimated_time_of_departure)
+                    # vehicle events ignored (use vehicle info such as estimated_time_of_departure)
 
             # get (predicted) external load
             if timestep_idx == 0:
                 # use actual external load
                 ext_load = gc.get_current_load()
-                # add battery power (sign switch, as ext_load is subtracted)
-                ext_load -= avail_bat_power
             else:
-                ext_load = gc.get_avg_ext_load(cur_time, self.interval) - sum(cur_feed_in.values())
+                # get external load
+                if self.EXT_LOAD == "perfect_foresight":
+                    ext_load = self.events.get_external_load_perfect_forseight(start_time = cur_time, interval = self.interval)
+                else:
+                    ext_load = gc.get_avg_ext_load(cur_time, self.interval) - sum(cur_feed_in.values())
+            # save infos for each timestep
+            vehicles = sorted(
+                [v for v in self.world_state.vehicles.values()
+                 if v.connected_charging_station is not None],
+                key=self.sort_key)
+
             timesteps.append({
+                "timestep_idx": timestep_idx,
                 "power": cur_max_power - ext_load,
                 "ext_load": ext_load,
                 "window": cur_window,
+                "v_load" : 0,
             })
+            for i, row in enumerate(timesteps):
 
-        if util.get_cost(1, gc.cost) <= self.PRICE_THRESHOLD:
-            # charge max
-            commands = {}
-            for vehicle in self.world_state.vehicles.values():
-                cs_id = vehicle.connected_charging_station
-                if cs_id is None:
-                    continue
-                cs = self.world_state.charging_stations[cs_id]
-                p = gc.cur_max_power - gc.get_current_load()
-                p = util.clamp_power(p, vehicle, cs)
-                avg_power = vehicle.battery.load(self.interval, p)['avg_power']
-                commands[cs_id] = gc.add_load(cs_id, avg_power)
-                cs.current_power += avg_power
-        elif self.LOAD_STRAT == 'balanced':
+                for v in vehicles:
+                    timesteps[i].update({
+                        v.connected_charging_station : 0,
+                    }
+                    )
+        # if costs < price threshold: load all directly                         #todo: leave price out for now
+        # if util.get_cost(1, gc.cost) <= self.PRICE_THRESHOLD:
+        #     # charge max
+        #     commands = {}
+        #     for vehicle in self.world_state.vehicles.values():
+        #         cs_id = vehicle.connected_charging_station
+        #         if cs_id is None:
+        #             continue
+        #         cs = self.world_state.charging_stations[cs_id]
+        #         p = gc.cur_max_power - gc.get_current_load()
+        #         p = util.clamp_power(p, vehicle, cs)
+        #         avg_power = vehicle.battery.load(self.interval, p)['avg_power']
+        #         commands[cs_id] = gc.add_load(cs_id, avg_power)
+        #         cs.current_power += avg_power
+
+        if self.LOAD_STRAT == 'balanced':
             commands = self.distribute_balanced(timesteps)
         else:
-            commands = self.distribute_peak_shaving(timesteps)
+            # load cars with peak shaving strategy
+            commands = self.distribute_peak_shaving_vehicles(timesteps)
+            # charge/discharge batteries with peak shaving strategy
+            commands = self.distribute_peak_shaving_batteries(timesteps, commands)
 
-        """
-        # stationary batteries
-        for bid, battery in self.world_state.batteries.items():
-            if self.LOAD_STRAT == 'balanced':
-                # find minimum power to charge battery during windows
-        """
+            # charge/discharge vehicles with peak shaving strategy
+            commands = self.distribute_peak_shaving_v2g(timesteps, commands)
+
         return {'current_time': self.current_time, 'commands': commands}
 
     def distribute_balanced(self, timesteps):
@@ -212,10 +232,10 @@ class FlexWindow(Strategy):
 
         return charging_stations
 
-    def distribute_peak_shaving(self, timesteps):
+    def distribute_peak_shaving_vehicles(self, timesteps):
 
         gc = list(self.world_state.grid_connectors.values())[0]
-        # order vehicles
+        # get all vehicles that are connected in this step and order vehicles
         vehicles = sorted(
             [v for v in self.world_state.vehicles.values()
                 if v.connected_charging_station is not None], key=self.sort_key)
@@ -224,30 +244,41 @@ class FlexWindow(Strategy):
         sim_vehicles = deepcopy(vehicles)
         cur_vehicles = sim_vehicles
 
+        # check if battery can be fully charged within time windows in horizon with max power
         cur_time = self.current_time - self.interval
         for ts_info in timesteps:
             cur_time += self.interval
-            cur_vehicles = [v for v in cur_vehicles if v.estimated_time_of_departure > cur_time]
+            # get all vehicle events that depart later than current time
+            cur_vehicles = [v for v in cur_vehicles if (v.estimated_time_of_departure > cur_time) and (v.battery.soc < v.desired_soc)]
+            # calculate total energy needed
             cur_needed = sum([v.get_energy_needed(full=True) for v in cur_vehicles])
+            # if there is no cars to charge or no energy needed
             if not cur_vehicles or cur_needed < self.EPS:
                 # no cars or no energy need: skip check
                 break
-            self.distribute_power(cur_vehicles, ts_info["power"], cur_needed)
-        charged_in_window = all([v.get_delta_soc() < self.EPS for v in sim_vehicles])
 
+            if ts_info["window"]:                                               # todo: changed this line
+                self.distribute_power(cur_vehicles, ts_info["power"], cur_needed)
+
+        charged_in_window = all([v.get_delta_soc() < self.EPS for v in sim_vehicles])
+        # apply new soc in this step
         if charged_in_window:
             # can be charged within windows: reset SoC
             for i, v in enumerate(sim_vehicles):
                 v.battery.soc = vehicles[i].battery.soc
+            new_timesteps = [item for item in timesteps if
+                             item["window"] == True]
+        else:
+            new_timesteps = [item for item in timesteps if
+                             item["window"] == False]
 
         old_soc = [v.battery.soc for v in sim_vehicles]
 
         min_total_power = -gc.max_power
         max_total_power = gc.max_power
-        # power_vec = [0]*len(timesteps)
 
-        safe = False
 
+        # find the right power to charge the precalculated soc
         # while (charged_in_window and not safe) or max_total_power - min_total_power > self.EPS:
         while max_total_power - min_total_power > self.EPS:
             total_power = (min_total_power + max_total_power) / 2
@@ -258,24 +289,33 @@ class FlexWindow(Strategy):
                 v.battery.soc = old_soc[i]
 
             cur_time = self.current_time - self.interval
-            for ts_info in timesteps:
+            index = -1
+            for ts_info in new_timesteps:
+                index += 1
                 cur_time += self.interval
                 new_cur_vehicles = []
                 for v in cur_vehicles:
-                    if v.estimated_time_of_departure > cur_time:
+                    # if departure time is still ahead
+                    if (v.estimated_time_of_departure > cur_time) and (v.battery.soc < v.desired_soc):
+                        # add vehicle to new vehicle list
                         new_cur_vehicles.append(v)
                     elif v.get_delta_soc() > self.EPS:
                         break
                 cur_vehicles = new_cur_vehicles
+                # sum up energy needed in this timestep
                 cur_needed = sum([v.get_energy_needed(full=True) for v in cur_vehicles])
                 if not cur_vehicles or cur_needed < self.EPS:
                     # no cars or no energy need: skip simulation
                     break
-                if ts_info["window"] == charged_in_window:
-                    self.distribute_power(
+#                if ts_info["window"] == charged_in_window:
+                commands_temp = self.distribute_power(
                         cur_vehicles, total_power - ts_info["ext_load"], cur_needed)
-                elif not charged_in_window and ts_info["window"]:
-                    self.distribute_power(cur_vehicles, ts_info["power"], cur_needed)
+                # add vehicle load to ts_info
+                if not commands_temp:
+                    timesteps[index][v.connected_charging_station] += 0
+                else:
+                    timesteps[index][v.connected_charging_station] += sum(commands_temp.values())
+
 
             safe = all([v.get_delta_soc() < self.EPS for v in sim_vehicles])
 
@@ -284,32 +324,387 @@ class FlexWindow(Strategy):
             else:
                 min_total_power = total_power
 
+
         # apply power
         total_energy_needed = sum([v.get_energy_needed(full=True) for v in vehicles])
+
 
         # dict to hold charging commands
         commands = {}
         if gc.window == charged_in_window:
             commands = self.distribute_power(
                 vehicles, total_power - gc.get_current_load(), total_energy_needed)
+            if commands:
+                timesteps[0]["v_load"] += sum(commands.values())
         elif not charged_in_window and gc.window:
             commands = self.distribute_power(
                 vehicles, gc.max_power - gc.get_current_load(), total_energy_needed)
-
+            if commands:
+                timesteps[0]["v_load"] += sum(commands.values())
         for cs_id, power in commands.items():
             old_power = power
             commands[cs_id] = gc.add_load(cs_id, power)
             assert commands[cs_id] == old_power
-            # cs.current_power += power
+            #cs.current_power += power
 
         return commands
 
+    def distribute_peak_shaving_batteries(self, timesteps, commands):
+
+        """
+        # stationary batteries
+        for bid, battery in self.world_state.batteries.items():
+            if self.LOAD_STRAT == 'balanced':
+                # find minimum power to charge battery during windows
+        """
+        discharging_stations = []
+        for b_id, battery in self.world_state.batteries.items():
+            gc = self.world_state.grid_connectors[battery.parent]
+            cur_window = gc.window
+
+            sim_battery = deepcopy(battery)
+
+            if cur_window:
+                mode = "charge"
+            else:
+                mode = "discharge"
+
+            # charge/discharge batteries
+            if mode == "charge":            #charge battery
+                min_total_power = -gc.max_power
+                max_total_power = gc.max_power
+
+                window_timesteps = [item for item in timesteps if
+                                 item["window"] == True]
+                new_timesteps = []
+                for i, row in enumerate(window_timesteps):
+                    if window_timesteps[i]["timestep_idx"] != i:
+                        break
+                    new_timesteps.append(row)
+                old_soc = sim_battery.soc
+
+                while max_total_power - min_total_power > self.EPS:
+                    total_power = (min_total_power + max_total_power) / 2
+                    # reset peak list and soc
+                    peak = []
+                    sim_battery.soc = old_soc
+
+                    # calculate needed power to load battery
+                    for ts_info in new_timesteps:
+
+                        if sim_battery.soc > 1 - self.EPS:
+                            # adready charged
+                            break
+
+                        cur_avail_power = (total_power - (ts_info["ext_load"] + ts_info["v_load"]))
+
+                        if cur_avail_power > 0:
+                            cur_avail_power = 0 if cur_avail_power < sim_battery.min_charging_power else cur_avail_power
+                            potential_charge = sim_battery.load(self.interval, cur_avail_power)['avg_power']
+                            #gc.add_load(bat_id, avg_power)
+                            peak.append(potential_charge)
+                        else:
+                            peak.append(0)
+
+
+                    if sim_battery.soc < 1 - self.EPS:
+                        safe = False
+                    else:
+                        safe = True
+
+                    if safe:
+                        max_total_power = total_power
+                    else:
+                        min_total_power = total_power
+                # actual charge
+                avail_power = (total_power - gc.get_current_load())
+                avail_power = 0 if avail_power < battery.min_charging_power else avail_power
+                charge = battery.load(self.interval, avail_power)[
+                    'avg_power']
+                gc.add_load(b_id, charge)
+
+            else:
+
+                # discharge battery
+                no_window_timesteps = [item for item in timesteps if
+                                 item["window"] == False]
+                new_timesteps = []
+                for i, row in enumerate(no_window_timesteps):
+                    if no_window_timesteps[i]["timestep_idx"] != i:
+                        break
+                    new_timesteps.append(row)
+
+                min_total_power = -gc.max_power
+                max_total_power = gc.max_power
+
+
+                old_soc = sim_battery.soc
+
+                while max_total_power - min_total_power > self.EPS:
+                    total_power = (min_total_power + max_total_power) / 2
+                    # reset peak list and soc
+                    peak = []
+                    sim_battery.soc = old_soc
+
+                    cur_time = self.current_time - self.interval
+                    # calculate needed power to load battery
+                    for ts_info in new_timesteps:
+
+                        if sim_battery.soc <= self.DISCHARGE_LIMIT + self.EPS:
+                            break
+
+                        cur_time += self.interval
+                        cur_needed_power = ((
+                                    ts_info["ext_load"] + ts_info["v_load"]) - total_power)
+                        if cur_needed_power > 0:
+                            potential_discharge = sim_battery.unload(self.interval, cur_needed_power, target_soc=self.DISCHARGE_LIMIT)['avg_power']
+                            # gc.add_load(bat_id, avg_power)
+                            peak.append(potential_discharge)
+                        else: peak.append(0)
+
+                    if (sim_battery.soc <=self.DISCHARGE_LIMIT + self.EPS):
+                        safe = False
+                    else:
+                        safe = True
+
+                    if safe:
+                        max_total_power = total_power
+                    else:
+                        min_total_power = total_power
+
+                # actual discharge
+                needed_power = (gc.get_current_load() - total_power)
+                if needed_power < 0:
+                    discharge = 0
+                else:
+                    discharge = \
+                    battery.unload(self.interval, needed_power,
+                                   target_soc=self.DISCHARGE_LIMIT)['avg_power']
+                discharging_stations.append(b_id)
+                gc.add_load(b_id, -discharge)
+
+
+    def distribute_peak_shaving_v2g(self, timesteps, commands):
+
+        """
+        # stationary batteries
+        for bid, battery in self.world_state.batteries.items():
+            if self.LOAD_STRAT == 'balanced':
+                # find minimum power to charge battery during windows
+        """
+        if not commands:
+            commands = {}
+        gc = list(self.world_state.grid_connectors.values())[0]
+        mode = None
+        min_soc = 0.8 #todo: add from config
+        # get all vehicles that are connected in this step and order vehicles
+        vehicles = sorted(
+            [v for v in self.world_state.vehicles.values()
+             if v.connected_charging_station is not None], key=self.sort_key)
+        charging_stations = commands
+        cur_window = timesteps[0]["window"]
+        cur_window2 = gc.window
+
+        # what happens when all cars are charged with maximum power during charging windows?
+        sim_vehicles = deepcopy(vehicles)
+        cur_time = self.current_time - self.interval
+        cur_vehicles = sim_vehicles
+        charge_vehicle = []
+        # distribute surplus power to vehicles
+        # power is clamped to CS max_power
+        for i, v in enumerate(vehicles):
+            cs_id = v.connected_charging_station
+            cs = self.world_state.charging_stations[cs_id]
+
+            cur_vehicles = [v for v in cur_vehicles if
+                            (v.estimated_time_of_departure > cur_time) and (
+                                        v.battery.soc < v.desired_soc) and (v.vehicle_type.v2g)]
+            old_soc = v.battery.soc
+            new_timesteps = []
+            window = cur_window
+            window_change = 0
+            if cur_vehicles:
+                index = 0
+                for ts_info in timesteps:
+                    index += 1
+                    cur_time += self.interval
+                    if ts_info["window"] != window:
+                        window_change += 1
+                        window = ts_info["window"]
+                    if v.estimated_time_of_departure < cur_time:
+                        break
+                    new_timesteps.append(ts_info)
+            if cur_window:
+                mode = "charge"
+            else:
+                if window_change > 1:
+                    min_soc = 0
+                    mode = "discharge"
+                elif window_change == 1:
+                    mode = "discharge"
+                    last_charging_window = [item for item in new_timesteps if
+                                    item["window"] == True]
+                    v.battery.soc = 0
+                    for ts_info in last_charging_window:
+                        cur_avail_power = (gc.max_power - (
+                                ts_info["ext_load"] + ts_info[
+                            "v_load"]))
+                        if cur_avail_power > 0:
+                            cur_avail_power = 0 if cur_avail_power < 0 else cur_avail_power #todo: add min charging power for vehicles
+                            power = util.clamp_power(cur_avail_power, v, cs)
+                            potential_charge = \
+                            v.battery.load(self.interval,
+                                         power)['avg_power']
+                    if v.battery.soc < 0.8:
+                        min_soc = 1 - v.battery.soc
+                    else:
+                        min_soc = 0
+                    v.battery.soc = old_soc
+                else:
+                    min_soc = 0.8
+                    if v.battery.soc > min_soc:
+                        mode = "discharge"
+                    else:
+                        continue
+
+            # charge or discharge vehicle battery
+            if mode == "charge":  # charge battery
+
+                min_total_power = -gc.max_power
+                max_total_power = gc.max_power
+
+                window_timesteps = [item for item in timesteps if
+                                    item["window"] == True]
+
+                old_soc = v.battery.soc
+
+                safe = False
+                potential_charge = 0
+
+                while max_total_power - min_total_power > self.EPS:
+                    total_power = (
+                                              min_total_power + max_total_power) / 2
+                    # reset peak list and soc
+                    peak = []
+                    v.battery.soc = old_soc
+
+                    cur_time = self.current_time - self.interval
+                    # calculate needed power to load battery
+                    for ts_info in window_timesteps:
+                        cur_time += self.interval
+
+                        cur_avail_power = (total_power - (
+                                    ts_info["ext_load"] + ts_info[
+                                "v_load"]))
+                        if v.battery.soc >= 1:
+                            # adready charged
+                            break
+                        if cur_avail_power > 0:
+                            cur_avail_power = 0 if cur_avail_power < 0 else cur_avail_power #todo: add min charging power for vehicles
+                            power = util.clamp_power(cur_avail_power, v, cs)
+                            potential_charge = \
+                            v.battery.load(self.interval,
+                                         power)['avg_power']
+                            # gc.add_load(bat_id, avg_power)
+                            peak.append(potential_charge)
+
+                    if v.battery.soc < 1:
+                        safe = False
+                    elif v.battery.soc >= 1:
+                        safe = True
+
+                    if safe:
+                        max_total_power = total_power
+                    else:
+                        min_total_power = total_power
+                v.battery.soc = old_soc
+                avail_power = (total_power - gc.get_current_load())
+                avail_power = 0 if avail_power < 0 else avail_power              #todo: add v.min_charging_power
+                charge = v.battery.load(self.interval, avail_power)[
+                    'avg_power']
+                commands[cs_id] = gc.add_load(cs_id, charge)
+                cs.current_power += charge
+
+            else:
+
+                # discharge battery
+                no_window_timesteps = [item for item in timesteps if
+                                       item["window"] == False]
+
+                min_total_power = -gc.max_power
+                max_total_power = gc.max_power
+
+                old_soc = v.battery.soc
+                safe = False
+
+                while max_total_power - min_total_power > self.EPS:
+                    total_power = (
+                                              min_total_power + max_total_power) / 2
+                    # reset peak list and soc
+                    peak = []
+                    v.battery.soc = old_soc
+
+                    cur_time = self.current_time - self.interval
+                    # calculate needed power to load battery
+                    for ts_info in no_window_timesteps:
+                        cur_time += self.interval
+                        cur_needed_power = ((
+                                                    ts_info[
+                                                        "ext_load"] +
+                                                    ts_info[
+                                                        "v_load"]) - total_power)
+                        if v.battery.soc <= min_soc:
+                            # adready discharged
+                            break
+                        if cur_needed_power > 0:
+                            potential_discharge = \
+                            v.battery.unload(self.interval,
+                                           cur_needed_power,
+                                           target_soc=min_soc)[
+                                'avg_power']
+                            # gc.add_load(bat_id, avg_power)
+                            peak.append(potential_discharge)
+
+                    if (v.battery.soc <= min_soc):
+                        safe = False
+                    elif not v.battery.soc <= min_soc:
+                        safe = True
+
+                    if safe:
+                        max_total_power = total_power
+                    else:
+                        min_total_power = total_power
+
+                v.battery.soc = old_soc
+                needed_power = (gc.get_current_load() - total_power)
+                if needed_power < 0:
+                    discharge = 0
+                else:
+                    discharge = \
+                        v.battery.unload(self.interval, needed_power,
+                                       target_soc=min_soc)[
+                            'avg_power']
+               # discharging_stations.append(b_id)
+                commands[cs_id] = gc.add_load(cs_id, -discharge)
+                cs.current_power -= discharge
+
+        return commands
+
+
+
     def distribute_power(self, vehicles, total_power, total_needed):
+        """
+        Sets power to charge in this timestep and calculates new soc and saves
+        it in v.battery.soc. Returns commands with average power in this timestep.
+        :param vehicles:
+        :param total_power:
+        :param total_needed:
+        :return:
+        """
         commands = {}
         power = 0
         if total_power <= 0 or total_needed <= 0:
             return {}
-
         for v in vehicles:
             cs_id = v.connected_charging_station
             cs = self.world_state.charging_stations[cs_id]
@@ -322,6 +717,8 @@ class FlexWindow(Strategy):
             else:
                 raise NotImplementedError
             power = util.clamp_power(power, v, cs)
+            # Adjust SOC and return average charging power for a given timedelta
+            # and maximum charging power.
             avg_power = v.battery.load(self.interval, power)["avg_power"]
             commands[cs_id] = avg_power
         return commands
