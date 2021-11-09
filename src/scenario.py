@@ -10,27 +10,25 @@ from src import constants, events, strategy, util
 class Scenario:
     """ A scenario
     """
-
-    def __init__(self, json_dict, dir_path=""):
+    def __init__(self, json_dict, dir_path=''):
         # get constants and events
-        self.constants = constants.Constants(json_dict.get("constants"))
-        self.events = events.Events(json_dict.get("events"), dir_path)
+        self.constants = constants.Constants(json_dict.get('constants'))
+        self.events = events.Events(json_dict.get('events'), dir_path)
 
-        scenario = json_dict.get("scenario")
+        scenario = json_dict.get('scenario')
 
         # compute time stuff
-        self.start_time = util.datetime_from_isoformat(scenario["start_time"])
-        self.interval = datetime.timedelta(minutes=scenario["interval"])
+        self.start_time = util.datetime_from_isoformat(scenario['start_time'])
+        self.interval = datetime.timedelta(minutes=scenario['interval'])
 
         # compute n_intervals or stop_time
-        assert (scenario.get("stop_time") is None) ^ (
-            scenario.get("n_intervals") is None
-        ), "Give either stop_time or n_intervals, not both"
-        if "n_intervals" in scenario:
-            self.n_intervals = scenario["n_intervals"]
+        assert (scenario.get('stop_time') is None) ^ (scenario.get('n_intervals') is None), (
+            'Give either stop_time or n_intervals, not both')
+        if 'n_intervals' in scenario:
+            self.n_intervals = scenario['n_intervals']
             self.stop_time = self.start_time + self.interval * self.n_intervals
         else:
-            self.stop_time = util.datetime_from_isoformat(scenario["stop_time"])
+            self.stop_time = util.datetime_from_isoformat(scenario['stop_time'])
             delta = self.stop_time - self.start_time
             self.n_intervals = delta // self.interval
 
@@ -42,15 +40,11 @@ class Scenario:
 
     def run(self, strategy_name, options):
         # run scenario
-        options["interval"] = self.interval
-        options["events"] = self.events
-        strat = strategy.class_from_str(strategy_name)(
-            self.constants, self.start_time, **options
-        )
+        options['interval'] = self.interval
+        options['events'] = self.events
+        strat = strategy.class_from_str(strategy_name)(self.constants, self.start_time, **options)
 
-        event_steps = self.events.get_event_steps(
-            self.start_time, self.n_intervals, self.interval
-        )
+        event_steps = self.events.get_event_steps(self.start_time, self.n_intervals, self.interval)
 
         socs = []
         costs = []
@@ -64,7 +58,8 @@ class Scenario:
         batteryLevels = {k: [] for k in self.constants.batteries.keys()}
         connChargeByTS = []
         gcPowerSchedule = {gcID: [] for gcID in self.constants.grid_connectors.keys()}
-        gcWindowSchedule = {gcID: [] for gcID in self.constants.grid_connectors.keys()}
+        gcWindowSchedule = {gcID: [] for gcID in
+                            self.constants.grid_connectors.keys()}
 
         begin = datetime.datetime.now()
         for step_i in range(self.n_intervals):
@@ -80,12 +75,9 @@ class Scenario:
                 # how much time left?
                 eta = total_time - dt
                 # remove sub-second resolution from time left
-                eta_str = str(eta).split(".")[0]
-                print(
-                    "{} / {}, ETA {}\r".format(step_i, self.n_intervals, eta_str),
-                    end="",
-                    flush=True,
-                )
+                eta_str = str(eta).split('.')[0]
+                print("{} / {}, ETA {}\r".format(
+                    step_i, self.n_intervals, eta_str), end="", flush=True)
             else:
                 # show progress bar
                 width = 10
@@ -93,23 +85,19 @@ class Scenario:
                 # only print full steps
                 if step_i // display_step != (step_i - 1) // display_step:
                     progress = width * (step_i + 1) // self.n_intervals
-                    print(
-                        "[{}{}]\r".format("#" * progress, "." * (width - progress)),
-                        end="",
-                        flush=True,
-                    )
+                    print("[{}{}]\r".format(
+                        '#' * progress,
+                        '.' * (width - progress)
+                    ), end="", flush=True)
 
             # run single timestep
             try:
                 res = strat.step(event_steps[step_i])
             except Exception as e:
-                print("\n", "*" * 42)
+                print('\n', '*'*42)
                 print(e)
-                print(
-                    "Aborting simulation in timestep {} ({})".format(
-                        step_i + 1, strat.current_time
-                    )
-                )
+                print("Aborting simulation in timestep {} ({})".format(
+                    step_i + 1, strat.current_time))
                 strat.description = "*** {} (ABORTED) ***".format(strat.description)
                 traceback.print_exc()
                 step_i -= 1
@@ -124,11 +112,8 @@ class Scenario:
 
             for gcID, gc in strat.world_state.grid_connectors.items():
                 # loads without charging stations (external + feed-in)
-                stepLoads = {
-                    k: v
-                    for k, v in gc.current_loads.items()
-                    if k not in self.constants.charging_stations.keys()
-                }
+                stepLoads = {k: v for k, v in gc.current_loads.items()
+                             if k not in self.constants.charging_stations.keys()}
                 extLoads.append(stepLoads)
                 # sum up loads (with charging stations), compute cost
                 gc_load = gc.get_current_load()
@@ -166,7 +151,7 @@ class Scenario:
                     if len(socs) > 0 and socs[-1][vidx] is None:
                         # just arrived -> update disconnect
                         # find departure
-                        start_idx = step_i - 1
+                        start_idx = step_i-1
                         while start_idx >= 0 and socs[start_idx][vidx] is None:
                             start_idx -= 1
                         if start_idx < 0:
@@ -192,6 +177,7 @@ class Scenario:
             feedInPower.append(curFeedIn)
             connChargeByTS.append(cur_cs)
 
+
             # get battery levels
             for batName, bat in strat.world_state.batteries.items():
                 batteryLevels[batName].append(bat.soc * bat.capacity)
@@ -201,21 +187,17 @@ class Scenario:
         # adjust step_i: n_intervals or failed simulation step
         step_i += 1
 
-        print(
-            "Energy drawn from grid: {:.0f} kWh, Costs: {:.2f} €".format(
-                sum(totalLoad) / stepsPerHour, sum(costs)
-            )
-        )
+        print("Energy drawn from grid: {:.0f} kWh, Costs: {:.2f} €".format(
+            sum(totalLoad)/stepsPerHour, sum(costs)))
 
         if options.get("save_timeseries", False) or options.get("save_results", False):
             # get flexibility band
             from generate_schedule import generate_flex_band
-
             flex = generate_flex_band(self)
 
         if options.get("save_results", False):
             # save general simulation info to JSON file
-            ext = options["save_results"].split(".")[-1]
+            ext = options["save_results"].split('.')[-1]
             if ext != "json":
                 print("File extension mismatch: results file is of type .json")
 
@@ -224,7 +206,7 @@ class Scenario:
             # gather info about standing and power in specific time windows
             load_count = [[0] for _ in self.constants.vehicles]
             load_window = [[] for _ in range(4)]
-            count_window = [[0] * len(self.constants.vehicles) for _ in range(4)]
+            count_window = [[0]*len(self.constants.vehicles) for _ in range(4)]
 
             cur_time = self.start_time - self.interval
             # maximum power (fixed and variable loads)
@@ -239,55 +221,44 @@ class Scenario:
                 # compute window index
                 widx = (shifted_time // datetime.timedelta(hours=6)) % 4
 
-                load_window[widx].append(
-                    (flex["max"][idx] - flex["min"][idx], totalLoad[idx])
-                )
-                count_window[widx] = list(
-                    map(lambda c, t: c + (t is not None), count_window[widx], socs[idx])
-                )
+                load_window[widx].append((flex["max"][idx] - flex["min"][idx], totalLoad[idx]))
+                count_window[widx] = list(map(
+                    lambda c, t: c + (t is not None),
+                    count_window[widx], socs[idx]))
 
                 for i, soc in enumerate(socs[idx]):
                     if soc is None and load_count[i][-1] > 0:
                         load_count[i].append(0)
                     else:
-                        load_count[i][-1] += soc is not None
+                        load_count[i][-1] += (soc is not None)
 
-                fixed_load = sum(
-                    [
-                        v
-                        for k, v in extLoads[idx].items()
-                        if k in self.events.external_load_lists
-                        or k in self.events.energy_feed_in_lists
-                    ]
-                )
+                fixed_load = sum([v for k, v in extLoads[idx].items() if
+                                  k in self.events.external_load_lists or
+                                  k in self.events.energy_feed_in_lists])
                 max_fixed_load = max(max_fixed_load, fixed_load)
                 var_load = totalLoad[idx] - fixed_load
                 max_variable_load = max(max_variable_load, var_load)
 
             # avg flex per window
-            avg_flex_per_window = [
-                sum([t[0] for t in w]) / len(w) if w else 0 for w in load_window
-            ]
+            avg_flex_per_window = [sum([t[0] for t in w]) / len(w) if w else 0 for w in load_window]
             json_results["avg flex per window"] = {
                 "04-10": avg_flex_per_window[0],
                 "10-16": avg_flex_per_window[1],
                 "16-22": avg_flex_per_window[2],
                 "22-04": avg_flex_per_window[3],
                 "unit": "kW",
-                "info": "Average flexible power range per time window",
+                "info": "Average flexible power range per time window"
             }
 
             # sum of used energy per window
-            sum_energy_per_window = [
-                sum([t[1] for t in w]) / stepsPerHour for w in load_window
-            ]
+            sum_energy_per_window = [sum([t[1] for t in w]) / stepsPerHour for w in load_window]
             json_results["sum of energy per window"] = {
                 "04-10": sum_energy_per_window[0],
                 "10-16": sum_energy_per_window[1],
                 "16-22": sum_energy_per_window[2],
                 "22-04": sum_energy_per_window[3],
                 "unit": "kWh",
-                "info": "Total drawn energy per time window",
+                "info": "Total drawn energy per time window"
             }
 
             # avg standing time
@@ -304,31 +275,26 @@ class Scenario:
             # avg total standing time
             # count per car: list(zip(*count_window))
             total_standing = sum(map(sum, count_window))
-            avg_total_standing_time = (
-                total_standing / len(self.constants.vehicles) / stepsPerHour
-            )
+            avg_total_standing_time = total_standing / len(self.constants.vehicles) / stepsPerHour
             json_results["avg standing time"] = {
                 "single": avg_stand_time,
                 "total": avg_total_standing_time,
                 "unit": "h",
                 "info": "Average duration of a single standing event and "
-                "average total time standing time of all vehicles",
+                        "average total time standing time of all vehicles"
             }
 
             # percent of standing time in time window
-            perc_stand_window = list(
-                map(
-                    lambda x: x * 100 / total_standing if total_standing > 0 else 0,
-                    map(sum, count_window),
-                )
-            )
+            perc_stand_window = list(map(
+                lambda x: x * 100 / total_standing if total_standing > 0 else 0,
+                map(sum, count_window)))
             json_results["standing per window"] = {
                 "04-10": perc_stand_window[0],
                 "10-16": perc_stand_window[1],
                 "16-22": perc_stand_window[2],
                 "22-04": perc_stand_window[3],
                 "unit": "%",
-                "info": "Share of standing time per time window",
+                "info": "Share of standing time per time window"
             }
 
             # avg needed energy per standing period
@@ -339,7 +305,7 @@ class Scenario:
                 "value": avg_needed_energy / len(self.constants.vehicles),
                 "unit": "kWh",
                 "info": "Average amount of energy needed to reach the desired SoC"
-                " (averaged over all vehicles and charge events)",
+                        " (averaged over all vehicles and charge events)"
             }
 
             # power peaks (fixed loads and variable loads)
@@ -349,7 +315,7 @@ class Scenario:
                 "total": max(totalLoad),
                 "unit": "kW",
                 "info": "Maximum drawn power, by fixed loads (building, PV),"
-                " variable loads (charging stations, stationary batteries) and all loads",
+                        " variable loads (charging stations, stationary batteries) and all loads"
             }
 
             # average drawn power
@@ -357,41 +323,33 @@ class Scenario:
             json_results["avg drawn power"] = {
                 "value": avg_drawn,
                 "unit": "kW",
-                "info": "Drawn power, averaged over all time steps",
+                "info": "Drawn power, averaged over all time steps"
             }
 
             # total feed-in energy
             json_results["feed-in energy"] = {
                 "value": sum(feedInPower) / stepsPerHour,
                 "unit": "kWh",
-                "info": "Total energy from renewable energy sources",
+                "info": "Total energy from renewable energy sources"
             }
 
             # battery sizes
             if batteryLevels:
-                bat_dict = {
-                    batName: max(values) for batName, values in batteryLevels.items()
-                }
-                bat_dict.update(
-                    {
-                        "unit": "kWh",
-                        "info": "Maximum stored energy in each battery by name",
-                    }
-                )
+                bat_dict = {batName: max(values) for batName, values in batteryLevels.items()}
+                bat_dict.update({
+                    "unit": "kWh",
+                    "info": "Maximum stored energy in each battery by name"
+                })
                 json_results["max. stored energy in batteries"] = bat_dict
 
             # charging cycles
             # stationary batteries
             total_bat_cap = 0
             for batID, battery in self.constants.batteries.items():
-                if battery.capacity > 2 ** 63:
+                if battery.capacity > 2**63:
                     # unlimited capacity
                     max_cap = max(batteryLevels[batName])
-                    print(
-                        "Battery {} is unlimited, set capacity to {} kWh".format(
-                            batID, max_cap
-                        )
-                    )
+                    print("Battery {} is unlimited, set capacity to {} kWh".format(batID, max_cap))
                     total_bat_cap += max_cap
                 else:
                     total_bat_cap += battery.capacity
@@ -403,30 +361,27 @@ class Scenario:
                 json_results["stationary battery cycles"] = {
                     "value": total_bat_energy / total_bat_cap,
                     "unit": None,
-                    "info": "Number of load cycles of stationary batteries (averaged)",
+                    "info": "Number of load cycles of stationary batteries (averaged)"
                 }
             # vehicles
-            total_car_cap = sum(
-                [v.battery.capacity for v in self.constants.vehicles.values()]
-            )
-            total_car_energy = sum(
-                [sum(map(lambda v: max(v, 0), r["commands"].values())) for r in results]
-            )
+            total_car_cap = sum([v.battery.capacity for v in self.constants.vehicles.values()])
+            total_car_energy = sum([sum(map(
+                lambda v: max(v, 0), r["commands"].values())) for r in results])
             json_results["vehicle battery cycles"] = {
-                "value": total_car_energy / total_car_cap,
+                "value": total_car_energy/total_car_cap,
                 "unit": None,
-                "info": "Number of load cycles per vehicle (averaged)",
+                "info": "Number of load cycles per vehicle (averaged)"
             }
 
             # write to file
-            with open(options["save_results"], "w") as results_file:
+            with open(options['save_results'], 'w') as results_file:
                 json.dump(json_results, results_file, indent=2)
 
         if options.get("save_timeseries", False):
             # save power use for each timestep in file
 
             # check file extension
-            ext = options["save_timeseries"].split(".")[-1]
+            ext = options["save_timeseries"].split('.')[-1]
             if ext != "csv":
                 print("File extension mismatch: timeseries file is of type .csv")
 
@@ -439,7 +394,7 @@ class Scenario:
                 "private/ridesharing",
                 "leisure",
                 "home",
-                "hub",
+                "hub"
             ]
 
             round_to_places = 2
@@ -466,7 +421,7 @@ class Scenario:
             # any loads except CS present?
             hasExtLoads = any(extLoads)
 
-            with open(options["save_timeseries"], "w") as timeseries_file:
+            with open(options['save_timeseries'], 'w') as timeseries_file:
                 # write header
                 # general info
                 header = ["timestep", "time"]
@@ -488,7 +443,8 @@ class Scenario:
                     header += ["battery power [kW]", "bat. stored energy [kWh]"]
                 # flex + schedule
                 header += ["flex min [kW]", "flex base [kW]", "flex max [kW]"]
-
+#                header += ["schedule {} [kW]".format(gcID) for gcID in scheduleKeys]
+                header += ["charge" for gcID in scheduleKeys]
                 # sum of charging power
                 header.append("sum CS power")
                 # charging power per use case
@@ -499,13 +455,13 @@ class Scenario:
                 header += ["# occupied UC {}".format(uc) for uc in uc_keys_present]
                 # charging power per CS
                 header += [str(cs_id) for cs_id in cs_ids]
-                timeseries_file.write(",".join(header))
+                timeseries_file.write(','.join(header))
 
                 # write timesteps
                 for idx, r in enumerate(results):
                     # general info: timestep index and timestamp
                     # TZ removed for spreadsheet software
-                    row = [idx, r["current_time"].replace(tzinfo=None)]
+                    row = [idx, r['current_time'].replace(tzinfo=None)]
                     # price
                     if any(prices):
                         row.append(round(prices[idx][0], round_to_places))
@@ -513,13 +469,9 @@ class Scenario:
                     row.append(-1 * round(totalLoad[idx], round_to_places))
                     # external loads
                     if hasExtLoads:
-                        sumExtLoads = sum(
-                            [
-                                v
-                                for k, v in extLoads[idx].items()
-                                if k in self.events.external_load_lists
-                            ]
-                        )
+                        sumExtLoads = sum([
+                            v for k, v in extLoads[idx].items()
+                            if k in self.events.external_load_lists])
                         row.append(round(sumExtLoads, round_to_places))
                     # feed-in (negative since grid power is fed into system)
                     if any(feedInPower):
@@ -528,87 +480,57 @@ class Scenario:
                     if self.constants.batteries:
                         row += [
                             # battery power
-                            round(
-                                sum(
-                                    [
-                                        v
-                                        for k, v in extLoads[idx].items()
-                                        if k in self.constants.batteries
-                                    ]
-                                ),
-                                round_to_places,
-                            ),
+                            round(sum([
+                                v for k, v in extLoads[idx].items()
+                                if k in self.constants.batteries]),
+                                round_to_places),
                             # battery levels
                             round(
                                 sum([levels[idx] for levels in batteryLevels.values()]),
-                                round_to_places,
-                            ),
+                                round_to_places
+                            )
                         ]
                     # flex
                     row += [
                         round(flex["min"][idx], round_to_places),
                         round(flex["base"][idx], round_to_places),
-                        round(flex["max"][idx], round_to_places),
+                        round(flex["max"][idx], round_to_places)
                     ]
                     # schedule
                     row += [
                         round(gcPowerSchedule[gcID][idx], round_to_places)
-                        for gcID in scheduleKeys
-                    ]
-                    row += [
-                        round(gcWindowSchedule[gcID][idx], round_to_places)
-                        for gcID in scheduleKeys
-                    ]
+                        for gcID in scheduleKeys]
                     # charging power
                     # get sum of all current CS power
-                    row.append(round(sum(r["commands"].values()), round_to_places))
+                    row.append(round(sum(r['commands'].values()), round_to_places))
                     # sum up all charging power for each use case
-                    row += [
-                        round(
-                            sum(
-                                [
-                                    cs_value
-                                    for cs_id, cs_value in r["commands"].items()
-                                    if cs_id in cs_by_uc[uc_key]
-                                ]
-                            ),
-                            round_to_places,
-                        )
-                        for uc_key in uc_keys_present
-                    ]
+                    row += [round(sum([cs_value for cs_id, cs_value in r['commands'].items()
+                                       if cs_id in cs_by_uc[uc_key]]),
+                            round_to_places) for uc_key in uc_keys_present]
                     # get total number of occupied CS
                     row.append(len(connChargeByTS[idx]))
                     # get number of occupied CS for each use case
                     row += [
-                        sum(
-                            [
-                                1 if uc_key in cs_id else 0
-                                for cs_id in connChargeByTS[idx]
-                            ]
-                        )
-                        for uc_key in uc_keys_present
-                    ]
+                        sum([1 if uc_key in cs_id else 0
+                            for cs_id in connChargeByTS[idx]]) for uc_key in uc_keys_present]
                     # get individual charging power
-                    row += [
-                        round(r["commands"].get(cs_id, 0), round_to_places)
-                        for cs_id in cs_ids
-                    ]
+                    row += [round(r['commands'].get(cs_id, 0), round_to_places) for cs_id in cs_ids]
                     # write row to file
-                    timeseries_file.write("\n" + ",".join(map(lambda x: str(x), row)))
+                    timeseries_file.write('\n' + ','.join(map(lambda x: str(x), row)))
 
-        if options.get("visual", False):
+        if options.get('visual', False):
             import matplotlib.pyplot as plt
 
-            print("Done. Create plots...")
+            print('Done. Create plots...')
 
             sum_cs = []
             xlabels = []
 
             for r in results:
-                xlabels.append(r["current_time"])
+                xlabels.append(r['current_time'])
                 cur_cs = []
                 for cs_id in sorted(self.constants.charging_stations):
-                    cur_cs.append(r["commands"].get(cs_id, 0.0))
+                    cur_cs.append(r['commands'].get(cs_id, 0.0))
                 sum_cs.append(cur_cs)
 
             # untangle external loads (with feed-in)
@@ -630,8 +552,8 @@ class Scenario:
             if batteryLevels:
                 plots_top_row = 3
                 ax = plt.subplot(2, plots_top_row, 3)
-                ax.set_title("Batteries")
-                ax.set(ylabel="Stored power in kWh")
+                ax.set_title('Batteries')
+                ax.set(ylabel='Stored power in kWh')
                 for name, values in batteryLevels.items():
                     ax.plot(xlabels, values, label=name)
                 ax.legend()
@@ -640,19 +562,19 @@ class Scenario:
 
             # vehicles
             ax = plt.subplot(2, plots_top_row, 1)
-            ax.set_title("Vehicles")
-            ax.set(ylabel="SoC")
+            ax.set_title('Vehicles')
+            ax.set(ylabel='SoC')
             lines = ax.step(xlabels, socs)
             # reset color cycle, so lines have same color
             ax.set_prop_cycle(None)
-            ax.plot(xlabels, disconnect, "--")
+            ax.plot(xlabels, disconnect, '--')
             if len(self.constants.vehicles) <= 10:
                 ax.legend(lines, sorted(self.constants.vehicles.keys()))
 
             # charging stations
             ax = plt.subplot(2, plots_top_row, 2)
-            ax.set_title("Charging Stations")
-            ax.set(ylabel="Power in kW")
+            ax.set_title('Charging Stations')
+            ax.set(ylabel='Power in kW')
             lines = ax.step(xlabels, sum_cs)
             if len(self.constants.charging_stations) <= 10:
                 ax.legend(lines, sorted(self.constants.charging_stations.keys()))
@@ -663,38 +585,30 @@ class Scenario:
             for name, values in loads.items():
                 ax.plot(xlabels, values, label=name)
             # draw schedule
-            for (
-                gcID,
-                schedule,
-            ) in (
-                gcWindowSchedule.items()
-            ):  # todo: changes from  gcPowerSchedule.items()
+            for gcID, schedule in gcWindowSchedule.items():
                 if any(s is not None for s in schedule):
                     # schedule exists
-                    ax.plot(xlabels, schedule, label="window")
+                    ax.plot(xlabels, schedule, label="window".format(gcID))
 
             ax.plot(xlabels, totalLoad, label="total")
             # ax.axhline(color='k', linestyle='--', linewidth=1)
-            ax.set_title("Power")
-            ax.set(ylabel="Power in kW")
+            ax.set_title('Power')
+            ax.set(ylabel='Power in kW')
             ax.legend()
             ax.xaxis_date()  # xaxis are datetime objects
 
             # price
             ax = plt.subplot(2, 2, 4)
             lines = ax.step(xlabels, prices)
-            ax.set_title("Price for 1 kWh")
-            ax.set(ylabel="€")
+            ax.set_title('Price for 1 kWh')
+            ax.set(ylabel='€')
             if len(self.constants.grid_connectors) <= 10:
                 ax.legend(lines, sorted(self.constants.grid_connectors.keys()))
 
             # figure title
             fig = plt.gcf()
-            fig.suptitle(
-                "Strategy: {}: {}€".format(strat.description, int(sum(costs))),
-                fontweight="bold",
-            )
+            fig.suptitle('Strategy: {}: {}€'.format(
+                strat.description, int(sum(costs))), fontweight='bold')
 
             fig.autofmt_xdate()  # rotate xaxis labels (dates) to fit
-
             plt.show()
