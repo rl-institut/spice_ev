@@ -93,8 +93,6 @@ def dt_to_end_of_time_window(current_time, time_windows, interval):
     return duration
 
 
-
-
 def set_attr_from_dict(source, target, keys, optional_keys):
     """ Set attributes of `target` from a `source` dictionary.
         None values for optional keys are not converted.

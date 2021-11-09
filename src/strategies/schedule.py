@@ -1,5 +1,5 @@
 from copy import deepcopy
-from datetime import timedelta
+from datetime import timedelta,datetime
 
 import src.events as events
 from src.strategy import Strategy
@@ -9,7 +9,6 @@ from src.util import clamp_power, timestep_within_window, dt_to_end_of_time_wind
 class Schedule(Strategy):
     def __init__(self, constants, start_time, **kwargs):
         self.LOAD_STRAT = 'needy'  # greedy, balanced
-        self.TS_remaining_to_charge = False
         self.ITERATIONS = 12
         super().__init__(constants, start_time, **kwargs)
 
@@ -159,7 +158,7 @@ class Schedule(Strategy):
                 event_idx += 1
                 if type(event) == events.GridOperatorSignal:
                     # update GC info
-                    gc_info[-1]["target"] = event.target or gc_info[-1]["target"]
+                    gc_info[-1]["target"] = event.target if event.target is not None else gc_info[-1]["target"]
                 elif type(event) == events.ExternalLoad:
                     gc_info[-1]["ext_load"][event.name] = event.value
                 # ignore vehicle events, use vehicle data directly
@@ -172,10 +171,9 @@ class Schedule(Strategy):
 
     def charge_cars_balanced(self):
         charging_stations = {}
-        if not self.TS_remaining_to_charge:
-            dt_to_end_core_standing_time = dt_to_end_of_time_window(self.current_time
-                                                                   ,self.core_standing_time
-                                                                   ,self.interval)
+        dt_to_end_core_standing_time = dt_to_end_of_time_window(self.current_time
+                                                                ,self.core_standing_time
+                                                                ,self.interval)
 
         gc_info = self.collect_future_gc_info(dt_to_end_core_standing_time)
         TS_remaining_to_charge = sum([info["target"] - sum(info["ext_load"].values()) > self.EPS for info in gc_info])
