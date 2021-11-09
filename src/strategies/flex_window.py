@@ -100,7 +100,7 @@ class FlexWindow(Strategy):
             # if timestep_idx == 0:
             #     # use actual external load
             #     ext_load = gc.get_current_load()
- #           else:
+            # else:
                 # get external load
             if self.EXT_LOAD == "perfect_foresight":
                 ext_load = self.events.get_external_load_perfect_forseight(
@@ -127,7 +127,7 @@ class FlexWindow(Strategy):
                     "ext_load": ext_load,
                     "window": cur_window,
                     "v_load": 0,
-                    "total_load" : ext_load
+                    "total_load": ext_load
                 }
             )
             for i, row in enumerate(timesteps):
@@ -400,12 +400,8 @@ class FlexWindow(Strategy):
                 # find minimum power to charge battery during windows
         """
         discharging_stations = []
-        batteries = [ b
-                for b in self.world_state.batteries.values()
-                if b.parent is not None
-            ]
-
-
+        batteries = [b for b in self.world_state.batteries.values()
+                     if b.parent is not None]
 
         gc = list(self.world_state.grid_connectors.values())[0]
         cur_window = gc.window
@@ -434,17 +430,13 @@ class FlexWindow(Strategy):
 
             while max_total_power - min_total_power > self.EPS:
                 total_power = (min_total_power + max_total_power) / 2
-                # reset peak list and soc
-                peak = []
+                # reset soc
                 for i, b in enumerate(sim_batteries):
                     b.soc = old_soc[i]
 
                 # calculate needed power to load battery
                 for ts_info in new_timesteps:
-
                     cur_avail_power = total_power - ts_info["total_load"]
-
-
                     for b in sim_batteries:
                         if b.soc > 1 - self.EPS:
                             # adready charged
@@ -456,7 +448,7 @@ class FlexWindow(Strategy):
                                 else cur_avail_power
                             )
                         if cur_avail_power > 0:
-                            potential_charge = b.load(
+                            b.load(
                                 self.interval, (cur_avail_power / len(sim_batteries))
                             )["avg_power"]
 
@@ -473,15 +465,14 @@ class FlexWindow(Strategy):
                 avail_power = (
                     0 if avail_power < battery.min_charging_power else avail_power
                 )
-                charge = battery.load(self.interval, (avail_power/ len(batteries)))["avg_power"]
+                charge = battery.load(self.interval, (avail_power / len(batteries)))["avg_power"]
                 gc.add_load(b_id, charge)
                 timesteps[0]["total_load"] += charge
 
         else:
             # discharge battery
             no_window_timesteps = [
-                item for item in timesteps if item["window"] is False
-            ]
+                item for item in timesteps if item["window"] is False]
             new_timesteps = []
             for i, row in enumerate(no_window_timesteps):
                 if no_window_timesteps[i]["timestep_idx"] != i:
@@ -511,9 +502,9 @@ class FlexWindow(Strategy):
                             break
 
                         if cur_needed_power > 0:
-                            potential_discharge = b.unload(
+                            b.unload(
                                 self.interval,
-                                (cur_needed_power/ len(sim_batteries)),
+                                (cur_needed_power / len(sim_batteries)),
                                 target_soc=self.DISCHARGE_LIMIT,
                             )["avg_power"]
 
@@ -533,7 +524,8 @@ class FlexWindow(Strategy):
                     discharge = 0
                 else:
                     discharge = battery.unload(
-                        self.interval, (needed_power/len(batteries)), target_soc=self.DISCHARGE_LIMIT
+                        self.interval, (needed_power/len(batteries)),
+                        target_soc=self.DISCHARGE_LIMIT
                     )["avg_power"]
                 discharging_stations.append(b_id)
                 gc.add_load(b_id, -discharge)
@@ -550,8 +542,7 @@ class FlexWindow(Strategy):
         if not commands:
             commands = {}
         gc = list(self.world_state.grid_connectors.values())[0]
-        mode = None
-        min_soc = 0.8  # todo: add from config
+        min_soc = 0.8
         # get all vehicles that are connected in this step and order vehicles
         vehicles = sorted(
             [
