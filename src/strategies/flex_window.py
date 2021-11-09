@@ -553,8 +553,6 @@ class FlexWindow(Strategy):
         cur_time = self.current_time - self.interval
         cur_vehicles = sim_vehicles
 
-        # distribute surplus power to vehicles
-        # power is clamped to CS max_power
         for i, v in enumerate(vehicles):
             cs_id = v.connected_charging_station
             cs = self.world_state.charging_stations[cs_id]
@@ -566,10 +564,13 @@ class FlexWindow(Strategy):
                 and (v.battery.soc < v.desired_soc)
                 and (v.vehicle_type.v2g)
             ]
+            # check if cehicles can be loaded until desired_soc in connected timesteps
+
             old_soc = v.battery.soc
-            new_timesteps = []
+            connected_timesteps = []
             window = cur_window
             window_change = 0
+            # get connected timesteps and count number of window changes
             if cur_vehicles:
                 index = 0
                 for ts_info in timesteps:
@@ -580,35 +581,39 @@ class FlexWindow(Strategy):
                         window = ts_info["window"]
                     if v.estimated_time_of_departure < cur_time:
                         break
-                    new_timesteps.append(ts_info)
+                    connected_timesteps.append(ts_info)
+            # always load if cur_window is True
             if cur_window:
                 mode = "charge"
             else:
-                if window_change > 1:
+                mode = "discharge"
+                # check if vehicle ends up with desired soc, adjust min_soc accordingly
+                if window_change >= 1:
                     min_soc = 0
-                    mode = "discharge"
-                elif window_change == 1:
-                    mode = "discharge"
-                    last_charging_window = [
-                        item for item in new_timesteps if item["window"] is True
-                    ]
-                    v.battery.soc = 0
-                    for ts_info in last_charging_window:
-                        cur_avail_power = gc.max_power - ts_info["total_load"]
+                    end_soc = -0.1
+                    while end_soc < v.desired_soc - self.EPS:
+                        min_soc += 0.1
+                        for ts_info in connected_timesteps:
+                            if ts_info["window"]:
+                                cur_avail_power = gc.max_power - ts_info[
+                                    "total_load"]
 
-                        if cur_avail_power > 0:
-                            cur_avail_power = (
-                                0 if cur_avail_power < 0 else cur_avail_power
-                            )  # todo: add min charging power for vehicles
-                            power = util.clamp_power(cur_avail_power, v, cs)
-                            potential_charge = v.battery.load(self.interval, power)[
-                                "avg_power"
-                            ]
-                    if v.battery.soc < 0.8:
-                        min_soc = 1 - v.battery.soc
-                    else:
-                        min_soc = 0
-                    v.battery.soc = old_soc
+                                cur_avail_power = (
+                                    0 if cur_avail_power < v.vehicle_type.min_charging_power else cur_avail_power
+                                )
+                                power = util.clamp_power(cur_avail_power, v,
+                                                         cs)
+                                v.battery.load(self.interval, power)[
+                                    "avg_power"
+                                ]
+                            else:
+                                cur_needed_power = ts_info["total_load"]
+                                if cur_needed_power > 0 and v.battery.soc > min_soc - self.EPS:
+                                    v.battery.unload(self.interval,cur_needed_power)[
+                                        "avg_power"
+                                    ]
+                        end_soc = v.battery.soc
+                        v.battery.soc = old_soc
                 else:
                     min_soc = 0.8
                     if v.battery.soc > min_soc:
@@ -648,8 +653,8 @@ class FlexWindow(Strategy):
                             break
                         if cur_avail_power > 0:
                             cur_avail_power = (
-                                0 if cur_avail_power < 0 else cur_avail_power
-                            )  # todo: add min charging power for vehicles
+                                0 if cur_avail_power < v.vehicle_type.min_charging_power else cur_avail_power
+                            )
                             power = util.clamp_power(cur_avail_power, v, cs)
                             potential_charge = v.battery.load(self.interval, power)[
                                 "avg_power"
@@ -669,8 +674,8 @@ class FlexWindow(Strategy):
                 v.battery.soc = old_soc
                 avail_power = total_power - gc.get_current_load()
                 avail_power = (
-                    0 if avail_power < 0 else avail_power
-                )  # todo: add v.min_charging_power
+                    0 if avail_power < v.vehicle_type.min_charging_power else avail_power
+                )
                 charge = v.battery.load(self.interval, avail_power)["avg_power"]
                 commands[cs_id] = gc.add_load(cs_id, charge)
                 cs.current_power += charge
@@ -713,7 +718,7 @@ class FlexWindow(Strategy):
 
                     if v.battery.soc <= min_soc:
                         safe = False
-                    elif not v.battery.soc <= min_soc:
+                    else:
                         safe = True
 
                     if safe:
