@@ -75,7 +75,7 @@ def timestep_within_window(time_windows,
     for time_window in time_windows['times']:
         core_standing_time_start, core_standing_time_end = [
             datetime.time(*time_window[key]) for key in ['start', 'end']
-            ]
+        ]
 
         if core_standing_time_end < core_standing_time_start:
             if (current_time >= core_standing_time_start or current_time < core_standing_time_end):
