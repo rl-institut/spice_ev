@@ -69,12 +69,7 @@ class FlexWindow(Strategy):
 
         cur_time = self.current_time - self.interval
 
-        try:
-            step_event = self.world_state.future_events[event_idx]
-            cur_window = step_event.window
-        except IndexError:
-            # no more events
-            cur_window = gc.window
+        cur_window = gc.window
         for timestep_idx in range(timesteps_ahead):
             cur_time += self.interval
             # peek into future events
@@ -105,7 +100,7 @@ class FlexWindow(Strategy):
             if self.EXT_LOAD == "perfect_foresight":
                 ext_load = self.events.get_external_load_perfect_forseight(
                     start_time=cur_time, interval=self.interval
-                )
+                ) - sum(cur_feed_in.values())
             else:
                 ext_load = gc.get_avg_ext_load(cur_time, self.interval) - sum(
                     cur_feed_in.values()
