@@ -23,6 +23,7 @@ def generate_flex_band(scenario, core_standing_time=None):
     event_steps = scenario.events.get_event_steps(
         scenario.start_time, scenario.n_intervals, scenario.interval)
 
+    ts_per_hour = datetime.timedelta(hours=1) / s.interval
 
     def clamp_to_gc(power):
         # helper function: make sure to stay within GC power limits
@@ -102,8 +103,8 @@ def generate_flex_band(scenario, core_standing_time=None):
             for v in cars.values():
                 if pv_support <= EPS:
                     break
-                power = min(v[1], pv_support)
-                v[1] -= power
+                power = min(v[0], v[1] * ts_per_hour, pv_support)
+                v[1] -= power / ts_per_hour 
                 pv_support -= power
                 base_flex += power 
 

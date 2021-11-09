@@ -605,6 +605,9 @@ class Scenario:
             fig = plt.gcf()
             fig.suptitle('Strategy: {}: {}€'.format(
                 strat.description, int(sum(costs))), fontweight='bold')
+            
+            for ax in fig.get_axes():
+                ax.grid()
 
             fig.autofmt_xdate()  # rotate xaxis labels (dates) to fit
             plt.show()
