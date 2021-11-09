@@ -1,5 +1,5 @@
 from copy import deepcopy
-from datetime import timedelta,datetime
+from datetime import timedelta
 
 import src.events as events
 from src.strategy import Strategy
@@ -27,7 +27,6 @@ class Schedule(Strategy):
             self.sort_key = None
         else:
             "Unknown charging startegy: {}".format(self.LOAD_STRAT)
-    
 
     def charge_cars(self):
         charging_stations = {}
@@ -114,25 +113,26 @@ class Schedule(Strategy):
                     power = total_power / len(vehicles)
 
                 power = clamp_power(power, vehicle, cs)
-                avg_power = vehicle.battery.load(self.interval, power, target_soc=vehicle.desired_soc)["avg_power"]
+                avg_power = vehicle.battery.load(self.interval,
+                                                 power,
+                                                 target_soc=vehicle.desired_soc)["avg_power"]
                 cs_id = vehicle.connected_charging_station
                 charging_stations[cs_id] = gc.add_load(cs_id, avg_power)
 
         return charging_stations
 
-
     def collect_future_gc_info(self, dt=timedelta(days=1)):
 
         gc = list(self.world_state.grid_connectors.values())[0]
-        
+
         # GC info for each future timestep until all cars left
         gc_info = [{
-            #"charging": set(),
+            # "charging": set(),
             "ext_load": {k: v for k, v in gc.current_loads.items() if v > 0},
-            #"feed_in": {k: v for k, v in gc.current_loads.items() if v <= 0},
+            # "feed_in": {k: v for k, v in gc.current_loads.items() if v <= 0},
             "target": gc.target
         }]
-        
+
         # peek into future events for external loads, feed-in and schedule
         event_idx = 0
         cur_time = self.current_time - self.interval
@@ -158,25 +158,24 @@ class Schedule(Strategy):
                 event_idx += 1
                 if type(event) == events.GridOperatorSignal:
                     # update GC info
-                    gc_info[-1]["target"] = event.target if event.target is not None else gc_info[-1]["target"]
+                    gc_info[-1]["target"] = \
+                        event.target if event.target is not None else gc_info[-1]["target"]
                 elif type(event) == events.ExternalLoad:
                     gc_info[-1]["ext_load"][event.name] = event.value
                 # ignore vehicle events, use vehicle data directly
                 # ignore feedIn for now as well
             # end of useful events peek into future events for external loads, schedule
-        
-
         return gc_info
-
 
     def charge_cars_balanced(self):
         charging_stations = {}
-        dt_to_end_core_standing_time = dt_to_end_of_time_window(self.current_time
-                                                                ,self.core_standing_time
-                                                                ,self.interval)
+        dt_to_end_core_standing_time = dt_to_end_of_time_window(self.current_time,
+                                                                self.core_standing_time,
+                                                                self.interval)
 
         gc_info = self.collect_future_gc_info(dt_to_end_core_standing_time)
-        TS_remaining_to_charge = sum([info["target"] - sum(info["ext_load"].values()) > self.EPS for info in gc_info])
+        TS_remaining_to_charge = \
+            sum([info["target"] - sum(info["ext_load"].values()) > self.EPS for info in gc_info])
 
         for vehicle_id in sorted(self.world_state.vehicles.keys()):
             # get vehicle
@@ -195,7 +194,7 @@ class Schedule(Strategy):
             if delta_soc > self.EPS:
                 # get limits
                 min_power = max(vehicle.vehicle_type.min_charging_power, cs.min_power)
-                max_power = gc_power_left 
+                max_power = gc_power_left
                 max_power = min(max_power, vehicle.vehicle_type.charging_curve.max_power)
                 max_power = clamp_power(max_power, vehicle, cs)
                 # time until departure
@@ -226,9 +225,10 @@ class Schedule(Strategy):
                         max_power = power
 
             # load with power
-            avg_power = vehicle.battery.load(self.interval, power, target_soc=vehicle.desired_soc)['avg_power']
+            avg_power = vehicle.battery.load(self.interval,
+                                             power,
+                                             target_soc=vehicle.desired_soc)['avg_power']
             charging_stations[cs_id] = gc.add_load(cs_id, avg_power)
-
 
             # can active charging station bear minimum load?
             assert cs.max_power >= cs.current_power - self.EPS, (
@@ -240,7 +240,6 @@ class Schedule(Strategy):
                     self.current_time, cs.parent, gc.get_current_load(), gc.cur_max_power))
 
         return charging_stations
-
 
     def utilize_stationary_batteries(self):
         # adjust deviation with batteries
@@ -265,7 +264,6 @@ class Schedule(Strategy):
                 bat_power = 0
             gc.add_load(bid, bat_power)
 
-
     def step(self, event_list=[]):
         super().step(event_list)
 
@@ -275,7 +273,8 @@ class Schedule(Strategy):
         if timestep_within_window(self.core_standing_time, current_datetime=self.current_time):
             if self.LOAD_STRAT == "balanced_vehicle":
                 assert self.core_standing_time is not None, (
-                            "Provide core standing times in the generate_schedule.cfg to use balanced_vehicle.")
+                    "Provide core standing times in the generate_schedule.cfg"
+                    "to use balanced_vehicle.")
                 charging_stations = self.charge_cars_balanced()
             else:
                 charging_stations = self.charge_cars()

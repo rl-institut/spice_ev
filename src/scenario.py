@@ -41,7 +41,6 @@ class Scenario:
             gc = self.constants.grid_connectors[gc_id]
             gc.add_avg_ext_load_week(ext_load_list, self.interval)
 
-
     def run(self, strategy_name, options):
         # run scenario
         options['interval'] = self.interval
@@ -469,7 +468,7 @@ class Scenario:
                             v for k, v in extLoads[idx].items()
                             if k in self.events.external_load_lists])
                         row.append(round(sumExtLoads, round_to_places))
-                    # feed-in (negative since grid power is fed into system) 
+                    # feed-in (negative since grid power is fed into system)
                     if any(feedInPower):
                         row.append(-1 * round(feedInPower[idx], round_to_places))
                     # batteries
@@ -605,7 +604,7 @@ class Scenario:
             fig = plt.gcf()
             fig.suptitle('Strategy: {}: {}€'.format(
                 strat.description, int(sum(costs))), fontweight='bold')
-            
+
             for ax in fig.get_axes():
                 ax.grid()
 

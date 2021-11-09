@@ -28,7 +28,7 @@ def generate_flex_band(scenario, core_standing_time=None):
     def clamp_to_gc(power):
         # helper function: make sure to stay within GC power limits
         return min(max(power, -gc.max_power), gc.max_power)
-    
+
     cars = {vid: [0, 0, 0] for vid in s.world_state.vehicles}
     flex = {
         "min": [],
@@ -38,7 +38,7 @@ def generate_flex_band(scenario, core_standing_time=None):
             "stored": 0,
             "power": 0,
             "free": 0,  # how much energy can still be stored?
-            "efficiency": 0 # average efficiency across all batteries
+            "efficiency": 0  # average efficiency across all batteries
         },
         "intervals": [],
     }
@@ -56,7 +56,7 @@ def generate_flex_band(scenario, core_standing_time=None):
         b.soc = 1
     bat_full_discharge_power = sum([b.get_available_power(s.interval) for b in batteries])
     flex["batteries"]["efficiency"] = \
-                    flex["batteries"]["efficiency"] / len(batteries) if len(batteries) else 1
+        flex["batteries"]["efficiency"] / len(batteries) if len(batteries) else 1
 
     vehicles_present = False
     power_needed = 0
@@ -64,12 +64,12 @@ def generate_flex_band(scenario, core_standing_time=None):
     for step_i in range(scenario.n_intervals):
         s.step(event_steps[step_i])
         currently_in_core_standing_time = \
-                util.timestep_within_window(core_standing_time,
-                                            timestep=step_i, 
-                                            start_time=scenario.start_time,
-                                            interval=scenario.interval)
+            util.timestep_within_window(core_standing_time,
+                                        timestep=step_i,
+                                        start_time=scenario.start_time,
+                                        interval=scenario.interval)
         # basic value: external load, feed-in power
-        base_flex = sum([gc.get_current_load() for gc in s.world_state.grid_connectors.values()]) 
+        base_flex = sum([gc.get_current_load() for gc in s.world_state.grid_connectors.values()])
 
         num_cars_present = 0
 
@@ -104,9 +104,9 @@ def generate_flex_band(scenario, core_standing_time=None):
                 if pv_support <= EPS:
                     break
                 power = min(v[0], v[1] * ts_per_hour, pv_support)
-                v[1] -= power / ts_per_hour 
+                v[1] -= power / ts_per_hour
                 pv_support -= power
-                base_flex += power 
+                base_flex += power
 
             # get sums from cars dict
             vehicle_flex, needed, v2g_flex = map(sum, zip(*cars.values()))
@@ -128,7 +128,8 @@ def generate_flex_band(scenario, core_standing_time=None):
             vehicle_flex = power_needed = v2g_flex = 0
         vehicles_present = num_cars_present > 0
 
-        battery_flex_discharge = bat_init_discharge_power if step_i == 0 else bat_full_discharge_power
+        battery_flex_discharge = \
+            bat_init_discharge_power if step_i == 0 else bat_full_discharge_power
         battery_flex_charge = battery_flex_discharge / flex["batteries"]["efficiency"]
         # PV surplus can also feed batteries
         pv_to_battery = min(battery_flex_charge, pv_support)
@@ -350,7 +351,8 @@ if __name__ == '__main__':
                         'defaults to <scenario>_schedule.csv')
     parser.add_argument('--max-load-range', default=0.1, type=float,
                         help='Area around max_load that should be discouraged')
-    parser.add_argument('--core_standing_time', help='Define start and end time of core standing time in the format hh:mm-hh:mm')
+    parser.add_argument('--core_standing_time', help='Define start and end time'
+                        'of core standing time in the format hh:mm-hh:mm')
     parser.add_argument('--visual', '-v', action='store_true', help='Plot flexibility and schedule')
     parser.add_argument('--config', help='Use config file to set arguments')
 
