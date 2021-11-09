@@ -2,7 +2,6 @@ import datetime
 import json
 from math import sqrt
 from sys import version_info
-from typing import Type
 
 
 def datetime_from_isoformat(s):
@@ -40,7 +39,11 @@ def datetime_within_window(dt, time_windows):
     return False
 
 
-def timestep_within_window(time_windows, current_datetime=None, timestep=None, start_time=None, interval=None):
+def timestep_within_window(time_windows,
+                           current_datetime=None,
+                           timestep=None,
+                           start_time=None,
+                           interval=None):
     """
     Checks if timestep is core standing times.
 
@@ -49,9 +52,9 @@ def timestep_within_window(time_windows, current_datetime=None, timestep=None, s
         time: Current time (datetime.time obj)
         start_time: Start time of the simulation (datetime.datetime)
         interval: Size of time steps for simulation (datetime.timedelta obj)
-        time_windows: Provides time_windows to check 
+        time_windows: Provides time_windows to check
             e.g. {time_windows:[{'start': (22,0), 'end':(5,0)}]
-                full_days: [6,7]}      
+                full_days: [6,7]}
     """
 
     if time_windows is None:
@@ -60,13 +63,14 @@ def timestep_within_window(time_windows, current_datetime=None, timestep=None, s
     if current_datetime is None:
         try:
             current_datetime = start_time + timestep * interval
-        except TypeError: 
-            raise ValueError("Either current_datetime or timestep, start_time and interval must be provided.")
-    
-    if any([day_off == current_datetime.isoweekday() 
+        except TypeError:
+            raise ValueError("Either current_datetime or timestep,"
+                             "start_time and interval must be provided.")
+
+    if any([day_off == current_datetime.isoweekday()
             for day_off in time_windows.get('full_days', [])]):
         return True
-    
+
     current_time = current_datetime.time()
     for time_window in time_windows['times']:
         core_standing_time_start, core_standing_time_end = [
@@ -76,7 +80,7 @@ def timestep_within_window(time_windows, current_datetime=None, timestep=None, s
         if core_standing_time_end < core_standing_time_start:
             if (current_time >= core_standing_time_start or current_time < core_standing_time_end):
                 return True
-        else: 
+        else:
             if core_standing_time_start <= current_time <= core_standing_time_end:
                 return True
 
@@ -85,10 +89,10 @@ def timestep_within_window(time_windows, current_datetime=None, timestep=None, s
 
 def dt_to_end_of_time_window(current_time, time_windows, interval):
     duration = datetime.timedelta()
-    
-    while timestep_within_window(time_windows=time_windows
-                                ,current_datetime=current_time + duration):
-        duration += interval        
+
+    while timestep_within_window(time_windows=time_windows,
+                                 current_datetime=current_time + duration):
+        duration += interval
 
     return duration
 
