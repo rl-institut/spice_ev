@@ -177,7 +177,6 @@ class Scenario:
             feedInPower.append(curFeedIn)
             connChargeByTS.append(cur_cs)
 
-
             # get battery levels
             for batName, bat in strat.world_state.batteries.items():
                 batteryLevels[batName].append(bat.soc * bat.capacity)
@@ -588,7 +587,7 @@ class Scenario:
             for gcID, schedule in gcWindowSchedule.items():
                 if any(s is not None for s in schedule):
                     # schedule exists
-                    ax.plot(xlabels, schedule, label="window".format(gcID))
+                    ax.plot(xlabels, schedule, label="window")
 
             ax.plot(xlabels, totalLoad, label="total")
             # ax.axhline(color='k', linestyle='--', linewidth=1)

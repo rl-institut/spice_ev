@@ -599,7 +599,9 @@ class FlexWindow(Strategy):
                                     "total_load"]
 
                                 cur_avail_power = (
-                                    0 if cur_avail_power < v.vehicle_type.min_charging_power else cur_avail_power
+                                    0 if cur_avail_power <
+                                    v.vehicle_type.min_charging_power
+                                    else cur_avail_power
                                 )
                                 power = util.clamp_power(cur_avail_power, v,
                                                          cs)
@@ -609,7 +611,7 @@ class FlexWindow(Strategy):
                             else:
                                 cur_needed_power = ts_info["total_load"]
                                 if cur_needed_power > 0 and v.battery.soc > min_soc - self.EPS:
-                                    v.battery.unload(self.interval,cur_needed_power)[
+                                    v.battery.unload(self.interval, cur_needed_power)[
                                         "avg_power"
                                     ]
                         end_soc = v.battery.soc
@@ -653,7 +655,9 @@ class FlexWindow(Strategy):
                             break
                         if cur_avail_power > 0:
                             cur_avail_power = (
-                                0 if cur_avail_power < v.vehicle_type.min_charging_power else cur_avail_power
+                                0 if cur_avail_power <
+                                v.vehicle_type.min_charging_power
+                                else cur_avail_power
                             )
                             power = util.clamp_power(cur_avail_power, v, cs)
                             potential_charge = v.battery.load(self.interval, power)[
