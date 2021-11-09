@@ -488,9 +488,7 @@ class Scenario:
                     header += ["battery power [kW]", "bat. stored energy [kWh]"]
                 # flex + schedule
                 header += ["flex min [kW]", "flex base [kW]", "flex max [kW]"]
-                header += [
-                    "charge" for gcID in scheduleKeys
-                ]  # todo: changed this from "schedule {} [kW]"
+
                 # sum of charging power
                 header.append("sum CS power")
                 # charging power per use case
@@ -698,4 +696,5 @@ class Scenario:
             )
 
             fig.autofmt_xdate()  # rotate xaxis labels (dates) to fit
+
             plt.show()
