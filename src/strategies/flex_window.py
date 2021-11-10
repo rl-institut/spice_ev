@@ -834,14 +834,6 @@ class FlexWindow(Strategy):
         return commands
 
     def distribute_power(self, vehicles, total_power, total_needed):
-        """
-        Sets power to charge in this timestep and calculates new soc and saves
-        it in v.battery.soc. Returns commands with average power in this timestep.
-        :param vehicles:
-        :param total_power:
-        :param total_needed:
-        :return:
-        """
         commands = {}
         power = 0
         if total_power <= 0 or total_needed <= 0:
