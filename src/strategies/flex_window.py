@@ -249,7 +249,7 @@ class FlexWindow(Strategy):
                     else gc.cur_max_power - gc.get_current_load()
                 )
             else:
-                p = 0 if charged_in_window else power #todo: wann wird nicht mehr geladen?
+                p = 0 if charged_in_window else power
             p = util.clamp_power(p, vehicle, cs)
             avg_power = vehicle.battery.load(self.interval, p)["avg_power"]
             commands[cs_id] = gc.add_load(cs_id, avg_power)
