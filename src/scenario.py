@@ -369,6 +369,14 @@ class Scenario:
                 "info": "Total energy from renewable energy sources"
             }
 
+            # total feed-in energy
+            json_results["self-consumed renewable energy"] = {
+                # "feedInPower": feedInPower,
+                "value": sum([a-b for a, b in zip(feedInPower, totalLoad)]) / stepsPerHour,
+                "unit": "kWh",
+                "info": "Self-consumed energy from renewable energy sources"
+            }
+
             # battery sizes
             if batteryLevels:
                 bat_dict = {batName: max(values) for batName, values in batteryLevels.items()}
