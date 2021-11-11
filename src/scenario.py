@@ -6,6 +6,8 @@ import traceback
 
 from src import constants, events, strategy, util
 
+HOURS_PER_YEAR = 365 * 24
+
 
 class Scenario:
     """ A scenario
@@ -178,6 +180,8 @@ class Scenario:
 
         # adjust step_i: n_intervals or failed simulation step
         step_i += 1
+        # ratio of simulated time compared to one year
+        simulation_time_ratio = step_i / stepsPerHour / HOURS_PER_YEAR
 
         print("Energy drawn from grid: {:.0f} kWh, Costs: {:.2f} €".format(
             sum(totalLoad)/stepsPerHour, sum(costs)))
@@ -242,6 +246,17 @@ class Scenario:
                 "info": "Average flexible power range per time window"
             }
 
+            # total max power withdrawal per window
+            peak_power_per_window = [max([t[1] for t in w]) for w in load_window]
+            json_results["peak power per window"] = {
+                "04-10": peak_power_per_window[0],
+                "10-16": peak_power_per_window[1],
+                "16-22": peak_power_per_window[2],
+                "22-04": peak_power_per_window[3],
+                "unit": "kW",
+                "info": "Total peak power per time window"
+            }
+
             # sum of used energy per window
             sum_energy_per_window = [sum([t[1] for t in w]) / stepsPerHour for w in load_window]
             json_results["sum of energy per window"] = {
@@ -251,6 +266,16 @@ class Scenario:
                 "22-04": sum_energy_per_window[3],
                 "unit": "kWh",
                 "info": "Total drawn energy per time window"
+            }
+
+            # inferred annual energy demand per window
+            json_results["annual energy per window"] = {
+                "04-10": sum_energy_per_window[0] / simulation_time_ratio,
+                "10-16": sum_energy_per_window[1] / simulation_time_ratio,
+                "16-22": sum_energy_per_window[2] / simulation_time_ratio,
+                "22-04": sum_energy_per_window[3] / simulation_time_ratio,
+                "unit": "kWh",
+                "info": "Inferred annually drawn energy per time window"
             }
 
             # avg standing time
@@ -298,6 +323,25 @@ class Scenario:
                 "unit": "kWh",
                 "info": "Average amount of energy needed to reach the desired SoC"
                         " (averaged over all vehicles and charge events)"
+            }
+
+            # sum of non-zero load hours in resolution of time steps
+            grid_usage_hours = sum([t != 0 for t in totalLoad]) / stepsPerHour
+            json_results["grid connection usage hours"] = {
+                "value": grid_usage_hours,
+                "annual": grid_usage_hours / simulation_time_ratio,
+                "unit": "h",
+                "info": "Duration of grid usage (total load power is non zero)"
+                        " within simulation time and inferred for one year given the same usage ratio"
+            }
+
+            # sum of energy (all loads)
+            json_results["energy total"] = {
+                "total": sum(totalLoad) / stepsPerHour,
+                "annual": sum(totalLoad) / stepsPerHour / simulation_time_ratio,
+                "unit": "kWh",
+                "info": "Sum of drawn energy, by all loads"
+                        " within simulation time and inferred for one year"
             }
 
             # power peaks (fixed loads and variable loads)
@@ -363,6 +407,13 @@ class Scenario:
                 "value": total_car_energy/total_car_cap,
                 "unit": None,
                 "info": "Number of load cycles per vehicle (averaged)"
+            }
+
+            # simulation settings
+            json_results["simulation time"] = {
+                "steps per hour": stepsPerHour,
+                "number of steps": step_i,
+                "info": "Resolution and length of simulation time"
             }
 
             # write to file
