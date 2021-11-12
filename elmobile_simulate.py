@@ -22,7 +22,7 @@ if __name__ == '__main__':
     # set SpiceEV scenario directory
     dirs = Path("elmobile_data", "status_quo_1")
     plz_list = [f.stem for f in dirs.rglob("*.json")]
-    # set charging strategy
+    # set charging strategy"workshop_data", "scenario_1"
     strat = "balanced"
     result_dir = Path(dirs, "res_" + strat)
     result_dir.mkdir(exist_ok=True)
