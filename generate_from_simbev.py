@@ -393,7 +393,11 @@ def generate_from_simbev(args):
 
                     # generate vehicle events
                     # departure from old CS
-                    park_start_ts = datetime_from_timestep(int(row["park_start"]))
+                    park_start_idx = int(row["park_start"])
+                    park_start_ts = datetime_from_timestep(park_start_idx)
+                    assert park_start_ts >= park_end_ts, (
+                        "Order of vehicle {} wrong in timestep {}, has been standing already"
+                    ).format(vehicle_name, park_start_idx)
                     events["vehicle_events"].append({
                         "signal_time": park_end_ts.isoformat(),
                         "start_time": park_end_ts.isoformat(),
