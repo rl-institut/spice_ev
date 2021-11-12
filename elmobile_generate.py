@@ -22,7 +22,7 @@ def generate_function(output, simbev, interval=15, price_seed=0, min_soc=0.5, mi
 # input all data and call function here
 if __name__ == '__main__':
     # set output directory; directory has to exist
-    output_dir = Path("elmobile_data", "status_quo_1")
+    output_dir = Path("elmobile_data", "scenario_1")
     output_dir.mkdir(exist_ok=True)
     # set the simbev directory; ususally only the last folder name needs adjustment
     simbev_dir = Path("..", "simbev", "simbev", "res", "elmobile_status_quo_2021-08-11_133042_simbev_run")
