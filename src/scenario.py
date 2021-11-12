@@ -464,7 +464,7 @@ class Scenario:
                             v for k, v in extLoads[idx].items()
                             if k in self.events.external_load_lists])
                         row.append(round(sumExtLoads, round_to_places))
-                    # feed-in (negative since grid power is fed into system) 
+                    # feed-in (negative since grid power is fed into system)
                     if any(feedInPower):
                         row.append(-1 * round(feedInPower[idx], round_to_places))
                     # batteries
