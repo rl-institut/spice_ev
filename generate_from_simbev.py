@@ -31,21 +31,21 @@ def generate_from_simbev(args):
     vehicle_types = {
         "bev_luxury": {
             "name": "bev_luxury",
-            "capacity": 90,  # kWh
+            "capacity": 120,  # kWh
             "mileage": 40,  # kWh / 100 km
             "charging_curve": [[0, 300], [0.8, 300], [1, 300]],  # SOC -> kWh
             "min_charging_power": 0,
         },
         "bev_medium": {
             "name": "bev_medium",
-            "capacity": 65,  # kWh
+            "capacity": 100,  # kWh
             "mileage": 40,  # kWh / 100 km
             "charging_curve": [[0, 150], [0.8, 150], [1, 150]],  # SOC -> kWh
             "min_charging_power": 0,
         },
         "bev_mini": {
             "name": "bev_mini",
-            "capacity": 30,  # kWh
+            "capacity": 70,  # kWh
             "mileage": 40,  # kWh / 100 km
             "charging_curve": [[0, 50], [0.8, 50], [1, 50]],  # SOC -> kWh
             "min_charging_power": 0,
@@ -195,7 +195,7 @@ def generate_from_simbev(args):
     # generate vehicle events: iterate over input files
     for csv_path in pathlist:
         # get vehicle name from file name
-        vehicle_name = str(csv_path.stem)[:-4]
+        vehicle_name = str(csv_path.stem)[:-15]
         if args.verbose >= 2:
             # debug
             print("Next vehicle: {}".format(csv_path))

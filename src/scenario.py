@@ -599,7 +599,7 @@ class Scenario:
             # figure title
             fig = plt.gcf()
             fig.suptitle('Strategy: {}'.format(type(strat).__name__), fontweight='bold')
-
+            fig.set_size_inches(17, 10)
             # fig.autofmt_xdate()  # rotate xaxis labels (dates) to fit
             # autofmt removes some axis labels, so rotate by hand:
             for ax in fig.get_axes():
