@@ -110,7 +110,11 @@ class BalancedMarket(Strategy):
                 # charge max
                 p = gc.cur_max_power - gc.get_current_load()
                 p = util.clamp_power(p, vehicle, cs)
-                avg_power = vehicle.battery.load(self.interval, p)['avg_power']
+                #avg_power = vehicle.battery.load(self.interval, p)['avg_power']
+                if util.get_cost(1, gc.cost) <= self.PRICE_THRESHOLD:
+                    avg_power = vehicle.battery.load(self.interval, p)['avg_power']
+                else:
+                    avg_power = vehicle.battery.load(self.interval, p, target_soc=vehicle.desired_soc)['avg_power']
                 charging_stations[cs_id] = gc.add_load(cs_id, avg_power)
                 cs.current_power += avg_power
                 # no further computation for this vehicle in this timestep
@@ -187,7 +191,12 @@ class BalancedMarket(Strategy):
 
                 if start_idx == 0 and power[0]:
                     # current timestep: charge vehicle for real
-                    avg_power = vehicle.battery.load(self.interval, power[0])['avg_power']
+                    #avg_power = vehicle.battery.load(self.interval, power[0])['avg_power']
+                    if util.get_cost(1, gc.cost) <= self.PRICE_THRESHOLD:
+                        avg_power = vehicle.battery.load(self.interval, power[0])['avg_power']
+                    else:
+                        avg_power = vehicle.battery.load(self.interval, power[0], target_soc=vehicle.desired_soc)[
+                            'avg_power']
                     charging_stations[cs_id] = gc.add_load(cs_id, avg_power)
                     cs.current_power += avg_power
                     # don't have to simulate further
@@ -278,7 +287,12 @@ class BalancedMarket(Strategy):
                     # V2G possible, current timestep has power -> apply for real
                     if sim_power > 0:
                         # charge
-                        avg_power = vehicle.battery.load(self.interval, sim_power)['avg_power']
+                        #avg_power = vehicle.battery.load(self.interval, sim_power)['avg_power']
+                        if util.get_cost(1, gc.cost) <= self.PRICE_THRESHOLD:
+                            avg_power = vehicle.battery.load(self.interval, sim_power)['avg_power']
+                        else:
+                            avg_power = vehicle.battery.load(self.interval, sim_power, target_soc=vehicle.desired_soc)[
+                                'avg_power']
                     else:
                         # discharge
                         info = vehicle.battery.unload(
@@ -309,7 +323,11 @@ class BalancedMarket(Strategy):
             if avail_power < 0:
                 # surplus power
                 power = util.clamp_power(-avail_power, vehicle, cs)
-                avg_power = vehicle.battery.load(self.interval, power)['avg_power']
+                #avg_power = vehicle.battery.load(self.interval, power)['avg_power']
+                if util.get_cost(1, gc.cost) <= self.PRICE_THRESHOLD:
+                    avg_power = vehicle.battery.load(self.interval, power)['avg_power']
+                else:
+                    avg_power = vehicle.battery.load(self.interval, power, target_soc=vehicle.desired_soc)['avg_power']
                 charging_stations[cs_id] = gc.add_load(cs_id, avg_power)
                 cs.current_power += avg_power
 

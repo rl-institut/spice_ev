@@ -82,7 +82,10 @@ class Balanced(Strategy):
                         max_power = power
 
             # load with power
-            avg_power = vehicle.battery.load(self.interval, power)['avg_power']
+            if get_cost(1, gc.cost) <= self.PRICE_THRESHOLD:
+                avg_power = vehicle.battery.load(self.interval, power)['avg_power']
+            else:
+                avg_power = vehicle.battery.load(self.interval, power, target_soc=vehicle.desired_soc)['avg_power']
             charging_stations[cs_id] = gc.add_load(cs_id, avg_power)
             cs.current_power += avg_power
             if bat_power_used:
