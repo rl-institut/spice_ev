@@ -7,6 +7,7 @@ from pathlib import Path
 from generate_from_simbev import generate_from_simbev
 from argparse import Namespace
 import csv
+from itertools import islice
 
 
 def generate_function(output, simbev, interval=15, price_seed=0, min_soc=0.5, min_soc_threshold=0.05,
@@ -26,20 +27,18 @@ if __name__ == '__main__':
     output_dir = Path("elmobile_data", "scenario_1")
     output_dir.mkdir(exist_ok=True)
     # set the simbev directory; ususally only the last folder name needs adjustment
-    simbev_dir = Path("..", "simbev", "simbev", "res", "elmobile_status_quo_2021-08-11_133042_simbev_run")
+    simbev_dir = Path("..", "simbev", "simbev", "res", "scenario_1_2021-11-15_163505_simbev_run")
     # set data csv file name, or None if not required
     ext_load_csv = "gesamtlast.csv"
     feed_in_csv = "feedin_input_status_quo.csv"
 
-    # look for csv file with v2g in name in output directory and parse into dict
-    for file in output_dir.rglob("*.csv"):
-        if 'v2g' in file:
-            with open(file, 'r') as f:
-                reader = csv.reader(f)
-                v2g_dict = {}
-                for row in reader:
-                    v2g_dict[row[0]] = row[1]
-            break
+    # set csv file which contains 2 columns, region and amount of v2g vehicles
+    file = Path(output_dir, "v2g_per_region.csv")
+    with open(file, 'r') as f:
+        reader = csv.reader(f, delimiter=';')
+        v2g_dict = {}
+        for row in islice(reader, 1, None):
+            v2g_dict[row[0]] = int(row[1])
 
     plz_list = [f.name for f in simbev_dir.iterdir() if f.is_dir()]
     for counter, plz in enumerate(plz_list):

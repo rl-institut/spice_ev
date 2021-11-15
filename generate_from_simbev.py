@@ -216,12 +216,14 @@ def generate_from_simbev(args):
         # every X timesteps, generate new price signal
         price_interval = datetime.timedelta(hours=price_stable_hours) / interval
 
+    # set total numbers of v2g vehicles
+    v2g_count = args.v2g
+
     # generate vehicle events: iterate over input files
     for csv_path in pathlist:
         # get vehicle name from file name
         vehicle_name = str(csv_path.stem)[:-4]
-        # set total numbers of v2g vehicles
-        v2g_count = args.v2g
+
         if args.verbose >= 2:
             # debug
             print("Next vehicle: {}".format(csv_path))
@@ -235,8 +237,9 @@ def generate_from_simbev(args):
             row = next(reader)
             try:
                 v_type = row["car_type"]
-                if v2g_count > 0:
+                if v2g_count > 0 and "bev" in v_type:
                     v_type += "_v2g"
+                    v2g_count -= 1
             except KeyError:
                 if args.verbose >= 2:
                     # debug
@@ -512,7 +515,7 @@ def generate_from_simbev(args):
             "vehicles": vehicles,
             "grid_connectors": {
                 "GC1": {
-                    "max_power": 10000
+                    "max_power": vars(args).get("gc_power", 10000)
                 }
             },
             "charging_stations": charging_stations
