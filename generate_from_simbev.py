@@ -71,6 +71,30 @@ def generate_from_simbev(args):
             "charging_curve": [[0, 22], [0.8, 22], [1, 0]],  # SOC -> kWh
             "min_charging_power": 0,
         },
+        "bev_luxury_v2g": {
+            "name": "bev_luxury",
+            "capacity": 90,  # kWh
+            "mileage": 40,  # kWh / 100 km
+            "charging_curve": [[0, 300], [0.8, 300], [1, 300]],  # SOC -> kWh
+            "min_charging_power": 0,
+            "v2g": True
+        },
+        "bev_medium_v2g": {
+            "name": "bev_medium",
+            "capacity": 65,  # kWh
+            "mileage": 40,  # kWh / 100 km
+            "charging_curve": [[0, 150], [0.8, 150], [1, 150]],  # SOC -> kWh
+            "min_charging_power": 0,
+            "v2g": True
+        },
+        "bev_mini_v2g": {
+            "name": "bev_mini",
+            "capacity": 30,  # kWh
+            "mileage": 40,  # kWh / 100 km
+            "charging_curve": [[0, 50], [0.8, 50], [1, 50]],  # SOC -> kWh
+            "min_charging_power": 0,
+            "v2g": True
+        }
     }
 
     def datetime_from_timestep(timestep):
