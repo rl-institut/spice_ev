@@ -72,7 +72,7 @@ def generate_from_simbev(args):
             "min_charging_power": 0,
         },
         "bev_luxury_v2g": {
-            "name": "bev_luxury",
+            "name": "bev_luxury_v2g",
             "capacity": 90,  # kWh
             "mileage": 40,  # kWh / 100 km
             "charging_curve": [[0, 300], [0.8, 300], [1, 300]],  # SOC -> kWh
@@ -80,7 +80,7 @@ def generate_from_simbev(args):
             "v2g": True
         },
         "bev_medium_v2g": {
-            "name": "bev_medium",
+            "name": "bev_medium_v2g",
             "capacity": 65,  # kWh
             "mileage": 40,  # kWh / 100 km
             "charging_curve": [[0, 150], [0.8, 150], [1, 150]],  # SOC -> kWh
@@ -88,7 +88,7 @@ def generate_from_simbev(args):
             "v2g": True
         },
         "bev_mini_v2g": {
-            "name": "bev_mini",
+            "name": "bev_mini_v2g",
             "capacity": 30,  # kWh
             "mileage": 40,  # kWh / 100 km
             "charging_curve": [[0, 50], [0.8, 50], [1, 50]],  # SOC -> kWh
@@ -220,6 +220,8 @@ def generate_from_simbev(args):
     for csv_path in pathlist:
         # get vehicle name from file name
         vehicle_name = str(csv_path.stem)[:-4]
+        # set total numbers of v2g vehicles
+        v2g_count = args.v2g
         if args.verbose >= 2:
             # debug
             print("Next vehicle: {}".format(csv_path))
@@ -233,6 +235,8 @@ def generate_from_simbev(args):
             row = next(reader)
             try:
                 v_type = row["car_type"]
+                if v2g_count > 0:
+                    v_type += "_v2g"
             except KeyError:
                 if args.verbose >= 2:
                     # debug
