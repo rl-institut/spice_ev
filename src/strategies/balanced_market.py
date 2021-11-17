@@ -24,6 +24,19 @@ class BalancedMarket(Strategy):
         for cs in self.world_state.charging_stations.values():
             cs.max_power = self.CONCURRENCY * cs.max_power
 
+        # adjust foresight for price events
+        horizon_timedelta = datetime.timedelta(hours=self.HORIZON)
+        changed = 0
+        for event in self.events.grid_operator_signals:
+            old_signal_time = event.signal_time
+            # make price events known at least HORIZON hours in advance
+            event.signal_time = min(event.signal_time, event.start_time - horizon_timedelta)
+            # make sure events don't signal before start
+            event.signal_time = max(event.signal_time, start_time)
+            changed += event.signal_time < old_signal_time
+        if changed:
+            print(changed, "events signaled earlier")
+
     def step(self, event_list=[]):
         super().step(event_list)
 
@@ -76,8 +89,10 @@ class BalancedMarket(Strategy):
                 event_idx += 1
                 if type(event) == events.GridOperatorSignal:
                     # update GC info
-                    cur_max_power = event.max_power or cur_max_power
-                    cur_cost = event.cost or cur_cost
+                    if event.max_power is not None:
+                        cur_max_power = event.max_power
+                    if event.cost is not None:
+                        cur_cost = event.cost
                 elif type(event) == events.EnergyFeedIn:
                     cur_feed_in[event.name] = event.value
                 # vehicle events ignored (use vehicle info such as estimated_time_of_departure)
