@@ -598,8 +598,11 @@ class Scenario:
 
             # figure title
             fig = plt.gcf()
-            fig.suptitle('Strategy: {}: {}€'.format(
-                strat.description, int(sum(costs))), fontweight='bold')
+            fig.suptitle('Strategy: {}'.format(type(strat).__name__), fontweight='bold')
 
-            fig.autofmt_xdate()  # rotate xaxis labels (dates) to fit
+            # fig.autofmt_xdate()  # rotate xaxis labels (dates) to fit
+            # autofmt removes some axis labels, so rotate by hand:
+            for ax in fig.get_axes():
+                plt.setp(ax.get_xticklabels(), rotation=30, ha='right')
+
             plt.show()
