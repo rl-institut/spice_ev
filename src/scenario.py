@@ -332,7 +332,8 @@ class Scenario:
                 "annual": grid_usage_hours / simulation_time_ratio,
                 "unit": "h",
                 "info": "Duration of grid usage (total load power is non zero)"
-                        " within simulation time and inferred for one year given the same usage ratio"
+                        " within simulation time and inferred for one year given"
+                        " the same usage ratio"
             }
 
             # sum of energy (all loads)
@@ -529,7 +530,7 @@ class Scenario:
                             v for k, v in extLoads[idx].items()
                             if k in self.events.external_load_lists])
                         row.append(round(sumExtLoads, round_to_places))
-                    # feed-in (negative since grid power is fed into system) 
+                    # feed-in (negative since grid power is fed into system)
                     if any(feedInPower):
                         row.append(-1 * round(feedInPower[idx], round_to_places))
                     # batteries
