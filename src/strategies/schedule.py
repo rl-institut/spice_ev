@@ -144,7 +144,6 @@ class Schedule(Strategy):
             delta_soc = vehicle.get_delta_soc()
             self.energy_needed_per_vehicle[vehicle_id] = (delta_soc
                                                           * vehicle.battery.capacity
-                                                          * TS_per_hour
                                                           / vehicle.battery.efficiency
                                                           if delta_soc > self.EPS else 0)
 
@@ -210,8 +209,10 @@ class Schedule(Strategy):
                 # energy available for charing cars might be zero
                 fraction = 0
 
-            for vehicle_id, energy_needed in sorted(self.energy_needed_per_vehicle.items(),
-                                                    key=lambda i: i[1]):
+            extra_power = 0
+            vehicles = sorted(self.energy_needed_per_vehicle.items(), key=lambda i: i[1])
+            while len(vehicles) > 0:
+                vehicle_id, energy_needed = vehicles.pop(0)
                 vehicle = self.world_state.vehicles[vehicle_id]
                 cs_id = vehicle.connected_charging_station
                 assert cs_id is not None, (
@@ -223,17 +224,26 @@ class Schedule(Strategy):
 
                 # boundaries of charging process
                 remaining_power_on_schedule = gc.target - gc.get_current_load()
-                power_allocated_for_vehicle = fraction * energy_needed
+                if remaining_power_on_schedule < self.EPS:
+                    break
+                power_allocated_for_vehicle = fraction * energy_needed * TS_per_hour + extra_power
 
                 power = min(remaining_power_on_schedule, power_allocated_for_vehicle)
                 power = clamp_power(power, vehicle, cs)
 
                 # load with power
-                avg_power = vehicle.battery.load(self.interval,
-                                                 power,
-                                                 target_soc=vehicle.desired_soc)['avg_power']
+                avg_power, charged_soc = vehicle.battery.load(self.interval,
+                                                              power,
+                                                              target_soc=vehicle.desired_soc
+                                                              ).values()
                 charging_stations[cs_id] = gc.add_load(cs_id, avg_power)
-
+                extra_power = power_allocated_for_vehicle - avg_power
+                if (power_allocated_for_vehicle == extra_power and
+                        remaining_power_on_schedule >= cs.min_power and
+                        remaining_power_on_schedule >= vehicle.vehicle_type.min_charging_power and
+                        vehicle.get_delta_soc() > self.EPS):
+                    # vehicle didnt get to charge, going to the back of the line
+                    vehicles.append((vehicle_id, energy_needed))
                 # can active charging station bear minimum load?
                 assert cs.max_power >= cs.current_power - self.EPS, (
                     "{} - {} over maximum load ({} > {})".format(
