@@ -371,10 +371,16 @@ class Scenario:
 
             # total feed-in energy
             json_results["self-consumed renewable energy"] = {
-                # "feedInPower": feedInPower,
                 "value": sum([a-b for a, b in zip(feedInPower, totalLoad)]) / stepsPerHour,
                 "unit": "kWh",
                 "info": "Self-consumed energy from renewable energy sources"
+            }
+
+            # cost
+            json_results["cost"] = {
+                "total commodity cost": sum(costs),
+                "unit": "EUR",
+                "info": "Cost for withdrawn energy for (dynamic) grid prices"
             }
 
             # battery sizes
