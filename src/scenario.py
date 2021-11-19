@@ -58,8 +58,7 @@ class Scenario:
         batteryLevels = {k: [] for k in self.constants.batteries.keys()}
         connChargeByTS = []
         gcPowerSchedule = {gcID: [] for gcID in self.constants.grid_connectors.keys()}
-        gcWindowSchedule = {gcID: [] for gcID in
-                            self.constants.grid_connectors.keys()}
+        gcWindowSchedule = {gcID: [] for gcID in self.constants.grid_connectors.keys()}
 
         begin = datetime.datetime.now()
         for step_i in range(self.n_intervals):
@@ -129,7 +128,7 @@ class Scenario:
 
                 gcPowerSchedule[gcID].append(gc.target)
                 if gc.window:
-                    window = 100
+                    window = 1
                 else:
                     window = 0
                 gcWindowSchedule[gcID].append(window)
@@ -442,7 +441,7 @@ class Scenario:
                     header += ["battery power [kW]", "bat. stored energy [kWh]"]
                 # flex + schedule
                 header += ["flex min [kW]", "flex base [kW]", "flex max [kW]"]
-#                header += ["schedule {} [kW]".format(gcID) for gcID in scheduleKeys]
+                header += ["schedule {} [kW]".format(gcID) for gcID in scheduleKeys]
                 header += ["charge" for gcID in scheduleKeys]
                 # sum of charging power
                 header.append("sum CS power")
@@ -587,7 +586,14 @@ class Scenario:
             for gcID, schedule in gcWindowSchedule.items():
                 if any(s is not None for s in schedule):
                     # schedule exists
-                    ax.plot(xlabels, schedule, label="window")
+                    window_values = [v * int(max(totalLoad)) for v in schedule]
+                    ax.plot(xlabels, window_values, label="window",
+                            linestyle='--')
+
+            for gcID, schedule in gcPowerSchedule.items():
+                if any(s is not None for s in schedule):
+                    # schedule exists
+                    ax.plot(xlabels, schedule, label="Schedule {}".format(gcID))
 
             ax.plot(xlabels, totalLoad, label="total")
             # ax.axhline(color='k', linestyle='--', linewidth=1)
