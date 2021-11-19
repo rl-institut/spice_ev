@@ -52,7 +52,6 @@ class FlexWindow(Strategy):
             cs.current_power = 0
 
         cur_feed_in = {k: -v for k, v in gc.current_loads.items() if v < 0}
-        cur_ext_load = {k: v for k, v in gc.current_loads.items() if v > 0}
         cur_max_power = gc.cur_max_power
 
         # ---------- GET NEXT EVENTS ---------- #
@@ -103,7 +102,6 @@ class FlexWindow(Strategy):
                 }
             )
 
-
         # read current window from timesteps
         gc.window = timesteps[0]["window"]
 
@@ -128,7 +126,8 @@ class FlexWindow(Strategy):
         gc = list(self.world_state.grid_connectors.values())[0]
         # order vehicles
         vehicles = sorted([v for v in self.world_state.vehicles.values()
-            if v.connected_charging_station is not None], key=self.sort_key)
+                           if v.connected_charging_station is not None],
+                          key=self.sort_key)
 
         for vehicle in vehicles:
             if vehicle.vehicle_type.v2g:
@@ -199,7 +198,7 @@ class FlexWindow(Strategy):
             # apply power
             if gc.window:
                 p = (power if charged_in_window
-                    else gc.cur_max_power - gc.get_current_load())
+                     else gc.cur_max_power - gc.get_current_load())
             else:
                 p = 0 if charged_in_window else power
             p = util.clamp_power(p, vehicle, cs)
@@ -252,7 +251,7 @@ class FlexWindow(Strategy):
                             break
 
                     total_power = (0 if total_power < b.min_charging_power
-                        else total_power)
+                                   else total_power)
                     if total_power > 0:
                         if cur_window:
                             b.load(
@@ -298,7 +297,8 @@ class FlexWindow(Strategy):
         gc = list(self.world_state.grid_connectors.values())[0]
         # get all vehicles that are connected in this step and order vehicles
         vehicles = sorted([v for v in self.world_state.vehicles.values()
-                if (v.connected_charging_station is not None) and (v.vehicle_type.v2g)],key=self.sort_key)
+                           if (v.connected_charging_station is not None)
+                           and (v.vehicle_type.v2g)], key=self.sort_key)
 
         cur_window = timesteps[0]["window"]
         window = cur_window
@@ -328,15 +328,15 @@ class FlexWindow(Strategy):
                 min_soc = 0
                 max_soc = 1
                 while max_soc - min_soc > self.EPS:
-                    discharge_limit = (max_soc + min_soc) /2
+                    discharge_limit = (max_soc + min_soc) / 2
                     for ts_info in connected_timesteps:
                         if ts_info["window"]:
-                            sim_vehicle.battery.load(self.interval, cs.max_power)[
-                                "avg_power"]
+                            sim_vehicle.battery.load(self.interval,
+                                                     cs.max_power)["avg_power"]
                         else:
-                            sim_vehicle.battery.unload(self.interval, cs.max_power, target_soc=discharge_limit)[
-                                "avg_power"
-                            ]
+                            sim_vehicle.battery.unload(self.interval,
+                                                       cs.max_power,
+                                                       target_soc=discharge_limit)["avg_power"]
                     if sim_vehicle.battery.soc <= sim_vehicle.desired_soc - self.EPS:
                         min_soc = discharge_limit
                     else:
@@ -347,7 +347,7 @@ class FlexWindow(Strategy):
 
             if not cur_window and sim_vehicle.battery.soc <= discharge_limit:
                 break
-            # filter out current window
+            # filter current window
             window_timesteps = [
                 item for item in connected_timesteps if item["window"] is cur_window]
             new_timesteps = []
@@ -384,7 +384,8 @@ class FlexWindow(Strategy):
                             power = util.clamp_power(total_power, sim_vehicle,
                                                      cs)
                             sim_vehicle.battery.unload(self.interval,
-                                power, target_soc=discharge_limit)["avg_power"]
+                                                       power,
+                                                       target_soc=discharge_limit)["avg_power"]
                 at_limit = False
                 if cur_window:
                     if sim_vehicle.battery.soc >= (1 - self.EPS):
@@ -427,8 +428,8 @@ class FlexWindow(Strategy):
         gc = list(self.world_state.grid_connectors.values())[0]
         # get all vehicles that are connected in this step and order vehicles
         vehicles = sorted([v for v in self.world_state.vehicles.values()
-                if v.connected_charging_station is not None],
-            key=self.sort_key)
+                           if v.connected_charging_station is not None],
+                          key=self.sort_key)
 
         # what happens when all cars are charged with maximum power during charging windows?
         sim_vehicles = deepcopy(vehicles)
@@ -500,8 +501,7 @@ class FlexWindow(Strategy):
                 if not cur_vehicles or cur_needed < self.EPS:
                     # no cars or no energy need: skip simulation
                     break
-                #                if ts_info["window"] == charged_in_window:
-                commands_temp = self.distribute_power(
+                self.distribute_power(
                     cur_vehicles, total_power - ts_info["ext_load"], cur_needed
                 )
 
@@ -579,11 +579,10 @@ class FlexWindow(Strategy):
                             break
 
                             cur_avail_power = (0 if cur_avail_power < b.min_charging_power
-                                else cur_avail_power)
+                                               else cur_avail_power)
                         if cur_avail_power > 0:
-                            b.load(
-                                self.interval, (cur_avail_power / len(sim_batteries))
-                            )["avg_power"]
+                            b.load(self.interval, (cur_avail_power /
+                                                   len(sim_batteries)))["avg_power"]
 
                 at_limit = all([b.soc >= (1 - self.EPS) for b in sim_batteries])
 
@@ -596,8 +595,7 @@ class FlexWindow(Strategy):
             for b_id, battery in self.world_state.batteries.items():
                 avail_power = (0 if avail_power < battery.min_charging_power
                                else avail_power)
-                charge = battery.load(self.interval,
-                                (avail_power / len(batteries)))["avg_power"]
+                charge = battery.load(self.interval, (avail_power / len(batteries)))["avg_power"]
                 gc.add_load(b_id, charge)
                 timesteps[0]["total_load"] += charge
 
@@ -633,8 +631,8 @@ class FlexWindow(Strategy):
                             break
 
                         if cur_needed_power > 0:
-                            b.unload(self.interval, (cur_needed_power /
-                                        len(sim_batteries)))["avg_power"]
+                            b.unload(self.interval,
+                                     (cur_needed_power / len(sim_batteries)))["avg_power"]
 
                 at_limit = all(
                     [b.soc > (self.EPS) for b in sim_batteries])
@@ -837,7 +835,6 @@ class FlexWindow(Strategy):
 
     def distribute_power(self, vehicles, total_power, total_needed):
         commands = {}
-        power = 0
         if total_power <= 0 or total_needed <= 0:
             return {}
         for v in vehicles:
