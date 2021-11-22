@@ -593,9 +593,10 @@ class FlexWindow(Strategy):
             avail_power = total_power - new_timesteps[0]["total_load"]
             for b_id, battery in self.world_state.batteries.items():
                 avail_power = (0 if avail_power < battery.min_charging_power
-                           else avail_power)
+                               else avail_power)
                 if avail_power > 0:
-                    charge = battery.load(self.interval, avail_power/len(sim_batteries))["avg_power"]
+                    charge = battery.load(self.interval,
+                                          avail_power/len(sim_batteries))["avg_power"]
                     gc.add_load(b_id, charge)
                     timesteps[0]["total_load"] += charge
 
