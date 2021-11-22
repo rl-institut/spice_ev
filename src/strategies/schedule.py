@@ -136,9 +136,10 @@ class Schedule(Strategy):
 
         self.energy_available_for_cars_on_schedule = sum([
             power / TS_per_hour
-            for power in self.power_for_cars_per_TS
+            for power in self.power_for_cars_per_TS if power > self.EPS
         ])
 
+        # How much energy does each vehicle need
         self.energy_needed_per_vehicle = {}
         for vehicle_id, vehicle in self.world_state.vehicles.items():
             delta_soc = vehicle.get_delta_soc()
@@ -237,8 +238,8 @@ class Schedule(Strategy):
                                                               target_soc=vehicle.desired_soc
                                                               ).values()
                 charging_stations[cs_id] = gc.add_load(cs_id, avg_power)
-                extra_power = power_allocated_for_vehicle - avg_power
-                if (power_allocated_for_vehicle == extra_power and
+                extra_power = max(power_allocated_for_vehicle - avg_power, 0)
+                if (avg_power < self.EPS and
                         remaining_power_on_schedule >= cs.min_power and
                         remaining_power_on_schedule >= vehicle.vehicle_type.min_charging_power and
                         vehicle.get_delta_soc() > self.EPS):
