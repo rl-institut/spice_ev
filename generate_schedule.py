@@ -135,7 +135,7 @@ def generate_flex_band(scenario, core_standing_time=None):
         pv_to_battery = min(battery_flex_charge, pv_support)
         battery_flex_charge -= pv_to_battery
         pv_support -= pv_to_battery
-        base_flex += pv_to_battery
+#        base_flex += pv_to_battery
 
         flex["base"].append(clamp_to_gc(base_flex))
         # min: no vehicle charging, discharge from batteries and V2G
@@ -166,7 +166,7 @@ def generate_schedule(args):
         for row_idx, row in enumerate(reader):
             if row_idx >= s.n_intervals:
                 break
-            netto.append(-float(row["netto"]))
+            netto.append(float(row["netto"]))
             curtailment.append(-float(row["curtailment"]))
     # zero-pad for same length as scenario
     netto += [0]*(s.n_intervals - len(netto))

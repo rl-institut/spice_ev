@@ -147,14 +147,14 @@ class Schedule(Strategy):
                                                           / vehicle.battery.efficiency
                                                           if delta_soc > self.EPS else 0)
 
+        # estimate how much energy needs to be charged outside of schedule
         self.extra_energy_per_vehicle = {}
-        # TODO calc average power per TS and choose max power for load process as
-        # MIN(avg_power, max_charging_power_vehicle)
-        # average_power_to_charge_cars = 11
+        avg_power = sum(self.power_for_cars_per_TS) / len(self.power_for_cars_per_TS)
         for vehicle_id, vehicle in self.world_state.vehicles.items():
             old_soc = vehicle.battery.soc
-            vehicle.battery.load(TS_to_charge_cars * self.interval,
-                                 vehicle.vehicle_type.charging_curve.max_power,
+            max_charging_power = min(vehicle.vehicle_type.charging_curve.max_power, avg_power)
+            vehicle.battery.load(timedelta=TS_to_charge_cars * self.interval,
+                                 max_charging_power=max_charging_power,
                                  target_soc=vehicle.desired_soc)
             delta_soc = vehicle.get_delta_soc()
             self.extra_energy_per_vehicle[vehicle_id] = delta_soc if delta_soc > self.EPS else 0
