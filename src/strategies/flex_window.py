@@ -577,9 +577,8 @@ class FlexWindow(Strategy):
                         if b.soc > 1 - self.EPS:
                             # adready charged
                             break
-
-                            cur_avail_power = (0 if cur_avail_power < b.min_charging_power
-                                               else cur_avail_power)
+                        cur_avail_power = (0 if cur_avail_power < b.min_charging_power
+                                           else cur_avail_power)
                         if cur_avail_power > 0:
                             b.load(self.interval, (cur_avail_power /
                                                    len(sim_batteries)))["avg_power"]
@@ -591,13 +590,14 @@ class FlexWindow(Strategy):
                 else:
                     min_total_power = total_power
             # actual charge
-            avail_power = total_power - gc.get_current_load()
+            avail_power = total_power - new_timesteps[0]["total_load"]
             for b_id, battery in self.world_state.batteries.items():
                 avail_power = (0 if avail_power < battery.min_charging_power
-                               else avail_power)
-                charge = battery.load(self.interval, (avail_power / len(batteries)))["avg_power"]
-                gc.add_load(b_id, charge)
-                timesteps[0]["total_load"] += charge
+                           else avail_power)
+                if avail_power > 0:
+                    charge = battery.load(self.interval, avail_power/len(sim_batteries))["avg_power"]
+                    gc.add_load(b_id, charge)
+                    timesteps[0]["total_load"] += charge
 
         else:
             # discharge battery
@@ -643,7 +643,7 @@ class FlexWindow(Strategy):
                     min_total_power = total_power
 
             # actual discharge
-            needed_power = gc.get_current_load() - total_power
+            needed_power = new_timesteps[0]["total_load"] - total_power
 
             for b_id, battery in self.world_state.batteries.items():
                 if needed_power < 0:
@@ -766,7 +766,7 @@ class FlexWindow(Strategy):
                         max_total_power = total_power
                     else:
                         min_total_power = total_power
-                avail_power = total_power - gc.get_current_load()
+                avail_power = total_power - window_timesteps[0]["total_load"]
                 avail_power = (
                     0 if avail_power < vehicle.vehicle_type.min_charging_power else avail_power
                 )
@@ -819,7 +819,7 @@ class FlexWindow(Strategy):
                     else:
                         min_total_power = total_power
 
-                needed_power = gc.get_current_load() - total_power
+                needed_power = no_window_timesteps[0]["total_load"] - total_power
                 if needed_power < 0:
                     discharge = 0
                 else:
