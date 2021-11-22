@@ -178,7 +178,7 @@ class BalancedMarket(Strategy):
                             p = util.clamp_power(p, vehicle, cs)
                             power[ts_idx] = p
                             sim_vehicle.battery.load(self.interval, p)
-                        safe = sim_vehicle.get_delta_soc() <= 0
+                        safe = sim_vehicle.get_delta_soc() <= self.EPS
                         if not safe:
                             # not charged enough
                             min_power = cur_power
