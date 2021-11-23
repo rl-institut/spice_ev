@@ -207,7 +207,7 @@ def generate_schedule(args):
                     schedule[time] -= power
                     power_needed += power
 
-        for priority in [1, 3, 4]:
+        for priority in [1, 3, 4, 2]:
             # curtailment or default: take power from grid and make sure vehicles are charged
             if power_needed < EPS:
                 # all vehicles charged
