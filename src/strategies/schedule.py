@@ -212,7 +212,10 @@ class Schedule(Strategy):
 
             extra_power = 0
             vehicles = sorted(self.energy_needed_per_vehicle.items(), key=lambda i: i[1])
+            n_vehicles = len(vehicles)
+            i = 0
             while len(vehicles) > 0:
+                i += 1
                 vehicle_id, energy_needed = vehicles.pop(0)
                 vehicle = self.world_state.vehicles[vehicle_id]
                 cs_id = vehicle.connected_charging_station
@@ -239,6 +242,8 @@ class Schedule(Strategy):
                                                               ).values()
                 charging_stations[cs_id] = gc.add_load(cs_id, avg_power)
                 extra_power = max(power_allocated_for_vehicle - avg_power, 0)
+                if i >= n_vehicles and extra_power < self.EPS:
+                    break
                 if (avg_power < self.EPS and
                         remaining_power_on_schedule >= cs.min_power and
                         remaining_power_on_schedule >= vehicle.vehicle_type.min_charging_power and
