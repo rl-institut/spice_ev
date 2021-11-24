@@ -442,7 +442,7 @@ class Scenario:
                 # flex + schedule
                 header += ["flex min [kW]", "flex base [kW]", "flex max [kW]"]
                 header += ["schedule {} [kW]".format(gcID) for gcID in scheduleKeys]
-                header += ["charge" for gcID in scheduleKeys]
+                header += ["window {}".format(gcID) for gcID in scheduleKeys]
                 # sum of charging power
                 header.append("sum CS power")
                 # charging power per use case
@@ -494,9 +494,12 @@ class Scenario:
                         round(flex["base"][idx], round_to_places),
                         round(flex["max"][idx], round_to_places)
                     ]
-                    # schedule
+                    # schedule + window schedule
                     row += [
                         round(gcPowerSchedule[gcID][idx], round_to_places)
+                        for gcID in scheduleKeys]
+                    row += [
+                        round(gcWindowSchedule[gcID][idx], round_to_places)
                         for gcID in scheduleKeys]
                     # charging power
                     # get sum of all current CS power
