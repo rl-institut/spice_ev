@@ -244,13 +244,13 @@ class FlexWindow(Strategy):
                         else:
                             b.unload(self.interval, (total_power / len(sim_batteries)))["avg_power"]
             if cur_window:
-                safe = all(
+                at_limit = all(
                     [b.soc >= (1 - self.EPS) for b in sim_batteries])
             else:
-                safe = all(
+                at_limit = all(
                     [b.soc <= (0 + self.EPS) for b in sim_batteries])
 
-            if safe:
+            if at_limit:
                 max_power = total_power
             else:
                 min_power = total_power
