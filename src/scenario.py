@@ -590,7 +590,7 @@ class Scenario:
                 if any(s is not None for s in schedule):
                     # schedule exists
                     window_values = [v * int(max(totalLoad)) for v in schedule]
-                    ax.plot(xlabels, window_values, label="window",
+                    ax.plot(xlabels, window_values, label="window{}".format(gcID),
                             linestyle='--')
 
             for gcID, schedule in gcPowerSchedule.items():
