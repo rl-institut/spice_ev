@@ -274,7 +274,8 @@ class FlexWindow(Strategy):
                 avail_power = (0 if total_power < battery.min_charging_power
                                else total_power)
                 if avail_power > 0:
-                    charge = battery.load(self.interval, (avail_power / len(batteries)))["avg_power"]
+                    charge = battery.load(self.interval, (avail_power / len(batteries))
+                                          )["avg_power"]
                     gc.add_load(b_id, charge)
                     timesteps[0]["total_load"] += charge
             else:
@@ -643,7 +644,6 @@ class FlexWindow(Strategy):
 
     def distribute_peak_shaving_v2g(self, timesteps, commands):
 
-
         gc = list(self.world_state.grid_connectors.values())[0]
         # get all vehicles that are connected in this step and order vehicles
         vehicles = sorted([v for v in self.world_state.vehicles.values()
@@ -700,7 +700,6 @@ class FlexWindow(Strategy):
 
             if not cur_window and sim_vehicle.battery.soc <= discharge_limit:
                 break
-
             # charge or discharge vehicle battery
             if cur_window:
                 # charge battery
@@ -735,7 +734,6 @@ class FlexWindow(Strategy):
                                 "avg_power"]
 
                     at_limit = sim_vehicle.battery.soc >= (1 - self.EPS)
-
                     if at_limit:
                         max_total_power = total_power
                     else:
@@ -750,7 +748,6 @@ class FlexWindow(Strategy):
                 timesteps[0]["total_load"] += charge
 
             else:
-
                 # discharge battery
                 no_window_timesteps = [
                     item for item in timesteps if item["window"] is False]
@@ -775,12 +772,11 @@ class FlexWindow(Strategy):
                             # adready discharged
                             break
                         if cur_needed_power > 0:
-                            potential_discharge = sim_vehicle.battery.unload(
+                            sim_vehicle.battery.unload(
                                 self.interval, cur_needed_power, target_soc=discharge_limit
                             )["avg_power"]
 
                     at_limit = sim_vehicle.battery.soc > (discharge_limit)
-
                     if at_limit:
                         max_total_power = total_power
                     else:
