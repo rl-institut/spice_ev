@@ -63,9 +63,10 @@ class FlexWindow(Strategy):
         timesteps_ahead = int(datetime.timedelta(hours=self.HORIZON) / self.interval)
 
         cur_time = self.current_time - self.interval
-
         cur_window = gc.window
+
         for timestep_idx in range(timesteps_ahead):
+
             cur_time += self.interval
             # peek into future events
             while True:
@@ -85,11 +86,13 @@ class FlexWindow(Strategy):
                         cur_window = event.window
                 elif type(event) == events.EnergyFeedIn:
                     cur_feed_in[event.name] = event.value
+                    gc.current_loads[event.name] = -event.value
                 # vehicle events ignored (use vehicle info such as estimated_time_of_departure)
 
             ext_load = gc.get_avg_ext_load(cur_time, self.interval) - sum(
                 cur_feed_in.values()
             )
+
             # save infos for each timestep
             timesteps.append(
                 {
@@ -113,7 +116,7 @@ class FlexWindow(Strategy):
             # load cars with peak shaving strategy
             commands = self.distribute_peak_shaving_vehicles(timesteps)
             # charge/discharge batteries with peak shaving strategy
-            commands = self.distribute_peak_shaving_batteries(timesteps, commands)
+            self.distribute_peak_shaving_batteries(timesteps)
 
             # charge/discharge vehicles with peak shaving strategy
             commands = self.distribute_peak_shaving_v2g(timesteps, commands)
@@ -277,9 +280,10 @@ class FlexWindow(Strategy):
             if cur_window:
                 avail_power = (0 if total_power < battery.min_charging_power
                                else total_power)
-                charge = battery.load(self.interval, (avail_power / len(batteries)))["avg_power"]
-                gc.add_load(b_id, charge)
-                timesteps[0]["total_load"] += charge
+                if avail_power > 0:
+                    charge = battery.load(self.interval, (avail_power / len(batteries)))["avg_power"]
+                    gc.add_load(b_id, charge)
+                    timesteps[0]["total_load"] += charge
 #                gc.current_power += charge
             else:
                 if total_power < 0:
@@ -425,6 +429,7 @@ class FlexWindow(Strategy):
 
     def distribute_peak_shaving_vehicles(self, timesteps):
 
+        commands = {}
         gc = list(self.world_state.grid_connectors.values())[0]
         # get all vehicles that are connected in this step and order vehicles
         vehicles = sorted([v for v in self.world_state.vehicles.values()
@@ -516,7 +521,7 @@ class FlexWindow(Strategy):
         total_energy_needed = sum([v.get_energy_needed(full=True) for v in vehicles])
 
         # dict to hold charging commands
-        commands = {}
+
         if gc.window == charged_in_window:
             commands = self.distribute_power(
                 vehicles, total_power - gc.get_current_load(),
@@ -526,17 +531,18 @@ class FlexWindow(Strategy):
                 vehicles, gc.max_power - gc.get_current_load(),
                 total_energy_needed)
         for cs_id, power in commands.items():
+            cs = self.world_state.charging_stations[cs_id]
             old_power = power
             commands[cs_id] = gc.add_load(cs_id, power)
             timesteps[0]["v_load"] += power
             timesteps[0][cs_id] = power
             timesteps[0]["total_load"] += power
             assert commands[cs_id] == old_power
-            # cs.current_power += power
+            cs.current_power += commands[cs_id]
 
         return commands
 
-    def distribute_peak_shaving_batteries(self, timesteps, commands):
+    def distribute_peak_shaving_batteries(self, timesteps):
 
         discharging_stations = []
         batteries = [b for b in self.world_state.batteries.values()
@@ -590,7 +596,7 @@ class FlexWindow(Strategy):
                 else:
                     min_total_power = total_power
             # actual charge
-            avail_power = total_power - new_timesteps[0]["total_load"]
+            avail_power = total_power - timesteps[0]["total_load"]
             for b_id, battery in self.world_state.batteries.items():
                 avail_power = (0 if avail_power < battery.min_charging_power
                                else avail_power)
@@ -599,7 +605,6 @@ class FlexWindow(Strategy):
                                           avail_power/len(sim_batteries))["avg_power"]
                     gc.add_load(b_id, charge)
                     timesteps[0]["total_load"] += charge
-
         else:
             # discharge battery
             no_window_timesteps = [item for item in timesteps if not item["window"]]
@@ -623,18 +628,15 @@ class FlexWindow(Strategy):
                 cur_time = self.current_time - self.interval
                 # calculate needed power to load battery
                 for ts_info in new_timesteps:
-
                     cur_time += self.interval
                     cur_needed_power = ts_info["total_load"] - total_power
 
                     for b in sim_batteries:
                         if b.soc <= self.EPS:
                             break
-
                         if cur_needed_power > 0:
                             b.unload(self.interval,
                                      (cur_needed_power / len(sim_batteries)))["avg_power"]
-
                 at_limit = all(
                     [b.soc > (self.EPS) for b in sim_batteries])
 
@@ -644,7 +646,7 @@ class FlexWindow(Strategy):
                     min_total_power = total_power
 
             # actual discharge
-            needed_power = new_timesteps[0]["total_load"] - total_power
+            needed_power = timesteps[0]["total_load"] - total_power
 
             for b_id, battery in self.world_state.batteries.items():
                 if needed_power < 0:
@@ -659,8 +661,7 @@ class FlexWindow(Strategy):
 
     def distribute_peak_shaving_v2g(self, timesteps, commands):
 
-        if not commands:
-            commands = {}
+
         gc = list(self.world_state.grid_connectors.values())[0]
         # get all vehicles that are connected in this step and order vehicles
         vehicles = sorted([v for v in self.world_state.vehicles.values()
