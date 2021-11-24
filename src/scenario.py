@@ -127,11 +127,7 @@ class Scenario:
                 curLoad += gc_load
 
                 gcPowerSchedule[gcID].append(gc.target)
-                if gc.window:
-                    window = 1
-                else:
-                    window = 0
-                gcWindowSchedule[gcID].append(window)
+                gcWindowSchedule[gcID].append(gc.window)
 
                 # sum up total feed-in power
                 feed_in_keys = self.events.energy_feed_in_lists.keys()
@@ -587,11 +583,10 @@ class Scenario:
                 ax.plot(xlabels, values, label=name)
             # draw schedule
             for gcID, schedule in gcWindowSchedule.items():
-                if any(s is not None for s in schedule):
+                if all(s is not None for s in schedule):
                     # schedule exists
                     window_values = [v * int(max(totalLoad)) for v in schedule]
-                    ax.plot(xlabels, window_values, label="window{}".format(gcID),
-                            linestyle='--')
+                    ax.plot(xlabels, window_values, label="window{}".format(gcID), linestyle='--')
 
             for gcID, schedule in gcPowerSchedule.items():
                 if any(s is not None for s in schedule):
