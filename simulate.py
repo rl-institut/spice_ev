@@ -13,7 +13,7 @@ STRATEGIES = [
     'greedy', 'greedy_market',
     'balanced', 'balanced_market',
     'inverse',
-    'peak_load_window',
+    'peak_load_window', 'flex_window',
     'schedule', 'schedule_foresight',
     'v2g',
 ]
