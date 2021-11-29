@@ -123,7 +123,7 @@ class Schedule(Strategy):
             if timestep_idx > 0:
                 # copy last GC info
                 gc_info.append(deepcopy(gc_info[-1]))
-
+            gc_info[-1]["current_loads"]["ext_load"] = gc.get_avg_ext_load(cur_time, self.interval)
             # peek into future events for external load or cost changes
             while True:
                 try:

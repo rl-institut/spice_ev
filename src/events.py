@@ -29,7 +29,7 @@ class Events:
 
         all_events = self.vehicle_events + self.grid_operator_signals
         for name, load_list in self.external_load_lists.items():
-            all_events.extend(load_list.get_events(name, ExternalLoad, has_perfect_foresight=True))
+            all_events.extend(load_list.get_events(name, ExternalLoad))
         for name, feed_in_list in self.energy_feed_in_lists.items():
             all_events.extend(
                 feed_in_list.get_events(name, EnergyFeedIn, has_perfect_foresight=True))
@@ -38,13 +38,12 @@ class Events:
 
         for event in all_events:
             index = ceil((event.signal_time - start_time) / interval)
-            relevant = ceil((event.start_time - start_time) / interval) < n_intervals
 
             if index < 0:
                 print('Warning: Event is before start of scenario, \
                 placing at first time step:', event)
                 steps[0].append(event)
-            elif index >= n_intervals or not relevant:
+            elif index >= n_intervals:
                 ignored += 1
             else:
                 steps[index].append(event)

@@ -91,7 +91,10 @@ class Battery:
             hours -= t
 
         # get average power (energy over complete timedelta)
-        avg_power = sum(energies) / total_time
+        try:
+            avg_power = sum(energies) / total_time
+        except ZeroDivisionError:
+            avg_power = 0
 
         return {'avg_power': avg_power, 'soc_delta': self.soc - old_soc}
 
