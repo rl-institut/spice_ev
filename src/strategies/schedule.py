@@ -109,7 +109,7 @@ class Schedule(Strategy):
         # GC info for each future timestep until all cars left
         gc_info = [{
             # "charging": set(),
-            "current_loads": {k: v for k, v in gc.current_loads.items()},
+            "current_loads": {},
             "target": gc.target
         }]
 
@@ -123,6 +123,8 @@ class Schedule(Strategy):
             if timestep_idx > 0:
                 # copy last GC info
                 gc_info.append(deepcopy(gc_info[-1]))
+
+            # get approximation of external load
             gc_info[-1]["current_loads"]["ext_load"] = gc.get_avg_ext_load(cur_time, self.interval)
             # peek into future events for external load or cost changes
             while True:
@@ -140,8 +142,6 @@ class Schedule(Strategy):
                     # update GC info
                     gc_info[-1]["target"] = \
                         event.target if event.target is not None else gc_info[-1]["target"]
-                elif type(event) == events.ExternalLoad:
-                    gc_info[-1]["current_loads"][event.name] = event.value
                 elif type(event) == events.EnergyFeedIn:
                     gc_info[-1]["current_loads"][event.name] = -event.value
                 # ignore vehicle events, use vehicle data directly
@@ -211,7 +211,6 @@ class Schedule(Strategy):
 
         charging_stations = {}
         TS_per_hour = (timedelta(hours=1) / self.interval)
-        # TODO get back from util
         dt_to_end_core_standing_time = self.dt_to_end_of_time_window()
 
         TS_to_charge_cars = sum([1 for power in self.power_for_cars_per_TS if power > self.EPS])
@@ -255,10 +254,12 @@ class Schedule(Strategy):
             extra_power = 0
             vehicles = sorted(self.energy_needed_per_vehicle.items(), key=lambda i: i[1])
             n_vehicles = len(vehicles)
-            # only one grid connector supported
+
             gc = list(self.world_state.grid_connectors.values())[0]
             remaining_power_on_schedule = (gc.target - gc.get_current_load()
                                            + self.bat_power_for_vehicles)
+            # iteration counter to determine whether each vehicle
+            # got a chance to charge
             i = 0
             while len(vehicles) > 0:
                 i += 1
@@ -301,7 +302,8 @@ class Schedule(Strategy):
                     break
 
                 # vehicle didnt get to charge, going to the back of the line
-                # allocated power + extra power might be enough to charge
+                # allocated power + extra power might be enough to charge in
+                # a second try
                 if (cs.max_power - cs.current_power > self.EPS and
                         remaining_power_on_schedule >= cs.min_power and
                         remaining_power_on_schedule >= vehicle.vehicle_type.min_charging_power and
@@ -310,8 +312,8 @@ class Schedule(Strategy):
 
         # last timestep of core standing time
         if dt_to_end_core_standing_time <= self.interval:
-            # In case not all vehicles are satisfied, allow overcharging
-            # in remaining time till departure
+            # In case not all vehicles are satisfied, allow
+            # charging over schedule outside of core standing time
             if not all([v.desired_soc - v.battery.soc < self.EPS
                         for v in self.world_state.vehicles.values()]):
                 self.overcharge_necessary = True
@@ -342,6 +344,7 @@ class Schedule(Strategy):
             # grid connector maxed out
             return charging_stations
 
+        # charge vehicles balanced until departure
         for vehicle in vehicles:
             cs_id = vehicle.connected_charging_station
             if cs_id is None:
@@ -497,7 +500,8 @@ class Schedule(Strategy):
             else:
                 # charge greedly outside of core standing time ON schedule
                 charging_stations = self.charge_cars()
-                # any vehicle below desired SoC after core standing time? charge OFF schedule
+                # any vehicle below desired SoC after core standing time?
+                # charge balanced OFF schedule
                 if self.overcharge_necessary:
                     charging_stations = self.charge_cars_after_core_standing_time(charging_stations)
         else:
