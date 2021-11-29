@@ -62,6 +62,7 @@ class Scenario:
         batteryLevels = {k: [] for k in self.constants.batteries.keys()}
         connChargeByTS = []
         gcPowerSchedule = {gcID: [] for gcID in self.constants.grid_connectors.keys()}
+        gcWindowSchedule = {gcID: [] for gcID in self.constants.grid_connectors.keys()}
 
         begin = datetime.datetime.now()
         for step_i in range(self.n_intervals):
@@ -130,6 +131,7 @@ class Scenario:
                 curLoad += gc_load
 
                 gcPowerSchedule[gcID].append(gc.target)
+                gcWindowSchedule[gcID].append(gc.window)
 
                 # sum up total feed-in power
                 feed_in_keys = self.events.energy_feed_in_lists.keys()
@@ -440,6 +442,7 @@ class Scenario:
                 # flex + schedule
                 header += ["flex min [kW]", "flex base [kW]", "flex max [kW]"]
                 header += ["schedule {} [kW]".format(gcID) for gcID in scheduleKeys]
+                header += ["window {}".format(gcID) for gcID in scheduleKeys]
                 # sum of charging power
                 header.append("sum CS power")
                 # charging power per use case
@@ -491,9 +494,12 @@ class Scenario:
                         round(flex["base"][idx], round_to_places),
                         round(flex["max"][idx], round_to_places)
                     ]
-                    # schedule
+                    # schedule + window schedule
                     row += [
                         round(gcPowerSchedule[gcID][idx], round_to_places)
+                        for gcID in scheduleKeys]
+                    row += [
+                        round(gcWindowSchedule[gcID][idx], round_to_places)
                         for gcID in scheduleKeys]
                     # charging power
                     # get sum of all current CS power
@@ -580,6 +586,12 @@ class Scenario:
             for name, values in loads.items():
                 ax.plot(xlabels, values, label=name)
             # draw schedule
+            for gcID, schedule in gcWindowSchedule.items():
+                if all(s is not None for s in schedule):
+                    # schedule exists
+                    window_values = [v * int(max(totalLoad)) for v in schedule]
+                    ax.plot(xlabels, window_values, label="window {}".format(gcID), linestyle='--')
+
             for gcID, schedule in gcPowerSchedule.items():
                 if any(s is not None for s in schedule):
                     # schedule exists
@@ -602,11 +614,11 @@ class Scenario:
 
             # figure title
             fig = plt.gcf()
-            fig.suptitle('Strategy: {}: {}€'.format(
-                strat.description, int(sum(costs))), fontweight='bold')
+            fig.suptitle('Strategy: {}'.format(type(strat).__name__), fontweight='bold')
 
+            # fig.autofmt_xdate()  # rotate xaxis labels (dates) to fit
+            # autofmt removes some axis labels, so rotate by hand:
             for ax in fig.get_axes():
-                ax.grid()
+                plt.setp(ax.get_xticklabels(), rotation=30, ha='right')
 
-            fig.autofmt_xdate()  # rotate xaxis labels (dates) to fit
             plt.show()

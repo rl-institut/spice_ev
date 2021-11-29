@@ -18,8 +18,9 @@ class Battery:
         EPS = 1e-5
 
         # get interval in hours
-        hours = timedelta.total_seconds() / 3600.0
-        timedelta_hours = hours
+        total_time = timedelta.total_seconds() / 3600.0
+        # hours: available time for charging, initially complete timedelta
+        hours = total_time
 
         # get loading curve clamped to maximum value
         clamped = self.loading_curve.clamped(max_charging_power)
@@ -38,7 +39,7 @@ class Battery:
             else:
                 break
 
-        power = []
+        energies = []
 
         # compute average power for each linear section
         # update SOC
@@ -85,15 +86,12 @@ class Battery:
 
             # compute energy and power
             energy_delta = (new_soc - self.soc) * c
-            power.append(energy_delta / t / self.efficiency)
+            energies.append(energy_delta / self.efficiency)
             self.soc = new_soc
             hours -= t
 
-        # get average power in all segments
-        avg_power = sum(power)/len(power) if len(power) else 0
-        # in case charging does not occur over the entire time period
-        if hours > EPS:
-            avg_power *= (1 - (hours/timedelta_hours))
+        # get average power (energy over complete timedelta)
+        avg_power = sum(energies) / total_time
 
         return {'avg_power': avg_power, 'soc_delta': self.soc - old_soc}
 
