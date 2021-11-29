@@ -301,7 +301,7 @@ class Schedule(Strategy):
                     break
 
                 # vehicle didnt get to charge, going to the back of the line
-                # allocated power + extra power might be enough to charge 
+                # allocated power + extra power might be enough to charge
                 if (cs.max_power - cs.current_power > self.EPS and
                         remaining_power_on_schedule >= cs.min_power and
                         remaining_power_on_schedule >= vehicle.vehicle_type.min_charging_power and
@@ -348,7 +348,8 @@ class Schedule(Strategy):
                 continue
             cs = self.world_state.charging_stations[cs_id]
             time_until_departure = vehicle.estimated_time_of_departure - self.current_time
-            power = self.sim_charging_process(vehicle, time_until_departure, total_power)['opt_power']
+            power = self.sim_charging_process(
+                            vehicle, time_until_departure, total_power)['opt_power']
 
             power = self.clamp_power(power, vehicle, cs)
             avg_power = vehicle.battery.load(self.interval,
