@@ -33,7 +33,7 @@ class Scenario:
             self.n_intervals = delta // self.interval
 
         # only relevant for schedule strategy
-        self.core_standing_time = scenario.get('core_standing_time')
+        self.core_standing_time = scenario.get('core_standing_time', None)
 
         # compute average load for each timeslot
         for ext_load_list in self.events.external_load_lists.values():

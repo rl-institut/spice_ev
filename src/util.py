@@ -39,19 +39,12 @@ def datetime_within_window(dt, time_windows):
     return False
 
 
-def timestep_within_window(time_windows,
-                           current_datetime=None,
-                           timestep=None,
-                           start_time=None,
-                           interval=None):
+def timestep_within_window(time_windows, current_datetime):
     """
-    Checks if timestep is core standing times.
+    Checks if current_datetime is in time given window.
 
     Args:
-        timestep: Time step in simulation (int)
-        time: Current time (datetime.time obj)
-        start_time: Start time of the simulation (datetime.datetime)
-        interval: Size of time steps for simulation (datetime.timedelta obj)
+        current_datetime: Current time (datetime.datetime obj)
         time_windows: Provides time_windows to check
             e.g. {time_windows:[{'start': (22,0), 'end':(5,0)}]
                 full_days: [6,7]}
@@ -59,13 +52,6 @@ def timestep_within_window(time_windows,
 
     if time_windows is None:
         return True
-
-    if current_datetime is None:
-        try:
-            current_datetime = start_time + timestep * interval
-        except TypeError:
-            raise ValueError("Either current_datetime or timestep,"
-                             "start_time and interval must be provided.")
 
     if any([day_off == current_datetime.isoweekday()
             for day_off in time_windows.get('full_days', [])]):
