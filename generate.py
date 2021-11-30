@@ -86,7 +86,7 @@ def generate(args):
             "min_charging_power": 0,  # kW
             "v2g": vars(args).get("v2g", False),
             "count": 0,
-            "battery_efficiency": vars(args).get("battery_efficiency_vehicle")
+            "battery_efficiency": vars(args).get("battery_efficiency_vehicle", 0.95)
         },
         "golf": {
             "name": "E-Golf",
@@ -96,7 +96,7 @@ def generate(args):
             "min_charging_power": 0,  # kW
             "v2g": vars(args).get("v2g", False),
             "count": 0,
-            "battery_efficiency": vars(args).get("battery_efficiency_vehicle")
+            "battery_efficiency": vars(args).get("battery_efficiency_vehicle", 0.95)
         }
     }
 
