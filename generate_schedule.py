@@ -4,7 +4,9 @@ import argparse
 import csv
 import datetime
 import json
+from json.decoder import JSONDecodeError
 import os
+import warnings
 
 from src import scenario, strategy, util
 
@@ -206,7 +208,9 @@ def generate_schedule(args):
                     power_needed += power
 
         for priority in [1, 3, 4, 2]:
-            # curtailment or default: take power from grid and make sure vehicles are charged
+            # take power from grid and make sure vehicles are charged
+            # priority: times of curtailment (1), feed-in (3), default (4), close to peak power (2)
+
             if power_needed < EPS:
                 # all vehicles charged
                 break
@@ -349,13 +353,25 @@ if __name__ == '__main__':
                         'defaults to <scenario>_schedule.csv')
     parser.add_argument('--max-load-range', default=0.1, type=float,
                         help='Area around max_load that should be discouraged')
-    parser.add_argument('--core_standing_time', help='Define time frames as well as full'
+    parser.add_argument('--core_standing_time', default=None,
+                        help='Define time frames as well as full'
                         'days during which the fleet is guaranteed to be available in a JSON'
                         'obj like: {"times":[{"start": [22,0], "end":[1,0]}], "full_days":[7]}')
     parser.add_argument('--visual', '-v', action='store_true', help='Plot flexibility and schedule')
     parser.add_argument('--config', help='Use config file to set arguments')
 
     args = parser.parse_args()
+
+    # parse JSON obj for core standing time if supplied via cmd line
+    try:
+        args.core_standing_time = json.loads(args.core_standing_time)
+    except JSONDecodeError:
+        args.core_standing_time = None
+        warnings.warn('Value for core standing time could not be parsed and is omitted.')
+    except TypeError:
+        # no core standing time provided, defaulted to None
+        pass
+
     util.set_options_from_config(args, check=True, verbose=False)
 
     missing = [arg for arg in ["scenario", "input"] if vars(args).get(arg) is None]
