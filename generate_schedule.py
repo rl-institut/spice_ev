@@ -353,7 +353,7 @@ if __name__ == '__main__':
                         'defaults to <scenario>_schedule.csv')
     parser.add_argument('--max-load-range', default=0.1, type=float,
                         help='Area around max_load that should be discouraged')
-    parser.add_argument('--core_standing_time', default=None,
+    parser.add_argument('--core-standing-time', default=None,
                         help='Define time frames as well as full'
                         'days during which the fleet is guaranteed to be available in a JSON'
                         'obj like: {"times":[{"start": [22,0], "end":[1,0]}], "full_days":[7]}')
