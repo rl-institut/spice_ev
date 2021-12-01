@@ -16,6 +16,7 @@ class Schedule(Strategy):
         self.ITERATIONS = 12
 
         super().__init__(constants, start_time, **kwargs)
+        self.TS_per_hour = (timedelta(hours=1) / self.interval)
 
         self.description = "schedule ({})".format(self.LOAD_STRAT)
         if self.LOAD_STRAT == "greedy":
@@ -33,10 +34,10 @@ class Schedule(Strategy):
                     "Only 1 GC support for LOAD_STRAT balanced_vehicle")
             assert self.core_standing_time is not None, (
                 "Provide core standing times in the generate_schedule.cfg"
-                "to use sub strategy balanced_vehicle.")
+                "to use sub-strategy balanced_vehicle.")
             self.sort_key = lambda v: v[0].get_delta_soc() * v[0].battery.capacity
         else:
-            "Unknown charging startegy: {}".format(self.LOAD_STRAT)
+            "Unknown charging strategy: {}".format(self.LOAD_STRAT)
 
     def clamp_power(self, power, vehicle, cs):
         total_power = min(cs.current_power + power, cs.max_power)
@@ -47,15 +48,33 @@ class Schedule(Strategy):
         return power
 
     def dt_to_end_of_time_window(self):
+        # returns timedelta between now and end of core standing time with a precision of one minute
         duration = timedelta()
+        interval = timedelta(minutes=1)
 
         while timestep_within_window(time_windows=self.core_standing_time,
                                      current_datetime=self.current_time + duration):
-            duration += self.interval
+            duration += interval
 
         return duration
 
-    def sim_charging_process(self, vehicle, dt, max_power, delta_soc=None):
+    def sim_balanced_charging(self, vehicle, dt, max_power, delta_soc=None):
+        ''' Simulates a balanced charging process for a single vehicle.
+
+        Args:
+            vehicle: vehicle to be charged
+            dt: timedelta remaining until charging process should be completed
+            max_power: maximum power available during current timestep
+            delta_soc (optional): desired change in SOC until end of timedelta dt
+                If not provided, vehicle is charged to its desired_soc.
+        Returns:
+            opt_power: optimal charging power for current timestep
+            charged_soc: delta SOC after the timestep if charged with opt_power
+
+        Note: If charging balanced across entire time period dt would require a
+        charging power less than the vehicle or charging station allows for,
+        the vehicle charges prefers to charge in the beginning rather than in the end.
+        '''
 
         # get vehicle
         cs_id = vehicle.connected_charging_station
@@ -69,7 +88,7 @@ class Schedule(Strategy):
         delta_soc = delta_soc if delta_soc is not None else vehicle.get_delta_soc()
 
         if delta_soc > self.EPS:
-            # get limits
+            # vehicle still needs charging: find minimum power needed to reach desired SOC
             min_power = max(vehicle.vehicle_type.min_charging_power, cs.min_power)
             max_power = min(max_power, vehicle.vehicle_type.charging_curve.max_power)
             max_power = self.clamp_power(max_power, vehicle, cs)
@@ -80,7 +99,7 @@ class Schedule(Strategy):
             # converge to optimal power for the duration
             # at least ITERATIONS cycles
             # must end with slightly too much power used
-            # abort if min_power == max_power (e.g. unrealistic goal)
+            # abort if min_power > max_power (e.g. unrealistic goal)
             while (idx < self.ITERATIONS or not safe) and max_power - min_power > self.EPS:
                 idx += 1
                 # get new power value (binary search: use average)
@@ -102,13 +121,10 @@ class Schedule(Strategy):
         return {"opt_power": power, "charged_soc": charged_soc}
 
     def collect_future_gc_info(self, dt=timedelta(days=1)):
-        # TODO change signal time extLoad in init
-
         gc = list(self.world_state.grid_connectors.values())[0]
 
         # GC info for each future timestep until all cars left
         gc_info = [{
-            # "charging": set(),
             "current_loads": {},
             "target": gc.target
         }]
@@ -150,8 +166,16 @@ class Schedule(Strategy):
         return gc_info
 
     def evaluate_core_standing_time_ahead(self):
+        '''
+        This function is called once at the beginning of each core standing time.
+        It evaluates how much energy is provided by the schedule at each timestep and how much
+        energy is needed by the cars in total.
+
+        Shortcomings of the schedule are detected early on and battery energy is allocated to
+        help out when necessary.
+        '''
         # get time paramters of next core standing time
-        TS_per_hour = (timedelta(hours=1) / self.interval)
+        self.TS_per_hour = (timedelta(hours=1) / self.interval)
         dt_to_end_core_standing_time = self.dt_to_end_of_time_window()
         TS_to_end_core_standing_time = dt_to_end_core_standing_time // self.interval
 
@@ -165,7 +189,7 @@ class Schedule(Strategy):
 
         # PV and Grid energy available for cars
         self.energy_available_for_cars_on_schedule = sum([
-            power / TS_per_hour
+            power / self.TS_per_hour
             for power in self.power_for_cars_per_TS if power > self.EPS
         ])
 
@@ -184,8 +208,13 @@ class Schedule(Strategy):
         # due to charging properties of vehicles
         self.extra_energy_per_vehicle = {}
         for vehicle_id, vehicle in self.world_state.vehicles.items():
+            cs_id = vehicle.connected_charging_station
+            assert cs_id is not None, (
+                f"Vehicle {vehicle_id} not available during core standing time!"
+            )
+            cs = self.world_state.charging_stations[cs_id]
+            max_charging_power = min(vehicle.vehicle_type.charging_curve.max_power, cs.max_power)
             old_soc = vehicle.battery.soc
-            max_charging_power = vehicle.vehicle_type.charging_curve.max_power
             vehicle.battery.load(timedelta=TS_to_charge_cars * self.interval,
                                  max_charging_power=max_charging_power,
                                  target_soc=vehicle.desired_soc)
@@ -202,22 +231,30 @@ class Schedule(Strategy):
             bat_energy_for_vehicles = min(missing_energy, total_energy_batteries)
         else:
             bat_energy_for_vehicles = 0
-        self.bat_power_for_vehicles = (bat_energy_for_vehicles * TS_per_hour
+        self.bat_power_for_vehicles = (bat_energy_for_vehicles * self.TS_per_hour
                                        / TS_to_end_core_standing_time)
 
         self.currently_in_core_standing_time = True
 
     def charge_cars_during_core_standing_time(self):
-
+        """ Charges cars during core standing time.
+        1. In case no energy was allocated for vehicles in this timestep, only
+        those vehicles get to charge that are expected not to meet their goal at the end
+        of the core standing time. In this case the schedule is ignored in favor of fully charged
+        vehicles.
+        2. If the schedule provides enough energy to charge cars, cars are charged as balanced as
+        possible with a higher priority on meeting the schedule requirements.
+        """
         charging_stations = {}
-        TS_per_hour = (timedelta(hours=1) / self.interval)
         dt_to_end_core_standing_time = self.dt_to_end_of_time_window()
 
         TS_to_charge_cars = sum([1 for power in self.power_for_cars_per_TS if power > self.EPS])
         power_to_charge_cars = self.power_for_cars_per_TS.pop(0)
 
-        # charge over schedule
         if power_to_charge_cars < self.EPS:
+            # charge cars in excess of schedule
+            # only cars expected to fall short of desired SOC goal if charging
+            # on schedule only are considered
             dt = dt_to_end_core_standing_time - TS_to_charge_cars * self.interval
             for vehicle_id, delta_soc in self.extra_energy_per_vehicle.items():
                 vehicle = self.world_state.vehicles[vehicle_id]
@@ -229,11 +266,11 @@ class Schedule(Strategy):
                 cs = self.world_state.charging_stations[cs_id]
                 gc = self.world_state.grid_connectors[cs.parent]
                 # find optimal power for charging
-                power = self.sim_charging_process(vehicle,
-                                                  dt,
-                                                  vehicle.vehicle_type.charging_curve.max_power,
-                                                  delta_soc=delta_soc
-                                                  )["opt_power"]
+                power = self.sim_balanced_charging(vehicle,
+                                                   dt,
+                                                   vehicle.vehicle_type.charging_curve.max_power,
+                                                   delta_soc=delta_soc
+                                                   )["opt_power"]
                 # load with power
                 avg_power, charged_soc = vehicle.battery.load(self.interval,
                                                               power,
@@ -242,10 +279,10 @@ class Schedule(Strategy):
                 self.extra_energy_per_vehicle[vehicle_id] -= charged_soc
                 charging_stations[cs_id] = cs.current_power = gc.add_load(cs_id, avg_power)
         else:
-            # charge on schedule
+            # charge according to schedule
             try:
                 # fraction of energy distributed in this timestep
-                fraction = (power_to_charge_cars / TS_per_hour
+                fraction = (power_to_charge_cars / self.TS_per_hour
                             / self.energy_available_for_cars_on_schedule)
             except ZeroDivisionError:
                 # energy available for charing cars might be zero
@@ -258,8 +295,7 @@ class Schedule(Strategy):
             gc = list(self.world_state.grid_connectors.values())[0]
             remaining_power_on_schedule = (gc.target - gc.get_current_load()
                                            + self.bat_power_for_vehicles)
-            # iteration counter to determine whether each vehicle
-            # got a chance to charge
+            # iteration counter to determine whether each vehicle got a chance to charge
             i = 0
             while len(vehicles) > 0:
                 i += 1
@@ -273,7 +309,8 @@ class Schedule(Strategy):
                 cs = self.world_state.charging_stations[cs_id]
 
                 #  boundaries of charging process
-                power_allocated_for_vehicle = fraction * energy_needed * TS_per_hour + extra_power
+                power_allocated_for_vehicle = \
+                    fraction * energy_needed * self.TS_per_hour + extra_power
 
                 # clamp allocated power to possible ranges
                 power = min(remaining_power_on_schedule, power_allocated_for_vehicle)
@@ -303,7 +340,7 @@ class Schedule(Strategy):
 
                 # vehicle didnt get to charge, going to the back of the line
                 # allocated power + extra power might be enough to charge in
-                # a second try
+                # a second try.
                 if (cs.max_power - cs.current_power > self.EPS and
                         remaining_power_on_schedule >= cs.min_power and
                         remaining_power_on_schedule >= vehicle.vehicle_type.min_charging_power and
@@ -323,6 +360,17 @@ class Schedule(Strategy):
         return charging_stations
 
     def charge_cars_after_core_standing_time(self, charging_stations):
+        """
+        Charges cars balanced in the time frame between the end of core standing time
+        and each vehicles departure until desired SOC is reached.
+
+        Args:
+            charging_stations: Charging_commands previously allocated during this timestep
+        Returns:
+            charging_stations: An updated version of the input containing total of all
+                               charging commands determined until this point.
+        """
+
         gc = list(self.world_state.grid_connectors.values())[0]  # only 1 GC supported
 
         total_power = gc.cur_max_power - gc.get_current_load()
@@ -351,7 +399,7 @@ class Schedule(Strategy):
                 continue
             cs = self.world_state.charging_stations[cs_id]
             time_until_departure = vehicle.estimated_time_of_departure - self.current_time
-            power = self.sim_charging_process(
+            power = self.sim_balanced_charging(
                             vehicle, time_until_departure, total_power)['opt_power']
 
             power = self.clamp_power(power, vehicle, cs)
@@ -498,7 +546,7 @@ class Schedule(Strategy):
                     self.evaluate_core_standing_time_ahead()
                 charging_stations = self.charge_cars_during_core_standing_time()
             else:
-                # charge greedly outside of core standing time ON schedule
+                # charge excess PV power greedy outside of core standing time ON schedule
                 charging_stations = self.charge_cars()
                 # any vehicle below desired SoC after core standing time?
                 # charge balanced OFF schedule
