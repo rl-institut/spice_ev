@@ -33,7 +33,7 @@ class Schedule(Strategy):
             assert len(self.world_state.grid_connectors.values()) == 1, (
                     "Only 1 GC support for LOAD_STRAT balanced_vehicle")
             assert self.core_standing_time is not None, (
-                "Provide core standing times in the generate_schedule.cfg"
+                "Provide core standing times in the generate_schedule.cfg "
                 "to use sub-strategy balanced_vehicle.")
             self.sort_key = lambda v: v[0].get_delta_soc() * v[0].battery.capacity
         else:

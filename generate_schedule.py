@@ -354,8 +354,8 @@ if __name__ == '__main__':
     parser.add_argument('--max-load-range', default=0.1, type=float,
                         help='Area around max_load that should be discouraged')
     parser.add_argument('--core-standing-time', default=None,
-                        help='Define time frames as well as full'
-                        'days during which the fleet is guaranteed to be available in a JSON'
+                        help='Define time frames as well as full '
+                        'days during which the fleet is guaranteed to be available in a JSON '
                         'obj like: {"times":[{"start": [22,0], "end":[1,0]}], "full_days":[7]}')
     parser.add_argument('--visual', '-v', action='store_true', help='Plot flexibility and schedule')
     parser.add_argument('--config', help='Use config file to set arguments')
