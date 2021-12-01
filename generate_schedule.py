@@ -131,17 +131,17 @@ def generate_flex_band(scenario, core_standing_time=None):
         vehicles_present = num_cars_present > 0
 
         bat_flex_discharge = bat_init_discharge_power if step_i == 0 else bat_full_discharge_power
-        battery_flex_charge = bat_flex_discharge / flex["batteries"]["efficiency"]
+        bat_flex_charge = flex["batteries"]["power"]
         # PV surplus can also feed batteries
-        pv_to_battery = min(battery_flex_charge, pv_support)
-        battery_flex_charge -= pv_to_battery
+        pv_to_battery = min(bat_flex_charge, pv_support)
+        bat_flex_charge -= pv_to_battery
         pv_support -= pv_to_battery
 
         flex["base"].append(clamp_to_gc(base_flex))
         # min: no vehicle charging, discharge from batteries and V2G
         flex["min"].append(clamp_to_gc(base_flex - bat_flex_discharge - v2g_flex))
         # max: all vehicle and batteries charging
-        flex["max"].append(clamp_to_gc(base_flex + vehicle_flex + battery_flex_charge))
+        flex["max"].append(clamp_to_gc(base_flex + vehicle_flex + bat_flex_charge))
 
     return flex
 
