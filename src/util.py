@@ -39,30 +39,34 @@ def datetime_within_window(dt, time_windows):
     return False
 
 
-def timestep_within_window(time_windows, current_datetime):
+def dt_within_core_standing_time(dt, core_standing_time):
     """
-    Checks if current_datetime is in time given window.
+    Checks if datetime dt is in inside core standing time.
 
     Args:
-        current_datetime: Current time (datetime.datetime obj)
-        time_windows: Provides time_windows to check
-            e.g. {time_windows:[{'start': (22,0), 'end':(5,0)}]
-                full_days: [6,7]}
+        dt: datetime to be checked
+        core_standing_time: Provides time_windows to check
+            Example: one core standing time each day from 22:00 to 5:00 next day
+            additionally weekends:
+            {"time_windows": [{"start": (22,0), "end":(5,0)}], "full_days": [6,7]}
+    Returns:
+        True - if dt is inside a time_window or if core_standing_time=None
+        False - if dt is outside of time window
     """
 
-    if time_windows is None:
+    if core_standing_time is None:
         return True
 
-    if any([day_off == current_datetime.isoweekday()
-            for day_off in time_windows.get('full_days', [])]):
+    if any([day_off == dt.isoweekday()
+            for day_off in core_standing_time.get('full_days', [])]):
         return True
 
-    current_time = current_datetime.time()
-    for time_window in time_windows['times']:
+    current_time = dt.time()
+    for time_window in core_standing_time['times']:
         core_standing_time_start, core_standing_time_end = [
             datetime.time(*time_window[key]) for key in ['start', 'end']
         ]
-
+        # distinct handling necessary depending on whether standing time over midnight or not
         if core_standing_time_end < core_standing_time_start:
             if (current_time >= core_standing_time_start or current_time < core_standing_time_end):
                 return True

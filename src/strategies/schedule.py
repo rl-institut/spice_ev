@@ -3,7 +3,7 @@ from datetime import timedelta
 
 import src.events as events
 from src.strategy import Strategy
-from src.util import clamp_power, timestep_within_window
+from src.util import clamp_power, dt_within_core_standing_time
 
 
 class Schedule(Strategy):
@@ -52,8 +52,7 @@ class Schedule(Strategy):
         duration = timedelta()
         interval = timedelta(minutes=1)
 
-        while timestep_within_window(time_windows=self.core_standing_time,
-                                     current_datetime=self.current_time + duration):
+        while dt_within_core_standing_time(self.current_time + duration, self.core_standing_time):
             duration += interval
 
         return duration
@@ -540,7 +539,7 @@ class Schedule(Strategy):
         charging_stations = {}
 
         if self.LOAD_STRAT == "balanced_vehicle":
-            if timestep_within_window(self.core_standing_time, self.current_time):
+            if dt_within_core_standing_time(self.current_time, self.core_standing_time):
                 # only run in first TS of core standing time
                 if not self.currently_in_core_standing_time:
                     self.evaluate_core_standing_time_ahead()

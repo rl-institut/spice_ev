@@ -68,7 +68,7 @@ def generate_flex_band(scenario, core_standing_time=None):
 
         current_datetime = scenario.start_time + scenario.interval * step_i
         currently_in_core_standing_time = \
-            util.timestep_within_window(core_standing_time, current_datetime)
+            util.dt_within_core_standing_time(current_datetime, core_standing_time)
 
         # basic value: external load, feed-in power
         base_flex = sum([gc.get_current_load() for gc in s.world_state.grid_connectors.values()])
