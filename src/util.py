@@ -136,9 +136,12 @@ def get_power(y, cost_dict):
 
 
 def clamp_power(power, vehicle, cs):
-    power = min(power, cs.max_power - cs.current_power)
-    if power < cs.min_power or power < vehicle.vehicle_type.min_charging_power:
+    # how much of power can vehicle at cs actually use
+    total_power = min(cs.current_power + power, cs.max_power)
+    if total_power < cs.min_power or total_power < vehicle.vehicle_type.min_charging_power:
         power = 0
+    else:
+        power = min(power, cs.max_power - cs.current_power)
     return power
 
 

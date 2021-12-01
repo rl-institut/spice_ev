@@ -39,14 +39,6 @@ class Schedule(Strategy):
         else:
             "Unknown charging strategy: {}".format(self.LOAD_STRAT)
 
-    def clamp_power(self, power, vehicle, cs):
-        total_power = min(cs.current_power + power, cs.max_power)
-        if total_power < cs.min_power or total_power < vehicle.vehicle_type.min_charging_power:
-            power = 0
-        else:
-            power = min(power, cs.max_power - cs.current_power)
-        return power
-
     def dt_to_end_of_time_window(self):
         # returns timedelta between now and end of core standing time with a precision of one minute
         duration = timedelta()
@@ -90,7 +82,7 @@ class Schedule(Strategy):
             # vehicle still needs charging: find minimum power needed to reach desired SOC
             min_power = max(vehicle.vehicle_type.min_charging_power, cs.min_power)
             max_power = min(max_power, vehicle.vehicle_type.charging_curve.max_power)
-            max_power = self.clamp_power(max_power, vehicle, cs)
+            max_power = clamp_power(max_power, vehicle, cs)
             # time until departure
             old_soc = vehicle.battery.soc
             idx = 0
@@ -313,7 +305,7 @@ class Schedule(Strategy):
 
                 # clamp allocated power to possible ranges
                 power = min(remaining_power_on_schedule, power_allocated_for_vehicle)
-                power = self.clamp_power(power, vehicle, cs)
+                power = clamp_power(power, vehicle, cs)
 
                 # load with power
                 avg_power, charged_soc = vehicle.battery.load(self.interval,
@@ -401,7 +393,7 @@ class Schedule(Strategy):
             power = self.sim_balanced_charging(
                             vehicle, time_until_departure, total_power)['opt_power']
 
-            power = self.clamp_power(power, vehicle, cs)
+            power = clamp_power(power, vehicle, cs)
             avg_power = vehicle.battery.load(self.interval,
                                              power,
                                              target_soc=vehicle.desired_soc)["avg_power"]
