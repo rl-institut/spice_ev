@@ -90,7 +90,7 @@ class Schedule(Strategy):
             # converge to optimal power for the duration
             # at least ITERATIONS cycles
             # must end with slightly too much power used
-            # abort if min_power > max_power (e.g. unrealistic goal)
+            # abort if min_power == max_power (converged to solution)
             while (idx < self.ITERATIONS or not safe) and max_power - min_power > self.EPS:
                 idx += 1
                 # get new power value (binary search: use average)
