@@ -1,25 +1,35 @@
 {
+    "sprinter_small": {
+        "name": "Sprinter (klein)",
+        "capacity": 38,
+        "mileage": 40,
+        "charging_curve": [[0, 11], [0.8, 11], [1, 11]],
+    },
     "sprinter": {
-        "name": "sprinter",
+        "name": "Sprinter",
         "capacity": 76,
         "mileage": 40,
         "charging_curve": [[0, 11], [0.8, 11], [1, 11]],
-        "min_charging_power": 0,
-        "v2g": false,
-        "battery_efficiency": 0.95
     },
     "golf": {
         "name": "E-Golf",
         "capacity": 50,
         "mileage": 16,
         "charging_curve": [[0, 22], [0.8, 22], [1, 22]],
-        "min_charging_power": 0,
-        "v2g": false,
-        "battery_efficiency": 0.95
     },
     "minimum_information": {
         "name": "Displayed name",
         "capacity": 0,
-        "charging_curve": [[0,1],[1,0]]
+        "charging_curve": [[0,1],[1,0]],
+        "mileage": 0
+    },
+    "all_information": {
+        "name": "Displayed name",
+        "capacity": 0,
+        "charging_curve": [[0,1],[1,0]],
+        "mileage": 0,
+        "min_charging_power": 0,
+        "v2g": false,
+        "battery_efficiency": 0.95
     }
 }
