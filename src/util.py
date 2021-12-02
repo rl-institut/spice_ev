@@ -39,6 +39,44 @@ def datetime_within_window(dt, time_windows):
     return False
 
 
+def dt_within_core_standing_time(dt, core_standing_time):
+    """
+    Checks if datetime dt is in inside core standing time.
+
+    Args:
+        dt: datetime to be checked
+        core_standing_time: Provides time_windows to check
+            Example: one core standing time each day from 22:00 to 5:00 next day
+            additionally weekends:
+            {"times": [{"start": (22,0), "end":(5,0)}], "full_days": [6,7]}
+    Returns:
+        True - if dt is inside a time_window or if core_standing_time=None
+        False - if dt is outside of time window
+    """
+
+    if core_standing_time is None:
+        return True
+
+    if any([day_off == dt.isoweekday()
+            for day_off in core_standing_time.get('full_days', [])]):
+        return True
+
+    current_time = dt.time()
+    for time_window in core_standing_time.get('times', []):
+        core_standing_time_start, core_standing_time_end = [
+            datetime.time(*time_window[key]) for key in ['start', 'end']
+        ]
+        # distinct handling necessary depending on whether standing time over midnight or not
+        if core_standing_time_end < core_standing_time_start:
+            if (current_time >= core_standing_time_start or current_time < core_standing_time_end):
+                return True
+        else:
+            if core_standing_time_start <= current_time <= core_standing_time_end:
+                return True
+
+    return False
+
+
 def set_attr_from_dict(source, target, keys, optional_keys):
     """ Set attributes of `target` from a `source` dictionary.
         None values for optional keys are not converted.
@@ -98,9 +136,12 @@ def get_power(y, cost_dict):
 
 
 def clamp_power(power, vehicle, cs):
-    power = min(power, cs.max_power - cs.current_power)
-    if power < cs.min_power or power < vehicle.vehicle_type.min_charging_power:
+    # how much of power can vehicle at cs actually use
+    total_power = min(cs.current_power + power, cs.max_power)
+    if total_power < cs.min_power or total_power < vehicle.vehicle_type.min_charging_power:
         power = 0
+    else:
+        power = min(power, cs.max_power - cs.current_power)
     return power
 
 

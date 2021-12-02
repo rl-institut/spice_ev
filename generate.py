@@ -85,7 +85,8 @@ def generate(args):
             "charging_curve": [[0, 11], [0.8, 11], [1, 11]],  # kW
             "min_charging_power": 0,  # kW
             "v2g": vars(args).get("v2g", False),
-            "count": 0
+            "count": 0,
+            "battery_efficiency": vars(args).get("battery_efficiency_vehicle", 0.95)
         },
         "golf": {
             "name": "E-Golf",
@@ -94,7 +95,8 @@ def generate(args):
             "charging_curve": [[0, 22], [0.8, 22], [1, 22]],  # kW
             "min_charging_power": 0,  # kW
             "v2g": vars(args).get("v2g", False),
-            "count": 0
+            "count": 0,
+            "battery_efficiency": vars(args).get("battery_efficiency_vehicle", 0.95)
         }
     }
 

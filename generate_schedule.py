@@ -4,14 +4,16 @@ import argparse
 import csv
 import datetime
 import json
+from json.decoder import JSONDecodeError
 import os
+import warnings
 
 from src import scenario, strategy, util
 
 EPS = 1e-8
 
 
-def generate_flex_band(scenario):
+def generate_flex_band(scenario, core_standing_time=None):
     # generate flexibility potential with perfect foresight
 
     assert len(scenario.constants.grid_connectors) == 1, "Only one grid connector supported"
@@ -22,6 +24,8 @@ def generate_flex_band(scenario):
         scenario.constants, scenario.start_time, **{"interval": scenario.interval})
     event_steps = scenario.events.get_event_steps(
         scenario.start_time, scenario.n_intervals, scenario.interval)
+
+    ts_per_hour = datetime.timedelta(hours=1) / s.interval
 
     def clamp_to_gc(power):
         # helper function: make sure to stay within GC power limits
@@ -36,6 +40,7 @@ def generate_flex_band(scenario):
             "stored": 0,
             "power": 0,
             "free": 0,  # how much energy can still be stored?
+            "efficiency": 0  # average efficiency across all batteries
         },
         "intervals": [],
     }
@@ -49,14 +54,21 @@ def generate_flex_band(scenario):
         flex["batteries"]["stored"] += b.soc * b.capacity
         flex["batteries"]["power"] += b.loading_curve.max_power
         flex["batteries"]["free"] += (1 - b.soc) * b.capacity
+        flex["batteries"]["efficiency"] += b.efficiency
         b.soc = 1
     bat_full_discharge_power = sum([b.get_available_power(s.interval) for b in batteries])
+    flex["batteries"]["efficiency"] = \
+        flex["batteries"]["efficiency"] / len(batteries) if len(batteries) else 1
 
     vehicles_present = False
     power_needed = 0
 
     for step_i in range(scenario.n_intervals):
         s.step(event_steps[step_i])
+
+        current_datetime = scenario.start_time + scenario.interval * step_i
+        currently_in_core_standing_time = \
+            util.dt_within_core_standing_time(current_datetime, core_standing_time)
 
         # basic value: external load, feed-in power
         base_flex = sum([gc.get_current_load() for gc in s.world_state.grid_connectors.values()])
@@ -82,7 +94,7 @@ def generate_flex_band(scenario):
                         dep = -((scenario.start_time - dep) // s.interval)
                         factor = min((scenario.n_intervals - step_i) / (dep - step_i), 1)
                         delta_soc *= factor
-                    vehicle_power_needed = delta_soc * v.battery.capacity
+                    vehicle_power_needed = (delta_soc * v.battery.capacity) / v.battery.efficiency
                     v.battery.soc = max(v.battery.soc, v.desired_soc)
                     v2g = v.battery.get_available_power(s.interval) if v.vehicle_type.v2g else 0
                     cars[vid] = [charging_power, vehicle_power_needed, v2g]
@@ -93,8 +105,8 @@ def generate_flex_band(scenario):
             for v in cars.values():
                 if pv_support <= EPS:
                     break
-                power = min(v[1], pv_support)
-                v[1] -= power
+                power = min(v[0], v[1] * ts_per_hour, pv_support)
+                v[1] -= power / ts_per_hour
                 pv_support -= power
                 base_flex += power
 
@@ -108,7 +120,8 @@ def generate_flex_band(scenario):
                 })
             info = flex["intervals"][-1]
             info["needed"] = needed
-            info["time"].append(step_i)
+            if currently_in_core_standing_time:
+                info["time"].append(step_i)
         else:
             # all vehicles left
             if vehicles_present:
@@ -117,18 +130,18 @@ def generate_flex_band(scenario):
             vehicle_flex = power_needed = v2g_flex = 0
         vehicles_present = num_cars_present > 0
 
-        battery_flex = bat_init_discharge_power if step_i == 0 else bat_full_discharge_power
+        bat_flex_discharge = bat_init_discharge_power if step_i == 0 else bat_full_discharge_power
+        bat_flex_charge = flex["batteries"]["power"]
         # PV surplus can also feed batteries
-        pv_to_battery = min(battery_flex, pv_support)
-        battery_flex -= pv_to_battery
+        pv_to_battery = min(bat_flex_charge, pv_support)
+        bat_flex_charge -= pv_to_battery
         pv_support -= pv_to_battery
-        base_flex += pv_to_battery
 
         flex["base"].append(clamp_to_gc(base_flex))
         # min: no vehicle charging, discharge from batteries and V2G
-        flex["min"].append(clamp_to_gc(base_flex - battery_flex - v2g_flex))
+        flex["min"].append(clamp_to_gc(base_flex - bat_flex_discharge - v2g_flex))
         # max: all vehicle and batteries charging
-        flex["max"].append(clamp_to_gc(base_flex + vehicle_flex + battery_flex))
+        flex["max"].append(clamp_to_gc(base_flex + vehicle_flex + bat_flex_charge))
 
     return flex
 
@@ -144,7 +157,7 @@ def generate_schedule(args):
     ts_per_hour = datetime.timedelta(hours=1) / s.interval
 
     # compute flexibility potential (min/max) for each timestep
-    flex = generate_flex_band(s)
+    flex = generate_flex_band(s, args.core_standing_time)
 
     netto = []
     curtailment = []
@@ -153,7 +166,7 @@ def generate_schedule(args):
         for row_idx, row in enumerate(reader):
             if row_idx >= s.n_intervals:
                 break
-            netto.append(-float(row["netto"]))
+            netto.append(float(row["netto"]))
             curtailment.append(-float(row["curtailment"]))
     # zero-pad for same length as scenario
     netto += [0]*(s.n_intervals - len(netto))
@@ -194,8 +207,10 @@ def generate_schedule(args):
                     schedule[time] -= power
                     power_needed += power
 
-        for priority in [1, 3, 4]:
-            # curtailment or default: take power from grid and make sure vehicles are charged
+        for priority in [1, 3, 4, 2]:
+            # take power from grid and make sure vehicles are charged
+            # priority: times of curtailment (1), feed-in (3), default (4), close to peak power (2)
+
             if power_needed < EPS:
                 # all vehicles charged
                 break
@@ -236,10 +251,10 @@ def generate_schedule(args):
             # (dis)charge depending on priority
             if priorities[t_start] % 2:
                 # prio 1/3: charge
-                energy = batteries["free"]
+                energy = batteries["free"] / batteries["efficiency"]
             else:
                 # prio 2/4: discharge
-                energy = -batteries["stored"]
+                energy = -batteries["stored"] * batteries["efficiency"]
             # distribute energy over period of same priority
             for t in range(t_start, t_end):
                 t_left = duration - (t - t_start)
@@ -249,14 +264,16 @@ def generate_schedule(args):
                         batteries["power"] / ts_per_hour,
                         energy / t_left,
                         (flex["max"][t] - schedule[t]) / ts_per_hour)
+                    e_bat_change = e * batteries["efficiency"]
                 else:
                     # discharge
                     e = -min(
-                        batteries["power"] / ts_per_hour,
+                        (batteries["power"] * batteries["efficiency"]) / ts_per_hour,
                         -energy / t_left,
                         (schedule[t] - flex["min"][t]) / ts_per_hour)
-                batteries["stored"] += e
-                batteries["free"] -= e
+                    e_bat_change = e / batteries["efficiency"]
+                batteries["stored"] += e_bat_change
+                batteries["free"] -= e_bat_change
                 schedule[t] += e * ts_per_hour
                 energy -= e
                 assert batteries["stored"] >= -EPS and batteries["free"] >= -EPS, (
@@ -287,6 +304,7 @@ def generate_schedule(args):
         'csv_file': os.path.relpath(args.output, os.path.dirname(args.scenario)),
         'grid_connector_id': list(s.constants.grid_connectors.keys())[0]
     }
+    scenario_json['scenario']['core_standing_time'] = args.core_standing_time
     with open(args.scenario, 'w') as f:
         json.dump(scenario_json, f, indent=2)
 
@@ -335,10 +353,25 @@ if __name__ == '__main__':
                         'defaults to <scenario>_schedule.csv')
     parser.add_argument('--max-load-range', default=0.1, type=float,
                         help='Area around max_load that should be discouraged')
+    parser.add_argument('--core-standing-time', default=None,
+                        help='Define time frames as well as full '
+                        'days during which the fleet is guaranteed to be available in a JSON '
+                        'obj like: {"times":[{"start": [22,0], "end":[1,0]}], "full_days":[7]}')
     parser.add_argument('--visual', '-v', action='store_true', help='Plot flexibility and schedule')
     parser.add_argument('--config', help='Use config file to set arguments')
 
     args = parser.parse_args()
+
+    # parse JSON obj for core standing time if supplied via cmd line
+    try:
+        args.core_standing_time = json.loads(args.core_standing_time)
+    except JSONDecodeError:
+        args.core_standing_time = None
+        warnings.warn('Value for core standing time could not be parsed and is omitted.')
+    except TypeError:
+        # no core standing time provided, defaulted to None
+        pass
+
     util.set_options_from_config(args, check=True, verbose=False)
 
     missing = [arg for arg in ["scenario", "input"] if vars(args).get(arg) is None]

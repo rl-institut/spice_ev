@@ -32,6 +32,9 @@ class Scenario:
             delta = self.stop_time - self.start_time
             self.n_intervals = delta // self.interval
 
+        # only relevant for schedule strategy
+        self.core_standing_time = scenario.get('core_standing_time', None)
+
         # compute average load for each timeslot
         for ext_load_list in self.events.external_load_lists.values():
             gc_id = ext_load_list.grid_connector_id
@@ -42,6 +45,7 @@ class Scenario:
         # run scenario
         options['interval'] = self.interval
         options['events'] = self.events
+        options['core_standing_time'] = self.core_standing_time
         strat = strategy.class_from_str(strategy_name)(self.constants, self.start_time, **options)
 
         event_steps = self.events.get_event_steps(self.start_time, self.n_intervals, self.interval)
