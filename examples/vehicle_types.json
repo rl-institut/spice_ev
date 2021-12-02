@@ -3,19 +3,19 @@
         "name": "Sprinter (klein)",
         "capacity": 38,
         "mileage": 40,
-        "charging_curve": [[0, 11], [0.8, 11], [1, 11]],
+        "charging_curve": [[0, 11], [0.8, 11], [1, 11]]
     },
     "sprinter": {
         "name": "Sprinter",
         "capacity": 76,
         "mileage": 40,
-        "charging_curve": [[0, 11], [0.8, 11], [1, 11]],
+        "charging_curve": [[0, 11], [0.8, 11], [1, 11]]
     },
     "golf": {
         "name": "E-Golf",
         "capacity": 50,
         "mileage": 16,
-        "charging_curve": [[0, 22], [0.8, 22], [1, 22]],
+        "charging_curve": [[0, 22], [0.8, 22], [1, 22]]
     },
     "minimum_information": {
         "name": "Displayed name",
