@@ -48,7 +48,7 @@ def dt_within_core_standing_time(dt, core_standing_time):
         core_standing_time: Provides time_windows to check
             Example: one core standing time each day from 22:00 to 5:00 next day
             additionally weekends:
-            {"time_windows": [{"start": (22,0), "end":(5,0)}], "full_days": [6,7]}
+            {"times": [{"start": (22,0), "end":(5,0)}], "full_days": [6,7]}
     Returns:
         True - if dt is inside a time_window or if core_standing_time=None
         False - if dt is outside of time window
