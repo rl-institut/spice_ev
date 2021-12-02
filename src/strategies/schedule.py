@@ -1,5 +1,6 @@
 from copy import deepcopy
 from datetime import timedelta
+import warnings
 
 import src.events as events
 from src.strategy import Strategy
@@ -250,9 +251,9 @@ class Schedule(Strategy):
             for vehicle_id, delta_soc in self.extra_energy_per_vehicle.items():
                 vehicle = self.world_state.vehicles[vehicle_id]
                 cs_id = vehicle.connected_charging_station
-                assert cs_id is not None, (
-                    f"Vehicle {vehicle_id} not available during core standing time!"
-                )
+                if cs_id is None:
+                    warnings.warn("Vehicle {vehicle_id} not available during core standing time")
+                    continue
                 # get connected charging station, GC
                 cs = self.world_state.charging_stations[cs_id]
                 gc = self.world_state.grid_connectors[cs.parent]
@@ -294,9 +295,9 @@ class Schedule(Strategy):
                 vehicle = self.world_state.vehicles[vehicle_id]
                 # get connected charging station
                 cs_id = vehicle.connected_charging_station
-                assert cs_id is not None, (
-                    f"Vehicle {vehicle_id} not available during core standing time!"
-                )
+                if cs_id is None:
+                    warnings.warn("Vehicle {vehicle_id} not available during core standing time")
+                    continue
                 cs = self.world_state.charging_stations[cs_id]
 
                 #  boundaries of charging process
