@@ -62,7 +62,7 @@ def dt_within_core_standing_time(dt, core_standing_time):
         return True
 
     current_time = dt.time()
-    for time_window in core_standing_time['times']:
+    for time_window in core_standing_time.get('times', []):
         core_standing_time_start, core_standing_time_end = [
             datetime.time(*time_window[key]) for key in ['start', 'end']
         ]
