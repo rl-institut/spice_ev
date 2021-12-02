@@ -20,26 +20,22 @@ def generate_from_download(args):
     with open(args.input, 'r') as f:
         input_json = json.load(f)
 
-    # VEHICLE TYPES
-    CAPACITY = 76  # kWh
-
-    vehicle_types = {
-        "sprinter": {
-            "name": "sprinter",
-            "capacity": CAPACITY,
-            "mileage": 40,  # kWh/100km
-            "charging_curve": [[0, 11], [0.8, 11], [1, 11]],  # kW
-            "min_charging_power": 0,  # kW
-            "v2g": args.v2g,
-            "count": 20
-        },
-    }
+    if args.vehicle_types is None:
+        args.vehicle_types = "examples/vehicle_types.json"
+        print("No definition of vehicle types found, using {}".format(args.vehicle_types))
+    ext = args.vehicle_types.split('.')[-1]
+    if ext != "json":
+        print("File extension mismatch: vehicle type file should be .json")
+    with open(args.vehicle_types) as f:
+        vehicle_types = json.load(f)
+    assert "sprinter" in vehicle_types, ("Vehicle type 'sprinter' not found")
+    capacity = vehicle_types["sprinter"]["capacity"]
 
     vehicles = {
         "sprinter_{}".format(i+1): {
             "soc": args.min_soc,
             "vehicle_type": "sprinter"
-        } for i in range(vehicle_types["sprinter"]["count"])
+        } for i in range(args.count)
     }
 
     vehicle_queue = list(zip(vehicles.keys(), [None]*len(vehicles)))
@@ -83,7 +79,7 @@ def generate_from_download(args):
 
         # compute energy / SoC used
         energy_used = event["usage"]/1000
-        soc_delta = energy_used / CAPACITY
+        soc_delta = energy_used / capacity
 
         if soc_delta > args.min_soc:
             # not enough minimum SoC to make the trip
@@ -252,10 +248,9 @@ if __name__ == '__main__':
     parser.add_argument('output', nargs='?', help='output file name (example.json)')
     parser.add_argument('--interval', metavar='MIN', type=int, default=15,
                         help='set number of minutes for each timestep (Δt)')
+    parser.add_argument('--count', '-c', type=int, default=20, help='number of vehicles')
     parser.add_argument('--min-soc', metavar='SOC', type=float, default=1,
                         help='set minimum desired SOC (0 - 1) for each charging process')
-    parser.add_argument('--v2g', action='store_true',
-                        help='Vehicles have vehicle-to-grid capability')
     parser.add_argument('--gc-power', metavar='P', type=float, default=530,
                         help='set maximum power of grid connector')
     parser.add_argument('--battery', '-b', metavar=('CAP', 'C-RATE'),
@@ -263,7 +258,9 @@ if __name__ == '__main__':
                         help='add battery with specified capacity in kWh and C-rate \
                         (-1 for variable capacity, second argument is fixed power))')
 
-    # csv files
+    # input files (CSV, JSON)
+    parser.add_argument('--vehicle-types', default=None,
+                        help='location of vehicle type definitions')
     parser.add_argument('--include-ext-load-csv',
                         help='include CSV for external load. \
                         You may define custom options with --include-ext-csv-option')

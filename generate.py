@@ -73,47 +73,30 @@ def generate(args):
     interval = datetime.timedelta(minutes=args.interval)
 
     # VEHICLES
-    if not args.cars:
+    if args.cars is None:
         args.cars = [['1', 'golf'], ['1', 'sprinter']]
 
-    # VEHICLE TYPES
-    vehicle_types = {
-        "sprinter": {
-            "name": "sprinter",
-            "capacity": 76,  # kWh
-            "mileage": 40,  # kWh / 100km
-            "charging_curve": [[0, 11], [0.8, 11], [1, 11]],  # kW
-            "min_charging_power": 0,  # kW
-            "v2g": vars(args).get("v2g", False),
-            "count": 0,
-            "battery_efficiency": vars(args).get("battery_efficiency_vehicle", 0.95)
-        },
-        "golf": {
-            "name": "E-Golf",
-            "capacity": 50,  # kWh
-            "mileage": 16,  # kWh/100km
-            "charging_curve": [[0, 22], [0.8, 22], [1, 22]],  # kW
-            "min_charging_power": 0,  # kW
-            "v2g": vars(args).get("v2g", False),
-            "count": 0,
-            "battery_efficiency": vars(args).get("battery_efficiency_vehicle", 0.95)
-        }
-    }
+    if args.vehicle_types is None:
+        args.vehicle_types = "examples/vehicle_types.json"
+        print("No definition of vehicle types found, using {}".format(args.vehicle_types))
+    ext = args.vehicle_types.split('.')[-1]
+    if ext != "json":
+        print("File extension mismatch: vehicle type file should be .json")
+    with open(args.vehicle_types) as f:
+        vehicle_types = json.load(f)
 
     for count, vehicle_type in args.cars:
         assert vehicle_type in vehicle_types,\
             'The given vehicle type "{}" is not valid. Should be one of {}'\
             .format(vehicle_type, list(vehicle_types.keys()))
-
-        count = int(count)
-        vehicle_types[vehicle_type]['count'] = count
+        vehicle_types[vehicle_type]["count"] = int(count)
 
     # VEHICLES WITH THEIR CHARGING STATION
     vehicles = {}
     batteries = {}
     charging_stations = {}
     for name, t in vehicle_types.items():
-        for i in range(t["count"]):
+        for i in range(t.get("count", 0)):
             v_name = "{}_{}".format(name, i)
             cs_name = "CS_" + v_name
             vehicles[v_name] = {
@@ -317,6 +300,9 @@ def generate(args):
     # end of scenario
 
     # remove temporary information
+    for vtype in vehicle_types:
+        if "count" in vtype:
+            del vtype["count"]
     for v in vehicles.values():
         del v["last_arrival_idx"]
 
@@ -368,6 +354,8 @@ if __name__ == '__main__':
                         (-1 for variable capacity, second argument is fixed power))')
     parser.add_argument('--seed', default=None, type=int, help='set random seed')
 
+    parser.add_argument('--vehicle-types', default=None,
+                        help='location of vehicle type definitions')
     parser.add_argument('--include-ext-load-csv',
                         help='include CSV for external load. \
                         You may define custom options with --include-ext-csv-option')

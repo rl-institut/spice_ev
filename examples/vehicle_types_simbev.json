@@ -1,0 +1,38 @@
+{
+    "bev_luxury": {
+        "name": "bev_luxury",
+        "capacity": 90,
+        "charging_curve": [[0, 300], [0.8, 300], [1, 300]],
+        "min_charging_power": 0
+    },
+    "bev_medium": {
+        "name": "bev_medium",
+        "capacity": 65,
+        "charging_curve": [[0, 150], [0.8, 150], [1, 150]],
+        "min_charging_power": 0
+    },
+    "bev_mini": {
+        "name": "bev_mini",
+        "capacity": 30,
+        "charging_curve": [[0, 50], [0.8, 50], [1, 50]],
+        "min_charging_power": 0
+    },
+    "phev_luxury": {
+        "name": "phev_luxury",
+        "capacity": 40,
+        "charging_curve": [[0, 22], [0.8, 22], [1, 0]],
+        "min_charging_power": 0
+    },
+    "phev_medium": {
+        "name": "phev_medium",
+        "capacity": 20,
+        "charging_curve": [[0, 22], [0.8, 22], [1, 0]],
+        "min_charging_power": 0
+    },
+    "phev_mini": {
+        "name": "phev_mini",
+        "capacity": 15,
+        "charging_curve": [[0, 22], [0.8, 22], [1, 0]],
+        "min_charging_power": 0
+    }
+}
