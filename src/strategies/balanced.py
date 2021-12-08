@@ -138,7 +138,9 @@ class Balanced(Strategy):
                 gc.add_load(b_id, avg_power)
             else:
                 # GC draws power: use stored energy to support GC
-                bat_power = battery.unload(self.interval, gc.get_current_load())['avg_power']
+                bat_power = battery.unload(self.interval,
+                                           gc.get_current_load() / battery.efficiency
+                                           )['avg_power']
                 gc.add_load(b_id, -bat_power)
 
         return {'current_time': self.current_time, 'commands': charging_stations}

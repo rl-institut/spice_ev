@@ -32,6 +32,9 @@ class Scenario:
             delta = self.stop_time - self.start_time
             self.n_intervals = delta // self.interval
 
+        # only relevant for schedule strategy
+        self.core_standing_time = scenario.get('core_standing_time', None)
+
         # compute average load for each timeslot
         for ext_load_list in self.events.external_load_lists.values():
             gc_id = ext_load_list.grid_connector_id
@@ -42,6 +45,7 @@ class Scenario:
         # run scenario
         options['interval'] = self.interval
         options['events'] = self.events
+        options['core_standing_time'] = self.core_standing_time
         strat = strategy.class_from_str(strategy_name)(self.constants, self.start_time, **options)
 
         event_steps = self.events.get_event_steps(self.start_time, self.n_intervals, self.interval)
@@ -58,6 +62,7 @@ class Scenario:
         batteryLevels = {k: [] for k in self.constants.batteries.keys()}
         connChargeByTS = []
         gcPowerSchedule = {gcID: [] for gcID in self.constants.grid_connectors.keys()}
+        gcWindowSchedule = {gcID: [] for gcID in self.constants.grid_connectors.keys()}
 
         begin = datetime.datetime.now()
         for step_i in range(self.n_intervals):
@@ -126,6 +131,7 @@ class Scenario:
                 curLoad += gc_load
 
                 gcPowerSchedule[gcID].append(gc.target)
+                gcWindowSchedule[gcID].append(gc.window)
 
                 # sum up total feed-in power
                 feed_in_keys = self.events.energy_feed_in_lists.keys()
@@ -436,6 +442,7 @@ class Scenario:
                 # flex + schedule
                 header += ["flex min [kW]", "flex base [kW]", "flex max [kW]"]
                 header += ["schedule {} [kW]".format(gcID) for gcID in scheduleKeys]
+                header += ["window {}".format(gcID) for gcID in scheduleKeys]
                 # sum of charging power
                 header.append("sum CS power")
                 # charging power per use case
@@ -451,21 +458,22 @@ class Scenario:
                 # write timesteps
                 for idx, r in enumerate(results):
                     # general info: timestep index and timestamp
-                    row = [idx, r['current_time']]
+                    # TZ removed for spreadsheet software
+                    row = [idx, r['current_time'].replace(tzinfo=None)]
                     # price
                     if any(prices):
                         row.append(round(prices[idx][0], round_to_places))
-                    # grid power
-                    row.append(round(totalLoad[idx], round_to_places))
+                    # grid power (negative since grid power is fed into system)
+                    row.append(-1 * round(totalLoad[idx], round_to_places))
                     # external loads
                     if hasExtLoads:
                         sumExtLoads = sum([
                             v for k, v in extLoads[idx].items()
                             if k in self.events.external_load_lists])
                         row.append(round(sumExtLoads, round_to_places))
-                    # feed-in
+                    # feed-in (negative since grid power is fed into system)
                     if any(feedInPower):
-                        row.append(round(feedInPower[idx], round_to_places))
+                        row.append(-1 * round(feedInPower[idx], round_to_places))
                     # batteries
                     if self.constants.batteries:
                         row += [
@@ -486,9 +494,12 @@ class Scenario:
                         round(flex["base"][idx], round_to_places),
                         round(flex["max"][idx], round_to_places)
                     ]
-                    # schedule
+                    # schedule + window schedule
                     row += [
                         round(gcPowerSchedule[gcID][idx], round_to_places)
+                        for gcID in scheduleKeys]
+                    row += [
+                        round(gcWindowSchedule[gcID][idx], round_to_places)
                         for gcID in scheduleKeys]
                     # charging power
                     # get sum of all current CS power
@@ -575,6 +586,12 @@ class Scenario:
             for name, values in loads.items():
                 ax.plot(xlabels, values, label=name)
             # draw schedule
+            for gcID, schedule in gcWindowSchedule.items():
+                if all(s is not None for s in schedule):
+                    # schedule exists
+                    window_values = [v * int(max(totalLoad)) for v in schedule]
+                    ax.plot(xlabels, window_values, label="window {}".format(gcID), linestyle='--')
+
             for gcID, schedule in gcPowerSchedule.items():
                 if any(s is not None for s in schedule):
                     # schedule exists
@@ -597,8 +614,11 @@ class Scenario:
 
             # figure title
             fig = plt.gcf()
-            fig.suptitle('Strategy: {}: {}€'.format(
-                strat.description, int(sum(costs))), fontweight='bold')
+            fig.suptitle('Strategy: {}'.format(type(strat).__name__), fontweight='bold')
 
-            fig.autofmt_xdate()  # rotate xaxis labels (dates) to fit
+            # fig.autofmt_xdate()  # rotate xaxis labels (dates) to fit
+            # autofmt removes some axis labels, so rotate by hand:
+            for ax in fig.get_axes():
+                plt.setp(ax.get_xticklabels(), rotation=30, ha='right')
+
             plt.show()

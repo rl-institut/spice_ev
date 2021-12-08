@@ -45,18 +45,22 @@ class Greedy(Strategy):
             gc = self.world_state.grid_connectors[cs.parent]
             gc_power_left = gc.cur_max_power - gc.get_current_load()
             power = 0
+            avg_power = 0
             bat_power_used = False
             if get_cost(1, gc.cost) <= self.PRICE_THRESHOLD:
                 # low energy price: take max available power from GC without batteries
                 power = clamp_power(gc_power_left, vehicle, cs)
+                avg_power = vehicle.battery.load(self.interval, power)['avg_power']
             elif vehicle.get_delta_soc() > 0:
                 # vehicle needs charging: take max available power (with batteries)
+                # limit to desired SoC
                 power = gc_power_left + avail_bat_power
                 power = clamp_power(power, vehicle, cs)
+                avg_power = vehicle.battery.load(
+                    self.interval, power, target_soc=vehicle.desired_soc)['avg_power']
                 bat_power_used = True
 
-            # charge vehicle
-            avg_power = vehicle.battery.load(self.interval, power)['avg_power']
+            # update CS and GC
             charging_stations[cs_id] = gc.add_load(cs_id, avg_power)
             cs.current_power += avg_power
             if bat_power_used:

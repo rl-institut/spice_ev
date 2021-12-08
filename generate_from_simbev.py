@@ -27,51 +27,14 @@ def generate_from_simbev(args):
     interval = datetime.timedelta(minutes=args.interval)
     n_intervals = 0
 
-    # possible vehicle types
-    vehicle_types = {
-        "bev_luxury": {
-            "name": "bev_luxury",
-            "capacity": 90,  # kWh
-            "mileage": 40,  # kWh / 100 km
-            "charging_curve": [[0, 300], [0.8, 300], [1, 300]],  # SOC -> kWh
-            "min_charging_power": 0,
-        },
-        "bev_medium": {
-            "name": "bev_medium",
-            "capacity": 65,  # kWh
-            "mileage": 40,  # kWh / 100 km
-            "charging_curve": [[0, 150], [0.8, 150], [1, 150]],  # SOC -> kWh
-            "min_charging_power": 0,
-        },
-        "bev_mini": {
-            "name": "bev_mini",
-            "capacity": 30,  # kWh
-            "mileage": 40,  # kWh / 100 km
-            "charging_curve": [[0, 50], [0.8, 50], [1, 50]],  # SOC -> kWh
-            "min_charging_power": 0,
-        },
-        "phev_luxury": {
-            "name": "phev_luxury",
-            "capacity": 40,  # kWh
-            "mileage": 40,  # kWh / 100 km
-            "charging_curve": [[0, 22], [0.8, 22], [1, 0]],  # SOC -> kWh
-            "min_charging_power": 0,
-        },
-        "phev_medium": {
-            "name": "phev_medium",
-            "capacity": 20,  # kWh
-            "mileage": 30,  # kWh / 100 km
-            "charging_curve": [[0, 22], [0.8, 22], [1, 0]],  # SOC -> kWh
-            "min_charging_power": 0,
-        },
-        "phev_mini": {
-            "name": "phev_mini",
-            "capacity": 15,  # kWh
-            "mileage": 25,  # kWh / 100 km
-            "charging_curve": [[0, 22], [0.8, 22], [1, 0]],  # SOC -> kWh
-            "min_charging_power": 0,
-        },
-    }
+    if args.vehicle_types is None:
+        args.vehicle_types = "examples/vehicle_types.json"
+        print("No definition of vehicle types found, using {}".format(args.vehicle_types))
+    ext = args.vehicle_types.split('.')[-1]
+    if ext != "json":
+        print("File extension mismatch: vehicle type file should be .json")
+    with open(args.vehicle_types) as f:
+        vehicle_types = json.load(f)
 
     def datetime_from_timestep(timestep):
         assert type(timestep) == int
@@ -393,7 +356,11 @@ def generate_from_simbev(args):
 
                     # generate vehicle events
                     # departure from old CS
-                    park_start_ts = datetime_from_timestep(int(row["park_start"]))
+                    park_start_idx = int(row["park_start"])
+                    park_start_ts = datetime_from_timestep(park_start_idx)
+                    assert park_start_ts >= park_end_ts, (
+                        "Order of vehicle {} wrong in timestep {}, has been standing already"
+                    ).format(vehicle_name, park_start_idx)
                     events["vehicle_events"].append({
                         "signal_time": park_end_ts.isoformat(),
                         "start_time": park_end_ts.isoformat(),
@@ -514,7 +481,9 @@ if __name__ == '__main__':
                         help='Set verbosity level. Use this multiple times for more output. '
                              'Default: only errors, 1: warnings, 2: debug')
 
-    # csv files
+    # input files (CSV, JSON)
+    parser.add_argument('--vehicle-types', default=None,
+                        help='location of vehicle type definitions')
     parser.add_argument('--include-ext-load-csv',
                         help='include CSV for external load. \
                         You may define custom options with --include-ext-csv-option')
