@@ -25,6 +25,9 @@ class Strategy():
         self.allow_negative_soc = False
         # tolerance for floating point comparison
         self.EPS = 1e-5
+        # Reduce available power at each charging station to given fraction (0 - 1)
+        for cs in self.world_state.charging_stations.values():
+            cs.max_power = kwargs.get('CONCURRENCY', 1.0) * cs.max_power
         # update optional
         for k, v in kwargs.items():
             setattr(self, k, v)

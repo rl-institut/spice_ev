@@ -9,17 +9,11 @@ class Greedy(Strategy):
     Charges as much power as possible during each timestep until all desired SOC are reached.
     No foresight, price does not matter for normal charging.
     Can store surplus energy (feed-in or low energy price) in stationary battery or vehicles.
-    Can set CONCURRENCY, so each CP can only give a fraction of its maximum power.
     """
     def __init__(self, constants, start_time, **kwargs):
-        self.CONCURRENCY = 1.0
         self.PRICE_THRESHOLD = 0.001  # EUR/kWh
         super().__init__(constants, start_time, **kwargs)
         self.description = "greedy"
-
-        # concurrency: set fraction of maximum available power at each charging station
-        for cs in self.world_state.charging_stations.values():
-            cs.max_power = self.CONCURRENCY * cs.max_power
 
     def step(self, event_list=[]):
         super().step(event_list)

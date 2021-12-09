@@ -14,7 +14,6 @@ class FlexWindow(Strategy):
         self.HORIZON = 24  # hours ahead
         self.DISCHARGE_LIMIT = 0  # V2G: maximum depth of discharge [0-1]
         self.LOAD_STRAT = "balanced"  # greedy, needy, balanced
-        self.CONCURRENCY = 1.0
 
         super().__init__(constants, start_time, **kwargs)
         assert (len(self.world_state.grid_connectors) == 1), "Only one grid connector supported"
@@ -36,10 +35,6 @@ class FlexWindow(Strategy):
                 v.estimated_time_of_departure)
         else:
             "Unknown charging strategy: {}".format(self.LOAD_STRAT)
-
-        # concurrency: set fraction of maximum available power at each charging station
-        for cs in self.world_state.charging_stations.values():
-            cs.max_power = self.CONCURRENCY * cs.max_power
 
     def step(self, event_list=[]):
         super().step(event_list)
