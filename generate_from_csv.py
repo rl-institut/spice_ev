@@ -355,7 +355,6 @@ if __name__ == '__main__':
                         help='add battery with specified capacity in kWh and C-rate \
                         (-1 for variable capacity, second argument is fixed power))')
     parser.add_argument('--seed', default=None, type=int, help='set random seed')
-
     parser.add_argument('--include-ext-load-csv',
                         help='include CSV for external load. \
                         You may define custom options with --include-ext-csv-option')
