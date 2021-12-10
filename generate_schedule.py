@@ -184,7 +184,7 @@ def generate_schedule(args):
                 netto.append(replace_unknown)
             # store curtailment info
             try:
-                curtailment.append(float(row["curtailment"]))
+                curtailment.append(-float(row["curtailment"]))
             except ValueError:
                 warnings.warn("Curtailment timeseries contains non-numeric values.")
                 replace_unknown = curtailment[-1] if row_idx > 0 else 0
