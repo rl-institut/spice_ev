@@ -34,7 +34,7 @@ def generate_from_csv(args):
         predefined_vehicle_types = json.load(f)
 
     for row in input:
-        row["vehicle_type"] = row["vehicle_type"] + "-" + row["charging_type"]
+        row["vehicle_type"] = row["vehicle_id"].split('_')[0]
 
     number_vehicles_per_type = get_number_busses_per_bustype(input)
     vehicle_types = {}
