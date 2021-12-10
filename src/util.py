@@ -141,7 +141,8 @@ def clamp_power(power, vehicle, cs):
     if total_power < cs.min_power or total_power < vehicle.vehicle_type.min_charging_power:
         power = 0
     else:
-        power = min(power, cs.max_power - cs.current_power)
+        # cs.current_power can be larger than max_power by x<EPS. Avoid power<0
+        power = max(min(power, cs.max_power - cs.current_power), 0)
     return power
 
 

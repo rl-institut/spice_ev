@@ -76,7 +76,10 @@ class Greedy(Strategy):
                 avg_power = vehicle.battery.load(self.interval, power)['avg_power']
                 charging_stations[cs_id] = gc.add_load(cs_id, avg_power)
                 cs.current_power += avg_power
-            elif vehicle.get_delta_soc() < 0 and vehicle.vehicle_type.v2g:
+            elif (vehicle.get_delta_soc() < 0
+                    and vehicle.vehicle_type.v2g
+                    and cs.current_power < self.EPS
+                    and get_cost(1, gc.cost) > self.PRICE_THRESHOLD):
                 # GC draws power, surplus in vehicle and V2G capable: support GC
                 avg_power = vehicle.battery.unload(
                     self.interval, gc.get_current_load(),
