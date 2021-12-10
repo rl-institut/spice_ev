@@ -4,9 +4,9 @@ spice_ev is a simulation program for individual charging events of electric vehi
 
 .. toctree::
    :maxdepth: 2
-   :glob:
+   :caption: Contents:
 
-    getting_started
+   getting_started
 
 
 Indices and tables
