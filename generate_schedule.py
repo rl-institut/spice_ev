@@ -196,7 +196,7 @@ def generate_schedule(args):
     # time intervals of simulation are equal to time intervals in NSM time series.
 
     # compute cutoff values for priorities 1 and 4 using all netto values
-    idx_percentile = int(len(netto) / (1/args.priority_percentile))
+    idx_percentile = int(len(netto) * args.priority_percentile)
     sorted_netto = sorted(netto)
     cutoff_priority_1 = sorted_netto[idx_percentile]
     cutoff_priority_4 = sorted_netto[len(netto) - idx_percentile]
