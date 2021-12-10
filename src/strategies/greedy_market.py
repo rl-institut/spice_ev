@@ -286,6 +286,8 @@ class GreedyMarket(Strategy):
             # and stop once it reaches charging timestep
             # off-by-one: v2g_sorted_idx is immediately decreased by one
             v2g_sorted_idx = len(sorted_ts)
+            max_discharge_power = \
+                min(power, sim_battery.loading_curve.max_power * self.V2G_POWER_FACTOR)
             while v2g_sorted_idx > (sorted_idx + 1):
                 sim_power = None
                 v2g_sorted_idx -= 1
@@ -335,7 +337,8 @@ class GreedyMarket(Strategy):
                         # discharge / no action
                         power = -cur_info["power"]
                         limit = self.DISCHARGE_LIMIT
-                        avg_power = sim_battery.unload(self.interval, power, limit)["avg_power"]
+                        avg_power = sim_battery.unload(
+                            self.interval, min(power, max_discharge_power), limit)["avg_power"]
                         power_vec[v2g_ts_idx + cur_idx] = avg_power
 
                     cur_info["soc"] = sim_battery.soc
@@ -403,7 +406,9 @@ class GreedyMarket(Strategy):
                             # discharge
                             power = -cur_info["power"]
                             limit = self.DISCHARGE_LIMIT
-                            info = sim_battery.unload(self.interval, power, self.DISCHARGE_LIMIT)
+                            info = sim_battery.unload(self.interval,
+                                                      min(power, max_discharge_power),
+                                                      self.DISCHARGE_LIMIT)
                             power_vec[ts_idx + cur_idx] = info["avg_power"]
                         cur_info["soc"] = sim_battery.soc
                         is_charged = sim_battery.soc >= desired_soc - self.EPS
