@@ -11,7 +11,7 @@ Documentation
 Full documentation can be found `here <https://spice_ev.readthedocs.io/en/latest/>`_
 
 Installing spice_ev
-=================
+===================
 
 You can clone the current repository of spice_ev to your local machine using:
 
