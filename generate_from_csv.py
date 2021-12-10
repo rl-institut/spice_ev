@@ -6,7 +6,6 @@ import datetime
 import json
 from os import path
 import random
-import numpy as np
 
 from src.util import set_options_from_config
 
@@ -24,6 +23,16 @@ def generate_from_csv(args):
     # read csv input file
     input = csv_to_dict(args.input_file)
 
+    # VEHICLES
+    if args.vehicle_types is None:
+        args.vehicle_types = "examples/vehicle_types.json"
+        print("No definition of vehicle types found, using {}".format(args.vehicle_types))
+    ext = args.vehicle_types.split('.')[-1]
+    if ext != "json":
+        print("File extension mismatch: vehicle type file should be .json")
+    with open(args.vehicle_types) as f:
+        predefined_vehicle_types = json.load(f)
+
     for row in input:
         row["vehicle_type"] = row["vehicle_type"] + "-" + row["charging_type"]
 
@@ -39,22 +48,12 @@ def generate_from_csv(args):
         "vehicle_events": []
     }
     for vehicle_type in number_vehicles_per_type:
+        # update vehicle types with vehicles in input csv
         try:
-            cp = args.capacities[vehicle_type]
-        except TypeError:
-            # define default value
-            cp = 300
-        # a constant charging curve is assumed
-        vehicle_types.update({
-            vehicle_type: {
-                "name": vehicle_type,
-                "capacity": cp,
-                "charging_curve": [[0, cp], [0.8, cp], [1, cp]],
-                "min_charging_power": 0,  # kW
-                "v2g": vars(args).get("v2g", False),
-                "count": number_vehicles_per_type[vehicle_type]
-            },
-        })
+            vehicle_types.update({vehicle_type: predefined_vehicle_types[vehicle_type]})
+        except KeyError:
+            print(f"The vehicle type {vehicle_type} defined in the input csv cannot be found in "
+                  f"vehicle_types.json. Please check for consistency.")
 
     for bus_type in number_vehicles_per_type.keys():
         for i in range(1, number_vehicles_per_type[bus_type]+1):
