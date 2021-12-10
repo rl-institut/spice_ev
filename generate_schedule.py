@@ -168,13 +168,13 @@ def generate_schedule(args):
             # get start time of NSM time series
             if row_idx == 0:
                 try:
-                    nsm_start_time = datetime.datetime.strptime(row["timestamp"], "%d.%m.%Y %H:%M")
+                    nsm_start_time = datetime.datetime.strptime(row["timestamp"], "%Y-%m-%d %H:%M")
                 except (ValueError, KeyError):
                     # if timestamp column does not exist or contains wrong format
                     # assume NSM timeseries at the same time as simulation
                     nsm_start_time = s.start_time.replace(tzinfo=None)
                     warnings.warn('Time component of NSM timeseries ignored. '
-                                  'Must be of format DD.MM.YYYY HH:MM')
+                                  'Must be of format YYYY.MM.DD HH:MM')
             # store netto value, use previous value if none provided
             try:
                 netto.append(float(row["netto"]))
