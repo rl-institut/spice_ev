@@ -142,7 +142,7 @@ def clamp_power(power, vehicle, cs):
         power = 0
     else:
         # cs.current_power can be larger than max_power by x<EPS. Avoid power<0
-        power = min(power, max(0, cs.max_power - cs.current_power))
+        power = max(min(power, cs.max_power - cs.current_power), 0)
     return power
 
 
