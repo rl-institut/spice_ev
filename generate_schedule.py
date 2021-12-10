@@ -161,17 +161,56 @@ def generate_schedule(args):
 
     netto = []
     curtailment = []
+    # Read NSM timeseries
     with open(args.input, 'r', newline='') as f:
         reader = csv.DictReader(f)
         for row_idx, row in enumerate(reader):
-            if row_idx >= s.n_intervals:
-                break
-            netto.append(float(row["netto"]))
-            curtailment.append(-float(row["curtailment"]))
+            # get start time of NSM time series
+            if row_idx == 0:
+                try:
+                    nsm_start_time = datetime.datetime.strptime(row["timestamp"], "%d.%m.%Y %H:%M")
+                except (ValueError, KeyError):
+                    # if timestamp column does not exist or contains wrong format
+                    # assume NSM timeseries at the same time as simulation
+                    nsm_start_time = s.start_time.replace(tzinfo=None)
+                    warnings.warn('Time component of NSM timeseries ignored. '
+                                  'Must be of format DD.MM.YYYY HH:MM')
+            # store netto value, use previous value if none provided
+            try:
+                netto.append(float(row["netto"]))
+            except ValueError:
+                warnings.warn("Netto timeseries contains non-numeric values.")
+                replace_unknown = netto[-1] if row_idx > 0 else 0
+                netto.append(replace_unknown)
+            # store curtailment info
+            try:
+                curtailment.append(float(row["curtailment"]))
+            except ValueError:
+                warnings.warn("Curtailment timeseries contains non-numeric values.")
+                replace_unknown = curtailment[-1] if row_idx > 0 else 0
+                curtailment.append(replace_unknown)
+
+    # priorities: times of curtailment + percentile with lowest load (1),
+    #             negative loads (2), positive loads (3), percentile with highest load (4)
+    # Note: The procedure to determine priorities for every timestep assumes that
+    # time intervals of simulation are equal to time intervals in NSM time series.
+
+    # compute cutoff values for priorities 1 and 4 using all netto values
+    idx_percentile = int(len(netto) * args.priority_percentile)
+    sorted_netto = sorted(netto)
+    cutoff_priority_1 = sorted_netto[idx_percentile]
+    cutoff_priority_4 = sorted_netto[len(netto) - idx_percentile]
+
+    # find timesteps relevant for simulation and discard remaining
+    idx_start = (s.start_time.replace(tzinfo=None) - nsm_start_time) // s.interval
+    idx_start = idx_start if 0 < idx_start < len(netto) else 0
+    idx_end = min(idx_start + s.n_intervals, len(netto))
+    netto = netto[idx_start:idx_end]
+    curtailment = curtailment[idx_start:idx_end]
+
     # zero-pad for same length as scenario
     netto += [0]*(s.n_intervals - len(netto))
     curtailment += [0]*(s.n_intervals - len(curtailment))
-    max_load = max(netto)
 
     # set priorities (default: 4)
     priorities = [4]*s.n_intervals
@@ -179,11 +218,17 @@ def generate_schedule(args):
         if curtailment[t] > 0:
             # highest priority: curtailment (must be capped)
             priorities[t] = 1
-        elif netto[t] > (1 - args.max_load_range) * max_load:
-            # don't charge if load close to max load
-            priorities[t] = 2
+        elif netto[t] < cutoff_priority_1:
+            # percentile with smallest load
+            priorities[t] = 1
+        elif netto[t] > cutoff_priority_4:
+            # percentile with largest load
+            priorities[t] = 4
         elif netto[t] < 0:
-            # charge if load negative (feed-in)
+            # not in smallest or largest percentile but negative load
+            priorities[t] = 2
+        elif netto[t] >= 0:
+            # not in smallest or largest percentile but positive load
             priorities[t] = 3
 
     # default schedule: just basic power needs
@@ -193,7 +238,7 @@ def generate_schedule(args):
         # loop until all needs satisfied
         power_needed = interval["needed"] * ts_per_hour
 
-        for priority in [2, 4]:
+        for priority in [4, 3]:
             # power close to max or default: discharge V2G
             for time in interval["time"]:
                 if priorities[time] == priority:
@@ -207,9 +252,10 @@ def generate_schedule(args):
                     schedule[time] -= power
                     power_needed += power
 
-        for priority in [1, 3, 4, 2]:
+        for priority in [1, 2, 3, 4]:
             # take power from grid and make sure vehicles are charged
-            # priority: times of curtailment (1), feed-in (3), default (4), close to peak power (2)
+            # priority: times of curtailment + percentile with lowest load (1),
+            #           negative loads (2), positive loads (3), percentile with highest load (4)
 
             if power_needed < EPS:
                 # all vehicles charged
@@ -249,11 +295,11 @@ def generate_schedule(args):
             # different priority started
             duration = t_end - t_start
             # (dis)charge depending on priority
-            if priorities[t_start] % 2:
-                # prio 1/3: charge
+            if priorities[t_start] <= 2:
+                # prio 1/2: charge
                 energy = batteries["free"] / batteries["efficiency"]
             else:
-                # prio 2/4: discharge
+                # prio 3/4: discharge
                 energy = -batteries["stored"] * batteries["efficiency"]
             # distribute energy over period of same priority
             for t in range(t_start, t_end):
@@ -294,7 +340,7 @@ def generate_schedule(args):
         cur_time = s.start_time - s.interval
         for t in range(s.n_intervals):
             cur_time += s.interval
-            f.write("{}, {}, {}\n".format(cur_time.isoformat(), schedule[t], priorities[t] % 2))
+            f.write("{}, {}, {}\n".format(cur_time.isoformat(), schedule[t], priorities[t] <= 2))
 
     # add schedule file info to scenario JSON
     scenario_json['events']['schedule_from_csv'] = {
@@ -351,8 +397,8 @@ if __name__ == '__main__':
     parser.add_argument('--output', '-o',
                         help='Specify schedule file name, '
                         'defaults to <scenario>_schedule.csv')
-    parser.add_argument('--max-load-range', default=0.1, type=float,
-                        help='Area around max_load that should be discouraged')
+    parser.add_argument('--priority-percentile', default=0.25, type=float,
+                        help='Percentiles for priority determination')
     parser.add_argument('--core-standing-time', default=None,
                         help='Define time frames as well as full '
                         'days during which the fleet is guaranteed to be available in a JSON '
