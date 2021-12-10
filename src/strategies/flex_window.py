@@ -12,7 +12,6 @@ class FlexWindow(Strategy):
 
     def __init__(self, constants, start_time, **kwargs):
         self.HORIZON = 24  # hours ahead
-        self.DISCHARGE_LIMIT = 0  # V2G: maximum depth of discharge [0-1]
         self.LOAD_STRAT = "balanced"  # greedy, needy, balanced
 
         super().__init__(constants, start_time, **kwargs)

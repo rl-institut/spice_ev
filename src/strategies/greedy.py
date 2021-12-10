@@ -83,7 +83,7 @@ class Greedy(Strategy):
                 # GC draws power, surplus in vehicle and V2G capable: support GC
                 avg_power = vehicle.battery.unload(
                     self.interval, gc.get_current_load(),
-                    vehicle.desired_soc)['avg_power']
+                    max(vehicle.desired_soc, self.DISCHARGE_LIMIT))['avg_power']
                 charging_stations[cs_id] = gc.add_load(cs_id, -avg_power)
                 cs.current_power -= avg_power
 

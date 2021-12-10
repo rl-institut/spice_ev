@@ -28,6 +28,8 @@ class Strategy():
         # Reduce available power at each charging station to given fraction (0 - 1)
         for cs in self.world_state.charging_stations.values():
             cs.max_power = kwargs.get('CONCURRENCY', 1.0) * cs.max_power
+        # Set discharge limit (0 - 1) for V2G
+        self.DISCHARGE_LIMIT = kwargs.get('DISCHARGE_LIMIT', 0)
         # update optional
         for k, v in kwargs.items():
             setattr(self, k, v)

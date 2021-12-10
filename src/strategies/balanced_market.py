@@ -12,7 +12,6 @@ class BalancedMarket(Strategy):
     def __init__(self, constants, start_time, **kwargs):
         self.PRICE_THRESHOLD = 0.001  # EUR/kWh
         self.HORIZON = 24  # maximum number of hours ahead
-        self.DISCHARGE_LIMIT = 0  # V2G: maximum depth of discharge [0-1]
         self.V2G_POWER_FACTOR = 1
 
         super().__init__(constants, start_time, **kwargs)

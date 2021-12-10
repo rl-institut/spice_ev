@@ -12,7 +12,6 @@ class GreedyMarket(Strategy):
     def __init__(self, constants, start_time, **kwargs):
         self.PRICE_THRESHOLD = 0.001  # EUR/kWh
         self.HORIZON = 24  # hours ahead
-        self.DISCHARGE_LIMIT = 0  # V2G: maximum depth of discharge [0-100]
 
         super().__init__(constants, start_time, **kwargs)
         assert len(self.world_state.grid_connectors) == 1, "Only one grid connector supported"
