@@ -1,36 +1,34 @@
 #!/usr/bin/env python3
 
 import argparse
-import csv  # used to check if columns exists in given CSV files
+import csv
 import datetime
 import json
-from pathlib import Path  # used to check if given CSV files exist
-import pandas as pd
 from os import path
-import numpy as np
 import random
+import numpy as np
 
 from src.util import set_options_from_config
 
 
 def generate_from_csv(args):
-    """Generate a scenario JSON from JSON file with LIS event data.
+    """Generate a scenario JSON from csv rotation schedule of fleets.
     args: argparse.Namespace
     """
     missing = [arg for arg in ["input_file", "output"] if vars(args).get(arg) is None]
     if missing:
         raise SystemExit("The following arguments are required: {}".format(", ".join(missing)))
 
-    #arguments:
+    # arguments:
     interval = datetime.timedelta(minutes=args.interval)
     # read csv input file
-    input = pd.read_csv(args.input_file, index_col=0)
+    input = csv_to_dict(args.input_file)
 
-    input["vehicle_type"] = input["vehicle_type"] + "-" + input["charging_type"]
+    for row in input:
+        row["vehicle_type"] = row["vehicle_type"] + "-" + row["charging_type"]
 
-    count = input.groupby(by=["vehicle_type"]).size()
-    vehicle_types={}
-    # VEHICLES WITH THEIR CHARGING STATION
+    number_vehicles_per_type = get_number_busses_per_bustype(input)
+    vehicle_types = {}
     vehicles = {}
     batteries = {}
     charging_stations = {}
@@ -40,37 +38,39 @@ def generate_from_csv(args):
         "energy_feed_in": {},
         "vehicle_events": []
     }
-    for vehicle_type in input['vehicle_type'].unique():
-        cp = args.capacities[vehicle_type]
+    for vehicle_type in number_vehicles_per_type:
+        try:
+            cp = args.capacities[vehicle_type]
+        except TypeError:
+            # define default value
+            cp = 300
+        # a constant charging curve is assumed
         vehicle_types.update({
             vehicle_type: {
                 "name": vehicle_type,
-                "capacity": args.capacities[vehicle_type],
-#                "mileage": None,  # kWh/100km
-                "charging_curve": [[0, cp], [0.8, cp], [1, cp]],  # kW         # constant loading curve is assumed
+                "capacity": cp,
+                "charging_curve": [[0, cp], [0.8, cp], [1, cp]],
                 "min_charging_power": 0,  # kW
-                "v2g": args.v2g,
-                "count": count.loc[count.index == vehicle_type].values[0]
+                "v2g": vars(args).get("v2g", False),
+                "count": number_vehicles_per_type[vehicle_type]
             },
         })
 
-    number_busses_per_type = get_number_busses_per_bustype(input)
-
-    for bus_type in number_busses_per_type.keys():
-        for i in range(1, number_busses_per_type[bus_type]):
-
+    for bus_type in number_vehicles_per_type.keys():
+        for i in range(1, number_vehicles_per_type[bus_type]):
             name = bus_type
             v_name = "{}_{}".format(name, i)
             cs_name = "CS_" + v_name
-            vehicles[v_name] = {                                               # Startbedingungen beim Aufsetzten des Fahrzeugs
-                "connected_charging_station": None,                            # wird beim arrival event gesetzt
-                "estimated_time_of_departure": None,                           # wird beim arrival event gesetzt
+            # define start conditions
+            vehicles[v_name] = {
+                "connected_charging_station": None,
+                "estimated_time_of_departure": None,
                 "desired_soc": args.min_soc,
-                "soc": 1,                                                      # aktueller SOC wird beim arrival event gesetzt
+                "soc": 1,
                 "vehicle_type": name
             }
             t = vehicle_types[name]
-            cs_power = max([v[1] for v in t['charging_curve']])                # aus Ladeleistung für die Busse
+            cs_power = max([v[1] for v in t['charging_curve']])
             charging_stations[cs_name] = {
                 "max_power": cs_power,
                 "min_power": 0.1 * cs_power,
@@ -78,33 +78,28 @@ def generate_from_csv(args):
             }
 
             # filter all rides for that bus
-            vid_list = input.loc[(input["vehicle_id"] == v_name)]
-            # sort for arrival time
-            vid_list = vid_list.sort_values(by = "Zeit Ende Umlauf")
+            vid_list = []
+            [vid_list.append(row) for row in input if (row["vehicle_id"] == v_name)]
 
-            #check
-            vt_counts = vid_list["Tag"].value_counts()
-            if (vt_counts > 1).any():
+            # check if each bus is only used once a day
+            list_vehicle_days = [d["day"] for d in vid_list]
+            count_v_per_day = {i: list_vehicle_days.count(i) for i in list_vehicle_days}
+            if any(v > 1 for v in count_v_per_day.values()):
                 raise ValueError
-            vid_list.reset_index(inplace=True)
-            for i, row in vid_list.iterrows():
+            # sort events
+            vid_list = sorted(vid_list, key=lambda x: x["departure time"])
+            for index, row in enumerate(vid_list):
                 x = 0
-                arrival = vid_list["Zeit Ende Umlauf"].iloc[i]
-                arrival = pd.to_datetime(arrival,
-                                         format='%Y/%m/%d %H:%M:%S', utc=True)
+                arrival = row["arrival time"]
+                arrival = datetime.datetime.strptime(arrival, '%Y-%m-%d %H:%M:%S')
                 try:
-                    departure = vid_list["Zeit Anfang Umlauf"].iloc[i+1]
-                    departure = pd.to_datetime(departure,
-                                           format='%Y/%m/%d %H:%M:%S', utc=True)
-                    next_arrival = vid_list["Zeit Ende Umlauf"].iloc[i+1]
-                    next_arrival = pd.to_datetime(next_arrival,
-                                         format='%Y/%m/%d %H:%M:%S', utc=True)
-                except:
+                    departure = vid_list[index+1]["departure time"]
+                    departure = datetime.datetime.strptime(departure, '%Y-%m-%d %H:%M:%S')
+                    next_arrival = vid_list[index+1]["arrival time"]
+                    next_arrival = datetime.datetime.strptime(next_arrival, '%Y-%m-%d %H:%M:%S')
+                except IndexError:
                     x = 1
-                    departure = arrival + pd.Timedelta(
-                            8, unit='h')
-
-
+                    departure = arrival + datetime.timedelta(hours=8)
 
                 events["vehicle_events"].append({
                     "signal_time": arrival.isoformat(),
@@ -114,9 +109,8 @@ def generate_from_csv(args):
                     "update": {
                         "connected_charging_station": "CS_" + v_name,
                         "estimated_time_of_departure": departure.isoformat(),
-                        "soc": vid_list["Ladezustand Ende in %"].iloc[i]/100,
-                        "soc_delta": (100 - vid_list[
-                            "Ladezustand Ende in %"].iloc[0]) / 100 * (-1)
+                        "soc": float(row["soc"])/100,
+                        "soc_delta": ((100 - float(row["soc"])) / 100) * (-1)
                     }
                 })
                 if x == 0:
@@ -144,12 +138,13 @@ def generate_from_csv(args):
     # save path and options for CSV timeseries
     # all paths are relative to output file
     target_path = path.dirname(args.output)
-    input = input.sort_values(by="Zeit Ende Umlauf")
-    start = input["Zeit Ende Umlauf"].iloc[0]
-    start = pd.to_datetime(start, format='%Y/%m/%d %H:%M:%S', utc=True)
+    times = []
+    for row in input:
+        times.append(row["departure time"])
+    times.sort()
+    start = times[0]
+    start = datetime.datetime.strptime(start, '%Y-%m-%d %H:%M:%S')
     stop = start + datetime.timedelta(days=args.days)
-    stop = pd.to_datetime(stop, format='%Y/%m/%d %H:%M:%S', utc=True)
-
 
     if args.include_ext_load_csv:
         filename = args.include_ext_load_csv
@@ -216,21 +211,13 @@ def generate_from_csv(args):
             print("Warning: price csv file '{}' does not exist yet".format(
                 price_csv_path))
 
-
     daily = datetime.timedelta(days=1)
-    # count number of trips where desired_soc is above min_soc
-    trips_above_min_soc = 0
     # price events
-
     now = start - daily
     while now < stop + 2 * daily:
         now += daily
         # create vehicle events for this day
         for v_id, v in vehicles.items():
-            if now.weekday() == 6:
-                # no driving on Sunday
-                break
-
             if now >= stop:
                 # after end of scenario: keep generating trips, but don't include in scenario
                 continue
@@ -238,8 +225,7 @@ def generate_from_csv(args):
         # generate prices for the day
         if not args.include_price_csv and now < stop:
             morning = now + datetime.timedelta(hours=6)
-            evening_by_month = now + datetime.timedelta(
-                hours=22 - abs(6 - now.month))
+            evening_by_month = now + datetime.timedelta(hours=22 - abs(6 - now.month))
             events['grid_operator_signals'] += [{
                 # day (6-evening): 15ct
                 "signal_time": max(start, now - daily).isoformat(),
@@ -259,12 +245,10 @@ def generate_from_csv(args):
                     "value": 0.05 + random.gauss(0, 0.03)
                 }
             }]
-
-
+    # create final dict
     j = {
         "scenario": {
             "start_time": start.isoformat(),
-#             "stop_time": stop.isoformat(),                                        # entweder oder n_intervall
             "interval": interval.days * 24 * 60 + interval.seconds // 60,
             "n_intervals": (stop - start) // interval
         },
@@ -283,33 +267,64 @@ def generate_from_csv(args):
         "events": events
     }
 
-    # if trips_above_min_soc:
-    #     print("{} trips use more than {}% capacity".format(trips_above_min_soc,
-    #                                                        args.min_soc * 100))
-
     # Write JSON
     with open(args.output, 'w') as f:
-        json.dump(j, f, indent=2,cls=NpEncoder)
+        json.dump(j, f, indent=2, cls=NpEncoder)
 
 
 def get_number_busses_per_bustype(df):
 
     type = {}
-    for bus_type in df["vehicle_type"].unique():
-#        for ct in df["charging_type"].unique():
-            type[bus_type] = list()
+    list_vt = []
+    for row in df:
+        list_vt.append(row["vehicle_type"])
+    count_vt = {i: list_vt.count(i) for i in list_vt}
+
+    for vehicle_type in count_vt:
+        type[vehicle_type] = list()
     # sort Einfahrtzeiten
     for day in range(1, 8):
-        df_day = df.loc[df["Tag"] == day]
-        for bus_type in df["vehicle_type"].unique():
-            type_count = df_day.loc[df_day["vehicle_type"] == bus_type][
-                "Umlauf_ID"].count()
+        df_day = []
+        for row in df:
+            if row["day"] == str(day):
+                df_day.append(row)
+        for bus_type in count_vt:
+            type_count = 0
+            for row in df_day:
+                if row["vehicle_type"] == bus_type:
+                    type_count += 1
+            # type_count = df_day.loc[df_day["vehicle_type"] == bus_type]["Umlauf_ID"].count()
             type[bus_type].append(type_count)
 
     for bus_type in type.keys():
         type[bus_type] = max(type[bus_type])
     return type
 
+
+def csv_to_dict(csv_path, headers=True):
+
+    dict = []
+    with open(csv_path, 'r') as file:
+        reader = csv.reader(file)
+        # set column names using first row
+        if headers:
+            columns = next(reader)
+
+        # convert csv to json
+        for row in reader:
+            row_data = {}
+            for i in range(len(row)):
+                # set key names
+                if headers:
+                    row_key = columns[i].lower()
+                else:
+                    row_key = i
+                # set key/value
+                row_data[row_key] = row[i]
+            # add data to json store
+            dict.append(row_data)
+
+    return dict
 
 
 class NpEncoder(json.JSONEncoder):
@@ -321,6 +336,7 @@ class NpEncoder(json.JSONEncoder):
         if isinstance(obj, np.ndarray):
             return obj.tolist()
         return super(NpEncoder, self).default(obj)
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
@@ -357,10 +373,8 @@ if __name__ == '__main__':
     parser.add_argument('--include-price-csv-option', '-po', metavar=('KEY', 'VALUE'),
                         nargs=2, default=[], action='append',
                         help='append additional argument to price signals')
-    parser.add_argument('--config', help='Use config file to set arguments', default='examples/generate_from_csv.cfg')
-#    arser.add_argument('--sum', dest='accumulate', action='store_const',
-#                       const=sum,
-#                       help='sum the integers (default: find the max)')
+    parser.add_argument('--config', help='Use config file to set arguments',
+                        default='examples/generate_from_csv.cfg')
 
     args = parser.parse_args()
 
