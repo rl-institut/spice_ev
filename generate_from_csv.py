@@ -57,7 +57,7 @@ def generate_from_csv(args):
         })
 
     for bus_type in number_vehicles_per_type.keys():
-        for i in range(1, number_vehicles_per_type[bus_type]):
+        for i in range(1, number_vehicles_per_type[bus_type]+1):
             name = bus_type
             v_name = "{}_{}".format(name, i)
             cs_name = "CS_" + v_name
@@ -89,7 +89,7 @@ def generate_from_csv(args):
             # sort events
             vid_list = sorted(vid_list, key=lambda x: x["departure time"])
             for index, row in enumerate(vid_list):
-                x = 0
+                departure_event_in_input = True
                 arrival = row["arrival time"]
                 arrival = datetime.datetime.strptime(arrival, '%Y-%m-%d %H:%M:%S')
                 try:
@@ -98,7 +98,7 @@ def generate_from_csv(args):
                     next_arrival = vid_list[index+1]["arrival time"]
                     next_arrival = datetime.datetime.strptime(next_arrival, '%Y-%m-%d %H:%M:%S')
                 except IndexError:
-                    x = 1
+                    departure_event_in_input = False
                     departure = arrival + datetime.timedelta(hours=8)
 
                 events["vehicle_events"].append({
@@ -113,7 +113,7 @@ def generate_from_csv(args):
                         "soc_delta": ((100 - float(row["soc"])) / 100) * (-1)
                     }
                 })
-                if x == 0:
+                if departure_event_in_input:
                     events["vehicle_events"].append({
                         "signal_time": departure.isoformat(),
                         "start_time": departure.isoformat(),
@@ -216,7 +216,6 @@ def generate_from_csv(args):
     now = start - daily
     while now < stop + 2 * daily:
         now += daily
-        # create vehicle events for this day
         for v_id, v in vehicles.items():
             if now >= stop:
                 # after end of scenario: keep generating trips, but don't include in scenario
@@ -269,23 +268,23 @@ def generate_from_csv(args):
 
     # Write JSON
     with open(args.output, 'w') as f:
-        json.dump(j, f, indent=2, cls=NpEncoder)
+        json.dump(j, f, indent=2)
 
 
-def get_number_busses_per_bustype(df):
+def get_number_busses_per_bustype(dict):
 
     type = {}
     list_vt = []
-    for row in df:
+    for row in dict:
         list_vt.append(row["vehicle_type"])
     count_vt = {i: list_vt.count(i) for i in list_vt}
 
     for vehicle_type in count_vt:
         type[vehicle_type] = list()
-    # sort Einfahrtzeiten
+    # sort arrival times
     for day in range(1, 8):
         df_day = []
-        for row in df:
+        for row in dict:
             if row["day"] == str(day):
                 df_day.append(row)
         for bus_type in count_vt:
@@ -293,7 +292,6 @@ def get_number_busses_per_bustype(df):
             for row in df_day:
                 if row["vehicle_type"] == bus_type:
                     type_count += 1
-            # type_count = df_day.loc[df_day["vehicle_type"] == bus_type]["Umlauf_ID"].count()
             type[bus_type].append(type_count)
 
     for bus_type in type.keys():
@@ -323,19 +321,7 @@ def csv_to_dict(csv_path, headers=True):
                 row_data[row_key] = row[i]
             # add data to json store
             dict.append(row_data)
-
     return dict
-
-
-class NpEncoder(json.JSONEncoder):
-    def default(self, obj):
-        if isinstance(obj, np.integer):
-            return int(obj)
-        if isinstance(obj, np.floating):
-            return float(obj)
-        if isinstance(obj, np.ndarray):
-            return obj.tolist()
-        return super(NpEncoder, self).default(obj)
 
 
 if __name__ == '__main__':
