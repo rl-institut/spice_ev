@@ -13,8 +13,7 @@ Full documentation can be found `here <https://spice_ev.readthedocs.io/en/latest
 Installing smooth
 =================
 
-In order to use spice_ev, the spice_ev package and its requirements need to be installed. You can
-clone the current repository of spice_ev to your local machine using:
+You can clone the current repository of spice_ev to your local machine using:
 
 .. code:: bash
 
