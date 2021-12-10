@@ -172,7 +172,7 @@ def generate_schedule(args):
                 except (ValueError, KeyError):
                     # if timestamp column does not exist or contains wrong format
                     # assume NSM timeseries at the same time as simulation
-                    nsm_start_time = s.start_time
+                    nsm_start_time = s.start_time.replace(tzinfo=None)
                     warnings.warn('Time component of NSM timeseries ignored. '
                                   'Must be of format DD.MM.YYYY HH:MM')
             # store netto value, use previous value if none provided
