@@ -13,17 +13,17 @@ Inputs
 **External load**
 
 File type: CSV
-Needs one column with the drawn energy in kWh (can have more columns, but only one is relevant). The file is read line-by-line, with events starting at start_time and updating every interval (configurable).
+Needs one column with the drawn energy in kWh (can have more columns, but only one is relevant). The file is read line-by-line, with events starting at start_time and updating every interval (:ref:`configurable <command_line_options>`).
 
 **Feed-in**
 
 File type: CSV
-Needs one column with the energy produced in kWh (can have more columns, but only one is relevant). The file is read line-by-line, with events starting at start_time and updating every interval (configurable).
+Needs one column with the energy produced in kWh (can have more columns, but only one is relevant). The file is read line-by-line, with events starting at start_time and updating every interval (:ref:`configurable <command_line_options>`).
 
 **Energy price**
 
 File type: CSV
-Needs one column with the energy price in ct/kWh (can have more columns, but only one is relevant). The file is read line-by-line, with events starting at start_time and updating every interval (configurable). Can be created with generate_energy_price.py.
+Needs one column with the energy price in ct/kWh (can have more columns, but only one is relevant). The file is read line-by-line, with events starting at start_time and updating every interval (:ref:`configurable <command_line_options>`). Can be created with generate_energy_price.py.
 
 **Configuration**
 

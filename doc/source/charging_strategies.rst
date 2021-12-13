@@ -2,7 +2,7 @@
 Charging strategies
 ~~~~~~~~~~~~~~~~~~~
 
-The core of SpiceEV are the different charging strategies. They decide how to react to events, when to charge the cars and by how much. To see how to set strategy options, refer to [this wiki page](Command-line-options).
+The core of SpiceEV are the different charging strategies. They decide how to react to events, when to charge the cars and by how much. To see how to set strategy options, refer to :ref:`command line options <command_line_options>`.
 
 All charging strategies support the `EPS` option, which defines the difference under which two floating point numbers are considered equal. In other words, the value chosen for `EPS` determines the precision of the simulation. The smaller it is the more precise the calculations are. The downside to this is an increase running time. For some numerical procedures the algorithm might get stuck completely if `EPS` is too small. The default is 10^-5.
 
