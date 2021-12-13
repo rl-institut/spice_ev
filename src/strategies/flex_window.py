@@ -12,9 +12,7 @@ class FlexWindow(Strategy):
 
     def __init__(self, constants, start_time, **kwargs):
         self.HORIZON = 24  # hours ahead
-        self.DISCHARGE_LIMIT = 0  # V2G: maximum depth of discharge [0-1]
         self.LOAD_STRAT = "balanced"  # greedy, needy, balanced
-        self.CONCURRENCY = 1.0
 
         super().__init__(constants, start_time, **kwargs)
         assert (len(self.world_state.grid_connectors) == 1), "Only one grid connector supported"
@@ -36,10 +34,6 @@ class FlexWindow(Strategy):
                 v.estimated_time_of_departure)
         else:
             "Unknown charging strategy: {}".format(self.LOAD_STRAT)
-
-        # concurrency: set fraction of maximum available power at each charging station
-        for cs in self.world_state.charging_stations.values():
-            cs.max_power = self.CONCURRENCY * cs.max_power
 
     def step(self, event_list=[]):
         super().step(event_list)
@@ -291,6 +285,8 @@ class FlexWindow(Strategy):
             cs = self.world_state.charging_stations[cs_id]
             sim_vehicle = deepcopy(vehicle)
             cur_time = self.current_time - self.interval
+            max_discharge_power = \
+                sim_vehicle.battery.charging_curve.max_power * self.V2G_POWER_FACTOR
 
             # check if cehicles can be loaded until desired_soc in connected timesteps
             old_soc = vehicle.battery.soc
@@ -316,7 +312,8 @@ class FlexWindow(Strategy):
                         if ts_info["window"]:
                             sim_vehicle.battery.load(self.interval, cs.max_power)["avg_power"]
                         else:
-                            sim_vehicle.battery.unload(self.interval, cs.max_power,
+                            sim_vehicle.battery.unload(self.interval,
+                                                       min(cs.max_power, max_discharge_power),
                                                        target_soc=discharge_limit)["avg_power"]
                     if sim_vehicle.battery.soc <= sim_vehicle.desired_soc - self.EPS:
                         min_soc = discharge_limit
@@ -363,7 +360,8 @@ class FlexWindow(Strategy):
                         else:
                             power = util.clamp_power(total_power, sim_vehicle,
                                                      cs)
-                            sim_vehicle.battery.unload(self.interval, power,
+                            sim_vehicle.battery.unload(self.interval,
+                                                       min(power, max_discharge_power),
                                                        target_soc=discharge_limit)["avg_power"]
 
                 at_limit = sim_vehicle.battery.soc >= (1 - self.EPS)
@@ -386,7 +384,8 @@ class FlexWindow(Strategy):
                     discharge = 0
                 else:
                     power = util.clamp_power(total_power, vehicle, cs)
-                    discharge = vehicle.battery.unload(self.interval, power,
+                    discharge = vehicle.battery.unload(self.interval,
+                                                       min(power, max_discharge_power),
                                                        target_soc=discharge_limit)["avg_power"]
                 commands[cs_id] = gc.add_load(cs_id, -discharge)
                 cs.current_power -= discharge
@@ -624,6 +623,8 @@ class FlexWindow(Strategy):
             sim_vehicle = deepcopy(vehicle)
             cs_id = sim_vehicle.connected_charging_station
             cs = self.world_state.charging_stations[cs_id]
+            max_discharge_power = \
+                sim_vehicle.battery.charging_curve.max_power * self.V2G_POWER_FACTOR
 
             # check if cehicles can be loaded until desired_soc in connected timesteps
             old_soc = vehicle.battery.soc
@@ -650,7 +651,8 @@ class FlexWindow(Strategy):
                         if ts_info["window"]:
                             sim_vehicle.battery.load(self.interval, cs.max_power)["avg_power"]
                         else:
-                            sim_vehicle.battery.unload(self.interval, cs.max_power,
+                            sim_vehicle.battery.unload(self.interval,
+                                                       min(cs.max_power, max_discharge_power),
                                                        target_soc=discharge_limit)["avg_power"]
                     if sim_vehicle.battery.soc <= sim_vehicle.desired_soc - self.EPS:
                         min_soc = discharge_limit
@@ -729,7 +731,8 @@ class FlexWindow(Strategy):
                             # already discharged
                             break
                         if cur_needed_power > 0:
-                            sim_vehicle.battery.unload(self.interval, cur_needed_power,
+                            sim_vehicle.battery.unload(self.interval,
+                                                       min(cur_needed_power, max_discharge_power),
                                                        target_soc=discharge_limit)["avg_power"]
 
                     at_limit = sim_vehicle.battery.soc > (discharge_limit)
@@ -742,7 +745,8 @@ class FlexWindow(Strategy):
                 if needed_power < 0:
                     discharge = 0
                 else:
-                    discharge = vehicle.battery.unload(self.interval, needed_power,
+                    discharge = vehicle.battery.unload(self.interval,
+                                                       min(needed_power, max_discharge_power),
                                                        target_soc=discharge_limit)["avg_power"]
                 commands[cs_id] = gc.add_load(cs_id, -discharge)
                 cs.current_power -= discharge

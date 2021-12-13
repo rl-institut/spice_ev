@@ -10,18 +10,12 @@ class GreedyMarket(Strategy):
     Moves all charging events to times with low energy price
     """
     def __init__(self, constants, start_time, **kwargs):
-        self.CONCURRENCY = 1.0
         self.PRICE_THRESHOLD = 0.001  # EUR/kWh
         self.HORIZON = 24  # hours ahead
-        self.DISCHARGE_LIMIT = 0  # V2G: maximum depth of discharge [0-100]
 
         super().__init__(constants, start_time, **kwargs)
         assert len(self.world_state.grid_connectors) == 1, "Only one grid connector supported"
         self.description = "greedy (market-oriented) with {} hour horizon".format(self.HORIZON)
-
-        # concurrency: set fraction of maximum available power at each charging station
-        for cs in self.world_state.charging_stations.values():
-            cs.max_power = self.CONCURRENCY * cs.max_power
 
         # adjust foresight for vehicle and price events
         horizon_timedelta = datetime.timedelta(hours=self.HORIZON)
@@ -292,6 +286,8 @@ class GreedyMarket(Strategy):
             # and stop once it reaches charging timestep
             # off-by-one: v2g_sorted_idx is immediately decreased by one
             v2g_sorted_idx = len(sorted_ts)
+            max_discharge_power = \
+                min(power, sim_battery.loading_curve.max_power * self.V2G_POWER_FACTOR)
             while v2g_sorted_idx > (sorted_idx + 1):
                 sim_power = None
                 v2g_sorted_idx -= 1
@@ -341,7 +337,8 @@ class GreedyMarket(Strategy):
                         # discharge / no action
                         power = -cur_info["power"]
                         limit = self.DISCHARGE_LIMIT
-                        avg_power = sim_battery.unload(self.interval, power, limit)["avg_power"]
+                        avg_power = sim_battery.unload(
+                            self.interval, min(power, max_discharge_power), limit)["avg_power"]
                         power_vec[v2g_ts_idx + cur_idx] = avg_power
 
                     cur_info["soc"] = sim_battery.soc
@@ -409,7 +406,9 @@ class GreedyMarket(Strategy):
                             # discharge
                             power = -cur_info["power"]
                             limit = self.DISCHARGE_LIMIT
-                            info = sim_battery.unload(self.interval, power, self.DISCHARGE_LIMIT)
+                            info = sim_battery.unload(self.interval,
+                                                      min(power, max_discharge_power),
+                                                      self.DISCHARGE_LIMIT)
                             power_vec[ts_idx + cur_idx] = info["avg_power"]
                         cur_info["soc"] = sim_battery.soc
                         is_charged = sim_battery.soc >= desired_soc - self.EPS
