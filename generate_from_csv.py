@@ -113,7 +113,6 @@ def generate_from_csv(args):
                     "update": {
                         "connected_charging_station": "CS_" + v_name,
                         "estimated_time_of_departure": departure.isoformat(),
-#                        "soc": float(row["soc"])/100,
                         "soc_delta": ((100 - float(row["soc"])) / 100) * (-1)
                     }
                 })
@@ -355,7 +354,7 @@ if __name__ == '__main__':
     parser.add_argument('--battery', '-b', default=[], nargs=2, type=float, action='append',
                         help='add battery with specified capacity in kWh and C-rate \
                         (-1 for variable capacity, second argument is fixed power))')
-    parser.add_argument('--seed', default=None, type=int, help='set random seed') #todo:seed
+    parser.add_argument('--seed', default=None, type=int, help='set random seed')
     parser.add_argument('--include-ext-load-csv',
                         help='include CSV for external load. \
                         You may define custom options with --include-ext-csv-option')
