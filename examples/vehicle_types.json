@@ -23,6 +23,13 @@
         "min_charging_power": 0,
         "v2g": false
     },
+    "AB-OPP": {
+        "name": "articulated bus - oppotunity charging",
+        "capacity": 50,
+        "charging_curve": [[0, 150], [0.8, 150], [1, 150]],
+        "min_charging_power": 0,
+        "v2g": false
+    },
     "minimum_information": {
         "name": "Displayed name",
         "capacity": 0,
