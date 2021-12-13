@@ -23,15 +23,13 @@ class Strategy():
         # relative allowed difference between battery SoC and desired SoC when leaving
         self.margin = 0.05
         self.allow_negative_soc = False
+        self.DISCHARGE_LIMIT = 0
+        self.V2G_POWER_FACTOR = 1.0
         # tolerance for floating point comparison
         self.EPS = 1e-5
         # Reduce available power at each charging station to given fraction (0 - 1)
         for cs in self.world_state.charging_stations.values():
             cs.max_power = kwargs.get('CONCURRENCY', 1.0) * cs.max_power
-        # Set discharge limit (0 - 1) for V2G
-        self.DISCHARGE_LIMIT = kwargs.get('DISCHARGE_LIMIT', 0)
-        # Set fraction of max charging power for V2G discharge
-        self.V2G_POWER_FACTOR = kwargs.get('V2G_POWER_FACTOR', 1.0)
         # update optional
         for k, v in kwargs.items():
             setattr(self, k, v)

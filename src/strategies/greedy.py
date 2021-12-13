@@ -81,11 +81,12 @@ class Greedy(Strategy):
                     and cs.current_power < self.EPS
                     and get_cost(1, gc.cost) > self.PRICE_THRESHOLD):
                 # GC draws power, surplus in vehicle and V2G capable: support GC
+                discharge_power = min(
+                    gc.get_current_load(),
+                    vehicle.battery.loading_curve.max_power * self.V2G_POWER_FACTOR)
+                target_soc = max(vehicle.desired_soc, self.DISCHARGE_LIMIT)
                 avg_power = vehicle.battery.unload(
-                    self.interval,
-                    min(gc.get_current_load(),
-                        vehicle.battery.loading_curve.max_power * self.V2G_POWER_FACTOR),
-                    max(vehicle.desired_soc, self.DISCHARGE_LIMIT))['avg_power']
+                    self.interval, discharge_power, target_soc)['avg_power']
                 charging_stations[cs_id] = gc.add_load(cs_id, -avg_power)
                 cs.current_power -= avg_power
 
