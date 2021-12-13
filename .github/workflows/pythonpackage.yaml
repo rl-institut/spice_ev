@@ -26,3 +26,7 @@ jobs:
       run: |
         pip install pytest
         pytest src/tests.py
+    - name: Build documentation
+      run: |
+        pip install -r doc/requirements.txt
+        make -C doc html
