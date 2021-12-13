@@ -66,7 +66,7 @@ def generate_from_csv(args):
                 "connected_charging_station": None,
                 "estimated_time_of_departure": None,
                 "desired_soc": args.min_soc,
-                "soc": 1,
+                "soc": args.min_soc,
                 "vehicle_type": name
             }
             t = vehicle_types[name]
@@ -113,7 +113,7 @@ def generate_from_csv(args):
                     "update": {
                         "connected_charging_station": "CS_" + v_name,
                         "estimated_time_of_departure": departure.isoformat(),
-                        "soc_delta": ((100 - float(row["soc"])) / 100) * (-1)
+                        "soc_delta": ((100 - float(row["soc"])) / 100) * (-1),
                     }
                 })
 
@@ -301,14 +301,14 @@ def get_number_vehicles_per_vehicle_type(dict):
     # restructure trips to days of the week and count max number of vehicles per day
     count_vehicles = {bus_type: [0] * 7 for bus_type in count_vt.keys()}
     for row in dict:
-        count_vehicles[row["vehicle_type"]][int(row["day"])] += 1
+        count_vehicles[row["vehicle_type"]][int(row["day"])-1] += 1
     for bus_type in count_vehicles.keys():
         count_vehicles[bus_type] = max(count_vehicles[bus_type])
 
     return count_vehicles
 
 
-def csv_to_dict(csv_path, headers=True):
+def csv_to_dict(csv_path):
     """
     Reads csv file and returns a dict with each element representing a trip
     :param csv_path: str
@@ -320,18 +320,14 @@ def csv_to_dict(csv_path, headers=True):
     with open(csv_path, 'r') as file:
         reader = csv.reader(file)
         # set column names using first row
-        if headers:
-            columns = next(reader)
+        columns = next(reader)
 
         # convert csv to json
         for row in reader:
             row_data = {}
             for i in range(len(row)):
                 # set key names
-                if headers:
-                    row_key = columns[i].lower()
-                else:
-                    row_key = i
+                row_key = columns[i].lower()
                 # set key/value
                 row_data[row_key] = row[i]
             # add data to json store
