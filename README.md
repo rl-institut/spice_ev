@@ -3,6 +3,10 @@
 A tool to generate scenarios of electric-vehicle fleets and simulate different charging
 strategies.
 
+# Documentation
+
+Full documentation can be found `here <https://spice_ev.readthedocs.io/en/latest/>`_
+
 ## Installation
 
 Just clone this repository. This tool just has an optional dependency on
