@@ -731,7 +731,6 @@ class FlexWindow(Strategy):
                             # already discharged
                             break
                         if cur_needed_power > 0:
-                            # TODO
                             sim_vehicle.battery.unload(self.interval,
                                                        min(cur_needed_power, max_discharge_power),
                                                        target_soc=discharge_limit)["avg_power"]
