@@ -18,7 +18,8 @@ def generate_from_csv(args):
     if missing:
         raise SystemExit("The following arguments are required: {}".format(", ".join(missing)))
 
-    # arguments:
+    random.seed(args.seed)
+
     interval = datetime.timedelta(minutes=args.interval)
     # read csv input file
     input = csv_to_dict(args.input_file)
@@ -36,7 +37,7 @@ def generate_from_csv(args):
     for row in input:
         row["vehicle_type"] = row["vehicle_id"].split('_')[0]
 
-    number_vehicles_per_type = get_number_busses_per_bustype(input)
+    number_vehicles_per_type = get_number_vehicles_per_vehicle_type(input)
     vehicle_types = {}
     vehicles = {}
     batteries = {}
@@ -84,8 +85,12 @@ def generate_from_csv(args):
             list_vehicle_days = [d["day"] for d in vid_list]
             count_v_per_day = {i: list_vehicle_days.count(i) for i in list_vehicle_days}
             if any(v > 1 for v in count_v_per_day.values()):
-                raise ValueError
-            # sort events
+                raise ValueError("A vehicle is used for more than one rotation on the same day. "
+                                 "Please check the column >vehicle_id< in the input csv for "
+                                 "consistency.")
+
+            # sort events for their departure time, so that the matching departure time of an
+            # arrival event can be read out of the next element in vid_list
             vid_list = sorted(vid_list, key=lambda x: x["departure time"])
             for index, row in enumerate(vid_list):
                 departure_event_in_input = True
@@ -108,10 +113,16 @@ def generate_from_csv(args):
                     "update": {
                         "connected_charging_station": "CS_" + v_name,
                         "estimated_time_of_departure": departure.isoformat(),
-                        "soc": float(row["soc"])/100,
+#                        "soc": float(row["soc"])/100,
                         "soc_delta": ((100 - float(row["soc"])) / 100) * (-1)
                     }
                 })
+
+                # give warning if desired_soc < soc_delta
+                if args.min_soc < ((100 - float(row["soc"])) / 100):
+                    print(f"The minimum desired soc of {args.min_soc} is lower than the delta_soc"
+                          f" of the next ride.")
+
                 if departure_event_in_input:
                     events["vehicle_events"].append({
                         "signal_time": departure.isoformat(),
@@ -123,6 +134,7 @@ def generate_from_csv(args):
                         }
                     })
 
+    # add stationary battery
     for idx, (capacity, c_rate) in enumerate(args.battery):
         if capacity > 0:
             max_power = c_rate * capacity
@@ -212,37 +224,38 @@ def generate_from_csv(args):
 
     daily = datetime.timedelta(days=1)
     # price events
-    now = start - daily
-    while now < stop + 2 * daily:
-        now += daily
-        for v_id, v in vehicles.items():
-            if now >= stop:
-                # after end of scenario: keep generating trips, but don't include in scenario
-                continue
+    if not args.include_price_csv:
+        now = start - daily
+        while now < stop + 2 * daily:
+            now += daily
+            for v_id, v in vehicles.items():
+                if now >= stop:
+                    # after end of scenario: keep generating trips, but don't include in scenario
+                    continue
 
-        # generate prices for the day
-        if not args.include_price_csv and now < stop:
-            morning = now + datetime.timedelta(hours=6)
-            evening_by_month = now + datetime.timedelta(hours=22 - abs(6 - now.month))
-            events['grid_operator_signals'] += [{
-                # day (6-evening): 15ct
-                "signal_time": max(start, now - daily).isoformat(),
-                "grid_connector_id": "GC1",
-                "start_time": morning.isoformat(),
-                "cost": {
-                    "type": "fixed",
-                    "value": 0.15 + random.gauss(0, 0.05)
-                }
-            }, {
-                # night (depending on month - 6): 5ct
-                "signal_time": max(start, now - daily).isoformat(),
-                "grid_connector_id": "GC1",
-                "start_time": evening_by_month.isoformat(),
-                "cost": {
-                    "type": "fixed",
-                    "value": 0.05 + random.gauss(0, 0.03)
-                }
-            }]
+            # generate prices for the day
+            if now < stop:
+                morning = now + datetime.timedelta(hours=6)
+                evening_by_month = now + datetime.timedelta(hours=22 - abs(6 - now.month))
+                events['grid_operator_signals'] += [{
+                    # day (6-evening): 15ct
+                    "signal_time": max(start, now - daily).isoformat(),
+                    "grid_connector_id": "GC1",
+                    "start_time": morning.isoformat(),
+                    "cost": {
+                        "type": "fixed",
+                        "value": 0.15 + random.gauss(0, 0.05)
+                    }
+                }, {
+                    # night (depending on month - 6): 5ct
+                    "signal_time": max(start, now - daily).isoformat(),
+                    "grid_connector_id": "GC1",
+                    "start_time": evening_by_month.isoformat(),
+                    "cost": {
+                        "type": "fixed",
+                        "value": 0.05 + random.gauss(0, 0.03)
+                    }
+                }]
     # create final dict
     j = {
         "scenario": {
@@ -270,35 +283,39 @@ def generate_from_csv(args):
         json.dump(j, f, indent=2)
 
 
-def get_number_busses_per_bustype(dict):
+def get_number_vehicles_per_vehicle_type(dict):
+    """
+    Evaluates the number of vehicles per vehicle_type from the input csv.
 
-    type = {}
+    :param dict: dictionary with all trips as elements
+    :return: dict
+        dictionary {vehicle_type : number of vehicles}
+    """
+
+    count_vehicles = {}
     list_vt = []
     for row in dict:
         list_vt.append(row["vehicle_type"])
+    # count the appearance of each vehicle_type
     count_vt = {i: list_vt.count(i) for i in list_vt}
 
-    for vehicle_type in count_vt:
-        type[vehicle_type] = list()
-    # sort arrival times
-    for day in range(1, 8):
-        df_day = []
-        for row in dict:
-            if row["day"] == str(day):
-                df_day.append(row)
-        for bus_type in count_vt:
-            type_count = 0
-            for row in df_day:
-                if row["vehicle_type"] == bus_type:
-                    type_count += 1
-            type[bus_type].append(type_count)
+    # restructure trips to days of the week and count max number of vehicles per day
+    count_vehicles = {bus_type: [0] * 7 for bus_type in count_vt.keys()}
+    for row in dict:
+        count_vehicles[row["vehicle_type"]][int(row["day"])] += 1
+    for bus_type in count_vehicles.keys():
+        count_vehicles[bus_type] = max(count_vehicles[bus_type])
 
-    for bus_type in type.keys():
-        type[bus_type] = max(type[bus_type])
-    return type
+    return count_vehicles
 
 
 def csv_to_dict(csv_path, headers=True):
+    """
+    Reads csv file and returns a dict with each element representing a trip
+    :param csv_path: str
+    :param headers: bool
+    :return: dict
+    """
 
     dict = []
     with open(csv_path, 'r') as file:
@@ -326,10 +343,9 @@ def csv_to_dict(csv_path, headers=True):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         description='Generate scenarios as JSON files for vehicle charging modelling')
+    parser.add_argument('input_file', nargs='?',
+                        help='input file name (rotations_example_table.csv)')
     parser.add_argument('output', nargs='?', help='output file name (example.json)')
-    parser.add_argument('--capacities', metavar=('N', 'TYPE'), nargs=2, action='append', type=str,
-                        help='set number of cars for a vehicle type, \
-                        e.g. `--cars 100 sprinter` or `--cars 13 golf`')
     parser.add_argument('--days', metavar='N', type=int, default=30,
                         help='set duration of scenario as number of days')
     parser.add_argument('--interval', metavar='MIN', type=int, default=15,
@@ -339,7 +355,7 @@ if __name__ == '__main__':
     parser.add_argument('--battery', '-b', default=[], nargs=2, type=float, action='append',
                         help='add battery with specified capacity in kWh and C-rate \
                         (-1 for variable capacity, second argument is fixed power))')
-    parser.add_argument('--seed', default=None, type=int, help='set random seed')
+    parser.add_argument('--seed', default=None, type=int, help='set random seed') #todo:seed
     parser.add_argument('--include-ext-load-csv',
                         help='include CSV for external load. \
                         You may define custom options with --include-ext-csv-option')
