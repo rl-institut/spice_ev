@@ -296,6 +296,8 @@ class BalancedMarket(Strategy):
                         discharging_stations.append(cs_id)
                     charging_stations[cs_id] = gc.add_load(cs_id, avg_power)
                     cs.current_power += avg_power
+                    # current timestep will not be taken into account again
+                    break
                 # end apply power
             # end loop V2G
 
