@@ -16,6 +16,14 @@ def datetime_from_string(s):
 
 
 def generate_trip(args):
+    """
+    Creates randomly generated dummy trips from average input arguments
+
+    :param args: input arguments
+    :type args: argparse.Namespace
+    :return:
+        start.time(), stop.time(), distance
+    """
     # distance of one trip
     avg_distance = vars(args).get("avg_distance", 47.13)  # km
     std_distance = vars(args).get("std_distance", 19.89)
@@ -60,7 +68,11 @@ def generate_trip(args):
 
 def generate(args):
     """Generates a scenario JSON from input Parameters
-    args: argparse.Namespace
+
+    :param args: input arguments
+    :type args: argparse.Namespace
+
+    :return: None
     """
     if args.output is None:
         raise SystemExit("The following argument is required: output")

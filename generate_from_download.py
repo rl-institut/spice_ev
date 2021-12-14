@@ -11,7 +11,10 @@ from src.util import set_options_from_config
 
 def generate_from_download(args):
     """Generate a scenario JSON from JSON file with LIS event data.
-    args: argparse.Namespace
+
+    :param args: input arguments
+    :type args: argparse.Namespace
+    :return: None
     """
     missing = [arg for arg in ["input", "output"] if vars(args).get(arg) is None]
     if missing:

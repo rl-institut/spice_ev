@@ -4,14 +4,32 @@ from math import exp, log
 
 class Battery:
     def __init__(self, capacity, loading_curve, soc, efficiency=0.95):
+        """
+        Initializing the battery
+
+        :param capacity: capacity of the battery
+        :type capacity: int/float
+        :param loading_curve: loading curve of the battery
+        :type loading_curve: dict
+        :param soc: soc of the battery
+        :type soc: float
+        :param efficiency: efficiency of the battery
+        :type efficiency: float
+        """
         self.capacity = capacity
         self.loading_curve = copy.deepcopy(loading_curve)
         self.soc = soc
         self.efficiency = efficiency
 
     def load(self, timedelta, max_charging_power, target_soc=1):
-        """ Adjust SOC and return average charging power for a given timedelta
+        """
+        Adjust SOC and return average charging power for a given timedelta
         and maximum charging power.
+
+        :param timedelta:
+        :param max_charging_power:
+        :param target_soc:
+        :return:
         """
 
         # epsilon for floating point comparison
@@ -99,7 +117,14 @@ class Battery:
         return {'avg_power': avg_power, 'soc_delta': self.soc - old_soc}
 
     def unload(self, timedelta, max_power=None, target_soc=0):
-        # unload battery with constant power over timedelta
+        """
+        Unload battery with constant power over timedelta
+
+        :param timedelta:
+        :param max_power:
+        :param target_soc:
+        :return:
+        """
         # can use specific power - default: loading curve max power
         # can set target SOC (don't discharge below this threshold)
         if max_power is None:
@@ -125,8 +150,13 @@ class Battery:
         return {'avg_power': avg_power, 'soc_delta': delta_soc}
 
     def load_iterative(self, timedelta, max_charging_power):
-        """ Adjust SOC and return average charging power for a given timedelta
+        """
+        Adjust SOC and return average charging power for a given timedelta
         and maximum charging power.
+
+        :param timedelta:
+        :param max_charging_power:
+        :return:
         """
 
         seconds = timedelta.total_seconds()
@@ -155,7 +185,11 @@ class Battery:
         return {'avg_power': avg_power, 'soc_delta': soc_delta}
 
     def get_available_power(self, timedelta):
-        # returns maximum available power for timedelta duration
+        """
+        returns maximum available power for timedelta duration
+        :param timedelta:
+        :return:
+        """
         old_soc = self.soc
         power = self.unload(timedelta)['avg_power']
         self.soc = old_soc

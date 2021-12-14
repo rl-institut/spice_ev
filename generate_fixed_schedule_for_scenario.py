@@ -14,6 +14,11 @@ TIMEZONE = datetime.timezone(datetime.timedelta(hours=2))
 
 
 def main():
+    """
+    Generate fixed schedule for scenario
+
+    :return: None
+    """
     parser = argparse.ArgumentParser(
         description='Generate a schedule for a scenario.')
     parser.add_argument('--input', help='input file name of time series(nsm_example.csv)')
@@ -119,6 +124,14 @@ def main():
 
 
 def add_priority(row, max_network_load, max_load_range):
+    """
+    Add priority #todo: add comments here
+
+    :param row:
+    :param max_network_load:
+    :param max_load_range:
+    :return:
+    """
     if row['abregelung'] < 0:
         # Highest priority when eeg-plants are shut down
         return 1

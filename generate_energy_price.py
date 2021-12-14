@@ -10,7 +10,11 @@ from src.util import datetime_from_isoformat, set_options_from_config
 
 def generate_energy_price(args):
     """Generates energy price CSV.
-    args: argparse.Namespace
+
+    :param args: input arguments
+    :type args: argparse.Namespace
+
+    :return: None
     """
     if args.output is None:
         raise SystemExit("The following argument is required: output")

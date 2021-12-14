@@ -12,7 +12,10 @@ from src.util import set_options_from_config
 
 def generate_from_csv(args):
     """Generate a scenario JSON from csv rotation schedule of fleets.
-    args: argparse.Namespace
+
+    :param args: input arguments
+    :type args: argparse.Namespace
+    :return: None
     """
     missing = [arg for arg in ["input_file", "output"] if vars(args).get(arg) is None]
     if missing:
@@ -287,8 +290,9 @@ def get_number_vehicles_per_vehicle_type(dict):
     Evaluates the number of vehicles per vehicle_type from the input csv.
 
     :param dict: dictionary with all trips as elements
-    :return: dict
-        dictionary {vehicle_type : number of vehicles}
+    :type dict: dict
+    :return: dictionary {vehicle_type : number of vehicles}
+    :rtype: dict
     """
 
     count_vehicles = {}
@@ -311,9 +315,10 @@ def get_number_vehicles_per_vehicle_type(dict):
 def csv_to_dict(csv_path):
     """
     Reads csv file and returns a dict with each element representing a trip
-    :param csv_path: str
-    :param headers: bool
-    :return: dict
+    :param csv_path: path to input csv file
+    :type csv_path: str
+    :return: dictionary
+    :rtype: dict
     """
 
     dict = []
