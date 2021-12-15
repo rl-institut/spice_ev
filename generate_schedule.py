@@ -324,7 +324,7 @@ def generate_schedule(args):
                 energy -= e
                 assert batteries["stored"] >= -EPS and batteries["free"] >= -EPS, (
                    "Battery fail: negative energy")
-                assert flex["min"][t] <= schedule[t] <= flex["max"][t], (
+                assert flex["min"][t] - EPS <= schedule[t] <= flex["max"][t] + EPS, (
                     "{}: schedule not within flexibility".format(t))
             # keep track of next period
             t_start = t_end
