@@ -125,6 +125,13 @@ class FlexWindow(Strategy):
         return {"current_time": self.current_time, "commands": commands}
 
     def distribute_balanced_vehicles(self, timesteps):
+        """Charge vehicles with balanced method according to schedule
+
+        :param timesteps: list of dictionaries for each timestep in horizon
+        :type timesteps: list
+        :return: commands for charging stations
+        :rtype: dict
+        """
 
         commands = {}
         gc = list(self.world_state.grid_connectors.values())[0]
@@ -205,6 +212,11 @@ class FlexWindow(Strategy):
         return commands
 
     def distribute_balanced_batteries(self, timesteps):
+        """Charge/discharge batteries with balanced method according to schedule
+
+        :param timesteps: list of dictionaries for each timestep in horizon
+        :type timesteps: list
+        """
 
         gc = list(self.world_state.grid_connectors.values())[0]
 
@@ -278,6 +290,15 @@ class FlexWindow(Strategy):
                 timesteps[0]["total_load"] -= discharge
 
     def distribute_balanced_v2g(self, timesteps, commands):
+        """Charge/discharge vehicles with v2g with balanced method according to schedule
+
+        :param timesteps: list of dictionaries for each timestep in horizon
+        :type timesteps: list
+        :param commands for charging stations
+        :type commands: dict
+        :return: commands for charging stations
+        :rtype: dict
+        """
 
         if not commands:
             commands = {}
@@ -404,6 +425,13 @@ class FlexWindow(Strategy):
         return commands
 
     def distribute_peak_shaving_vehicles(self, timesteps):
+        """Charge vehicles with peak shaving method according to schedule
+
+        :param timesteps: list of dictionaries for each timestep in horizon
+        :type timesteps: list
+        :return: commands for charging stations
+        :rtype: dict
+        """
 
         commands = {}
         gc = list(self.world_state.grid_connectors.values())[0]
@@ -503,7 +531,11 @@ class FlexWindow(Strategy):
         return commands
 
     def distribute_peak_shaving_batteries(self, timesteps):
+        """Charge/discharge batteries with peak shaving method according to schedule
 
+        :param timesteps: list of dictionaries for each timestep in horizon
+        :type timesteps: list
+        """
         discharging_stations = []
         batteries = [b for b in self.world_state.batteries.values()
                      if b.parent is not None]
@@ -619,7 +651,15 @@ class FlexWindow(Strategy):
                 timesteps[0]["total_load"] -= discharge
 
     def distribute_peak_shaving_v2g(self, timesteps, commands):
+        """Charge/discharge vehicles with v2g with peak shaving method according to schedule
 
+        :param timesteps: list of dictionaries for each timestep in horizon
+        :type timesteps: list
+        :param commands for charging stations
+        :type commands: dict
+        :return: commands for charging stations
+        :rtype: dict
+        """
         gc = list(self.world_state.grid_connectors.values())[0]
         # get all vehicles that are connected in this step and order vehicles
         vehicles = sorted([v for v in self.world_state.vehicles.values()
@@ -765,6 +805,19 @@ class FlexWindow(Strategy):
         return commands
 
     def distribute_power(self, vehicles, total_power, total_needed):
+        """Load vehicle batteries with available power according to LOAD_STRAT.
+
+        possible LOAD_STRATs: greedy, needy
+
+        :param vehicles: vehicle objects (?)
+        :type vehicles: object
+        :param total_power: total available power
+        :type total_power: numeric
+        :param total_needed: total power needed
+        :type total_needed: numeric
+        :return: commands for charging stations
+        :rtype: dict
+        """
         commands = {}
         if total_power <= 0 or total_needed <= 0:
             return {}

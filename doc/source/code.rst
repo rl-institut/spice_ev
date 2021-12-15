@@ -16,8 +16,8 @@ Generate
 .. autosummary::
     :toctree: temp/
 
-    generate.generate_trip
-    generate.generate
+    generate_trip
+    generate
 
 Generate_energy_price
 ---------------------
@@ -25,7 +25,7 @@ Generate_energy_price
 .. autosummary::
     :toctree: temp/
 
-    generate_energy_price.generate_energy_price
+    generate_energy_price
 
 Generate_from_csv
 -----------------
@@ -33,9 +33,9 @@ Generate_from_csv
 .. autosummary::
     :toctree: temp/
 
-    generate_from_csv.generate_from_csv
-    generate_from_csv.get_number_vehicles_per_vehicle_type
-    generate_from_csv.csv_to_dict
+    generate_from_csv
+    get_number_vehicles_per_vehicle_type
+    csv_to_dict
 
 Generate_from_download
 ----------------------
@@ -44,7 +44,7 @@ Generate_from_download
 .. autosummary::
     :toctree: temp/
 
-    generate_from_download.generate_from_download
+    generate_from_download
 
 
 Generate_from_simbev
@@ -54,7 +54,7 @@ Generate_from_simbev
 .. autosummary::
     :toctree: temp/
 
-    generate_from_simbev.generate_from_simbev
+    generate_from_simbev
 
 Generate_schedule
 -----------------
@@ -62,8 +62,8 @@ Generate_schedule
 .. autosummary::
     :toctree: temp/
 
-    generate_schedule.generate_schedule
-    generate_schedule.generate_flex_band
+    generate_schedule
+    generate_flex_band
 
 
 Generate_fixed_schedule_for_scenario
@@ -71,6 +71,16 @@ Generate_fixed_schedule_for_scenario
 .. currentmodule:: generate_fixed_schedule_for_scenario
 .. autosummary::
     :toctree: temp/
+
+    main
+    add_priority
+    get_fleet_info_from_scenario
+    get_time_series_indices_for_date_range
+    add_value_to_column_by_indices
+    spread_flexibility_on_priorities
+    add_flexibility_for_date_and_vehicle_groups
+    add_percentage_signal
+    save_schedule
 
 Simulate
 ========
@@ -81,7 +91,7 @@ Functions as a wrapper for the simulation.
 .. autosummary::
     :toctree: temp/
 
-    simulate.simulate
+    simulate
 
 Scenario
 ========
@@ -143,6 +153,13 @@ There are time windows during which charging is encouraged and there are those w
 
     FlexWindow
     FlexWindow.step
+    FlexWindow.distribute_balanced_vehicles
+    FlexWindow.distribute_balanced_batteries
+    FlexWindow.distribute_balanced_v2g
+    FlexWindow.distribute_peak_shaving_vehicles
+    FlexWindow.distribute_peak_shaving_batteries
+    FlexWindow.distribute_peak_shaving_v2g
+    FlexWindow.distribute_power
 
 Greedy
 ------

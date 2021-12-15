@@ -315,6 +315,7 @@ def get_number_vehicles_per_vehicle_type(dict):
 def csv_to_dict(csv_path):
     """
     Reads csv file and returns a dict with each element representing a trip
+
     :param csv_path: path to input csv file
     :type csv_path: str
     :return: dictionary
