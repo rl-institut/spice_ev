@@ -213,6 +213,7 @@ class FlexWindow(Strategy):
             new_timesteps.append(row)
         old_soc = [b.soc for b in sim_batteries]
 
+        total_power = 0
         while max_power - min_power > self.EPS:
             total_power = (min_power + max_power) / 2
             # reset soc
