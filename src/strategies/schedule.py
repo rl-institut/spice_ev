@@ -8,6 +8,7 @@ from src.util import clamp_power, dt_within_core_standing_time
 
 
 class Schedule(Strategy):
+    """Schedule strategy"""
     def __init__(self, constants, start_time, **kwargs):
         self.LOAD_STRAT = 'needy'  # greedy, balanced
 
@@ -41,7 +42,11 @@ class Schedule(Strategy):
             "Unknown charging strategy: {}".format(self.LOAD_STRAT)
 
     def dt_to_end_of_time_window(self):
-        # returns timedelta between now and end of core standing time with a precision of one minute
+        """Returns timedelta between now and end of core standing time with a precision of one minute
+
+        :return: duration
+        :rtype: timedelta
+        """
         duration = timedelta()
         interval = timedelta(minutes=1)
 
@@ -51,22 +56,24 @@ class Schedule(Strategy):
         return duration
 
     def sim_balanced_charging(self, vehicle, dt, max_power, delta_soc=None):
-        ''' Simulates a balanced charging process for a single vehicle.
+        """Simulates a balanced charging process for a single vehicle.
 
-        Args:
-            vehicle: vehicle to be charged
-            dt: timedelta remaining until charging process should be completed
-            max_power: maximum power available during current timestep
-            delta_soc (optional): desired change in SOC until end of timedelta dt
-                If not provided, vehicle is charged to its desired_soc.
-        Returns:
-            opt_power: optimal charging power for current timestep
-            charged_soc: delta SOC after the timestep if charged with opt_power
+        :param vehicle: vehicle to be charged
+        :type vehicle: object
+        :param dt: time period remaining until charging process should be completed
+        :type dt: timedelta
+        :param max_power: maximum power available during current timestep
+        :type max_power: numeric
+        :param delta_soc: (optional) desired change in SOC until end of timedelta dt. If not provided, vehicle is charged to its desired_soc.
+        :type delta_soc: numeric
+        :return: opt_power (optimal charging power for current timestep),
+                charged_soc (delta SOC after the timestep if charged with opt_power)
+        :rtype: dict
 
         Note: If charging balanced across entire time period dt would require a
         charging power less than the vehicle or charging station allows for,
         the vehicle charges prefers to charge in the beginning rather than in the end.
-        '''
+        """
 
         # get vehicle
         cs_id = vehicle.connected_charging_station
@@ -113,9 +120,15 @@ class Schedule(Strategy):
         return {"opt_power": power, "charged_soc": charged_soc}
 
     def collect_future_gc_info(self, dt=timedelta(days=1)):
+        """Get grid connector info for each future timestep until all cars left
+
+        :param dt: time period (default: 24 h)
+        :type dt: timedelta
+        :return: grid commector info
+        :rtype: dict
+        """
         gc = list(self.world_state.grid_connectors.values())[0]
 
-        # GC info for each future timestep until all cars left
         gc_info = [{
             "current_loads": {},
             "target": gc.target
@@ -158,14 +171,14 @@ class Schedule(Strategy):
         return gc_info
 
     def evaluate_core_standing_time_ahead(self):
-        '''
-        This function is called once at the beginning of each core standing time.
-        It evaluates how much energy is provided by the schedule at each timestep and how much
+        """Evaluates how much energy is provided by the schedule at each timestep and how much
         energy is needed by the cars in total.
+
+        This function is called once at the beginning of each core standing time.
 
         Shortcomings of the schedule are detected early on and battery energy is allocated to
         help out when necessary.
-        '''
+        """
         # get time paramters of next core standing time
         self.TS_per_hour = (timedelta(hours=1) / self.interval)
         dt_to_end_core_standing_time = self.dt_to_end_of_time_window()
@@ -230,6 +243,7 @@ class Schedule(Strategy):
 
     def charge_cars_during_core_standing_time(self):
         """ Charges cars during core standing time.
+
         1. In case no energy was allocated for vehicles in this timestep, only
         those vehicles get to charge that are expected not to meet their goal at the end
         of the core standing time. In this case the schedule is ignored in favor of fully charged
@@ -352,15 +366,14 @@ class Schedule(Strategy):
         return charging_stations
 
     def charge_cars_after_core_standing_time(self, charging_stations):
-        """
-        Charges cars balanced in the time frame between the end of core standing time
+        """Charges cars balanced in the time frame between the end of core standing time
         and each vehicles departure until desired SOC is reached.
 
-        Args:
-            charging_stations: Charging_commands previously allocated during this timestep
-        Returns:
-            charging_stations: An updated version of the input containing total of all
-                               charging commands determined until this point.
+        :param charging_stations: Charging_commands previously allocated during this timestep
+        :type charging_stations: dict ?
+        :return: charging_stations (An updated version of the input containing total of all
+        charging commands determined until this point.)
+        :rtype: dict
         """
 
         gc = list(self.world_state.grid_connectors.values())[0]  # only 1 GC supported
@@ -404,6 +417,12 @@ class Schedule(Strategy):
         return charging_stations
 
     def charge_cars(self):
+        """Charging vehicles.
+
+        :return: charging_stations (An updated version of the input containing total of all
+        charging commands determined until this point.)
+        :rtype: dict
+        """
         charging_stations = {}
 
         vehicles_at_gc = {gc_id: [] for gc_id in self.world_state.grid_connectors.keys()}
@@ -500,7 +519,8 @@ class Schedule(Strategy):
         return charging_stations
 
     def utilize_stationary_batteries(self):
-        # adjust deviation with batteries
+        """Adjust deviation with batteries
+        """
         for bid, battery in self.world_state.batteries.items():
             gc_id = battery.parent
             gc = self.world_state.grid_connectors[gc_id]
@@ -523,6 +543,13 @@ class Schedule(Strategy):
             gc.add_load(bid, bat_power)
 
     def step(self, event_list=[]):
+        """Calculates charging in each timestep.
+
+        :param event_list: List of events
+        :type event_list: list
+        :return: current time and commands of the charging stations
+        :rtype: dict
+        """
         super().step(event_list)
 
         # no car is charging at beginning of TS

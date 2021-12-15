@@ -119,6 +119,7 @@ surplus feed-in power or if the energy price falls below a certain PRICE_THRESHO
     :toctree: temp/
 
     Balanced
+    Balanced.step
 
 Balanced Market
 ---------------
@@ -130,6 +131,7 @@ When using this strategy, price information within the next *HORIZON* hours is e
     :toctree: temp/
 
     BalancedMarket
+    BalancedMarket.step
 
 Flex window
 -----------
@@ -140,6 +142,7 @@ There are time windows during which charging is encouraged and there are those w
     :toctree: temp/
 
     FlexWindow
+    FlexWindow.step
 
 Greedy
 ------
@@ -152,6 +155,7 @@ may be charged in one timestep.
     :toctree: temp/
 
     Greedy
+    Greedy.step
 
 Greedy Market
 -------------
@@ -163,6 +167,7 @@ Moves all charging events to those time intervals and charges them with full pow
     :toctree: temp/
 
     GreedyMarket
+    GreedyMarket.step
 
 Inverse
 -------
@@ -173,6 +178,7 @@ Charging strategy that prioritizes times with lower power costs. The idea is to 
     :toctree: temp/
 
     Inverse
+    Inverse.step
 
 Peak load window
 ----------------
@@ -183,6 +189,8 @@ Given a time window of high load, tries to charge outside this window. Different
     :toctree: temp/
 
     PeakLoadWindow
+    PeakLoadWindow.step
+    PeakLoadWindow.distribute_power
 
 Schedule
 --------
@@ -193,6 +201,15 @@ Allocate power according to grid operator schedule.
     :toctree: temp/
 
     Schedule
+    Schedule.dt_to_end_of_time_window
+    Schedule.sim_balanced_charging
+    Schedule.collect_future_gc_info
+    Schedule.evaluate_core_standing_time_ahead
+    Schedule.charge_cars_during_core_standing_time
+    Schedule.charge_cars_after_core_standing_time
+    Schedule.charge_cars
+    Schedule.utilize_stationary_batteries
+    Schedule.step
 
 Schedule foresight
 ------------------
@@ -220,6 +237,10 @@ Components
     :toctree: temp/
 
     Battery
+    Battery.load
+    Battery.unload
+    Battery.load_iterative
+    Battery.get_available_power
 
 .. currentmodule:: src.constants
 .. autosummary::
@@ -227,9 +248,16 @@ Components
 
     StationaryBattery
     GridConnector
+    GridConnector.add_load
+    GridConnector.get_current_load
+    GridConnector.add_avg_ext_load_week
+    GridConnector.get_avg_ext_load
     ChargingStation
     VehicleType
     Vehicle
+    Vehicle.get_delta_soc
+    Vehicle.get_energy_needed
+
 
 Events
 ======

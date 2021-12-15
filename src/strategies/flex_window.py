@@ -6,8 +6,10 @@ from src.strategy import Strategy
 
 
 class FlexWindow(Strategy):
-    """
-    Charges balanced during given time windows
+    """FlexWindow Strategy
+
+    if LoadStrat = "balanced": Charges balanced during given time windows.
+    else: peak shaving in given time windows
     """
 
     def __init__(self, constants, start_time, **kwargs):
@@ -36,6 +38,14 @@ class FlexWindow(Strategy):
             "Unknown charging strategy: {}".format(self.LOAD_STRAT)
 
     def step(self, event_list=[]):
+        """
+        Calculates charging in each timestep.
+
+        :param event_list: List of events
+        :type event_list: list
+        :return: current time and commands of the charging stations
+        :rtype: dict
+        """
         super().step(event_list)
 
         gc = list(self.world_state.grid_connectors.values())[0]

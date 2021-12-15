@@ -6,7 +6,8 @@ from src.strategy import Strategy
 
 
 class PeakLoadWindow(Strategy):
-    """
+    """PeakLoadWindow strategy
+
     Charging strategy that prioritizes times outside of high load time windows.
 
     Charge balanced outside of windows, inside different substrategies are possible.
@@ -57,6 +58,14 @@ class PeakLoadWindow(Strategy):
         assert len(self.world_state.grid_connectors) == 1, "Only one grid connector supported"
 
     def step(self, event_list=[]):
+        """
+        Calculates charging in each timestep.
+
+        :param event_list: List of events
+        :type event_list: list
+        :return: current time and commands of the charging stations
+        :rtype: dict
+        """
         super().step(event_list)
 
         timesteps_per_day = datetime.timedelta(days=1) // self.interval
@@ -246,8 +255,19 @@ class PeakLoadWindow(Strategy):
         return {'current_time': self.current_time, 'commands': commands}
 
     def distribute_power(self, vehicles, total_power, energy_needed):
+        """Distribute total_power to vehicles in iterable vehicles according to self.LOAD_STRAT
+
+        :param vehicles: vehicles object
+        :type vehicles: object
+        :param total_power: total available power
+        :type total_power: numeric
+        :param energy_needed: total energy needed to charge every vehicle (used in needy strategy)
+        :type energy_needed: numeric
+        :return: commands for charging station
+        :rtype: dict
+        """
         # distribute total_power to vehicles in iterable vehicles according to self.LOAD_STRAT
-        # energy_needed is total energy needed to charge every vehicle, used in needy strategy
+        # energy_needed is
         if not vehicles:
             return {}
         if total_power < self.EPS:
