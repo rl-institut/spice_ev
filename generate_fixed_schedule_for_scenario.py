@@ -200,7 +200,7 @@ def spread_flexibility_on_priorities(time_series, datetime_from, datetime_until,
     """Spread flexibilities on priorities
 
     :param time_series: A list of dicts including the priority and the timestamp
-    :type time_series: list
+    :type time_series list
     :param datetime_from: datetime start of flexibility window
     :type datetime_from: datetime
     :param datetime_until: datetime end of flexibility window
