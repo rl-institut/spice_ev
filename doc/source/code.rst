@@ -238,11 +238,18 @@ Events
     :toctree: temp/
 
     Event
+    Events
+    Events.get_event_steps
     EnergyFeedIn
     ExternalLoad
     EnergyValuesList
+    EnergyValuesList.get_events
     GridOperatorSignal
     VehicleEvent
+
+    get_energy_price_list_from_csv
+    get_schedule_from_csv
+
 
 Loading curve
 =============
@@ -254,7 +261,17 @@ Loading curve
 
 Util
 ====
+Utility functions.
 
 .. currentmodule:: src.util
 .. autosummary::
     :toctree: temp/
+
+    datetime_from_isoformat
+    datetime_within_window
+    dt_within_core_standing_time
+    set_attr_from_dict
+    get_cost
+    get_power
+    clamp_power
+    set_options_from_config
