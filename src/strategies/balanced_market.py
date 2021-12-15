@@ -201,6 +201,8 @@ class BalancedMarket(Strategy):
                     cs.current_power += avg_power
                     # don't have to simulate further
                     break
+            else:
+                sorted_idx = 0
 
             # normal charging done
 
