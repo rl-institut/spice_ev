@@ -120,8 +120,7 @@ class FlexWindow(Strategy):
         gc = list(self.world_state.grid_connectors.values())[0]
         # order vehicles
         vehicles = sorted([v for v in self.world_state.vehicles.values()
-                           if (v.connected_charging_station is not None)
-                           and not (v.vehicle_type.v2g)], key=self.sort_key)
+                           if (v.connected_charging_station is not None)], key=self.sort_key)
 
         for vehicle in vehicles:
             cs_id = vehicle.connected_charging_station
@@ -304,7 +303,7 @@ class FlexWindow(Strategy):
 
             # check if vehicle ends up with desired soc, adjust min_soc accordingly
             if not cur_window and window_change >= 1:
-                min_soc = 0
+                min_soc = self.DISCHARGE_LIMIT
                 max_soc = 1
                 while max_soc - min_soc > self.EPS:
                     discharge_limit = (max_soc + min_soc) / 2
@@ -643,7 +642,7 @@ class FlexWindow(Strategy):
 
             # check if vehicle ends up with desired soc, adjust min_soc accordingly
             if not cur_window and window_change >= 1:
-                min_soc = 0
+                min_soc = self.DISCHARGE_LIMIT
                 max_soc = 1
                 while max_soc - min_soc > self.EPS:
                     discharge_limit = (max_soc + min_soc) / 2
