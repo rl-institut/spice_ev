@@ -3,9 +3,9 @@ from math import exp, log
 
 
 class Battery:
+    """Battery class"""
     def __init__(self, capacity, loading_curve, soc, efficiency=0.95):
-        """
-        Initializing the battery
+        """ Initializing the battery
 
         :param capacity: capacity of the battery
         :type capacity: int/float
@@ -22,14 +22,17 @@ class Battery:
         self.efficiency = efficiency
 
     def load(self, timedelta, max_charging_power, target_soc=1):
-        """
-        Adjust SOC and return average charging power for a given timedelta
+        """ Adjust SOC and return average charging power for a given timedelta
         and maximum charging power.
 
-        :param timedelta:
-        :param max_charging_power:
-        :param target_soc:
-        :return:
+        :param timedelta: time period in which battery can charge
+        :type timedelta: timedelta
+        :param max_charging_power: maximum charging power
+        :type max_charging_power: numeric
+        :param target_soc: desired soc
+        :type target_soc: numeric
+        :return: average power and soc_delta
+        :rtype: dict
         """
 
         # epsilon for floating point comparison
@@ -117,16 +120,21 @@ class Battery:
         return {'avg_power': avg_power, 'soc_delta': self.soc - old_soc}
 
     def unload(self, timedelta, max_power=None, target_soc=0):
-        """
-        Unload battery with constant power over timedelta
+        """Unload battery with constant power over timedelta
 
-        :param timedelta:
-        :param max_power:
-        :param target_soc:
-        :return:
+        :param timedelta: time period in which battery can be discharged
+        :type timedelta: timedelta
+        :param max_power: maximum charging power
+        :type max_charging_power: numeric
+        :param target_soc: desired soc
+        :type target_soc: numeric
+        :return: average power and soc_delta
+        :rtype: dict
+
+        notes:
+        * can use specific power - default: loading curve max power
+        * can set target SOC (don't discharge below this threshold)
         """
-        # can use specific power - default: loading curve max power
-        # can set target SOC (don't discharge below this threshold)
         if max_power is None:
             avg_power = self.loading_curve.max_power
         else:
@@ -150,13 +158,15 @@ class Battery:
         return {'avg_power': avg_power, 'soc_delta': delta_soc}
 
     def load_iterative(self, timedelta, max_charging_power):
-        """
-        Adjust SOC and return average charging power for a given timedelta
+        """Adjust SOC and return average charging power for a given timedelta
         and maximum charging power.
 
-        :param timedelta:
-        :param max_charging_power:
-        :return:
+        :param timedelta: time period in which battery can be loaded
+        :type timedelta: timedelta
+        :param max_power: maximum charging power
+        :type max_charging_power: numeric
+        :return: average power and soc_delta
+        :rtype: dict
         """
 
         seconds = timedelta.total_seconds()
@@ -185,10 +195,12 @@ class Battery:
         return {'avg_power': avg_power, 'soc_delta': soc_delta}
 
     def get_available_power(self, timedelta):
-        """
-        returns maximum available power for timedelta duration
-        :param timedelta:
-        :return:
+        """Returns maximum available power for timedelta duration.
+
+        :param timedelta: time period
+        :type timedelta: timedelta
+        :return: power
+        :rtype: numeric
         """
         old_soc = self.soc
         power = self.unload(timedelta)['avg_power']

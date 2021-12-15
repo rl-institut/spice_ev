@@ -258,6 +258,8 @@ Loading curve
     :toctree: temp/
 
     LoadingCurve
+    LoadingCurve.power_from_soc
+    LoadingCurve.clamped
 
 Util
 ====
