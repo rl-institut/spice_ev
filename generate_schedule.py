@@ -14,7 +14,7 @@ EPS = 1e-8
 
 
 def generate_flex_band(scenario, core_standing_time=None):
-    """generate flexibility potential with perfect foresight
+    """Generate flexibility potential with perfect foresight
 
     :param scenario: dictionary from scenario json
     :type scenario: dict
@@ -157,7 +157,7 @@ def generate_flex_band(scenario, core_standing_time=None):
 
 
 def generate_schedule(args):
-    """generate schedule for grid signals
+    """Generate schedule for grid signals
 
     :param args: input arguments
     :type args: argparse.Namespace

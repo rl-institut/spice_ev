@@ -9,7 +9,7 @@ from src.util import datetime_from_isoformat, set_options_from_config
 
 
 def generate_energy_price(args):
-    """Generates energy price CSV.
+    """Generates energy price CSV with random values.
 
     :param args: input arguments
     :type args: argparse.Namespace

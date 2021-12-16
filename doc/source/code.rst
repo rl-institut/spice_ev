@@ -9,9 +9,20 @@ Code documentation
 
 Generate inputs
 ===============
+The generate scripts prepare input files for the simulation with spice_ev. Most
+generate scripts create a scenario json, containing information about the vehicles, the trips,
+the charging stations, grid connectors as well as optional inputs such as
+stationary batteries, external load, feed-in or grid signal time series. The modules
+'generate_schedule' and 'generate_fixed_schedule_for_scenario' prepare csv files
+of grid operator schedules and add this schedule to an existing input json. The
+'generate_energy_price' function creates a dummy energy_price csv input file
+with randomly generated values.
 
 Generate
 --------
+Generates a scenario JSON with random dummy trips for a set up defined by input
+arguments. For an example config file see '/examples/generate.cfg'.
+
 .. currentmodule:: generate
 .. autosummary::
     :toctree: temp/
@@ -21,6 +32,9 @@ Generate
 
 Generate_energy_price
 ---------------------
+Generates energy price CSV with random values. For an example config file see
+'/examples/generate_energy_price.cfg'.
+
 .. currentmodule:: generate_energy_price
 .. autosummary::
     :toctree: temp/
@@ -29,6 +43,9 @@ Generate_energy_price
 
 Generate_from_csv
 -----------------
+Generates a scenario JSON from csv rotation schedule of fleets. For an example
+config file see '/examples/generate_from_csv.cfg'.
+
 .. currentmodule:: generate_from_csv
 .. autosummary::
     :toctree: temp/
@@ -39,6 +56,8 @@ Generate_from_csv
 
 Generate_from_download
 ----------------------
+Generates a scenario JSON from JSON file with LIS event data. For an example
+config file see '/examples/generate_from_download.cfg'.
 
 .. currentmodule:: generate_from_download
 .. autosummary::
@@ -49,6 +68,8 @@ Generate_from_download
 
 Generate_from_simbev
 --------------------
+Generates a scenario JSON from simBEV results. For an example
+config file see '/examples/generate_from_simbev.cfg'.
 
 .. currentmodule:: generate_from_simbev
 .. autosummary::
@@ -58,6 +79,9 @@ Generate_from_simbev
 
 Generate_schedule
 -----------------
+Generates schedule for grid signals.  For an example
+config file see '/examples/generate_schedule.cfg'.
+
 .. currentmodule:: generate_schedule
 .. autosummary::
     :toctree: temp/
@@ -68,6 +92,8 @@ Generate_schedule
 
 Generate_fixed_schedule_for_scenario
 ------------------------------------
+Generates fixed schedule for scenario
+
 .. currentmodule:: generate_fixed_schedule_for_scenario
 .. autosummary::
     :toctree: temp/

@@ -11,7 +11,7 @@ from src.util import set_options_from_config
 
 
 def generate_from_csv(args):
-    """Generate a scenario JSON from csv rotation schedule of fleets.
+    """Generates a scenario JSON from csv rotation schedule of fleets.
 
     :param args: input arguments
     :type args: argparse.Namespace
