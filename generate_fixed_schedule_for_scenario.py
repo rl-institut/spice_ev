@@ -260,7 +260,8 @@ def add_flexibility_for_date_and_vehicle_groups(time_series, datetime_from, date
     :type datetime_from: datetime
     :param datetime_until: The end datetime of the flexibility window
     :type datetime_until: datetime
-    :param vehicle_groups: a list of flexibilities containing flexibility (kWh), min load (kW), start_time, end_time
+    :param vehicle_groups: a list of flexibilities containing flexibility (kWh), min load (kW),\
+        start_time, end_time
     :type vehicle_groups: list (?)
     """
     for flexibility, min_load, max_load, start_time, end_time in vehicle_groups:

@@ -21,7 +21,7 @@ with randomly generated values.
 Generate
 --------
 Generates a scenario JSON with random dummy trips for a set up defined by input
-arguments. For an example config file see '/examples/generate.cfg'.
+arguments. For an example config file see `/examples/generate.cfg`.
 
 .. currentmodule:: generate
 .. autosummary::
@@ -33,7 +33,7 @@ arguments. For an example config file see '/examples/generate.cfg'.
 Generate_energy_price
 ---------------------
 Generates energy price CSV with random values. For an example config file see
-'/examples/generate_energy_price.cfg'.
+`/examples/generate_energy_price.cfg`.
 
 .. currentmodule:: generate_energy_price
 .. autosummary::
@@ -44,7 +44,7 @@ Generates energy price CSV with random values. For an example config file see
 Generate_from_csv
 -----------------
 Generates a scenario JSON from csv rotation schedule of fleets. For an example
-config file see '/examples/generate_from_csv.cfg'.
+config file see `/examples/generate_from_csv.cfg`.
 
 .. currentmodule:: generate_from_csv
 .. autosummary::
@@ -57,7 +57,7 @@ config file see '/examples/generate_from_csv.cfg'.
 Generate_from_download
 ----------------------
 Generates a scenario JSON from JSON file with LIS event data. For an example
-config file see '/examples/generate_from_download.cfg'.
+config file see `/examples/generate_from_download.cfg`.
 
 .. currentmodule:: generate_from_download
 .. autosummary::
@@ -69,7 +69,7 @@ config file see '/examples/generate_from_download.cfg'.
 Generate_from_simbev
 --------------------
 Generates a scenario JSON from simBEV results. For an example
-config file see '/examples/generate_from_simbev.cfg'.
+config file see `/examples/generate_from_simbev.cfg`.
 
 .. currentmodule:: generate_from_simbev
 .. autosummary::
@@ -79,8 +79,8 @@ config file see '/examples/generate_from_simbev.cfg'.
 
 Generate_schedule
 -----------------
-Generates schedule for grid signals.  For an example
-config file see '/examples/generate_schedule.cfg'.
+Generates schedule for grid signals. For an example
+config file see `/examples/generate_schedule.cfg`.
 
 .. currentmodule:: generate_schedule
 .. autosummary::
@@ -111,7 +111,8 @@ Generates fixed schedule for scenario
 Simulate
 ========
 Reads in simulation input arguments, sets up scenario and runs the simulation.
-Functions as a wrapper for the simulation.
+Functions as a wrapper for the simulation. For an example
+config file see `/examples/simulate.cfg`.
 
 .. currentmodule:: simulate
 .. autosummary::
