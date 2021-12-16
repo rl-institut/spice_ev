@@ -31,7 +31,8 @@ def datetime_within_window(dt, time_windows):
 
     :param dt: time
     :type dt: datetime
-    :param time_windows: Structure of time_windows: {season: {"start": datetime with start date and start time, "end": datetime with end date end end time}}
+    :param time_windows: Structure of time_windows: {season: {"start": datetime with start date and\
+        start time, "end": datetime with end date end end time}}
     :type time_windows: dict
 
     note:

@@ -64,7 +64,8 @@ class Schedule(Strategy):
         :type dt: timedelta
         :param max_power: maximum power available during current timestep
         :type max_power: numeric
-        :param delta_soc: (optional) desired change in SOC until end of timedelta dt. If not provided, vehicle is charged to its desired_soc.
+        :param delta_soc: (optional) desired change in SOC until end of timedelta dt. If not
+        :param delta_soc: provided, vehicle is charged to its desired_soc.
         :type delta_soc: numeric
         :return: opt_power (optimal charging power for current timestep),
                 charged_soc (delta SOC after the timestep if charged with opt_power)
@@ -371,8 +372,8 @@ class Schedule(Strategy):
 
         :param charging_stations: Charging_commands previously allocated during this timestep
         :type charging_stations: dict ?
-        :return: charging_stations (An updated version of the input containing total of all
-        charging commands determined until this point.)
+        :return: charging_stations (An updated version of the input containing total of all\
+            charging commands determined until this point.)
         :rtype: dict
         """
 
@@ -419,8 +420,8 @@ class Schedule(Strategy):
     def charge_cars(self):
         """Charging vehicles.
 
-        :return: charging_stations (An updated version of the input containing total of all
-        charging commands determined until this point.)
+        :return: charging_stations (An updated version of the input containing total of all\
+            charging commands determined until this point.)
         :rtype: dict
         """
         charging_stations = {}
