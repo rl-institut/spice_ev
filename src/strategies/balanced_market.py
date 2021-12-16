@@ -201,6 +201,8 @@ class BalancedMarket(Strategy):
                     cs.current_power += avg_power
                     # don't have to simulate further
                     break
+            else:
+                sorted_idx = 0
 
             # normal charging done
 
@@ -210,7 +212,7 @@ class BalancedMarket(Strategy):
             # and stop once it reaches charging timestep
             # off-by-one: v2g_sorted_idx is immediately decreased by one
             v2g_sorted_idx = len(sorted_ts)
-            while vehicle.vehicle_type.v2g and v2g_sorted_idx > (sorted_idx + 1):
+            while vehicle.vehicle_type.v2g and v2g_sorted_idx > sorted_idx:
                 sim_power = None
                 v2g_sorted_idx -= 1
                 v2g_cost, v2g_ts_idx = sorted_ts[v2g_sorted_idx]
@@ -296,6 +298,8 @@ class BalancedMarket(Strategy):
                         discharging_stations.append(cs_id)
                     charging_stations[cs_id] = gc.add_load(cs_id, avg_power)
                     cs.current_power += avg_power
+                    # current timestep will not be taken into account again
+                    break
                 # end apply power
             # end loop V2G
 
