@@ -164,7 +164,6 @@ class BalancedMarket(Strategy):
                     power[ts_idx] = p
                     sim_vehicle.battery.load(self.interval, p)
 
-
                 if sim_vehicle.battery.soc >= desired_soc:
                     # above desired SoC: find optimum power
                     min_power = 0
