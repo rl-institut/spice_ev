@@ -113,19 +113,6 @@ class BalancedMarket(Strategy):
             cs_id = vehicle.connected_charging_station
             cs = self.world_state.charging_stations[cs_id]
 
-            # special case cheap energy: charge full (greedy)
-            cost_for_one = util.get_cost(1, gc.cost)
-            if cost_for_one <= self.PRICE_THRESHOLD:
-                # charge max
-                p = gc.cur_max_power - gc.get_current_load()
-                p = util.clamp_power(p, vehicle, cs)
-                avg_power = vehicle.battery.load(self.interval, p)['avg_power']
-                charging_stations[cs_id] = gc.add_load(cs_id, avg_power)
-                cs.current_power += avg_power
-                # no further computation for this vehicle in this timestep
-                continue
-
-            # price above threshold: charge at times with low cost
             # balance load over times with same cost
 
             # get timestep index where vehicle leaves (round down)
@@ -142,16 +129,25 @@ class BalancedMarket(Strategy):
 
             # iterate timesteps by order of cheapest price to reach desired soc
             sorted_idx = 0
-            while sorted_idx < len(sorted_ts) and sim_vehicle.get_delta_soc() > self.EPS:
+            while sorted_idx < len(sorted_ts):
                 cost, start_idx = sorted_ts[sorted_idx]
 
+                # when below threshold, try to fill battery (still balanced charging)
+                desired_soc = 1 if cost < self.PRICE_THRESHOLD else vehicle.desired_soc
+                desired_soc -= self.EPS
+
+                if sim_vehicle.battery.soc >= desired_soc:
+                    # desired SoC reached: no more charging needed
+                    break
+
                 # find timesteps with same price
+                # prices below threshold are seen as same
                 same_price_ts = [start_idx]
                 # peek into next sorted: same price?
                 same_sorted_price_idx = sorted_idx + 1
                 while same_sorted_price_idx < len(sorted_ts):
                     next_cost, next_ts_idx = sorted_ts[same_sorted_price_idx]
-                    if abs(next_cost - cost) < self.EPS:
+                    if abs(next_cost - cost) < self.EPS or next_cost <= self.PRICE_THRESHOLD:
                         same_sorted_price_idx += 1
                         same_price_ts.append(next_ts_idx)
                     else:
@@ -167,7 +163,8 @@ class BalancedMarket(Strategy):
                     p = util.clamp_power(p, vehicle, cs)
                     power[ts_idx] = p
                     sim_vehicle.battery.load(self.interval, p)
-                if sim_vehicle.get_delta_soc() < self.EPS:
+
+                if sim_vehicle.battery.soc >= desired_soc:
                     # above desired SoC: find optimum power
                     min_power = 0
                     max_power = cs.max_power
@@ -187,7 +184,7 @@ class BalancedMarket(Strategy):
                             p = util.clamp_power(p, vehicle, cs)
                             power[ts_idx] = p
                             sim_vehicle.battery.load(self.interval, p)
-                        safe = sim_vehicle.get_delta_soc() <= self.EPS
+                        safe = sim_vehicle.battery.soc >= desired_soc
                         if not safe:
                             # not charged enough
                             min_power = cur_power
@@ -326,23 +323,56 @@ class BalancedMarket(Strategy):
                 charging_stations[cs_id] = gc.add_load(cs_id, avg_power)
                 cs.current_power += avg_power
 
+        # find consecutive intervals below threshold
+        for num_cheap_ts in range(len(timesteps)):
+            if util.get_cost(1, timesteps[num_cheap_ts]["cost"]) > self.PRICE_THRESHOLD:
+                break
+
         # charge/discharge batteries
         for bat_id, battery in self.world_state.batteries.items():
             avail_power = gc.get_current_load(exclude=discharging_stations)
-            if util.get_cost(1, gc.cost) <= self.PRICE_THRESHOLD:
-                # low price: charge with full power
-                power = gc.cur_max_power - avail_power
-                power = 0 if power < battery.min_charging_power else power
-                avg_power = battery.load(self.interval, power)['avg_power']
-                gc.add_load(bat_id, avg_power)
-            elif avail_power < 0:
-                # surplus energy: charge
-                power = -avail_power
-                power = 0 if power < battery.min_charging_power else power
-                avg_power = battery.load(self.interval, power)['avg_power']
-                gc.add_load(bat_id, avg_power)
-            else:
-                # GC draws power: use stored energy to support GC
+
+            old_soc = battery.soc
+            # default: use surplus from feed-in to charge batteries
+            bat_power = max(-avail_power, 0)
+            # may be low price: distribute balanced to charge full
+            # naive: charge greedy
+            for i in range(num_cheap_ts):
+                p = timesteps[i]["power"]  # ts[0] contains feed-in
+                p = 0 if p < battery.min_charging_power else p
+                battery.load(self.interval, p)
+                if i == 0:
+                    bat_power = p
+            if battery.soc > (1 - self.EPS):
+                # battery charged too much, find optimum
+                min_power = 0
+                max_power = gc.cur_max_power
+                bat_power = 0
+                while max_power - min_power > self.EPS:
+                    power = (min_power + max_power) / 2
+                    # reset SoC
+                    battery.soc = old_soc
+                    # t = 0 (current timestep): add feed-in
+                    bat_power = max(-avail_power, 0) + power
+                    bat_power = 0 if bat_power < battery.min_charging_power else bat_power
+                    battery.load(self.interval, bat_power)
+                    # future timesteps
+                    for i in range(1, num_cheap_ts):
+                        p = min(timesteps[i]["power"], power)
+                        p = 0 if p < battery.min_charging_power else p
+                        battery.load(self.interval, p)
+                    if battery.soc > (1 - self.EPS):
+                        max_power = power
+                    else:
+                        min_power = power
+
+            # charge for real
+            battery.soc = old_soc
+            avg_power = battery.load(self.interval, bat_power)["avg_power"]
+            gc.add_load(bat_id, avg_power)
+
+            if avail_power >= 0 and num_cheap_ts == 0:
+                # no surplus, no cheap price: support GC by discharging
                 bat_power = battery.unload(self.interval, avail_power)['avg_power']
                 gc.add_load(bat_id, -bat_power)
                 discharging_stations.append(bat_id)
