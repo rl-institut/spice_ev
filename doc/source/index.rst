@@ -1,6 +1,10 @@
-Welcome to the documentation of spice_ev!
 
-spice_ev is a simulation program for individual charging events of electric vehicles .
+.. _welcome:
+
+Welcome to the documentation of SpiceEV!
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+SpiceEV is a simulation program for individual charging events of electric vehicles .
 
 .. toctree::
    :maxdepth: 2

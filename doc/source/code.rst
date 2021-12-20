@@ -9,7 +9,7 @@ Code documentation
 
 Generate inputs
 ===============
-The generate scripts prepare input files for the simulation with spice_ev. Most
+The generate scripts prepare input files for the simulation with SpiceEV. Most
 generate scripts create a scenario json, containing information about the vehicles, the trips,
 the charging stations, grid connectors as well as optional inputs such as
 stationary batteries, external load, feed-in or grid signal time series. The modules
