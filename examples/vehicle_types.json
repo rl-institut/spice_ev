@@ -30,6 +30,42 @@
         "min_charging_power": 0,
         "v2g": false
     },
+    "CKB_D": {
+        "name": "articulated bus",
+        "capacity": 310,
+        "charging_curve": [[0, 250], [0.8, 250], [1, 250]],
+        "min_charging_power": 0,
+        "v2g": false,
+        "mileage": "examples/consumption.json",
+        "hc": "winter"
+    },
+    "CKB_OPP": {
+        "name": "articulated bus",
+        "capacity": 190,
+        "charging_curve": [[0, 190], [0.8, 190], [1, 1900]],
+        "min_charging_power": 0,
+        "v2g": false,
+        "mileage": "examples/consumption.json",
+        "hc": "winter"
+    },
+    "VDL_D": {
+        "name": "solo bus",
+        "capacity": 250,
+        "charging_curve": [[0, 250], [0.8, 250], [1, 250]],
+        "min_charging_power": 0,
+        "v2g": false,
+        "mileage": "examples/consumption.json",
+        "hc": "winter"
+    },
+    "VDL_OPP": {
+        "name": "solo bus",
+        "capacity": 250,
+        "charging_curve": [[0, 250], [0.8, 250], [1, 250]],
+        "min_charging_power": 0,
+        "v2g": false,
+        "mileage": "examples/consumption.json",
+        "hc": "winter"
+    },
     "minimum_information": {
         "name": "Displayed name",
         "capacity": 0,
@@ -43,6 +79,7 @@
         "charging_curve": [[0,1],[1,0]],
         "min_charging_power": 0,
         "v2g": false,
-        "battery_efficiency": 0.95
+        "battery_efficiency": 0.95,
+        "hc": "None"
     }
 }
