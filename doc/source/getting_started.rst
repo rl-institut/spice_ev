@@ -19,7 +19,7 @@ You can clone the current repository of SpiceEV to your local machine using:
 
 	git clone https://github.com/rl-institut/spice_ev
 
-This tool just has an optional dependency on Matplotlib. Everything else uses the Python (>= 3.6) standard library.
+This tool just has an optional dependency on Matplotlib for plotting, an optional dependency on sphinx for the documentation and an optional dependency on pytest for testing. Everything else uses the Python (>= 3.6) standard library.
 
 
 General concept
