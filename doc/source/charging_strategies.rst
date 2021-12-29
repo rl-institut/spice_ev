@@ -1,3 +1,5 @@
+.. _charging_strategies:
+
 ~~~~~~~~~~~~~~~~~~~
 Charging strategies
 ~~~~~~~~~~~~~~~~~~~
