@@ -89,25 +89,6 @@ config file see `/examples/generate_schedule.cfg`.
     generate_schedule
     generate_flex_band
 
-
-Generate_fixed_schedule_for_scenario
-------------------------------------
-Generates fixed schedule for scenario
-
-.. currentmodule:: generate_fixed_schedule_for_scenario
-.. autosummary::
-    :toctree: temp/
-
-    main
-    add_priority
-    get_fleet_info_from_scenario
-    get_time_series_indices_for_date_range
-    add_value_to_column_by_indices
-    spread_flexibility_on_priorities
-    add_flexibility_for_date_and_vehicle_groups
-    add_percentage_signal
-    save_schedule
-
 Simulate
 ========
 Reads in simulation input arguments, sets up scenario and runs the simulation.
@@ -213,16 +194,6 @@ Moves all charging events to those time intervals and charges them with full pow
     GreedyMarket
     GreedyMarket.step
 
-Inverse
--------
-Charging strategy that prioritizes times with lower power costs. The idea is to find the minimum viable cost threshold (per car or for the whole fleet). This way, timesteps with less external load and smaller costs are prioritized for loading. In times with low cost, the maximum available power is used, no computation needed.
-
-.. currentmodule:: src.strategies.inverse
-.. autosummary::
-    :toctree: temp/
-
-    Inverse
-    Inverse.step
 
 Peak load window
 ----------------
@@ -265,13 +236,6 @@ ScheduleForesight looks into the future (until all cars have left, at most 24h) 
 
     ScheduleForesight
 
-v2g
----
-.. currentmodule:: src.strategies.v2g
-.. autosummary::
-    :toctree: temp/
-
-    V2g
 
 Components
 ==========
