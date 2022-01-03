@@ -3,12 +3,12 @@
     "energy_type": "Diesel",
     "unit": "L/100km",
     "factor": 0.01,
-    "urban": {
+    "winter": {
       "fluent": 33.32,
       "dense": 47.44,
       "stop&go": 65.24
     },
-    "rural": {
+    "summer": {
       "fluent": 34.01,
       "dense": 46.48,
       "sto  p&go": 53.14
