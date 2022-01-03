@@ -363,6 +363,8 @@ if __name__ == '__main__':
     parser.add_argument('--battery', '-b', default=[], nargs=2, type=float, action='append',
                         help='add battery with specified capacity in kWh and C-rate \
                         (-1 for variable capacity, second argument is fixed power))')
+    parser.add_argument('--gc-power', type=int, default=530, help='set power at grid connection '
+                                                                  'point in kW')
     parser.add_argument('--seed', default=None, type=int, help='set random seed')
 
     parser.add_argument('--vehicle-types', default=None,
