@@ -137,7 +137,10 @@ class BalancedMarket(Strategy):
                 desired_soc -= self.EPS
 
                 if sim_vehicle.battery.soc >= desired_soc:
-                    # desired SoC reached: no more charging needed
+                    # desired SoC reached: no more charging needed.
+                    # dont block time steps for v2g if balanced charging
+                    # does not occur in current TS
+                    sorted_idx = 0
                     break
 
                 # find timesteps with same price
@@ -198,8 +201,6 @@ class BalancedMarket(Strategy):
                     cs.current_power += avg_power
                     # don't have to simulate further
                     break
-            else:
-                sorted_idx = 0
 
             # normal charging done
 
