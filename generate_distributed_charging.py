@@ -127,7 +127,7 @@ def generate_opp_trips_from_schedule(args):
             vehicles[v_name] = {
                 "connected_charging_station": None,
                 "estimated_time_of_departure": None,
-                "desired_soc": args.min_soc,
+                "desired_soc": None,
                 "soc": args.min_soc,
                 "vehicle_type": name
             }
@@ -165,7 +165,7 @@ def generate_opp_trips_from_schedule(args):
                             departure_event_in_input = False
                             departure = arrival + datetime.timedelta(hours=8)
                             # no more rotations
-
+                    min_soc = None
                     # if station is electrified
                     if gc_name in stations:
                         connected_charging_station = cs_name
@@ -182,6 +182,9 @@ def generate_opp_trips_from_schedule(args):
                                 "max_power": vars(args).get("gc_power", 250),
                                 "cost": {"type": "fixed", "value": 0.3}
                             }
+                        # if station is depot, set min_soc = args.min_soc, else: None
+                        if gc_name in stations_dict["depot_stations"]:
+                            min_soc = args.min_soc
                     else:
                         connected_charging_station = None
 
@@ -195,6 +198,7 @@ def generate_opp_trips_from_schedule(args):
                             "connected_charging_station": connected_charging_station,
                             "estimated_time_of_departure": departure.isoformat(),
                             "soc_delta": trip["delta_soc"],
+                            "min_soc": min_soc
                         }
                     })
                     # create departure events
@@ -210,7 +214,8 @@ def generate_opp_trips_from_schedule(args):
                         })
 
     # define start and stop times
-    start = input[list(input.keys())[0]]["departure_time"]
+    times = [val["departure_time"] for key, val in input.items() if "departure_time" in val]
+    start = min(times)
     start = datetime.datetime.strptime(start, '%Y-%m-%d %H:%M:%S')
     stop = start + datetime.timedelta(days=args.days)
     daily = datetime.timedelta(days=1)
@@ -328,7 +333,7 @@ def calculate_trip_consumption(trip, vehicle_dict, vehicle_type, rush_hour=None)
        :param vehicle_type: name of the specific vehicle type
        :type vehicle_type: str
        :param rush_hour: dict containing hours of rush hours, see
-       example/generate_opp_from_schedule.cfg for further information.
+       example/generate_distributed_charging.cfg for further information.
        :type rush_hour: dict
        :return: delta_soc, total_consumption
        :rtype: tuple
@@ -348,7 +353,7 @@ def calculate_trip_consumption(trip, vehicle_dict, vehicle_type, rush_hour=None)
         dt = (datetime.datetime.strptime(t, '%H:%M:%S')).hour
         hours.append(dt)
     temperatures = [float(row["temperature in c"]) for row in winter_day]
-    arrival_hour  = (datetime.datetime.strptime(trip["arrival_time"], '%Y-%m-%d %H:%M:%S')).hour
+    arrival_hour = (datetime.datetime.strptime(trip["arrival_time"], '%Y-%m-%d %H:%M:%S')).hour
 
     temp = np.interp(arrival_hour, hours, temperatures)
 
@@ -362,10 +367,6 @@ def calculate_trip_consumption(trip, vehicle_dict, vehicle_type, rush_hour=None)
 
     return con
 
-
-def nan_helper(y):
-
-    return np.isnan(y), lambda z: z.nonzero()[0]
 
 def add_vehicle_id(input):
     """
@@ -382,35 +383,38 @@ def add_vehicle_id(input):
     # filter for vehicle_type
     vehicle_types = set(d['vehicle_type'] for d in input.values())
     for vt in vehicle_types:
-        bus_number = 0
-        v_line = {k: v for k, v in input.items() if v["vehicle_type"] == vt}
+        vt_line = {k: v for k, v in input.items() if v["vehicle_type"] == vt}
         # sort list of vehicles by departure time
-        departures = {key: value for key, value in sorted(v_line.items(),
+        depot_stations = set(d['departure_name'] for d in vt_line.values())
+        for depot in depot_stations:
+            bus_number = 0
+            d_line = {k: v for k, v in vt_line.items() if v["departure_name"] == depot}
+            departures = {key: value for key, value in sorted(d_line.items(),
                                                           key=lambda x: x[1]['departure_time'])}
-        arrivals = {key: value for key, value in sorted(v_line.items(),
+            arrivals = {key: value for key, value in sorted(d_line.items(),
                                                         key=lambda x: x[1]['arrival_time'])}
-        # get the first arrival
-        first_arrival_time = arrivals[list(arrivals.keys())[0]]["arrival_time"]
-        for rotation in departures.keys():
-            if first_arrival_time >= v_line[rotation]["departure_time"]:
-                bus_number += 1
-                input[rotation]["vehicle_id"] = vt + "_" + str(bus_number)
-            elif arrivals[list(arrivals.keys())[0]]["arrival_time"] < \
-                    v_line[rotation]["departure_time"]:
-                a_bus_number = arrivals[list(arrivals.keys())[0]]["vehicle_id"]
-                arrival_rotation = list(arrivals.keys())[0]
-                del arrivals[arrival_rotation]
-                input[rotation]["vehicle_id"] = a_bus_number
-            else:
-                bus_number += 1
-                input[rotation]["vehicle_id"] = vt + "_" + str(bus_number)
+            # get the first arrival
+            first_arrival_time = arrivals[list(arrivals.keys())[0]]["arrival_time"]
+            for rotation in departures.keys():
+                if first_arrival_time >= d_line[rotation]["departure_time"]:
+                    bus_number += 1
+                    input[rotation]["vehicle_id"] = vt + "_" + str(bus_number)
+                elif arrivals[list(arrivals.keys())[0]]["arrival_time"] < \
+                        d_line[rotation]["departure_time"]:
+                    a_bus_number = arrivals[list(arrivals.keys())[0]]["vehicle_id"]
+                    arrival_rotation = list(arrivals.keys())[0]
+                    del arrivals[arrival_rotation]
+                    input[rotation]["vehicle_id"] = a_bus_number
+                else:
+                    bus_number += 1
+                    input[rotation]["vehicle_id"] = vt + "_" + str(bus_number)
 
     return input
 
 
 def convert_csv_to_json(args):
     """
-    Create input json for SpiceEV generate_opp_trips_from_schedule.csv
+    Create input json for SpiceEV generate_distributed_charging.csv
 
     :param args: input arguments
     :type args: argparse.Namespace
@@ -466,16 +470,23 @@ def convert_csv_to_json(args):
         # convert day and hour to datetime
         start_date = str(args.start_date) + " 00:00:00"
         start_date = datetime.datetime.strptime(start_date, '%Y-%m-%d %H:%M:%S')
+        # get weekday of start date
+        start_weekday = start_date.weekday() + 1
         for d in input:
-            d.update((k, (start_date + datetime.timedelta(days=d["departure_day"]-1) +
-                          datetime.timedelta(hours=float(d["departure_time"])))) for k, v in
-                     d.items() if k == "departure_time")
             if float(d["arrival_time"]) > 24:
                 d["arrival_time"] = float(d["arrival_time"]) - 24
-            d.update(
-                (k, start_date + datetime.timedelta(days=d["arrival_day"]-1) +
-                 datetime.timedelta(hours=float(d["arrival_time"]))) for k, v in d.items()
-                if k == "arrival_time")
+            for key in ["departure_day", "arrival_day"]:
+                key2 = "departure_time" if key == "departure_day" else "arrival_time"
+                if d[key] == start_weekday:
+                    shift_day = 0
+                elif d[key] > start_weekday:
+                    shift_day = d[key] - start_weekday
+                else:
+                    shift_day = 7 - start_weekday + d[key]
+
+                d.update((k, (start_date + datetime.timedelta(days=shift_day) +
+                              datetime.timedelta(hours=float(d[key2])))) for k, v in
+                         d.items() if k == key2)
     except ValueError:
         try:
             for d in input:
@@ -491,33 +502,36 @@ def convert_csv_to_json(args):
     for rotation_id in unique_rotation_ids:
         # filter input for rotation
         r_list = list(filter(lambda d: d['rotation_id'] in rotation_id, input))
-        # if list contains monday after sunday, shift one week
-        case = all(x in [d['departure_day'] for d in r_list] for x in [1, 7])
-        case2 = all(x in [d['arrival_day'] for d in r_list] for x in [1, 7])
-        if case or case2:
-            for row in r_list:
-                if row["departure_day"] == 1:
-                    row.update((k, v + datetime.timedelta(days=1)) for k, v in d.items() if
+        # if arrival weekday < departure weekday, shift one week
+        list_days = [d['arrival_time'] for d in r_list]
+        if any(i < r_list[0]["departure_time"] for i in list_days):
+            for i, row in enumerate(r_list):
+                if r_list[i]["departure_time"] < r_list[0]["departure_time"]:
+                    r_list[i].update((k, v + datetime.timedelta(days=2)) for k, v in d.items() if
                                k == "departure_time")
-                if row["arrival_day"] == 1:
-                    row.update((k, v + datetime.timedelta(days=1)) for k, v in d.items() if
+                if r_list[i]["arrival_time"] < r_list[0]["departure_time"]:
+                    r_list[i].update((k, v + datetime.timedelta(days=2)) for k, v in d.items() if
                                k == "arrival_time")
         r_departure = min(item['departure_time'] for item in r_list)
         r_arrival = max(item['arrival_time'] for item in r_list)
+
         schedule[rotation_id] = {
             "departure_time": r_departure,
             "arrival_time": r_arrival,
             "distance": sum(float(d.get('distance', 0)) for d in r_list),
             "vehicle_type": r_list[0]["vehicle_type"],
-            "departure_name": [d['departure_name'] for d in r_list if d["departure_time"] ==
-                               min(item['departure_time'] for item in r_list) and d["arrival_time"]
-                               == min(item['arrival_time'] for item in r_list)][0],
-            "arrival_name": [d['arrival_name'] for d in r_list if d["arrival_time"] ==
-                             max(item['arrival_time'] for item in r_list) and d["departure_time"]
-                             == max(item['departure_time'] for item in r_list)][0],
+            "departure_name": r_list[0]["departure_name"],
+            "arrival_name": r_list[-1]["arrival_name"],
             "trips": r_list
         }
-    schedule = json.dumps(schedule, default=converter)
+        #                "departure_name": [d['departure_name'] for d in r_list if d["departure_time"] ==
+        #                       min(item['departure_time'] for item in r_list) and d["arrival_time"]
+        #                       == min(item['arrival_time'] for item in r_list)][0],
+        #    "arrival_name": [d['arrival_name'] for d in r_list if d["arrival_time"] ==
+        #                     max(item['arrival_time'] for item in r_list) and d["departure_time"]
+        #                     == max(item['departure_time'] for item in r_list)][0],
+
+    schedule = json.dumps(schedule, default=converter, ensure_ascii=False)
     return schedule
 
 
@@ -585,7 +599,7 @@ if __name__ == '__main__':
     parser.add_argument('--include-price-csv-option', '-po', metavar=('KEY', 'VALUE'),
                         nargs=2, default=[], action='append',
                         help='append additional argument to price signals')
-    parser.add_argument('--start_date', default='2018-01-01',
+    parser.add_argument('--start_date', default='2018-01-02',
                         help='Provide start date of simulation in format YYYY-MM-DD.E.g. '
                              '2018-01-31')
     parser.add_argument('--electrified_stations', help='include electrified_stations json',
@@ -593,7 +607,7 @@ if __name__ == '__main__':
     parser.add_argument('--vehicle_types', help='include vehicle_types json',
                         default='examples/vehicle_types.json')
     parser.add_argument('--config', help='Use config file to set arguments',
-                        default='examples/generate_opp_trips_from_schedule.cfg')
+                        default='examples/generate_distributed_charging.cfg')
 
     args = parser.parse_args()
 
