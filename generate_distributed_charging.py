@@ -89,7 +89,7 @@ def generate_opp_trips_from_schedule(args):
         input[rotation]["vehicle_type"] = input[rotation]["vehicle_type"] + "_" + ct
 
     # calculate first energy consumption and soc of all trips
-    input = add_energy_consumption(input, vehicle_types, args)
+    input = add_delta_soc(input, vehicle_types, args)
 
     # if args.prefered_ct is depot: only add opp charging if consumption is higher that capacity
     if args.preferred_ct == "depot":
@@ -106,7 +106,7 @@ def generate_opp_trips_from_schedule(args):
                         f"The vehicle type {vehicle_type} defined in the input csv cannot be found "
                         f"in vehicle_types.json. Please check for consistency.")
         # recalculate soc, depending on the new charging types
-        input = add_energy_consumption(input, vehicle_types, args)
+        input = add_delta_soc(input, vehicle_types, args)
     # add vehicle_id (sort vehicles) depending on vt and ct
     input = add_vehicle_id(input)
 
@@ -275,7 +275,7 @@ def generate_opp_trips_from_schedule(args):
         json.dump(j, f, indent=2)
 
 
-def add_energy_consumption(dict, vehicle_types, args):
+def add_delta_soc(dict, vehicle_types, args):
     """
     Wrapper for the consumption.calculate_trip_consumption() function.
 
@@ -308,7 +308,7 @@ def add_energy_consumption(dict, vehicle_types, args):
                         "pause": trip["pause"]
                         }
                 trip_consumption = calculate_trip_consumption(trip, vehicle_types[vt],
-                                                                          vt, args.rush_hour)
+                                                              vt, args.rush_hour)
                 delta_soc = - (trip_consumption / vehicle_types[vt]["capacity"])
                 # add info for each trip
                 dict[rotation]["trips"][i]["delta_soc"] = delta_soc
@@ -327,7 +327,7 @@ def calculate_trip_consumption(trip, vehicle_dict, vehicle_type, rush_hour=None)
 
        :param trip: dictionary with trip information (see note for further explanation)
        :type trip: dict
-       :param vehicle_dict: dictionary with information about the specific vehicle type, especially \
+       :param vehicle_dict: dictionary with information about the specific vehicle type, especially\
        capacity, mileage, hc
        :type vehicle_dict: dict
        :param vehicle_type: name of the specific vehicle type
@@ -358,7 +358,8 @@ def calculate_trip_consumption(trip, vehicle_dict, vehicle_type, rush_hour=None)
     temp = np.interp(arrival_hour, hours, temperatures)
 
     # load consumption csv
-    consumption = csv_to_dict("./examples/consumption_inputs/Energieverbrauch_Eindecker_Solaris.csv")
+    consumption_file = vehicle_dict["mileage"]
+    consumption = csv_to_dict(consumption_file)
 
     xp = [float(row["temp."]) for row in consumption]
     fp = [float(row["kat. b"]) for row in consumption]
@@ -370,8 +371,7 @@ def calculate_trip_consumption(trip, vehicle_dict, vehicle_type, rush_hour=None)
 
 def add_vehicle_id(input):
     """
-    Creates a sequence for the rotations depending on their vehicle type and adds vehicle_id to all
-    rotations.
+    Assigns all rotations to specific vehicles with distinct vehicle_id.
 
     :param input: schedule of rotations
     :type input: dict
@@ -390,9 +390,9 @@ def add_vehicle_id(input):
             bus_number = 0
             d_line = {k: v for k, v in vt_line.items() if v["departure_name"] == depot}
             departures = {key: value for key, value in sorted(d_line.items(),
-                                                          key=lambda x: x[1]['departure_time'])}
+                          key=lambda x: x[1]['departure_time'])}
             arrivals = {key: value for key, value in sorted(d_line.items(),
-                                                        key=lambda x: x[1]['arrival_time'])}
+                        key=lambda x: x[1]['arrival_time'])}
             # get the first arrival
             first_arrival_time = arrivals[list(arrivals.keys())[0]]["arrival_time"]
             for rotation in departures.keys():
@@ -408,7 +408,6 @@ def add_vehicle_id(input):
                 else:
                     bus_number += 1
                     input[rotation]["vehicle_id"] = vt + "_" + str(bus_number)
-
     return input
 
 
@@ -508,10 +507,10 @@ def convert_csv_to_json(args):
             for i, row in enumerate(r_list):
                 if r_list[i]["departure_time"] < r_list[0]["departure_time"]:
                     r_list[i].update((k, v + datetime.timedelta(days=2)) for k, v in d.items() if
-                               k == "departure_time")
+                                     k == "departure_time")
                 if r_list[i]["arrival_time"] < r_list[0]["departure_time"]:
                     r_list[i].update((k, v + datetime.timedelta(days=2)) for k, v in d.items() if
-                               k == "arrival_time")
+                                     k == "arrival_time")
         r_departure = min(item['departure_time'] for item in r_list)
         r_arrival = max(item['arrival_time'] for item in r_list)
 
@@ -524,12 +523,6 @@ def convert_csv_to_json(args):
             "arrival_name": r_list[-1]["arrival_name"],
             "trips": r_list
         }
-        #                "departure_name": [d['departure_name'] for d in r_list if d["departure_time"] ==
-        #                       min(item['departure_time'] for item in r_list) and d["arrival_time"]
-        #                       == min(item['arrival_time'] for item in r_list)][0],
-        #    "arrival_name": [d['arrival_name'] for d in r_list if d["arrival_time"] ==
-        #                     max(item['arrival_time'] for item in r_list) and d["departure_time"]
-        #                     == max(item['departure_time'] for item in r_list)][0],
 
     schedule = json.dumps(schedule, default=converter, ensure_ascii=False)
     return schedule
@@ -542,7 +535,7 @@ def converter(o):
 
 def csv_to_dict(input_csv_name):
     """
-    Reads csv file and returns a dict with each element representing a trip
+    Reads csv file and returns a dictionary
 
     :param csv_path: path to csv file
     :type csv_path: str

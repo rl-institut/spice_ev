@@ -36,7 +36,7 @@
         "charging_curve": [[0, 250], [0.8, 250], [1, 250]],
         "min_charging_power": 0,
         "v2g": false,
-        "mileage": "examples/consumption.json",
+        "mileage": "examples/consumption_inputs/Energieverbrauch_Eindecker_Solaris.csv",
         "hc": "winter"
     },
     "CKB_OPP": {
@@ -45,7 +45,7 @@
         "charging_curve": [[0, 190], [0.8, 190], [1, 1900]],
         "min_charging_power": 0,
         "v2g": false,
-        "mileage": "examples/consumption.json",
+        "mileage": "examples/consumption_inputs/Energieverbrauch_Eindecker_Solaris.csv",
         "hc": "winter"
     },
     "VDL_D": {
@@ -54,7 +54,7 @@
         "charging_curve": [[0, 250], [0.8, 250], [1, 250]],
         "min_charging_power": 0,
         "v2g": false,
-        "mileage": "examples/consumption.json",
+        "mileage": "examples/consumption_inputs/Energieverbrauch_Eindecker_Solaris.csv",
         "hc": "winter"
     },
     "VDL_OPP": {
@@ -63,7 +63,7 @@
         "charging_curve": [[0, 250], [0.8, 250], [1, 250]],
         "min_charging_power": 0,
         "v2g": false,
-        "mileage": "examples/consumption.json",
+        "mileage": "examples/consumption_inputs/Energieverbrauch_Eindecker_Solaris.csv",
         "hc": "winter"
     },
     "minimum_information": {
