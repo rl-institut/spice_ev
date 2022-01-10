@@ -5,7 +5,7 @@ import csv
 import datetime
 import json
 import random
-import consumption
+import numpy as np
 
 from src.util import set_options_from_config
 
@@ -302,17 +302,70 @@ def add_energy_consumption(dict, vehicle_types, args):
                         "arrival_time": trip["arrival_time"],
                         "pause": trip["pause"]
                         }
-                (delta_soc, con) = consumption.calculate_trip_consumption(trip, vehicle_types[vt],
-                                                                          vt, args.traffic_jam)
+                trip_consumption = calculate_trip_consumption(trip, vehicle_types[vt],
+                                                                          vt, args.rush_hour)
+                delta_soc = - (trip_consumption / vehicle_types[vt]["capacity"])
                 # add info for each trip
                 dict[rotation]["trips"][i]["delta_soc"] = delta_soc
-                dict[rotation]["trips"][i]["consumption"] = con
+                dict[rotation]["trips"][i]["consumption"] = trip_consumption
                 i += 1
-                rotation_con += con
+                rotation_con += trip_consumption
             # add total rotation consumption to dict
             dict[rotation]["consumption"] = rotation_con
     return dict
 
+
+def calculate_trip_consumption(trip, vehicle_dict, vehicle_type, rush_hour=None):
+    """
+       Calculates delta_soc and energy consumption for one trip
+       Note that this function will be extended soon. This is only a dummy function.
+
+       :param trip: dictionary with trip information (see note for further explanation)
+       :type trip: dict
+       :param vehicle_dict: dictionary with information about the specific vehicle type, especially \
+       capacity, mileage, hc
+       :type vehicle_dict: dict
+       :param vehicle_type: name of the specific vehicle type
+       :type vehicle_type: str
+       :param rush_hour: dict containing hours of rush hours, see
+       example/generate_opp_from_schedule.cfg for further information.
+       :type rush_hour: dict
+       :return: delta_soc, total_consumption
+       :rtype: tuple
+
+       note: A trip should contain the following information:
+       trip = {distance,\
+               departure_time, (optional, needs to be set if you want to use rush_hour)\
+               arrival_time, (optional, needs to be set if you want to use rush_hour)}\
+       """
+    # load temperature of the day, now dummy winter day
+    winter_day = csv_to_dict("./examples/consumption_inputs/default_temp_winter_day_08_01_2018.csv")
+    # todo: calculate consumption based on rush_hour, location, load etc.
+    # for now a dummy consumption over temperature is loaded (SB timeseries of BVG)
+    times = [row["time"] for row in winter_day]
+    hours = []
+    for t in times:
+        dt = (datetime.datetime.strptime(t, '%H:%M:%S')).hour
+        hours.append(dt)
+    temperatures = [float(row["temperature in c"]) for row in winter_day]
+    arrival_hour  = (datetime.datetime.strptime(trip["arrival_time"], '%Y-%m-%d %H:%M:%S')).hour
+
+    temp = np.interp(arrival_hour, hours, temperatures)
+
+    # load consumption csv
+    consumption = csv_to_dict("./examples/consumption_inputs/Energieverbrauch_Eindecker_Solaris.csv")
+
+    xp = [float(row["temp."]) for row in consumption]
+    fp = [float(row["kat. b"]) for row in consumption]
+
+    con = np.interp(temp, xp, fp)
+
+    return con
+
+
+def nan_helper(y):
+
+    return np.isnan(y), lambda z: z.nonzero()[0]
 
 def add_vehicle_id(input):
     """
