@@ -26,6 +26,7 @@ class GridConnector:
         ]
         optional_keys = [
             ('current_loads', dict, {}),
+            ('number_cs', int, None),
             ('cost', dict, {}),
             ('target', float, None),
             ('window', bool, None),

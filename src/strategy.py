@@ -90,13 +90,22 @@ class Strategy():
                 for k, v in ev.update.items():
                     setattr(vehicle, k, v)
                 if ev.event_type == "departure":
+                    if vehicle.connected_charging_station is not None:
+                        gc = self.world_state.charging_stations[
+                            vehicle.connected_charging_station].parent
+                        if self.world_state.grid_connectors[gc].number_cs is not None:
+                            self.world_state.grid_connectors[gc].number_cs +=1
                     vehicle.connected_charging_station = None
                     assert vehicle.battery.soc >= (1-self.margin)*vehicle.desired_soc - self.EPS, (
                         "{}: Vehicle {} is below desired SOC ({} < {})".format(
                             ev.start_time.isoformat(), ev.vehicle_id,
                             vehicle.battery.soc, vehicle.desired_soc))
                 elif ev.event_type == "arrival":
-                    assert vehicle.connected_charging_station is not None
+                    if vehicle.connected_charging_station is not None:
+                        gc = self.world_state.charging_stations[
+                            vehicle.connected_charging_station].parent
+                        if self.world_state.grid_connectors[gc].number_cs is not None:
+                            self.world_state.grid_connectors[gc].number_cs -=1
                     assert hasattr(vehicle, 'soc_delta')
                     vehicle.battery.soc += vehicle.soc_delta
                     if vehicle.battery.soc + self.EPS < 0:
