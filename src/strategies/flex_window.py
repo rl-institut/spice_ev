@@ -294,7 +294,7 @@ class FlexWindow(Strategy):
 
         :param timesteps: list of dictionaries for each timestep in horizon
         :type timesteps: list
-        :param commands for charging stations
+        :param commands: commands for charging stations (prior results)
         :type commands: dict
         :return: commands for charging stations
         :rtype: dict
@@ -655,7 +655,7 @@ class FlexWindow(Strategy):
 
         :param timesteps: list of dictionaries for each timestep in horizon
         :type timesteps: list
-        :param commands for charging stations
+        :param commands: commands for charging stations (prior results)
         :type commands: dict
         :return: commands for charging stations
         :rtype: dict
