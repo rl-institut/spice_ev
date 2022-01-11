@@ -8,8 +8,14 @@ from src import constants, events, strategy, util
 
 
 class Scenario:
-    """ A scenario
+    """ Sets up a scenario from input json.
+
+    :param json_dict: input dictionary
+    :type json_dict: dict
+    :param dir_path: path to the directory
+    :type dir_path: str
     """
+
     def __init__(self, json_dict, dir_path=''):
         # get constants and events
         self.constants = constants.Constants(json_dict.get('constants'))
@@ -42,7 +48,15 @@ class Scenario:
             gc.add_avg_ext_load_week(ext_load_list, self.interval)
 
     def run(self, strategy_name, options):
-        # run scenario
+        """
+        Run the scenario. Goes stepwise through all timesteps of the simulation and calls the
+        strategy.step method for each timestep. Prints and saves results.
+
+        :param strategy_name: name of the charging strategy
+        :type strategy_name: str
+        :param options: options of the charging strategy defined in simulate.cfg
+        :type options: dict
+        """
         options['interval'] = self.interval
         options['events'] = self.events
         options['core_standing_time'] = self.core_standing_time

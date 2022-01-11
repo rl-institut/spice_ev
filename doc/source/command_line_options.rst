@@ -1,9 +1,12 @@
+.. _command_line_options:
 
 ~~~~~~~~~~~~~~~~~~~~
 Command line options
 ~~~~~~~~~~~~~~~~~~~~
 
-You can set parameters through the command line or from a configuration file. If unsure, you can type `python <script.py> --help` to get detailed information. Where the default is an Array (`[]`), the option can be set multiple times.
+You can set parameters through the command line or from a configuration file. If unsure, you can type `python script.py --help` to get detailed information.
+
+Where the default is an Array (`[]`), the option can be set multiple times.
 
 simulate.py
 ===========
@@ -79,7 +82,7 @@ Generate scenarios as JSON files for vehicle charging modelling.
 generate_from_simbev.py
 =======================
 
-Generate scenarios as JSON files for vehicle charging modelling from vehicle timeseries (e.g., SimBEV output).
+Generate scenarios as JSON files for vehicle charging modelling from vehicle time series (e.g., SimBEV output).
 
 +-----------------------------+------------------+----------------------------+------------------------------------------------------------------------------------------------------------------+---------------------------------------------+-------------------------------------------------------------------------+
 |**command line options**     | **short form**   | **configuration file**     | **description**                                                                                                  |  **default**                                | **example**                                                             |

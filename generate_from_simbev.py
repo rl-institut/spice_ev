@@ -14,7 +14,11 @@ from src.loading_curve import LoadingCurve
 
 def generate_from_simbev(args):
     """Generate a scenario JSON from simBEV results.
-    args: argparse.Namespace
+
+    :param args: input arguments
+    :type args: argparse.Namespace
+    :return: None
+
     """
     missing = [arg for arg in ["output", "simbev"] if vars(args).get(arg) is None]
     if missing:

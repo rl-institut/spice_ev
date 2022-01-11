@@ -1,6 +1,8 @@
 
 class LoadingCurve:
-    """ The loading curve is described by a 2D graph with given known points.
+    """ LoadingCurve class.
+
+    The loading curve is described by a 2D graph with given known points.
     Values between known points are computed by linear interpolation.
 
     x-axis: state of charge [0 - 1]
@@ -18,6 +20,11 @@ class LoadingCurve:
 
     def power_from_soc(self, soc):
         """ Perform a lookup
+
+        :param soc: state of charge
+        :type soc: numeric
+        :return: power
+        :rtype: numeric
         """
         assert 0 <= soc <= 1
 
@@ -39,7 +46,12 @@ class LoadingCurve:
                     return power
 
     def clamped(self, max_power):
-        """ Return a new instance with clamped power
+        """ Return a new instance with clamped power.
+
+        :param max_power: power
+        :type max_power: numeric
+        :return: loating curve
+        :rtype: object
         """
 
         new_points = []
