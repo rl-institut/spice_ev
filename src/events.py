@@ -7,7 +7,14 @@ from src import util
 
 
 class Events:
-    """ events
+    """ Events class
+
+        Sets up events:
+        * external_load
+        * energy_feed_in
+        * grid_operator_signals - price
+        * grid_operator_signals - schedule
+        * vehicle_events
     """
     def __init__(self, obj, dir_path):
         # optional
@@ -25,6 +32,18 @@ class Events:
             [VehicleEvent(x) for x in obj.get('vehicle_events')])
 
     def get_event_steps(self, start_time, n_intervals, interval):
+        """
+        Creates list of all events within simulation time.
+
+        :param start_time: starting time of the simulation
+        :type start_time: datetime
+        :param n_intervals: total number of intervals
+        :type n_intervals: int
+        :param interval: length of one interval
+        :type interval: timestemp
+        :return: list of all events
+        :rtype: list
+        """
         steps = list([[] for _ in range(n_intervals)])
 
         all_events = self.vehicle_events + self.grid_operator_signals
@@ -55,21 +74,25 @@ class Events:
 
 
 class Event:
+    """ Event class"""
     def __str__(self):
         return '{}, {}'.format(self.__class__.__name__, vars(self))
 
 
 class EnergyFeedIn(Event):
+    """EnergyFeedIn class"""
     def __init__(self, kwargs):
         self.__dict__.update(**kwargs)
 
 
 class ExternalLoad(Event):
+    """ExternalLoad class"""
     def __init__(self, kwargs):
         self.__dict__.update(**kwargs)
 
 
 class EnergyValuesList:
+    """EnergyValuesList class"""
     def __init__(self, obj, dir_path):
         keys = [
             ('start_time', util.datetime_from_isoformat),
@@ -96,6 +119,18 @@ class EnergyValuesList:
                     self.values.append(float(row[column]))
 
     def get_events(self, name, value_class, has_perfect_foresight=False):
+        """
+        Sets up feed_in and external_load events from input.
+
+        :param name: name of the input csv file
+        :type name: str
+        :param value_class: object (e.g. EnergyFeedIn)
+        :type value_class: object
+        :param has_perfect_foresight: true if system knows about future events
+        :type has_perfect_foresight: bool
+        :return: list of events
+        :rtype: list
+        """
         assert value_class in [EnergyFeedIn, ExternalLoad]
 
         eventlist = []
@@ -114,6 +149,7 @@ class EnergyValuesList:
 
 
 class GridOperatorSignal(Event):
+    """GridOperatorSignal class"""
     def __init__(self, obj):
         keys = [
             ('signal_time', util.datetime_from_isoformat),
@@ -130,6 +166,17 @@ class GridOperatorSignal(Event):
 
 
 def get_energy_price_list_from_csv(obj, dir_path):
+    """
+    Get energy price list from input csv.
+
+    :param obj: dictionary with information about input csv
+    :type obj: dict
+    :param dir_path: path to directory
+    :type dir_path: str
+
+    :return: grid operator signal events
+        list
+    """
     if not obj:
         return []
     start = util.datetime_from_isoformat(obj["start_time"])
@@ -159,6 +206,14 @@ def get_schedule_from_csv(obj, dir_path):
     Read out schedule CSV file, generate list of GridOperatorSignal events
     Only changed target values generate a new event
     Ignore any timestamp in file, assume constant stride
+
+    :param obj: dictionary with information about input csv
+    :type obj: dict
+    :param dir_path: path to directory
+    :type dir_path: str
+
+    :return: grid operator schedule
+        list
     """
 
     # no CSV file/no info: skip
@@ -239,6 +294,7 @@ def get_schedule_from_csv(obj, dir_path):
 
 
 class VehicleEvent(Event):
+    """VehicleEvent class"""
     def __init__(self, obj):
         keys = [
             ('signal_time', util.datetime_from_isoformat),

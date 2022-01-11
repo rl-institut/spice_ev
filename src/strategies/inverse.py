@@ -6,7 +6,8 @@ from src.strategy import Strategy
 
 
 class Inverse(Strategy):
-    """
+    """ Inverse strategy
+
     Charging strategy that prioritizes times with lower power costs.
     Idea is to find minimum viable cost threshold over next 24h
     Timesteps with less external load and smaller costs are prioritized for loading
@@ -57,6 +58,14 @@ class Inverse(Strategy):
                 print("Warning: {} starts not connected and with less SoC than desired".format(vid))
 
     def step(self, event_list=[]):
+        """
+        Calculates charging in each timestep.
+
+        :param event_list: List of events
+        :type event_list: list
+        :return: current time and commands of the charging stations
+        :rtype: dict
+        """
         super().step(event_list)
 
         # reset charging station power

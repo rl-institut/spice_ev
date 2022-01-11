@@ -14,6 +14,10 @@ TIMEZONE = datetime.timezone(datetime.timedelta(hours=2))
 
 
 def main():
+    """Generate fixed schedule for scenario
+
+    :return: None
+    """
     parser = argparse.ArgumentParser(
         description='Generate a schedule for a scenario.')
     parser.add_argument('--input', help='input file name of time series(nsm_example.csv)')
@@ -119,6 +123,13 @@ def main():
 
 
 def add_priority(row, max_network_load, max_load_range):
+    """Add priority #todo: add comments here
+
+    :param row:
+    :param max_network_load:
+    :param max_load_range:
+    :return:
+    """
     if row['abregelung'] < 0:
         # Highest priority when eeg-plants are shut down
         return 1
@@ -133,6 +144,11 @@ def add_priority(row, max_network_load, max_load_range):
 
 
 def get_fleet_info_from_scenario(scenario: Scenario):
+    """Get fleet info from scenario
+
+    :param scenario:
+    :return:
+    """
     num_cars = 0
     max_load_cars = 0
     # Get Vehicle information from scenario
@@ -150,24 +166,51 @@ def get_fleet_info_from_scenario(scenario: Scenario):
 
 
 def get_time_series_indices_for_date_range(time_series, datetime_from, datetime_until):
+    """Get time series indices for date range
+
+    :param time_series: time series
+    :type time_series: dict
+    :param datetime_from: start time
+    :type datetime_from: datetime
+    :param datetime_until: end time
+    :type datetime_until: datetime
+    :return:
+    """
     return [index for index, row in enumerate(time_series)
             if datetime_from <= row['timestamp'] <= datetime_until]
 
 
 def add_value_to_column_by_indices(time_series, idx, column, value):
+    """Add value to column of time series by indices
+
+    :param time_series: time series
+    :type time_series: dict
+    :param idx: index
+    :type idx: int or list (?)
+    :param column: column name
+    :type column: str
+    :param value: value to be added
+    """
     for i in idx:
         time_series[i][column] += value
 
 
 def spread_flexibility_on_priorities(time_series, datetime_from, datetime_until,
                                      flexibility, min_load, max_load):
-    """
+    """Spread flexibilities on priorities
+
     :param time_series: A list of dicts including the priority and the timestamp
+    :type time_series: list
     :param datetime_from: datetime start of flexibility window
+    :type datetime_from: datetime
     :param datetime_until: datetime end of flexibility window
-    :param flexibility: The flexibility in kWh
+    :type datetime_until: datetime
+    :param flexibility: the flexibility in kWh
+    :type flexibility: numeric
     :param min_load: The minimal load in the given flexibility window in kW
+    :type min_load: numeric
     :param max_load: The maximal load in the given flexibility window in kW
+    :type max_load: numeric
     """
     priority = 1
     datetime_idx = get_time_series_indices_for_date_range(time_series,
@@ -207,15 +250,19 @@ def spread_flexibility_on_priorities(time_series, datetime_from, datetime_until,
         priority += 1
 
 
-def add_flexibility_for_date_and_vehicle_groups(time_series,
-                                                datetime_from,
-                                                datetime_until,
+def add_flexibility_for_date_and_vehicle_groups(time_series, datetime_from, datetime_until,
                                                 vehicle_groups):
-    """
-    param datetime_from: The start datetime of the flexibility window
-    param datetime_until: The end datetime of the flexibility window
-    param vehicle_groups: a list of flexibilities containing flexibility (kWh), min load (kW),
-    start_time, end_time
+    """Add flexibility for date and vehicle groups.
+
+    :param time_series: A list of dicts including the priority and the timestamp
+    :type time_series: list
+    :param datetime_from: The start datetime of the flexibility window
+    :type datetime_from: datetime
+    :param datetime_until: The end datetime of the flexibility window
+    :type datetime_until: datetime
+    :param vehicle_groups: a list of flexibilities containing flexibility (kWh), min load (kW),\
+        start_time, end_time
+    :type vehicle_groups: list (?)
     """
     for flexibility, min_load, max_load, start_time, end_time in vehicle_groups:
         spread_flexibility_on_priorities(time_series, datetime_from, datetime_until,
@@ -223,11 +270,25 @@ def add_flexibility_for_date_and_vehicle_groups(time_series,
 
 
 def add_percentage_signal(time_series, max_load):
+    """Add signal percent
+
+    :param time_series: A list of dicts including the priority and the timestamp
+    :type time_series: list
+    :param max_load: maximal load
+    :type max_load: numeric
+    """
     for row in time_series:
         row['signal_percent'] = row['signal_kw'] / max_load
 
 
 def save_schedule(time_series, filename):
+    """Saves schedule as csv
+
+    :param time_series: A list of dicts including the priority and the timestamp
+    :type time_series: list
+    :param filename: output filename
+    :type filename: str
+    """
     save_columns = ['iso_datetime', 'signal_kw', 'signal_percent']
     with open(filename, 'w', newline='') as csvfile:
         writer = csv.writer(csvfile, delimiter=',')

@@ -5,6 +5,13 @@ from sys import version_info
 
 
 def datetime_from_isoformat(s):
+    """Converts isoformat str to datetime.
+
+    :param s: date in isoformat
+    :type s: str
+    :return: datetime
+    :rtype: datetime
+    """
     if s is None:
         return None
 
@@ -20,12 +27,15 @@ def datetime_from_isoformat(s):
 
 
 def datetime_within_window(dt, time_windows):
-    """
-    Checks if a given datetime is within any of the given time windows.
+    """Checks if a given datetime is within any of the given time windows.
 
-    Structure of time_windows: {season: {
-        "start": datetime with start date and start time,
-        "end": datetime with end date end end time}}
+    :param dt: time
+    :type dt: datetime
+    :param time_windows: Structure of time_windows: {season: {"start": datetime with start date and\
+        start time, "end": datetime with end date end end time}}
+    :type time_windows: dict
+
+    note:
     The times pertain to all dates within the window.
     E.g., 14.03. 9:00 - 14.05. 11:00 means 09:00 - 11:00 for all days in two months
     14.04. 10:00 is within this eaxmple window, 14.04. 12:00 is not
@@ -43,15 +53,17 @@ def dt_within_core_standing_time(dt, core_standing_time):
     """
     Checks if datetime dt is in inside core standing time.
 
-    Args:
-        dt: datetime to be checked
-        core_standing_time: Provides time_windows to check
+
+    :param dt: time to be checked
+    :type dt: datetime
+    :param core_standing_time: Provides time_windows to check
             Example: one core standing time each day from 22:00 to 5:00 next day
             additionally weekends:
             {"times": [{"start": (22,0), "end":(5,0)}], "full_days": [6,7]}
-    Returns:
-        True - if dt is inside a time_window or if core_standing_time=None
+    :type core_standing_time: dict
+    :return: True - if dt is inside a time_window or if core_standing_time=None.
         False - if dt is outside of time window
+    :rtype: bool
     """
 
     if core_standing_time is None:
@@ -80,6 +92,16 @@ def dt_within_core_standing_time(dt, core_standing_time):
 def set_attr_from_dict(source, target, keys, optional_keys):
     """ Set attributes of `target` from a `source` dictionary.
         None values for optional keys are not converted.
+
+    :param source: dictionary
+    :type source: dict
+    :param target: target object
+    :type target: object
+    :param keys: parameter list
+    :type keys: list
+    :param optional_keys: parameter list
+    :type optional_keys: list
+
     """
     for n, conversion in keys:
         setattr(target, n, conversion(source[n]))
@@ -91,6 +113,16 @@ def set_attr_from_dict(source, target, keys, optional_keys):
 
 
 def get_cost(x, cost_dict):
+    """
+    Returns cost based on the cost type.
+
+    :param x: coefficient
+    :type x: numeric
+    :param cost_dict: dictionary with costs
+    :type cost_dict: dict
+    :return: cost
+    :rtype: numeric
+    """
     if cost_dict["type"] == "fixed":
         return cost_dict["value"] * x
     elif cost_dict["type"] == "polynomial":
@@ -105,6 +137,16 @@ def get_cost(x, cost_dict):
 
 
 def get_power(y, cost_dict):
+    """
+    Returns power for a given price.
+
+    :param y:
+    :type y: numeric
+    :param cost_dict: dictionary with costs
+    :type cost_dict: dict
+    :return: power
+    :rtype: numeric
+    """
     # how much power for a given price?
     if y is None:
         return None
@@ -136,6 +178,18 @@ def get_power(y, cost_dict):
 
 
 def clamp_power(power, vehicle, cs):
+    """
+    Returns power that is actually available at charging station.
+
+    :param power: available charging power
+    :type power: numeric
+    :param vehicle: Vehicle object
+    :type vehicle: vehicle object
+    :param cs: Charging station object
+    :type cs: object
+    :return: power
+    :rtype: numeric
+    """
     # how much of power can vehicle at cs actually use
     total_power = min(cs.current_power + power, cs.max_power)
     if total_power < cs.min_power or total_power < vehicle.vehicle_type.min_charging_power:
@@ -147,10 +201,16 @@ def clamp_power(power, vehicle, cs):
 
 
 def set_options_from_config(args, check=False, verbose=True):
-    # read options from config file, update given args
-    # try to parse options, ignore comment lines (begin with #)
-    # check: raise ValueError on unknown options
-    # verbose: gives final overview of arguments
+    """Read options from config file, update given args, try to parse options
+    , ignore comment lines (begin with #)
+    :param args: input arguments
+    :type args: argparse.Namespace
+    :param check: raise ValueError on unknown options
+    :type check: bool
+    :param verbose: gives final overview of arguments
+    :type bool
+    """
+
     if "config" in args and args.config is not None:
         # read options from config file
         with open(args.config, 'r') as f:

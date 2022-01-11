@@ -20,8 +20,10 @@ STRATEGIES = [
 
 
 def simulate(args):
-    """Simulate with input-JSON.
-    args: argparse.Namespace
+    """Reads in simulation input arguments, sets up scenario and runs the simulation.
+
+    :param args: input arguments from simulate.cfg file or command line arguments
+    :type args: argparse.Namespace
     """
     if args.input is None or not os.path.exists(args.input):
         raise SystemExit("Please specify a valid input file.")
