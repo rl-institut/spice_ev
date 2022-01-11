@@ -127,7 +127,7 @@ def generate_opp_trips_from_schedule(args):
             vehicles[v_name] = {
                 "connected_charging_station": None,
                 "estimated_time_of_departure": None,
-                "desired_soc": None,
+                "desired_soc": 1,
                 "soc": args.min_soc,
                 "vehicle_type": name
             }
@@ -179,7 +179,7 @@ def generate_opp_trips_from_schedule(args):
                         # add one grid connector for each bus station
                         if gc_name not in grid_connectors:
                             grid_connectors[gc_name] = {
-                                "max_power": vars(args).get("gc_power", 250),
+                                "max_power": vars(args).get("gc_power", args.gc_power),
                                 "cost": {"type": "fixed", "value": 0.3}
                             }
                         # if station is depot, set min_soc = args.min_soc, else: None
