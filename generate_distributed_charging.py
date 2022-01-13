@@ -71,9 +71,9 @@ def generate_opp_trips_from_schedule(args):
     }
     # set default charging type
     if args.preferred_ct == "depot":
-        ct = "D"
+        ct = "depot"
     else:
-        ct = "OPP"
+        ct = "opp"
     # update vehicle type and add vt from predefined vehicle type dict
     vt_keys = set(d['vehicle_type'] for d in input.values())
     for vehicle_type in vt_keys:
@@ -96,7 +96,7 @@ def generate_opp_trips_from_schedule(args):
         for rotation in input.keys():
             vt = input[rotation]["vehicle_type"]
             if input[rotation]["consumption"] > vehicle_types[vt]["capacity"]:
-                vt_ct = input[rotation]["vehicle_type"].split("_")[0] + "_OPP"
+                vt_ct = input[rotation]["vehicle_type"].split("_")[0] + "_opp"
                 input[rotation]["vehicle_type"] = vt_ct
                 # get vehicle type with OPP charging from predefined vehicle type dict
                 try:
@@ -132,7 +132,6 @@ def generate_opp_trips_from_schedule(args):
                 "vehicle_type": name
             }
             t = vehicle_types[name]
-            cs_power = max([v[1] for v in t['charging_curve']])
             # filter all rides for that bus
             v_id = {k: v for k, v in input.items() if v["vehicle_id"] == v_name}
             # sort events for their departure time, so that the matching departure time of an
@@ -166,33 +165,46 @@ def generate_opp_trips_from_schedule(args):
                             departure = arrival + datetime.timedelta(hours=8)
                             # no more rotations
                     min_soc = None
-                    # if station is electrified
+                    # connect cs and add gc if station is electrified
+                    connected_charging_station = None
+                    skip = False
                     if gc_name in stations:
-                        connected_charging_station = cs_name
-                        # add one charging station for each bus at bus station
-                        if cs_name not in charging_stations:
-                            charging_stations[cs_name] = {
-                                "max_power": cs_power,
-                                "min_power": 0.1 * cs_power,
-                                "parent": gc_name
-                            }
-                        # add one grid connector for each bus station
-                        if gc_name not in grid_connectors:
-                            # if station is depot, set min_soc = args.min_soc, else: None
-                            if gc_name in stations_dict["depot_stations"]:
-                                min_soc = args.min_soc
-                                number_cs = stations_dict["depot_stations"][gc_name]
+                        # if station is depot, set min_soc = args.min_soc, else: None
+                        if gc_name in stations_dict["depot_stations"]:
+                            min_soc = args.min_soc
+                            number_cs = stations_dict["depot_stations"][gc_name]
+                            cs_power = args.cs_power_depot
+                            if number_cs != "None":
+                                gc_power = number_cs * cs_power
+                            else:
+                                gc_power = 100 * cs_power
+                        else:
+                            if ct == "depot":
+                                skip = True
                             else:
                                 number_cs = stations_dict["opp_stations"][gc_name]
-                            number_cs = None if number_cs == 'None' else number_cs
-                            grid_connectors[gc_name] = {
-                                "max_power": vars(args).get("gc_power", args.gc_power),
-                                "cost": {"type": "fixed", "value": 0.3},
-                                "number_cs": number_cs
-                            }
-
-                    else:
-                        connected_charging_station = None
+                                cs_power = args.cs_power_opp
+                                if number_cs != "None":
+                                    gc_power = number_cs * cs_power
+                                else:
+                                    gc_power = 100 * cs_power
+                        if not skip:
+                            connected_charging_station = cs_name
+                            # add one charging station for each bus at bus station
+                            if cs_name not in charging_stations:
+                                charging_stations[cs_name] = {
+                                    "max_power": cs_power,
+                                    "min_power": 0.1 * cs_power,
+                                    "parent": gc_name
+                                }
+                            # add one grid connector for each bus station
+                            if gc_name not in grid_connectors:
+                                number_cs = None if number_cs == 'None' else number_cs
+                                grid_connectors[gc_name] = {
+                                    "max_power": gc_power,
+                                    "cost": {"type": "fixed", "value": 0.3},
+                                    "number_cs": number_cs
+                                }
 
                     # create arrival events
                     events["vehicle_events"].append({
