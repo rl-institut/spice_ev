@@ -295,7 +295,7 @@ def generate_schedule(args):
 
             if not charge_period:
                 power_needed *= -1
-            
+
             # loop
             for priority in priority_selection:
                 # take power from grid and make sure vehicles are charged
@@ -332,9 +332,9 @@ def generate_schedule(args):
                                 # power fits here: increase schedule, decrease power needed
                                 if charge_period:
                                     schedule[time] += power
-                                    energy_stored += power / ts_per_hour
+                                    energy_stored += (power * 0.95) / ts_per_hour
                                 else:
-                                    schedule[time] -= power
+                                    schedule[time] -= power * 0.95
                                     energy_stored -= power / ts_per_hour
                                 power_needed -= power
 
