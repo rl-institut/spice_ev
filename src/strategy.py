@@ -21,6 +21,7 @@ class Strategy():
         self.interval = kwargs.get('interval')  # required
         self.current_time = start_time - self.interval
         # relative allowed difference between battery SoC and desired SoC when leaving
+        self.ELECTRIFIED_STATIONS_FILE = None
         self.margin = 0.05
         self.ALLOW_NEGATIVE_SOC = False
         self.DISCHARGE_LIMIT = 0
