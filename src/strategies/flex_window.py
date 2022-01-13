@@ -336,7 +336,8 @@ class FlexWindow(Strategy):
 
             # calculate power to charge / discharge
             min_power = 0
-            max_power = cs.max_power
+            max_power = min(cs.max_power, gc.max_power - abs(gc.get_current_load()))
+            total_power = 0
             while max_power - min_power > self.EPS:
                 total_power = (min_power + max_power) / 2
                 # reset soc
