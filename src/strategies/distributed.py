@@ -1,6 +1,9 @@
+import json
+
 from src.util import clamp_power, get_cost
 from src.strategy import Strategy
-import json
+from src import events
+
 
 
 class Distributed(Strategy):
@@ -13,6 +16,7 @@ class Distributed(Strategy):
         super().__init__(constants, start_time, **kwargs)
         self.description = "greedy"
         self.ITERATIONS = 12
+        self.MIN_CHARGING_TIME = 2
 
     def step(self, event_list=[]):
         super().step(event_list)
@@ -24,27 +28,87 @@ class Distributed(Strategy):
         # reset charging station power (nothing charged yet in this timestep)
         for cs in self.world_state.charging_stations.values(): #todo: do we need this?
             cs.current_power = 0
+
+        current_and_future_events = sorted(self.world_state.future_events + event_list, key=lambda  x: x.start_time)
+
         # sort for soc and serve vehicle with lowest soc first
-        for vehicle in sorted(self.world_state.vehicles.values(), key=lambda x: x.battery.soc):
+        vehicle_index = 0
+        # sorted(self.world_state.vehicles.values(), key=lambda x: x.battery.soc)
+        for vehicle in self.world_state.vehicles.values():
+            vehicle_id = list(self.world_state.vehicles)[vehicle_index]
+            vehicle_index += 1
             cs_id = vehicle.connected_charging_station
-            if cs_id is None or cs_id == "None":
+            if cs_id is None:
                 # not connected
                 continue
             cs = self.world_state.charging_stations[cs_id]
             gc = self.world_state.grid_connectors[cs.parent]
 
-#            # get power that can be drawn from battery in this timestep
-#            avail_bat_power = sum([
-#                bat.get_available_power(self.interval) for bat in
-#                self.world_state.batteries.values()])
+            # get all other vehicles connected to gc in this timestep
+            timesteps = []
+            for index, current_vehicle_id in enumerate(self.world_state.vehicles):
+                v = self.world_state.vehicles[current_vehicle_id]
+                if v.connected_charging_station is None or current_vehicle_id == vehicle_id:
+                    continue
+                current_gc = self.world_state.charging_stations[v.connected_charging_station].parent
+                if current_gc == cs.parent:
+                    timesteps.append({"vehicle_id": current_vehicle_id,
+                                      "time_of_arrival": v.estimated_time_of_arrival,
+                                      "time_of_departure": v.estimated_time_of_departure,
+                                      "soc": v.battery.soc,
+                                      "gc": current_gc})
 
-            if cs.parent in electrified_stations["opp_stations"]:
-                charging_stations = self.load_greedy(cs, gc, vehicle, cs_id, charging_stations)
-            elif cs.parent in electrified_stations["depot_stations"]:
-                charging_stations = self.load_balanced(cs, gc, vehicle, cs_id, charging_stations)
-            else:
-                print(f"The station {cs.parent} is not in {self.electrifies_stations_file}. Please "
-                      f"check for consistency.")
+            # ---------- GET FUTURE VEHICLE EVENTS ---------- #
+            # look ahead (limited by departure_time)
+            # get future arrival events and precalculate the soc of the incoming vehicles
+            cur_time = self.current_time # - self.interval
+            for event in current_and_future_events:
+                # peek into future events
+                if event.start_time > vehicle.estimated_time_of_departure:
+                    # not this timestep
+                    break
+                if type(event) == events.VehicleEvent:
+                    if event.vehicle_id == vehicle_id:
+                        # not this vehicle event
+                        continue
+                    else:
+                        current_vehicle_id = event.vehicle_id
+                        if (event.event_type == "arrival") and \
+                                event.update["connected_charging_station"] is not None:
+                            current_cs = event.update["connected_charging_station"]
+                            current_gc = self.world_state.charging_stations[current_cs].parent
+                            if (current_gc == cs.parent) and (event.update["estimated_time_of_departure"] -
+                                event.start_time).total_seconds() / 60.0 > self.MIN_CHARGING_TIME:
+                                current_soc_delta = event.update["soc_delta"]
+                                current_soc = self.world_state.vehicles[current_vehicle_id]\
+                                                  .battery.soc - current_soc_delta
+
+                                #save infos for each timestep
+                                timesteps.append({"vehicle_id":  current_vehicle_id,
+                                                  "time_of_arrival": event.start_time,
+                                                  "time_of_departure": event.update
+                                                  ["estimated_time_of_departure"],
+                                                  "soc": current_soc,
+                                                  "gc": current_gc})
+            # ----------------------------------------------- #
+
+            # do not load if other busses connected at gc have lower soc that current vehicle.
+            load = True
+            if timesteps:
+                if gc.number_cs:
+                    if len(timesteps) > gc.number_cs - 1:
+                        # if current vehicle does not have lowest soc set load to false
+                        if not all(i >= vehicle.battery.soc for i in [t["soc"] for t in timesteps]):
+                            load = False
+
+            if load:
+                if cs.parent in electrified_stations["opp_stations"]:
+                    charging_stations = self.load_greedy(cs, gc, vehicle, cs_id, charging_stations)
+                elif cs.parent in electrified_stations["depot_stations"]:
+                    charging_stations = self.load_balanced(cs, gc, vehicle, cs_id, charging_stations)
+                else:
+                    print(f"The station {cs.parent} is not in {self.electrifies_stations_file}. Please "
+                          f"check for consistency.")
 
         return {'current_time': self.current_time, 'commands': charging_stations}
 
