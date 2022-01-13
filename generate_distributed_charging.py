@@ -131,7 +131,6 @@ def generate_opp_trips_from_schedule(args):
                 "soc": args.min_soc,
                 "vehicle_type": name
             }
-            t = vehicle_types[name]
             # filter all rides for that bus
             v_id = {k: v for k, v in input.items() if v["vehicle_id"] == v_name}
             # sort events for their departure time, so that the matching departure time of an
