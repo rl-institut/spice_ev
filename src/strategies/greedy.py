@@ -3,7 +3,8 @@ from src.strategy import Strategy
 
 
 class Greedy(Strategy):
-    """
+    """ Greedy strategy
+
     Basic, dumb strategy.
 
     Charges as much power as possible during each timestep until all desired SOC are reached.
@@ -16,6 +17,14 @@ class Greedy(Strategy):
         self.description = "greedy"
 
     def step(self, event_list=[]):
+        """
+        Calculates charging in each timestep.
+
+        :param event_list: List of events
+        :type event_list: list
+        :return: current time and commands of the charging stations
+        :rtype: dict
+        """
         super().step(event_list)
 
         # get power that can be drawn from battery in this timestep
