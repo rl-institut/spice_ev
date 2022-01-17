@@ -167,8 +167,8 @@ class FlexWindow(Strategy):
             power_vec = [0] * len(timesteps)
             # Compute the optimal maximum power to charge a vehicle to desired SOC
             # For vehicles that cannot be fully charged in charge window, this power is applied to
-            # all TS of non-charging windows (if GC bound is not tighter) while during charging TS all
-            # remaining power on GC is used.
+            # all TS of non-charging windows (if GC bound is not tighter) while during charging TS
+            # all remaining power on GC is used.
             # For vehicles that can be fully charged during charge windows, at every TS of a
             # charging window the minimum of this power and the remaining power on the
             # GC is applied.
