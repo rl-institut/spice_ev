@@ -161,7 +161,7 @@ class FlexWindow(Strategy):
                 sim_vehicle.battery.soc = vehicle.battery.soc
 
             min_power = 0
-            max_power = util.clamp_power(cs.max_power, sim_vehicle, cs)
+            max_power = util.clamp_power(gc.max_power - gc.get_current_load(), sim_vehicle, cs)
             old_soc = sim_vehicle.battery.soc
             safe = False
             power_vec = [0] * len(timesteps)
@@ -367,7 +367,10 @@ class FlexWindow(Strategy):
 
             # calculate power to charge / discharge
             min_power = 0
-            max_power = min(cs.max_power, gc.max_power - abs(gc.get_current_load()))
+            if cur_window:
+                max_power = min(cs.max_power, gc.max_power - gc.get_current_load())
+            else:
+                max_power = min(cs.max_power, gc.max_power + gc.get_current_load())
             total_power = 0
             while max_power - min_power > self.EPS:
                 total_power = (min_power + max_power) / 2
