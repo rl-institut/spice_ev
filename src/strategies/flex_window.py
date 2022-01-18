@@ -161,10 +161,17 @@ class FlexWindow(Strategy):
                 sim_vehicle.battery.soc = vehicle.battery.soc
 
             min_power = 0
-            max_power = util.clamp_power(gc.max_power - gc.get_current_load(), sim_vehicle, cs)
+            max_power = util.clamp_power(cs.max_power, sim_vehicle, cs)
             old_soc = sim_vehicle.battery.soc
             safe = False
             power_vec = [0] * len(timesteps)
+            # Compute the optimal maximum power to charge a vehicle to desired SOC
+            # For vehicles that cannot be fully charged in charge window, this power is applied to
+            # all TS of non-charging windows (if GC bound is not tighter) while during charging TS
+            # all remaining power on GC is used.
+            # For vehicles that can be fully charged during charge windows, at every TS of a
+            # charging window the minimum of this power and the remaining power on the
+            # GC is applied.
             while (charged_in_window and not safe) or max_power - min_power > self.EPS:
                 power = (min_power + max_power) / 2
                 sim_vehicle.battery.soc = old_soc
@@ -176,7 +183,7 @@ class FlexWindow(Strategy):
                     if cur_time >= sim_vehicle.estimated_time_of_departure:
                         break
                     if ts_info["window"] == charged_in_window:
-                        p = util.clamp_power(power, sim_vehicle, cs)
+                        p = util.clamp_power(min(power, ts_info["power"]), sim_vehicle, cs)
                         avg_power = sim_vehicle.battery.load(self.interval, p)["avg_power"]
                     elif not charged_in_window and ts_info["window"]:
                         # charging windows not sufficient, charge max during window
@@ -194,6 +201,8 @@ class FlexWindow(Strategy):
                 else:
                     min_power = power
 
+            # The GC may not allow to charge with optimal power during current TS
+            power = min(gc.max_power - gc.get_current_load(), power)
             # apply power
             if gc.window:
                 p = (power if charged_in_window
