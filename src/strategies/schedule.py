@@ -364,7 +364,8 @@ class Schedule(Strategy):
         vehicles = sorted([(v, id) for id, v in self.world_state.vehicles.items()
                            if (v.connected_charging_station is not None)
                            and (v.vehicle_type.v2g)], key=lambda x: x[1])
-        vehicles_with_power_issues = [v for v, p in self.extra_energy_per_vehicle.items() if p > self.EPS]
+        vehicles_with_power_issues = \
+            [v for v, p in self.extra_energy_per_vehicle.items() if p > self.EPS]
 
         charge_now = self.charge_window[0]
         window = charge_now
