@@ -53,7 +53,7 @@ def generate_flex_band(scenario, core_standing_time=None):
             "capacity": total_vehicle_capacity,
             "desired_energy": total_desired_energy,
             "v2g": v2g_enabled,
-            "efficiency": 0.95
+            "efficiency": average_efficiency
         },
         "batteries": {
             "stored": 0,
