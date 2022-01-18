@@ -45,7 +45,8 @@ def generate_flex_band(scenario, core_standing_time=None):
             "discharge_limit": 0.5,
             "capacity": total_vehicle_capacity,
             "desired_energy": total_desired_energy,
-            "v2g": v2g_enabled
+            "v2g": v2g_enabled,
+            "efficiency": 0.95
         },
         "batteries": {
             "stored": 0,
@@ -160,7 +161,6 @@ def generate_flex_band(scenario, core_standing_time=None):
 
     return flex
 
-
 def generate_schedule(args):
 
     # read in scenario
@@ -249,16 +249,76 @@ def generate_schedule(args):
     # default schedule: just basic power needs
     schedule = [v for v in flex["base"]]
 
+    def distribute_energy_balanced(period, energy_needed, priority_selection):
+        """Distributes energy across a time period, prefering certain priorities over others.
+        The algorithm tries to distribute needed energy across preferred priority timesteps
+        and only if that is insufficient the time steps of the second most preferred priority
+        are taken into account and so on.
+        Schedule is raised if we want to allow customer to charge more during this period.
+        Otherwise the schedule is lowered.
+
+        :param period: List of timestep indicies of the period the energy is distributed to
+        :type period: list
+        :param charge_period: Determines whether schedule should be raised or lowered.
+        "type charge_period: bool
+        :param energy_needed: Amount of energy to be distributed.
+        :type energy_needed: float
+        :param priority_selection: List of priorities ordered by preference starting with most
+                                   preferred.
+        :type priority_selection: list
+        :return: total change in stored energy after distribution completes
+        """
+
+        power_needed = energy_needed * ts_per_hour
+        energy_distributed = 0
+        for priority in priority_selection:
+
+            if power_needed < EPS:
+                # all vehicles charged
+                break
+
+            # count timesteps with current priority in interval
+            priority_timesteps = 0
+            for time in period:
+                if priorities[time] == priority:
+                    priority_timesteps += 1
+
+            # distribute remaining power needed over priority timesteps
+            saturated = 0
+            while priority_timesteps > saturated and power_needed > EPS:
+                power_per_ts = power_needed / (priority_timesteps - saturated)
+                saturated = 0
+                for time in period:
+                    if priorities[time] == priority:
+                        # calculate amount of power that can still be charged
+                        if charge_period:
+                            flexibility = flex["max"][time] - schedule[time]
+                        else:
+                            flexibility = schedule[time] - flex["min"][time]
+                        power = min(power_per_ts, flexibility)
+                        if power < EPS:
+                            # schedule at limit: can't charge
+                            saturated += 1
+                        else:
+                            # power fits here: increase schedule, decrease power needed
+                            if charge_period:
+                                schedule[time] += power
+                                energy_distributed += (power * flex["vehicles"]["efficiency"]) / ts_per_hour
+                            else:
+                                schedule[time] -= power * flex["vehicles"]["efficiency"]
+                                energy_distributed -= power / ts_per_hour
+                            power_needed -= power
+
+        return energy_distributed
+
     for interval in flex["intervals"]:
         # loop until all needs satisfied
         capacity = flex["vehicles"]["capacity"]
-        energy_needed = interval["needed"]
-        energy_stored = flex["vehicles"]["desired_energy"] - energy_needed
-        # energy_free = capacity - energy_stored
+        energy_stored = flex["vehicles"]["desired_energy"] - interval["needed"]
 
+        # brake up interval into charging (prio 1,2) and discharging (prio 3,4) periods
         periods = [[]]
         if flex["vehicles"]["v2g"]:
-            # brake up interval into charging (prio 1,2) and discharging (prio 3,4) periods
             prev_prio = priorities[interval["time"][0]]
             for time in interval["time"]:
                 priority = priorities[time]
@@ -291,52 +351,23 @@ def generate_schedule(args):
                 charge_period = True
                 priority_selection = [1, 2, 3, 4]
 
-            power_needed = (desired_energy_stored - energy_stored) * ts_per_hour
+            energy_needed = desired_energy_stored - energy_stored
 
             if not charge_period:
-                power_needed *= -1
+                energy_needed *= -1
 
-            # loop
-            for priority in priority_selection:
-                # take power from grid and make sure vehicles are charged
-                # priority: times of curtailment + percentile with lowest load (1),
-                #           negative loads (2), positive loads (3), percentile with highest load (4)
+            energy_stored += distribute_energy_balanced(period, energy_needed, priority_selection)
 
-                if power_needed < EPS:
-                    # all vehicles charged
-                    break
-
-                # count timesteps with current priority in interval
-                priority_timesteps = 0
-                for time in period:
-                    if priorities[time] == priority:
-                        priority_timesteps += 1
-
-                # distribute remaining power needed over priority timesteps
-                saturated = 0
-                while priority_timesteps > saturated and power_needed > EPS:
-                    power_per_ts = power_needed / (priority_timesteps - saturated)
-                    saturated = 0
-                    for time in period:
-                        if priorities[time] == priority:
-                            # calculate amount of power that can still be charged
-                            if charge_period:
-                                flexibility = flex["max"][time] - schedule[time]
-                            else:
-                                flexibility = schedule[time] - flex["min"][time]
-                            power = min(power_per_ts, flexibility)
-                            if power < EPS:
-                                # schedule at limit: can't charge
-                                saturated += 1
-                            else:
-                                # power fits here: increase schedule, decrease power needed
-                                if charge_period:
-                                    schedule[time] += power
-                                    energy_stored += (power * 0.95) / ts_per_hour
-                                else:
-                                    schedule[time] -= power * 0.95
-                                    energy_stored -= power / ts_per_hour
-                                power_needed -= power
+        # if at the end of the charging interval vehicles are not charged to desired SOC
+        # go through all periods again, this time from latest to earliest and raise the schedule
+        # as much as possible until enough energy is allocated to charge vehicles to desired SOC
+        charge_period = True
+        priority_selection = [1, 2, 3, 4]
+        for period in reversed(periods):
+            if energy_stored >= desired_energy_stored:
+                break
+            energy_needed = desired_energy_stored - energy_stored
+            energy_stored += distribute_energy_balanced(period, energy_needed, priority_selection)
 
     # create schedule for batteries
     batteries = flex["batteries"]  # members: stored, power, free
