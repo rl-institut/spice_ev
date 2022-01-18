@@ -12,10 +12,21 @@ def class_from_str(strategy_name):
 
 
 class Strategy():
-    """ strategy
+    """
+    Parent class for the individual strategies.
+
+    :param constants: class containing the constant componants
+    :type constants: class
+    :param start_time: start time of the simulation
+    :type start_time: datetime
+    :param interval: interval of one timestep of the simulation (e.g. 15 min)
+    :type interval: timedelta
+    :param kwargs: other input parameters
+    :type kwargs: dict
     """
 
     def __init__(self, constants, start_time, **kwargs):
+
         self.world_state = deepcopy(constants)
         self.world_state.future_events = []
         self.interval = kwargs.get('interval')  # required
@@ -35,6 +46,14 @@ class Strategy():
             setattr(self, k, v)
 
     def step(self, event_list=[]):
+        """
+        Method of Strategy that sets up initial conditions for the charging strategy in each time
+        step.
+
+        :param event_list: List of events
+        :type event_list: list
+        """
+
         self.current_time += self.interval
 
         self.world_state.future_events += event_list

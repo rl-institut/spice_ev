@@ -6,7 +6,8 @@ from src.strategy import Strategy
 
 
 class BalancedMarket(Strategy):
-    """
+    """BalancedMarket Strategy
+
     Moves all charging events to times with low energy price
     """
     def __init__(self, constants, start_time, **kwargs):
@@ -32,6 +33,14 @@ class BalancedMarket(Strategy):
             print(changed, "events signaled earlier")
 
     def step(self, event_list=[]):
+        """
+        Calculates charging in each timestep.
+
+        :param event_list: List of events
+        :type event_list: list
+        :return: current time and commands of the charging stations
+        :rtype: dict
+        """
         super().step(event_list)
 
         gc = list(self.world_state.grid_connectors.values())[0]
@@ -137,7 +146,10 @@ class BalancedMarket(Strategy):
                 desired_soc -= self.EPS
 
                 if sim_vehicle.battery.soc >= desired_soc:
-                    # desired SoC reached: no more charging needed
+                    # desired SoC reached: no more charging needed.
+                    # dont block time steps for v2g if balanced charging
+                    # does not occur in current TS
+                    sorted_idx = 0
                     break
 
                 # find timesteps with same price
@@ -198,8 +210,6 @@ class BalancedMarket(Strategy):
                     cs.current_power += avg_power
                     # don't have to simulate further
                     break
-            else:
-                sorted_idx = 0
 
             # normal charging done
 

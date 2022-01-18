@@ -1,3 +1,5 @@
+.. _charging_strategies:
+
 ~~~~~~~~~~~~~~~~~~~
 Charging strategies
 ~~~~~~~~~~~~~~~~~~~
@@ -94,32 +96,6 @@ V2G supported: **YES**
     |                   |               | process [0-1]                                           |
     +-------------------+---------------+---------------------------------------------------------+
 
-Inverse
-=======
-Charging strategy that prioritizes times with lower power costs. The idea is to find the minimum viable cost threshold (per car or for the whole fleet). This way, timesteps with less external load and smaller costs are prioritized for loading. In times with low cost, the maximum available power is used, no computation needed.
-
-The computed cost is used to find the corresponding power for each future timestep, which is then distributed to the vehicles. This distribution is done using sub-strategies:
-
-- greedy: vehicles charge as much as possible, one after the other (vehicles below desired SoC charge first)
-- needy: power is allocated according to missing power needed to reach the desired SoC
-- balanced: power is distributed evenly among vehicles below desired SoC. Surplus is then distributed evenly among all cars
-- individual: cost is not computed for whole fleet, but for each vehicle individually
-
-Stationary batteries supported: **YES**
-
-V2G supported: **NO**
-
-    +-------------------+---------------+---------------------------------------------------------+
-    |**Strategy option**| **default**   |              **explanation**                            |
-    +-------------------+---------------+---------------------------------------------------------+
-    |   HORIZON         |      24       | number of hours to look ahead                           |
-    +-------------------+---------------+---------------------------------------------------------+
-    |   ITERATIONS      |     12        | Minimum depth of binary search to find charging power   |
-    +-------------------+---------------+---------------------------------------------------------+
-    |   LOAD_STRAT      |   "greedy"    | charging strategy, see above                            |
-    +-------------------+---------------+---------------------------------------------------------+
-    |   PRICE_THRESHOLD |    0.001      | A price below this is considered cheap. Unit: € / 1 kWh |
-    +-------------------+---------------+---------------------------------------------------------+
 
 Schedule / ScheduleForesight
 ============================

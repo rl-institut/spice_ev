@@ -14,7 +14,17 @@ EPS = 1e-8
 
 
 def generate_flex_band(scenario, core_standing_time=None):
-    # generate flexibility potential with perfect foresight
+    """Generate flexibility potential with perfect foresight
+
+    :param scenario: dictionary from scenario json
+    :type scenario: dict
+    :param core_standing_time: core standing time during which flexibility is guaranteed e.g.
+        {"times":[{"start": [22,0], "end":[5,0]}], "full_days":[7]}
+    :type core_standing_time: dict
+    :return: flex band
+    :rtype: dict
+
+    """
 
     assert len(scenario.constants.grid_connectors) == 1, "Only one grid connector supported"
     gc = list(scenario.constants.grid_connectors.values())[0]
@@ -170,6 +180,12 @@ def generate_flex_band(scenario, core_standing_time=None):
 
 
 def generate_schedule(args):
+    """Generate schedule for grid signals
+
+    :param args: input arguments
+    :type args: argparse.Namespace
+    :return: None
+    """
 
     # read in scenario
     with open(args.scenario, 'r') as f:

@@ -6,8 +6,10 @@ from src.strategy import Strategy
 
 
 class FlexWindow(Strategy):
-    """
-    Charges balanced during given time windows
+    """FlexWindow Strategy
+
+    if LoadStrat = "balanced": Charges balanced during given time windows.
+    else: peak shaving in given time windows
     """
 
     def __init__(self, constants, start_time, **kwargs):
@@ -36,6 +38,14 @@ class FlexWindow(Strategy):
             "Unknown charging strategy: {}".format(self.LOAD_STRAT)
 
     def step(self, event_list=[]):
+        """
+        Calculates charging in each timestep.
+
+        :param event_list: List of events
+        :type event_list: list
+        :return: current time and commands of the charging stations
+        :rtype: dict
+        """
         super().step(event_list)
 
         gc = list(self.world_state.grid_connectors.values())[0]
@@ -115,6 +125,13 @@ class FlexWindow(Strategy):
         return {"current_time": self.current_time, "commands": commands}
 
     def distribute_balanced_vehicles(self, timesteps):
+        """Charge vehicles with balanced method according to schedule
+
+        :param timesteps: list of dictionaries for each timestep in horizon
+        :type timesteps: list
+        :return: commands for charging stations
+        :rtype: dict
+        """
 
         commands = {}
         gc = list(self.world_state.grid_connectors.values())[0]
@@ -148,6 +165,13 @@ class FlexWindow(Strategy):
             old_soc = sim_vehicle.battery.soc
             safe = False
             power_vec = [0] * len(timesteps)
+            # Compute the optimal maximum power to charge a vehicle to desired SOC
+            # For vehicles that cannot be fully charged in charge window, this power is applied to
+            # all TS of non-charging windows (if GC bound is not tighter) while during charging TS
+            # all remaining power on GC is used.
+            # For vehicles that can be fully charged during charge windows, at every TS of a
+            # charging window the minimum of this power and the remaining power on the
+            # GC is applied.
             while (charged_in_window and not safe) or max_power - min_power > self.EPS:
                 power = (min_power + max_power) / 2
                 sim_vehicle.battery.soc = old_soc
@@ -159,7 +183,7 @@ class FlexWindow(Strategy):
                     if cur_time >= sim_vehicle.estimated_time_of_departure:
                         break
                     if ts_info["window"] == charged_in_window:
-                        p = util.clamp_power(power, sim_vehicle, cs)
+                        p = util.clamp_power(min(power, ts_info["power"]), sim_vehicle, cs)
                         avg_power = sim_vehicle.battery.load(self.interval, p)["avg_power"]
                     elif not charged_in_window and ts_info["window"]:
                         # charging windows not sufficient, charge max during window
@@ -177,6 +201,8 @@ class FlexWindow(Strategy):
                 else:
                     min_power = power
 
+            # The GC may not allow to charge with optimal power during current TS
+            power = min(gc.max_power - gc.get_current_load(), power)
             # apply power
             if gc.window:
                 p = (power if charged_in_window
@@ -194,6 +220,11 @@ class FlexWindow(Strategy):
         return commands
 
     def distribute_balanced_batteries(self, timesteps):
+        """Charge/discharge batteries with balanced method according to schedule
+
+        :param timesteps: list of dictionaries for each timestep in horizon
+        :type timesteps: list
+        """
 
         gc = list(self.world_state.grid_connectors.values())[0]
 
@@ -268,6 +299,15 @@ class FlexWindow(Strategy):
                 timesteps[0]["total_load"] -= discharge
 
     def distribute_balanced_v2g(self, timesteps, commands):
+        """Charge/discharge vehicles with v2g with balanced method according to schedule
+
+        :param timesteps: list of dictionaries for each timestep in horizon
+        :type timesteps: list
+        :param commands: commands for charging stations (prior results)
+        :type commands: dict
+        :return: commands for charging stations
+        :rtype: dict
+        """
 
         if not commands:
             commands = {}
@@ -336,7 +376,11 @@ class FlexWindow(Strategy):
 
             # calculate power to charge / discharge
             min_power = 0
-            max_power = cs.max_power
+            if cur_window:
+                max_power = min(cs.max_power, gc.max_power - gc.get_current_load())
+            else:
+                max_power = min(cs.max_power, gc.max_power + gc.get_current_load())
+            total_power = 0
             while max_power - min_power > self.EPS:
                 total_power = (min_power + max_power) / 2
                 # reset soc
@@ -394,6 +438,13 @@ class FlexWindow(Strategy):
         return commands
 
     def distribute_peak_shaving_vehicles(self, timesteps):
+        """Charge vehicles with peak shaving method according to schedule
+
+        :param timesteps: list of dictionaries for each timestep in horizon
+        :type timesteps: list
+        :return: commands for charging stations
+        :rtype: dict
+        """
 
         commands = {}
         gc = list(self.world_state.grid_connectors.values())[0]
@@ -493,7 +544,11 @@ class FlexWindow(Strategy):
         return commands
 
     def distribute_peak_shaving_batteries(self, timesteps):
+        """Charge/discharge batteries with peak shaving method according to schedule
 
+        :param timesteps: list of dictionaries for each timestep in horizon
+        :type timesteps: list
+        """
         discharging_stations = []
         batteries = [b for b in self.world_state.batteries.values()
                      if b.parent is not None]
@@ -609,7 +664,15 @@ class FlexWindow(Strategy):
                 timesteps[0]["total_load"] -= discharge
 
     def distribute_peak_shaving_v2g(self, timesteps, commands):
+        """Charge/discharge vehicles with v2g with peak shaving method according to schedule
 
+        :param timesteps: list of dictionaries for each timestep in horizon
+        :type timesteps: list
+        :param commands: commands for charging stations (prior results)
+        :type commands: dict
+        :return: commands for charging stations
+        :rtype: dict
+        """
         gc = list(self.world_state.grid_connectors.values())[0]
         # get all vehicles that are connected in this step and order vehicles
         vehicles = sorted([v for v in self.world_state.vehicles.values()
@@ -755,6 +818,19 @@ class FlexWindow(Strategy):
         return commands
 
     def distribute_power(self, vehicles, total_power, total_needed):
+        """Load vehicle batteries with available power according to LOAD_STRAT.
+
+        possible LOAD_STRATs: greedy, needy
+
+        :param vehicles: vehicle objects (?)
+        :type vehicles: object
+        :param total_power: total available power
+        :type total_power: numeric
+        :param total_needed: total power needed
+        :type total_needed: numeric
+        :return: commands for charging stations
+        :rtype: dict
+        """
         commands = {}
         if total_power <= 0 or total_needed <= 0:
             return {}
