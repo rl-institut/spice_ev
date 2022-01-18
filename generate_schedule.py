@@ -31,11 +31,18 @@ def generate_flex_band(scenario, core_standing_time=None):
         # helper function: make sure to stay within GC power limits
         return min(max(power, -gc.max_power), gc.max_power)
 
-    total_vehicle_capacity = sum([v.battery.capacity for v in s.world_state.vehicles.values()])
-    # amount of energy stored in all vehicles combined if for each vehicle: SOC = desired SOC
-    total_desired_energy = \
-        sum([v.desired_soc * v.battery.capacity for v in s.world_state.vehicles.values()])
-    v2g_enabled = any([v.vehicle_type.v2g for v in s.world_state.vehicles.values()])
+    total_vehicle_capacity = 0
+    total_desired_energy = 0
+    average_efficiency = 0
+    v2g_enabled = False
+    for v in s.world_state.vehicles.values():
+        total_vehicle_capacity += v.battery.capacity
+        total_desired_energy += v.desired_soc * v.battery.capacity
+        average_efficiency += v.battery.efficiency * v.battery.capacity
+        if v.vehicle_type.v2g:
+            v2g_enabled = True
+    average_efficiency /= total_vehicle_capacity
+
     flex = {
         "min": [],
         "base": [],
@@ -160,6 +167,7 @@ def generate_flex_band(scenario, core_standing_time=None):
         flex["max"].append(clamp_to_gc(base_flex + vehicle_flex + bat_flex_charge))
 
     return flex
+
 
 def generate_schedule(args):
 
@@ -303,7 +311,8 @@ def generate_schedule(args):
                             # power fits here: increase schedule, decrease power needed
                             if charge_period:
                                 schedule[time] += power
-                                energy_distributed += (power * flex["vehicles"]["efficiency"]) / ts_per_hour
+                                energy_distributed += \
+                                    (power * flex["vehicles"]["efficiency"]) / ts_per_hour
                             else:
                                 schedule[time] -= power * flex["vehicles"]["efficiency"]
                                 energy_distributed -= power / ts_per_hour
