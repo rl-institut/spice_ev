@@ -13,11 +13,10 @@ from src import scenario, strategy, util
 EPS = 1e-8
 
 
-def generate_flex_band(scenario, core_standing_time=None):
+def generate_flex_band(scenario, gc_index, core_standing_time=None):
     # generate flexibility potential with perfect foresight
 
-    assert len(scenario.constants.grid_connectors) == 1, "Only one grid connector supported"
-    gc = list(scenario.constants.grid_connectors.values())[0]
+    gc = list(scenario.constants.grid_connectors.values())[gc_index]
 
     # generate basic strategy
     s = strategy.Strategy(
@@ -32,6 +31,7 @@ def generate_flex_band(scenario, core_standing_time=None):
         return min(max(power, -gc.max_power), gc.max_power)
 
     cars = {vid: [0, 0, 0] for vid in s.world_state.vehicles}
+    just_arrived = {vid: True for vid in s.world_state.vehicles}
     flex = {
         "min": [],
         "base": [],
@@ -81,9 +81,9 @@ def generate_flex_band(scenario, core_standing_time=None):
                 # vehicle not present: reset info, add to power needed in last interval
                 power_needed += cars[vid][1]
                 cars[vid] = [0, 0, 0]
+                just_arrived[vid] = True
             else:
-                num_cars_present += 1
-                if cars[vid][0] == 0:
+                if just_arrived[vid]:
                     # just arrived
                     charging_power = v.battery.loading_curve.max_power
                     delta_soc = max(v.get_delta_soc(), 0)
@@ -97,7 +97,12 @@ def generate_flex_band(scenario, core_standing_time=None):
                     vehicle_power_needed = (delta_soc * v.battery.capacity) / v.battery.efficiency
                     v.battery.soc = max(v.battery.soc, v.desired_soc)
                     v2g = v.battery.get_available_power(s.interval) if v.vehicle_type.v2g else 0
-                    cars[vid] = [charging_power, vehicle_power_needed, v2g]
+                    if s.world_state.charging_stations[v.connected_charging_station].parent \
+                            == list(scenario.constants.grid_connectors)[gc_index]:
+                        cars[vid] = [charging_power, vehicle_power_needed, v2g]
+                        num_cars_present += 1
+                    just_arrived[vid] = False
+
 
         pv_support = max(-base_flex, 0)
         if num_cars_present:
