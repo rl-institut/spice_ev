@@ -189,335 +189,349 @@ class Scenario:
             sum(totalLoad)/stepsPerHour, sum(costs)))
 
         if options.get("save_timeseries", False) or options.get("save_results", False):
-            # get flexibility band
             from generate_schedule import generate_flex_band
-            flex = generate_flex_band(self)
+            # get flexibility band
+            for gc_index, gc_name in enumerate(strat.world_state.grid_connectors):
+                flex = generate_flex_band(self, gc_index)
 
-        if options.get("save_results", False):
-            # save general simulation info to JSON file
-            ext = options["save_results"].split('.')[-1]
-            if ext != "json":
-                print("File extension mismatch: results file is of type .json")
+                if options.get("save_results", False):
+                    # save general simulation info to JSON file
+                    ext = options["save_results"].split('.')[-1]
+                    if ext != "json":
+                        print("File extension mismatch: results file is of type .json")
 
-            json_results = {}
+                    json_results = {}
 
-            # gather info about standing and power in specific time windows
-            load_count = [[0] for _ in self.constants.vehicles]
-            load_window = [[] for _ in range(4)]
-            count_window = [[0]*len(self.constants.vehicles) for _ in range(4)]
+                    # gather info about standing and power in specific time windows
+                    load_count = [[0] for _ in self.constants.vehicles]
+                    load_window = [[] for _ in range(4)]
+                    count_window = [[0]*len(self.constants.vehicles) for _ in range(4)]
 
-            cur_time = self.start_time - self.interval
-            # maximum power (fixed and variable loads)
-            max_fixed_load = 0
-            max_variable_load = 0
-            for idx in range(step_i):
-                cur_time += self.interval
-                time_since_midnight = cur_time - cur_time.replace(hour=0, minute=0)
-                # four equally large timewindows: 04-10, 10-16, 16-22, 22-04
-                # shift time by four hours
-                shifted_time = time_since_midnight - datetime.timedelta(hours=4)
-                # compute window index
-                widx = (shifted_time // datetime.timedelta(hours=6)) % 4
+                    cur_time = self.start_time - self.interval
+                    # maximum power (fixed and variable loads)
+                    max_fixed_load = 0
+                    max_variable_load = 0
+                    for idx in range(step_i):
+                        cur_time += self.interval
+                        time_since_midnight = cur_time - cur_time.replace(hour=0, minute=0)
+                        # four equally large timewindows: 04-10, 10-16, 16-22, 22-04
+                        # shift time by four hours
+                        shifted_time = time_since_midnight - datetime.timedelta(hours=4)
+                        # compute window index
+                        widx = (shifted_time // datetime.timedelta(hours=6)) % 4
 
-                load_window[widx].append((flex["max"][idx] - flex["min"][idx], totalLoad[idx]))
-                count_window[widx] = list(map(
-                    lambda c, t: c + (t is not None),
-                    count_window[widx], socs[idx]))
+                        load_window[widx].append((flex["max"][idx] - flex["min"][idx], totalLoad[idx]))
+                        count_window[widx] = list(map(
+                            lambda c, t: c + (t is not None),
+                            count_window[widx], socs[idx]))
 
-                for i, soc in enumerate(socs[idx]):
-                    if soc is None and load_count[i][-1] > 0:
-                        load_count[i].append(0)
+                        for i, soc in enumerate(socs[idx]):
+                            if soc is None and load_count[i][-1] > 0:
+                                load_count[i].append(0)
+                            else:
+                                load_count[i][-1] += (soc is not None)
+
+                        fixed_load = sum([v for k, v in extLoads[idx].items() if
+                                          k in self.events.external_load_lists or
+                                          k in self.events.energy_feed_in_lists])
+                        max_fixed_load = max(max_fixed_load, fixed_load)
+                        var_load = totalLoad[idx] - fixed_load
+                        max_variable_load = max(max_variable_load, var_load)
+
+                    # avg flex per window
+                    avg_flex_per_window = [sum([t[0] for t in w]) / len(w) if w else 0 for w in load_window]
+                    json_results["avg flex per window"] = {
+                        "04-10": avg_flex_per_window[0],
+                        "10-16": avg_flex_per_window[1],
+                        "16-22": avg_flex_per_window[2],
+                        "22-04": avg_flex_per_window[3],
+                        "unit": "kW",
+                        "info": "Average flexible power range per time window"
+                    }
+
+                    # sum of used energy per window
+                    sum_energy_per_window = [sum([t[1] for t in w]) / stepsPerHour for w in load_window]
+                    json_results["sum of energy per window"] = {
+                        "04-10": sum_energy_per_window[0],
+                        "10-16": sum_energy_per_window[1],
+                        "16-22": sum_energy_per_window[2],
+                        "22-04": sum_energy_per_window[3],
+                        "unit": "kWh",
+                        "info": "Total drawn energy per time window"
+                    }
+                    if strat.count_negative_soc:
+                        json_results["vehicles with negative soc"] = strat.count_negative_soc
+
+                    # avg standing time
+                    # don't use info from flex band, as standing times might be interleaved
+                    # remove last empty standing count
+                    for counts in load_count:
+                        if counts[-1] == 0:
+                            counts = counts[:-1]
+                    num_loads = sum(map(len, load_count))
+                    if num_loads > 0:
+                        avg_stand_time = sum(map(sum, load_count)) / stepsPerHour / num_loads
                     else:
-                        load_count[i][-1] += (soc is not None)
+                        avg_stand_time = 0
+                    # avg total standing time
+                    # count per car: list(zip(*count_window))
+                    total_standing = sum(map(sum, count_window))
+                    avg_total_standing_time = total_standing / len(self.constants.vehicles) / stepsPerHour
+                    json_results["avg standing time"] = {
+                        "single": avg_stand_time,
+                        "total": avg_total_standing_time,
+                        "unit": "h",
+                        "info": "Average duration of a single standing event and "
+                                "average total time standing time of all vehicles"
+                    }
 
-                fixed_load = sum([v for k, v in extLoads[idx].items() if
-                                  k in self.events.external_load_lists or
-                                  k in self.events.energy_feed_in_lists])
-                max_fixed_load = max(max_fixed_load, fixed_load)
-                var_load = totalLoad[idx] - fixed_load
-                max_variable_load = max(max_variable_load, var_load)
+                    # percent of standing time in time window
+                    perc_stand_window = list(map(
+                        lambda x: x * 100 / total_standing if total_standing > 0 else 0,
+                        map(sum, count_window)))
+                    json_results["standing per window"] = {
+                        "04-10": perc_stand_window[0],
+                        "10-16": perc_stand_window[1],
+                        "16-22": perc_stand_window[2],
+                        "22-04": perc_stand_window[3],
+                        "unit": "%",
+                        "info": "Share of standing time per time window"
+                    }
 
-            # avg flex per window
-            avg_flex_per_window = [sum([t[0] for t in w]) / len(w) if w else 0 for w in load_window]
-            json_results["avg flex per window"] = {
-                "04-10": avg_flex_per_window[0],
-                "10-16": avg_flex_per_window[1],
-                "16-22": avg_flex_per_window[2],
-                "22-04": avg_flex_per_window[3],
-                "unit": "kW",
-                "info": "Average flexible power range per time window"
-            }
+                    # avg needed energy per standing period
+                    intervals = flex["intervals"]
+                    avg_needed_energy = sum([i["needed"] for i in intervals]) / len(intervals)
+                    json_results["avg needed energy"] = {
+                        # avg energy per standing period and vehicle
+                        "value": avg_needed_energy / len(self.constants.vehicles),
+                        "unit": "kWh",
+                        "info": "Average amount of energy needed to reach the desired SoC"
+                                " (averaged over all vehicles and charge events)"
+                    }
 
-            # sum of used energy per window
-            sum_energy_per_window = [sum([t[1] for t in w]) / stepsPerHour for w in load_window]
-            json_results["sum of energy per window"] = {
-                "04-10": sum_energy_per_window[0],
-                "10-16": sum_energy_per_window[1],
-                "16-22": sum_energy_per_window[2],
-                "22-04": sum_energy_per_window[3],
-                "unit": "kWh",
-                "info": "Total drawn energy per time window"
-            }
+                    # power peaks (fixed loads and variable loads)
+                    json_results["power peaks"] = {
+                        "fixed": max_fixed_load,
+                        "variable": max_variable_load,
+                        "total": max(totalLoad),
+                        "unit": "kW",
+                        "info": "Maximum drawn power, by fixed loads (building, PV),"
+                                " variable loads (charging stations, stationary batteries) and all loads"
+                    }
 
-            # avg standing time
-            # don't use info from flex band, as standing times might be interleaved
-            # remove last empty standing count
-            for counts in load_count:
-                if counts[-1] == 0:
-                    counts = counts[:-1]
-            num_loads = sum(map(len, load_count))
-            if num_loads > 0:
-                avg_stand_time = sum(map(sum, load_count)) / stepsPerHour / num_loads
-            else:
-                avg_stand_time = 0
-            # avg total standing time
-            # count per car: list(zip(*count_window))
-            total_standing = sum(map(sum, count_window))
-            avg_total_standing_time = total_standing / len(self.constants.vehicles) / stepsPerHour
-            json_results["avg standing time"] = {
-                "single": avg_stand_time,
-                "total": avg_total_standing_time,
-                "unit": "h",
-                "info": "Average duration of a single standing event and "
-                        "average total time standing time of all vehicles"
-            }
+                    # average drawn power
+                    avg_drawn = sum(totalLoad) / step_i if step_i > 0 else 0
+                    json_results["avg drawn power"] = {
+                        "value": avg_drawn,
+                        "unit": "kW",
+                        "info": "Drawn power, averaged over all time steps"
+                    }
 
-            # percent of standing time in time window
-            perc_stand_window = list(map(
-                lambda x: x * 100 / total_standing if total_standing > 0 else 0,
-                map(sum, count_window)))
-            json_results["standing per window"] = {
-                "04-10": perc_stand_window[0],
-                "10-16": perc_stand_window[1],
-                "16-22": perc_stand_window[2],
-                "22-04": perc_stand_window[3],
-                "unit": "%",
-                "info": "Share of standing time per time window"
-            }
+                    # total feed-in energy
+                    json_results["feed-in energy"] = {
+                        "value": sum(feedInPower) / stepsPerHour,
+                        "unit": "kWh",
+                        "info": "Total energy from renewable energy sources"
+                    }
 
-            # avg needed energy per standing period
-            intervals = flex["intervals"]
-            avg_needed_energy = sum([i["needed"] for i in intervals]) / len(intervals)
-            json_results["avg needed energy"] = {
-                # avg energy per standing period and vehicle
-                "value": avg_needed_energy / len(self.constants.vehicles),
-                "unit": "kWh",
-                "info": "Average amount of energy needed to reach the desired SoC"
-                        " (averaged over all vehicles and charge events)"
-            }
+                    # battery sizes
+                    if batteryLevels:
+                        bat_dict = {batName: max(values) for batName, values in batteryLevels.items()}
+                        bat_dict.update({
+                            "unit": "kWh",
+                            "info": "Maximum stored energy in each battery by name"
+                        })
+                        json_results["max. stored energy in batteries"] = bat_dict
 
-            # power peaks (fixed loads and variable loads)
-            json_results["power peaks"] = {
-                "fixed": max_fixed_load,
-                "variable": max_variable_load,
-                "total": max(totalLoad),
-                "unit": "kW",
-                "info": "Maximum drawn power, by fixed loads (building, PV),"
-                        " variable loads (charging stations, stationary batteries) and all loads"
-            }
+                    # charging cycles
+                    # stationary batteries
+                    total_bat_cap = 0
+                    for batID, battery in self.constants.batteries.items():
+                        if battery.capacity > 2**63:
+                            # unlimited capacity
+                            max_cap = max(batteryLevels[batName])
+                            print("Battery {} is unlimited, set capacity to {} kWh".format(batID, max_cap))
+                            total_bat_cap += max_cap
+                        else:
+                            total_bat_cap += battery.capacity
+                    if total_bat_cap:
+                        total_bat_energy = 0
+                        for loads in extLoads:
+                            for batID in self.constants.batteries.keys():
+                                total_bat_energy += max(loads.get(batID, 0), 0) / stepsPerHour
+                        json_results["stationary battery cycles"] = {
+                            "value": total_bat_energy / total_bat_cap,
+                            "unit": None,
+                            "info": "Number of load cycles of stationary batteries (averaged)"
+                        }
+                    # vehicles
+                    total_car_cap = sum([v.battery.capacity for v in self.constants.vehicles.values()])
+                    total_car_energy = sum([sum(map(
+                        lambda v: max(v, 0), r["commands"].values())) for r in results])
+                    json_results["vehicle battery cycles"] = {
+                        "value": total_car_energy/total_car_cap,
+                        "unit": None,
+                        "info": "Number of load cycles per vehicle (averaged)"
+                    }
 
-            # average drawn power
-            avg_drawn = sum(totalLoad) / step_i if step_i > 0 else 0
-            json_results["avg drawn power"] = {
-                "value": avg_drawn,
-                "unit": "kW",
-                "info": "Drawn power, averaged over all time steps"
-            }
+                    # write to file
+                    file_name = options['save_results'].split(".")[0] + f"_{gc_name}." + \
+                                options['save_results'].split(".")[1]
+                    with open(file_name, 'w') as results_file:
+                        json.dump(json_results, results_file, indent=2)
 
-            # total feed-in energy
-            json_results["feed-in energy"] = {
-                "value": sum(feedInPower) / stepsPerHour,
-                "unit": "kWh",
-                "info": "Total energy from renewable energy sources"
-            }
+                if options.get("save_timeseries", False):
+                    # save power use for each timestep in file
 
-            # battery sizes
-            if batteryLevels:
-                bat_dict = {batName: max(values) for batName, values in batteryLevels.items()}
-                bat_dict.update({
-                    "unit": "kWh",
-                    "info": "Maximum stored energy in each battery by name"
-                })
-                json_results["max. stored energy in batteries"] = bat_dict
+                    # check file extension
+                    ext = options["save_timeseries"].split('.')[-1]
+                    if ext != "csv":
+                        print("File extension mismatch: timeseries file is of type .csv")
 
-            # charging cycles
-            # stationary batteries
-            total_bat_cap = 0
-            for batID, battery in self.constants.batteries.items():
-                if battery.capacity > 2**63:
-                    # unlimited capacity
-                    max_cap = max(batteryLevels[batName])
-                    print("Battery {} is unlimited, set capacity to {} kWh".format(batID, max_cap))
-                    total_bat_cap += max_cap
-                else:
-                    total_bat_cap += battery.capacity
-            if total_bat_cap:
-                total_bat_energy = 0
-                for loads in extLoads:
-                    for batID in self.constants.batteries.keys():
-                        total_bat_energy += max(loads.get(batID, 0), 0) / stepsPerHour
-                json_results["stationary battery cycles"] = {
-                    "value": total_bat_energy / total_bat_cap,
-                    "unit": None,
-                    "info": "Number of load cycles of stationary batteries (averaged)"
-                }
-            # vehicles
-            total_car_cap = sum([v.battery.capacity for v in self.constants.vehicles.values()])
-            total_car_energy = sum([sum(map(
-                lambda v: max(v, 0), r["commands"].values())) for r in results])
-            json_results["vehicle battery cycles"] = {
-                "value": total_car_energy/total_car_cap,
-                "unit": None,
-                "info": "Number of load cycles per vehicle (averaged)"
-            }
+                    cs_ids = sorted(item for item in strat.world_state.charging_stations.keys() if
+                                    self.constants.charging_stations[item].parent == gc_name)
 
-            # write to file
-            with open(options['save_results'], 'w') as results_file:
-                json.dump(json_results, results_file, indent=2)
-
-        if options.get("save_timeseries", False):
-            # save power use for each timestep in file
-
-            # check file extension
-            ext = options["save_timeseries"].split('.')[-1]
-            if ext != "csv":
-                print("File extension mismatch: timeseries file is of type .csv")
-
-            cs_ids = sorted(strat.world_state.charging_stations.keys())
-            uc_keys = [
-                "work",
-                "business",
-                "school",
-                "shopping",
-                "private/ridesharing",
-                "leisure",
-                "home",
-                "hub"
-            ]
-
-            round_to_places = 2
-
-            # which SimBEV-Use Cases are in this scenario?
-            # group CS by UC name
-            cs_by_uc = {}
-            for uc_key in uc_keys:
-                for cs_id in cs_ids:
-                    if uc_key in cs_id:
-                        # CS part of UC
-                        if uc_key not in cs_by_uc:
-                            # first CS of this UC
-                            cs_by_uc[uc_key] = []
-                        cs_by_uc[uc_key].append(cs_id)
-
-            uc_keys_present = cs_by_uc.keys()
-
-            scheduleKeys = []
-            for gcID in sorted(gcPowerSchedule.keys()):
-                if any(s is not None for s in gcPowerSchedule[gcID]):
-                    scheduleKeys.append(gcID)
-
-            # any loads except CS present?
-            hasExtLoads = any(extLoads)
-
-            with open(options['save_timeseries'], 'w') as timeseries_file:
-                # write header
-                # general info
-                header = ["timestep", "time"]
-                # price
-                if any(prices):
-                    # external loads (e.g., building)
-                    header.append("price [EUR/kWh]")
-                # grid power
-                header.append("grid power [kW]")
-                # external loads
-                if hasExtLoads:
-                    # external loads (e.g., building)
-                    header.append("ext.load [kW]")
-                # feed-in
-                if any(feedInPower):
-                    header.append("feed-in [kW]")
-                # batteries
-                if self.constants.batteries:
-                    header += ["battery power [kW]", "bat. stored energy [kWh]"]
-                # flex + schedule
-                header += ["flex min [kW]", "flex base [kW]", "flex max [kW]"]
-                header += ["schedule {} [kW]".format(gcID) for gcID in scheduleKeys]
-                header += ["window {}".format(gcID) for gcID in scheduleKeys]
-                # sum of charging power
-                header.append("sum CS power")
-                # charging power per use case
-                header += ["sum UC {}".format(uc) for uc in uc_keys_present]
-                # total number of occupied charging stations
-                header.append("# occupied CS")
-                # number of occupied CS per UC
-                header += ["# occupied UC {}".format(uc) for uc in uc_keys_present]
-                # charging power per CS
-                header += [str(cs_id) for cs_id in cs_ids]
-                timeseries_file.write(','.join(header))
-
-                # write timesteps
-                for idx, r in enumerate(results):
-                    # general info: timestep index and timestamp
-                    # TZ removed for spreadsheet software
-                    row = [idx, r['current_time'].replace(tzinfo=None)]
-                    # price
-                    if any(prices):
-                        row.append(round(prices[idx][0], round_to_places))
-                    # grid power (negative since grid power is fed into system)
-                    row.append(-1 * round(totalLoad[idx], round_to_places))
-                    # external loads
-                    if hasExtLoads:
-                        sumExtLoads = sum([
-                            v for k, v in extLoads[idx].items()
-                            if k in self.events.external_load_lists])
-                        row.append(round(sumExtLoads, round_to_places))
-                    # feed-in (negative since grid power is fed into system)
-                    if any(feedInPower):
-                        row.append(-1 * round(feedInPower[idx], round_to_places))
-                    # batteries
-                    if self.constants.batteries:
-                        row += [
-                            # battery power
-                            round(sum([
-                                v for k, v in extLoads[idx].items()
-                                if k in self.constants.batteries]),
-                                round_to_places),
-                            # battery levels
-                            round(
-                                sum([levels[idx] for levels in batteryLevels.values()]),
-                                round_to_places
-                            )
-                        ]
-                    # flex
-                    row += [
-                        round(flex["min"][idx], round_to_places),
-                        round(flex["base"][idx], round_to_places),
-                        round(flex["max"][idx], round_to_places)
+                    uc_keys = [
+                        "work",
+                        "business",
+                        "school",
+                        "shopping",
+                        "private/ridesharing",
+                        "leisure",
+                        "home",
+                        "hub"
                     ]
-                    # schedule + window schedule
-                    row += [
-                        round(gcPowerSchedule[gcID][idx], round_to_places)
-                        for gcID in scheduleKeys]
-                    row += [
-                        round(gcWindowSchedule[gcID][idx], round_to_places)
-                        for gcID in scheduleKeys]
-                    # charging power
-                    # get sum of all current CS power
-                    row.append(round(sum(r['commands'].values()), round_to_places))
-                    # sum up all charging power for each use case
-                    row += [round(sum([cs_value for cs_id, cs_value in r['commands'].items()
-                                       if cs_id in cs_by_uc[uc_key]]),
-                            round_to_places) for uc_key in uc_keys_present]
-                    # get total number of occupied CS
-                    row.append(len(connChargeByTS[idx]))
-                    # get number of occupied CS for each use case
-                    row += [
-                        sum([1 if uc_key in cs_id else 0
-                            for cs_id in connChargeByTS[idx]]) for uc_key in uc_keys_present]
-                    # get individual charging power
-                    row += [round(r['commands'].get(cs_id, 0), round_to_places) for cs_id in cs_ids]
-                    # write row to file
-                    timeseries_file.write('\n' + ','.join(map(lambda x: str(x), row)))
+
+                    round_to_places = 2
+
+                    # which SimBEV-Use Cases are in this scenario?
+                    # group CS by UC name
+                    cs_by_uc = {}
+                    for uc_key in uc_keys:
+                        for cs_id in cs_ids:
+                            if uc_key in cs_id:
+                                # CS part of UC
+                                if uc_key not in cs_by_uc:
+                                    # first CS of this UC
+                                    cs_by_uc[uc_key] = []
+                                cs_by_uc[uc_key].append(cs_id)
+
+                    uc_keys_present = cs_by_uc.keys()
+
+                    scheduleKeys = []
+                    for gcID in sorted(gcPowerSchedule.keys()):
+                        if any(s is not None for s in gcPowerSchedule[gcID]):
+                            scheduleKeys.append(gcID)
+
+                    # any loads except CS present?
+                    hasExtLoads = any(extLoads)
+
+                    with open(options['save_timeseries'].split(".")[0] + f"_{gc_name}." +
+                              options['save_timeseries'].split(".")[1], 'w') as timeseries_file:
+                        # write header
+                        # general info
+                        header = ["timestep", "time"]
+                        # price
+                        if any(prices):
+                            # external loads (e.g., building)
+                            header.append("price [EUR/kWh]")
+                        # grid power
+                        header.append("grid power [kW]")
+                        # external loads
+                        if hasExtLoads:
+                            # external loads (e.g., building)
+                            header.append("ext.load [kW]")
+                        # feed-in
+                        if any(feedInPower):
+                            header.append("feed-in [kW]")
+                        # batteries
+                        if self.constants.batteries:
+                            header += ["battery power [kW]", "bat. stored energy [kWh]"]
+                        # flex + schedule
+                        header += ["flex min [kW]", "flex base [kW]", "flex max [kW]"]
+                        header += ["schedule {} [kW]".format(gcID) for gcID in scheduleKeys]
+                        header += ["window {}".format(gcID) for gcID in scheduleKeys]
+                        # sum of charging power
+                        header.append("sum CS power")
+                        # charging power per use case
+                        header += ["sum UC {}".format(uc) for uc in uc_keys_present]
+                        # total number of occupied charging stations
+                        header.append("# occupied CS")
+                        # number of occupied CS per UC
+                        header += ["# occupied UC {}".format(uc) for uc in uc_keys_present]
+                        # charging power per CS
+                        header += [str(cs_id) for cs_id in cs_ids]
+                        timeseries_file.write(','.join(header))
+
+                        # write timesteps
+                        for idx, r in enumerate(results):
+                            # general info: timestep index and timestamp
+                            # TZ removed for spreadsheet software
+                            row = [idx, r['current_time'].replace(tzinfo=None)]
+                            # price
+                            if any(prices):
+                                row.append(round(prices[idx][0], round_to_places))
+                            # grid power (negative since grid power is fed into system)
+                            row.append(-1 * round(totalLoad[idx], round_to_places))
+                            # external loads
+                            if hasExtLoads:
+                                sumExtLoads = sum([
+                                    v for k, v in extLoads[idx].items()
+                                    if k in self.events.external_load_lists])
+                                row.append(round(sumExtLoads, round_to_places))
+                            # feed-in (negative since grid power is fed into system)
+                            if any(feedInPower):
+                                row.append(-1 * round(feedInPower[idx], round_to_places))
+                            # batteries
+                            if self.constants.batteries:
+                                row += [
+                                    # battery power
+                                    round(sum([
+                                        v for k, v in extLoads[idx].items()
+                                        if k in self.constants.batteries]),
+                                        round_to_places),
+                                    # battery levels
+                                    round(
+                                        sum([levels[idx] for levels in batteryLevels.values()]),
+                                        round_to_places
+                                    )
+                                ]
+                            # flex
+                            row += [
+                                round(flex["min"][idx], round_to_places),
+                                round(flex["base"][idx], round_to_places),
+                                round(flex["max"][idx], round_to_places)
+                            ]
+                            # schedule + window schedule
+                            row += [
+                                round(gcPowerSchedule[gcID][idx], round_to_places)
+                                for gcID in scheduleKeys]
+                            row += [
+                                round(gcWindowSchedule[gcID][idx], round_to_places)
+                                for gcID in scheduleKeys]
+                            # charging power
+                            # get sum of all current CS power that are connected to gc
+                            gc_commands = {}
+                            if r['commands']:
+                                for k, v in r["commands"].items():
+                                    if k in cs_ids:
+                                        gc_commands.update({k:v})
+                            row.append(round(sum(gc_commands.values()), round_to_places))
+                            # sum up all charging power at gc for each use case
+                            row += [round(sum([cs_value for cs_id, cs_value in gc_commands.items()
+                                               if cs_id in cs_by_uc[uc_key]]),
+                                    round_to_places) for uc_key in uc_keys_present]
+                            # get total number of occupied CS that are connected to gc
+                            connChargeByTSGc = [item for item in connChargeByTS[idx] if item in gc_commands.keys()]
+                            row.append(len(connChargeByTSGc))
+                            # get number of occupied CS at gc for each use case
+                            row += [
+                                sum([1 if uc_key in cs_id else 0
+                                    for cs_id in connChargeByTSGc]) for uc_key in uc_keys_present]
+                            # get individual charging power of cs_id that is connected to gc
+                            row += [round(gc_commands.get(cs_id, 0), round_to_places) for cs_id in cs_ids]
+                            # write row to file
+                            timeseries_file.write('\n' + ','.join(map(lambda x: str(x), row)))
 
         if options.get('visual', False):
             import matplotlib.pyplot as plt
