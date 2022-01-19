@@ -111,6 +111,7 @@ class BalancedMarket(Strategy):
                 ext_load = gc.get_avg_ext_load(cur_time, self.interval) - sum(cur_feed_in.values())
             timesteps.append({
                 "power": cur_max_power - ext_load,
+                "max_power": cur_max_power,
                 "cost": cur_cost,
             })
 
@@ -121,6 +122,7 @@ class BalancedMarket(Strategy):
         for vid, vehicle in vehicles:
             cs_id = vehicle.connected_charging_station
             cs = self.world_state.charging_stations[cs_id]
+            original_soc = vehicle.battery.soc
 
             # balance load over times with same cost
 
@@ -233,6 +235,12 @@ class BalancedMarket(Strategy):
 
                 # discharge with maximum power (scaled with power factor)
                 p = -(vehicle.battery.loading_curve.max_power * self.V2G_POWER_FACTOR)
+                # limit to GC discharge power
+                # max unload power is symmetric to max load
+                # -> can unload double max power, minus what is already discharged
+                gc_cur_discharge_power_limit = (timesteps[v2g_ts_idx]["power"]
+                                                - 2*timesteps[v2g_ts_idx]["max_power"])
+                p = min(max(gc_cur_discharge_power_limit, p), 0)
                 power[v2g_ts_idx] = p
 
                 if v2g_ts_idx == 0:
@@ -264,10 +272,10 @@ class BalancedMarket(Strategy):
                         # same (or lower?) cost for discharging: don't charge
                         continue
 
-                    # charge with full power
-                    p = timesteps[ts_idx]["power"]
+                    # charge with full power (may already have power set)
+                    p = timesteps[ts_idx]["power"] - power[ts_idx]
                     p = util.clamp_power(p, vehicle, cs)
-                    power[ts_idx] = p
+                    power[ts_idx] += p
                     sorted_idx += 1
 
                     if ts_idx == 0:
@@ -294,10 +302,11 @@ class BalancedMarket(Strategy):
 
                 if sim_power is not None:
                     # V2G possible, current timestep has power -> apply for real
+                    avg_power = 0
                     if sim_power > 0:
                         # charge
                         avg_power = vehicle.battery.load(self.interval, sim_power)['avg_power']
-                    else:
+                    elif sim_power < 0:
                         # discharge
                         info = vehicle.battery.unload(
                             self.interval, -sim_power, self.DISCHARGE_LIMIT)
@@ -310,10 +319,18 @@ class BalancedMarket(Strategy):
                 # end apply power
             # end loop V2G
 
-            # update timesteps info: adjust available power
-            # adjust available power
-            for ts_idx, p in enumerate(power):
-                timesteps[ts_idx]["power"] -= p
+            # update timesteps info: adjust available power (simulate charging)
+            sim_vehicle.battery.soc = original_soc
+            for cur_idx, cur_power in enumerate(power):
+                if cur_power > 0:
+                    # charge (even above desired)
+                    avg_power = sim_vehicle.battery.load(self.interval, cur_power)["avg_power"]
+                    timesteps[cur_idx]["power"] -= avg_power
+                elif cur_power < 0:
+                    # discharge
+                    avg_power = sim_vehicle.battery.unload(
+                        self.interval, -cur_power, self.DISCHARGE_LIMIT)["avg_power"]
+                    timesteps[cur_idx]["power"] += avg_power
 
         # end loop vehicle
 
