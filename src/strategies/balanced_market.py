@@ -236,8 +236,15 @@ class BalancedMarket(Strategy):
                 # discharge with maximum power (scaled with power factor)
                 p = -(vehicle.battery.loading_curve.max_power * self.V2G_POWER_FACTOR)
                 # limit to GC discharge power
+                # derivation and reasoning:
                 # max unload power is symmetric to max load
-                # -> can unload double max power, minus what is already discharged
+                # timestep.power is available power without exceeding GC power
+                # therefore, currently allocated power cur_power = max_power - timestep.power
+                # V2G can compensate allocated power and additionally discharge to -max_power:
+                # v2g_power = cur_power + max_power = max_power - timestep.power + max_power
+                # sign change (because energy flows out):
+                # v2g_power = timestep.power - 2*max_power
+
                 gc_cur_discharge_power_limit = (timesteps[v2g_ts_idx]["power"]
                                                 - 2*timesteps[v2g_ts_idx]["max_power"])
                 p = min(max(gc_cur_discharge_power_limit, p), 0)
