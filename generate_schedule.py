@@ -299,10 +299,10 @@ def generate_schedule(args):
         for priority in priority_selection:
 
             if power_needed < EPS:
-                # all vehicles charged
+                # demanded amount of energy has been distributed
                 break
 
-            # count timesteps with current priority in interval
+            # count timesteps with current priority in period
             priority_timesteps = 0
             for time in period:
                 if priorities[time] == priority:
@@ -315,7 +315,7 @@ def generate_schedule(args):
                 saturated = 0
                 for time in period:
                     if priorities[time] == priority:
-                        # calculate amount of power that can still be charged
+                        # calculate amount of power that can still be (dis-)charged
                         if charge_period:
                             flexibility = flex["max"][time] - schedule[time]
                         else:
@@ -325,12 +325,14 @@ def generate_schedule(args):
                             # schedule at limit: can't charge
                             saturated += 1
                         else:
-                            # power fits here: increase schedule, decrease power needed
+                            # power fits here
                             if charge_period:
+                                # increase schedule if we want to charge cars
                                 schedule[time] += power
                                 energy_distributed += \
                                     (power * flex["vehicles"]["efficiency"]) / ts_per_hour
                             else:
+                                # decrease schedule if we want to discharge cars
                                 schedule[time] -= power * flex["vehicles"]["efficiency"]
                                 energy_distributed -= power / ts_per_hour
                             power_needed -= power
@@ -338,7 +340,6 @@ def generate_schedule(args):
         return energy_distributed
 
     for interval in flex["intervals"]:
-        # loop until all needs satisfied
         capacity = flex["vehicles"]["capacity"]
         energy_stored = flex["vehicles"]["desired_energy"] - interval["needed"]
 
@@ -359,7 +360,7 @@ def generate_schedule(args):
 
         # go through periods chronologically
         # FIRST determine energy goal of each period based on priority
-        # Then raise/lower schedule in a balanced across period to reach that goal
+        # Then raise/lower schedule in a balanced manner across period to reach that goal
         for i, period in enumerate(periods, start=1):
             desired_energy_stored = flex["vehicles"]["desired_energy"]
             if flex["vehicles"]["v2g"]:

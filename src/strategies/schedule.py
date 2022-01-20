@@ -379,11 +379,13 @@ class Schedule(Strategy):
         vehicles = sorted([(v, id) for id, v in self.world_state.vehicles.items()
                            if (v.connected_charging_station is not None)
                            and (v.vehicle_type.v2g)], key=lambda x: x[1])
+
+        # vehicles that will not be able to charge on schedule to desired SoC anyways
         vehicles_with_power_issues = \
             [v for v, p in self.extra_energy_per_vehicle.items() if p > self.EPS]
 
+        # charge now determines goal of current time step: charge vs discharge cars
         charge_now = self.charge_window[0]
-        window = charge_now
 
         for vehicle, vehicle_id in vehicles:
             if vehicle_id in vehicles_with_power_issues:
@@ -401,6 +403,7 @@ class Schedule(Strategy):
             connected_timesteps = []
             window_change = 0
             # get connected timesteps and count number of window changes
+            window = charge_now
             for w in self.charge_window:
                 cur_time += self.interval
                 if sim_vehicle.estimated_time_of_departure < cur_time:
@@ -410,10 +413,11 @@ class Schedule(Strategy):
                     window = not window
                 connected_timesteps.append(w)
 
-            # get duration of current window
+            # count TS until we switch from current goal (charge/discharge) to the opposite goal
             try:
                 duration_current_window = self.charge_window.index((not charge_now))
             except ValueError:
+                # no more window changes in current standing time
                 duration_current_window = len(self.charge_window)
 
             if not charge_now and window_change >= 1:
@@ -437,7 +441,7 @@ class Schedule(Strategy):
                 discharge_limit = sim_vehicle.desired_soc
 
             if not charge_now and sim_vehicle.battery.soc <= discharge_limit:
-                continue  # talk to Inia about this line
+                continue
 
             # calculate power to charge / discharge
             min_power = 0
@@ -447,6 +451,10 @@ class Schedule(Strategy):
                 max_power = max(0, abs(gc.target - gc.get_current_load()))
             max_power = min(cs.max_power, max_power)
 
+            # during the last window always aim for desired SoC no matter if in charge
+            # or discharge window
+            # In case the current window is not the last in the standing time, 
+            # discharge to discharge_limit or charge to full capacity.
             if charge_now:
                 desired_soc = vehicle.desired_soc if window_change == 0 else 1
             else:
@@ -511,6 +519,7 @@ class Schedule(Strategy):
                 cs.current_power -= discharge
 
         self.charge_window.pop(0)
+
         return commands
 
     def charge_cars_after_core_standing_time(self, charging_stations):
