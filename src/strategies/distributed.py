@@ -3,7 +3,8 @@ import json
 from src.util import clamp_power, get_cost
 from src.strategy import Strategy
 from src import events
-
+from src.strategies import greedy
+from src.strategies import balanced
 
 class Distributed(Strategy):
     """
@@ -23,10 +24,11 @@ class Distributed(Strategy):
 
         # get power that can be drawn from battery in this timestep
         avail_bat_power = {}
-        for bat in self.world_state.batteries.values():
-            if bat.parent not in avail_bat_power.keys():
-                avail_bat_power[bat.parent] = 0
-            avail_bat_power[bat.parent] += bat.get_available_power(self.interval)
+        for gcID, gc in self.world_state.grid_connectors.items():
+            avail_bat_power[gcID] = 0
+            for bat in self.world_state.batteries.values():
+                if bat.parent == gcID:
+                    avail_bat_power[gcID] += bat.get_available_power(self.interval)
 
         # dict to hold charging commands
         charging_stations = {}
@@ -113,95 +115,44 @@ class Distributed(Strategy):
 
             if load:
                 if cs.parent in electrified_stations["opp_stations"]:
-                    charging_stations = self.load_greedy(cs, gc, vehicle, cs_id, charging_stations)
+                    charging_stations = greedy.load_vehicle_greedy(self, cs, gc, vehicle, cs_id, charging_stations, avail_bat_power)
+                    # load batteries
+                    greedy.load_batteries_greedy(self)
                 elif cs.parent in electrified_stations["depot_stations"]:
-                    charging_stations = self.load_balanced(cs, gc, vehicle,
-                                                           cs_id, charging_stations)
+                    charging_stations = balanced.load_vehicle_balanced(self, cs, gc, vehicle, cs_id, charging_stations, avail_bat_power)
+                    # load batteries
+                    greedy.load_batteries_greedy(self)
+#                    charging_stations = self.load_balanced(cs, gc, vehicle,
+#                                                           cs_id, charging_stations)
                 else:
                     print(f"The station {cs.parent} is not in {self.electrifies_stations_file}. "
                           f"Please check for consistency.")
 
+            # all vehicles loaded
+            # distribute surplus power to vehicles
+            # power is clamped to CS max_power (with concurrency, see init)
+            for vehicle_id in sorted(self.world_state.vehicles):
+                vehicle = self.world_state.vehicles[vehicle_id]
+                cs_id = vehicle.connected_charging_station
+                if cs_id is None:
+                    continue
+                cs = self.world_state.charging_stations[cs_id]
+                gc = self.world_state.grid_connectors[cs.parent]
+
+                if cs.parent in electrified_stations["opp_stations"]:
+                    charging_stations = greedy.add_surplus_to_vehicle(self, cs, gc, vehicle, cs_id,
+                                                                      charging_stations)
+                elif cs.parent in electrified_stations["depot_stations"]:
+                    charging_stations = balanced.add_surplus_to_vehicle(self, cs, gc, vehicle, cs_id,
+                                                                        charging_stations)
+                else:
+                    print(f"The station {cs.parent} is not in {self.electrifies_stations_file}. "
+                          f"Please check for consistency.")
+
+            # charge/discharge batteries
+            balanced.load_batteries(self)
+
+
         return {'current_time': self.current_time, 'commands': charging_stations}
 
-    def load_greedy(self, cs, gc, vehicle, cs_id, charging_stations):
 
-        gc_power_left = gc.cur_max_power - gc.get_current_load()
-        power = 0
-        avg_power = 0
-        bat_power_used = False
-        if get_cost(1, gc.cost) <= self.PRICE_THRESHOLD:
-            # low energy price: take max available power from GC without batteries
-            power = clamp_power(gc_power_left, vehicle, cs)
-            avg_power = vehicle.battery.load(self.interval, power)['avg_power']
-        elif vehicle.get_delta_soc() > 0:
-            # vehicle needs charging: take max available power (with batteries)
-            # limit to desired SoC
-            power = gc_power_left
-            power = clamp_power(power, vehicle, cs)
-            avg_power = vehicle.battery.load(
-                self.interval, power, target_soc=vehicle.desired_soc)['avg_power']
-
-        # update CS and GC
-        charging_stations[cs_id] = gc.add_load(cs_id, avg_power)
-        cs.current_power += avg_power
-
-        return charging_stations
-
-    def load_balanced(self, cs, gc, vehicle, cs_id, charging_stations):
-
-        gc_power_left = gc.cur_max_power - gc.get_current_load()
-        power = 0
-        delta_soc = vehicle.get_delta_soc()
-
-        if get_cost(1, gc.cost) <= self.PRICE_THRESHOLD:
-            # low energy price: take max available power from GC without batteries
-            power = clamp_power(gc_power_left, vehicle, cs)
-        elif delta_soc > self.EPS:
-            # vehicle needs charging: compute minimum required power
-            # get limits
-            min_power = max(vehicle.vehicle_type.min_charging_power, cs.min_power)
-            max_power = gc_power_left
-            max_power = min(max_power, vehicle.vehicle_type.charging_curve.max_power)
-            max_power = clamp_power(max_power, vehicle, cs)
-            # time until departure
-            dt = vehicle.estimated_time_of_departure - self.current_time
-            old_soc = vehicle.battery.soc
-            idx = 0
-            safe = False
-            # converge to optimal power for the duration
-            # at least ITERATIONS cycles
-            # must end with slightly too much power used
-            # abort if min_power == max_power (e.g. unrealistic goal)
-            while (idx < self.ITERATIONS or not safe) and max_power - min_power > self.EPS:
-                idx += 1
-                # get new power value (binary search: use average)
-                power = (max_power + min_power) / 2
-                # load whole time with same power
-                charged_soc = vehicle.battery.load(dt, power)["soc_delta"]
-                # reset SOC
-                vehicle.battery.soc = old_soc
-
-                if delta_soc - charged_soc > self.EPS:  # charged_soc < delta_soc
-                    # power not enough
-                    safe = False
-                    min_power = power
-                else:  # charged_soc >= delta_soc:
-                    # power too much or just right (may be possible with less power)
-                    safe = True
-                    max_power = power
-
-        # load with power
-        avg_power = vehicle.battery.load(self.interval, power)['avg_power']
-        charging_stations[cs_id] = gc.add_load(cs_id, avg_power)
-        cs.current_power += avg_power
-
-        # can active charging station bear minimum load?
-        assert cs.max_power >= cs.current_power - self.EPS, (
-            "{} - {} over maximum load ({} > {})".format(
-                self.current_time, cs_id, cs.current_power, cs.max_power))
-        # can grid connector bear load?
-        assert gc.cur_max_power >= gc.get_current_load() - self.EPS, (
-            "{} - {} over maximum load ({} > {})".format(
-                self.current_time, cs.parent, gc.get_current_load(), gc.cur_max_power))
-
-        return charging_stations

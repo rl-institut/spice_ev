@@ -42,7 +42,7 @@ class Greedy(Strategy):
             cs = self.world_state.charging_stations[cs_id]
             gc = self.world_state.grid_connectors[cs.parent]
 
-            charging_stations = load_vehicles_greedy(self, cs, gc, vehicle, cs_id, charging_stations, avail_bat_power)
+            charging_stations = load_vehicle_greedy(self, cs, gc, vehicle, cs_id, charging_stations, avail_bat_power)
 
         # all vehicles loaded
         # distribute surplus power to vehicles
@@ -54,25 +54,8 @@ class Greedy(Strategy):
                 continue
             cs = self.world_state.charging_stations[cs_id]
             gc = self.world_state.grid_connectors[cs.parent]
-            if gc.get_current_load() < 0:
-                # surplus power
-                power = clamp_power(-gc.get_current_load(), vehicle, cs)
-                avg_power = vehicle.battery.load(self.interval, power)['avg_power']
-                charging_stations[cs_id] = gc.add_load(cs_id, avg_power)
-                cs.current_power += avg_power
-            elif (vehicle.get_delta_soc() < 0
-                    and vehicle.vehicle_type.v2g
-                    and cs.current_power < self.EPS
-                    and get_cost(1, gc.cost) > self.PRICE_THRESHOLD):
-                # GC draws power, surplus in vehicle and V2G capable: support GC
-                discharge_power = min(
-                    gc.get_current_load(),
-                    vehicle.battery.loading_curve.max_power * self.V2G_POWER_FACTOR)
-                target_soc = max(vehicle.desired_soc, self.DISCHARGE_LIMIT)
-                avg_power = vehicle.battery.unload(
-                    self.interval, discharge_power, target_soc)['avg_power']
-                charging_stations[cs_id] = gc.add_load(cs_id, -avg_power)
-                cs.current_power -= avg_power
+
+            add_surplus_to_vehicle(self, cs, gc, vehicle, cs_id, charging_stations)
 
         # charge/discharge batteries
         load_batteries_greedy(self)
@@ -80,7 +63,7 @@ class Greedy(Strategy):
         return {'current_time': self.current_time, 'commands': charging_stations}
 
 
-def load_vehicles_greedy(self, cs, gc, vehicle, cs_id, charging_stations, avail_bat_power):
+def load_vehicle(self, cs, gc, vehicle, cs_id, charging_stations, avail_bat_power):
     """
 
     :param cs:
@@ -116,7 +99,32 @@ def load_vehicles_greedy(self, cs, gc, vehicle, cs_id, charging_stations, avail_
     return charging_stations
 
 
-def load_batteries_greedy(self):
+def add_surplus_to_vehicle(self, cs, gc, vehicle, cs_id, charging_stations):
+
+    if gc.get_current_load() < 0:
+        # surplus power
+        power = clamp_power(-gc.get_current_load(), vehicle, cs)
+        avg_power = vehicle.battery.load(self.interval, power)['avg_power']
+        charging_stations[cs_id] = gc.add_load(cs_id, avg_power)
+        cs.current_power += avg_power
+    elif (vehicle.get_delta_soc() < 0
+          and vehicle.vehicle_type.v2g
+          and cs.current_power < self.EPS
+          and get_cost(1, gc.cost) > self.PRICE_THRESHOLD):
+        # GC draws power, surplus in vehicle and V2G capable: support GC
+        discharge_power = min(
+            gc.get_current_load(),
+            vehicle.battery.loading_curve.max_power * self.V2G_POWER_FACTOR)
+        target_soc = max(vehicle.desired_soc, self.DISCHARGE_LIMIT)
+        avg_power = vehicle.battery.unload(
+            self.interval, discharge_power, target_soc)['avg_power']
+        charging_stations[cs_id] = gc.add_load(cs_id, -avg_power)
+        cs.current_power -= avg_power
+
+    return charging_stations
+
+
+def load_batteries(self):
 
     for b_id, battery in self.world_state.batteries.items():
         gc = self.world_state.grid_connectors[battery.parent]
