@@ -21,6 +21,13 @@ class Distributed(Strategy):
         with open(self.ELECTRIFIED_STATIONS_FILE) as json_file:
             electrified_stations = json.load(json_file)
 
+        # get power that can be drawn from battery in this timestep
+        avail_bat_power = {}
+        for bat in self.world_state.batteries.values():
+            if bat.parent not in avail_bat_power.keys():
+                avail_bat_power[bat.parent] = 0
+            avail_bat_power[bat.parent] += bat.get_available_power(self.interval)
+
         # dict to hold charging commands
         charging_stations = {}
         # reset charging station power (nothing charged yet in this timestep)
@@ -121,6 +128,7 @@ class Distributed(Strategy):
         gc_power_left = gc.cur_max_power - gc.get_current_load()
         power = 0
         avg_power = 0
+        bat_power_used = False
         if get_cost(1, gc.cost) <= self.PRICE_THRESHOLD:
             # low energy price: take max available power from GC without batteries
             power = clamp_power(gc_power_left, vehicle, cs)

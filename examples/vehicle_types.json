@@ -30,7 +30,7 @@
         "min_charging_power": 0,
         "v2g": false
     },
-    "CKB_D": {
+    "CKB_depot": {
         "name": "articulated bus",
         "capacity": 310,
         "charging_curve": [[0, 250], [0.8, 250], [1, 250]],
@@ -48,7 +48,7 @@
         "mileage": "examples/consumption_inputs/Energieverbrauch_Eindecker_Solaris.csv",
         "hc": "winter"
     },
-    "VDL_D": {
+    "VDL_depot": {
         "name": "solo bus",
         "capacity": 250,
         "charging_curve": [[0, 250], [0.8, 250], [1, 250]],

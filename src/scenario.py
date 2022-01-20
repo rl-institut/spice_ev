@@ -113,7 +113,7 @@ class Scenario:
             curLoad = 0
             curFeedIn = 0
 
-            for gcID, gc in self.constants.grid_connectors.items():
+            for gcID, gc in strat.world_state.grid_connectors.items():
                 # loads without charging stations (external + feed-in)
                 stepLoads = {k: v for k, v in gc.current_loads.items()
                              if k not in self.constants.charging_stations.keys()}
@@ -179,12 +179,12 @@ class Scenario:
                 connChargeByTS[gcID].append(cur_cs)
 
 
-            # get battery levels
-            for batName, bat in strat.world_state.batteries.items():
-                if strat.world_state.batteries[batName].parent == gcID:
-                    if not batName in batteryLevels[gcID]:
-                        batteryLevels[gcID][batName] = []
-                    batteryLevels[gcID][batName].append(bat.soc * bat.capacity)
+                # get battery levels
+                for batName, bat in strat.world_state.batteries.items():
+                    if strat.world_state.batteries[batName].parent == gcID:
+                        if batName not in batteryLevels[gcID]:
+                            batteryLevels[gcID][batName] = []
+                        batteryLevels[gcID][batName].append(bat.soc * bat.capacity)
 
             # next simulation timestep
 
@@ -200,7 +200,7 @@ class Scenario:
         if options.get("save_timeseries", False) or options.get("save_results", False):
             from generate_schedule import generate_flex_band
             # get flexibility band
-            for gc_index, gcID in enumerate(strat.world_state.grid_connectors):
+            for gc_index, gcID in enumerate(self.constants.grid_connectors):
                 flex = generate_flex_band(self, gc_index)
 
                 if options.get("save_results", False):
@@ -312,21 +312,22 @@ class Scenario:
                     avg_needed_energy = sum([i["needed"] for i in intervals]) / len(intervals)
                     json_results["avg needed energy"] = {
                         # avg energy per standing period and vehicle
-                        "value": avg_needed_energy / len(self.constants.vehicles), #todo: number of cars at this gc instead?
+                        "value": avg_needed_energy / len(self.constants.vehicles), #todo: number of cars at this gc instead? wouldn't it make more sense to only take timesteps with load into account?
                         "unit": "kWh",
                         "info": "Average amount of energy needed to reach the desired SoC"
                                 " (averaged over all vehicles and charge events)"
                     }
 
                     # power peaks (fixed loads and variable loads)
-                    json_results["power peaks"] = {
-                        "fixed": max_fixed_load,
-                        "variable": max_variable_load,
-                        "total": max(totalLoad[gcID]),
-                        "unit": "kW",
-                        "info": "Maximum drawn power, by fixed loads (building, PV),"
-                                " variable loads (charging stations, stationary batteries) and all loads"
-                    }
+                    if any(totalLoad[gcID]):
+                        json_results["power peaks"] = {
+                            "fixed": max_fixed_load,
+                            "variable": max_variable_load,
+                            "total": max(totalLoad[gcID]),
+                            "unit": "kW",
+                            "info": "Maximum drawn power, by fixed loads (building, PV),"
+                                    " variable loads (charging stations, stationary batteries) and all loads"
+                        }
 
                     # average drawn power
                     avg_drawn = sum(totalLoad[gcID]) / step_i if step_i > 0 else 0
@@ -361,7 +362,7 @@ class Scenario:
                         if self.constants.batteries[batID].parent == gcID:
                             if battery.capacity > 2**63:
                                 # unlimited capacity
-                                max_cap = max(batteryLevels[gcID][batName])
+                                max_cap = max(batteryLevels[gcID][batID])
                                 print("Battery {} is unlimited, set capacity to {} kWh".format(batID, max_cap))
                                 total_bat_cap += max_cap
                             else:
@@ -381,7 +382,7 @@ class Scenario:
                     total_car_cap = sum([v.battery.capacity for v in self.constants.vehicles.values()])
                     total_car_energy = sum([sum(map(
                         lambda v: max(v, 0), r["commands"].values())) for r in results])
-                    json_results["vehicle battery cycles"] = {
+                    json_results["all vehicle battery cycles"] = {
                         "value": total_car_energy/total_car_cap,
                         "unit": None,
                         "info": "Number of load cycles per vehicle (averaged)"
@@ -555,21 +556,40 @@ class Scenario:
             import matplotlib.pyplot as plt
 
             print('Done. Create plots...')
-            all_extLoads = []
-            all_batteryLevels = {}
-            all_gcWindowSchedule = []
-            all_gcPowerSchedule = []
-            all_socs = []
-            all_disconnect = []
-            for gcID, gc in self.constants.grid_connectors.items():
-                all_extLoads += extLoads[gcID]
-                all_batteryLevels.update(batteryLevels[gcID])
-                all_gcWindowSchedule += gcWindowSchedule[gcID]
-                all_gcPowerSchedule += gcPowerSchedule[gcID]
-                all_socs += socs[gcID]
-                all_disconnect += disconnect[gcID]
-
-
+#            all_extLoads = []
+#            all_batteryLevels = {}
+            # all_socs = []
+            # all_disconnect = []
+            # all_totalLoad = []
+            # soc = {}
+            # dis = {}
+ #          for gcID, gc in self.constants.grid_connectors.items():
+            #     soc[gcID] = {}
+            #     dis[gcID] = {}
+#                if not all_extLoads:
+#                    all_extLoads = extLoads[gcID]
+#                else:
+#                 all_batteryLevels.update(batteryLevels[gcID])
+            #     # replace all Nons
+            #     for index, row in enumerate(socs[gcID]):
+            #         soc[gcID][index] = [0 if v is None else v for v in socs[gcID][index]]
+            #         dis[gcID][index] = [0 if v is None else v for v in disconnect[gcID][index]]
+            #     else:
+            #         for index, row in enumerate(soc[gcID]):
+            #             if index == 0:
+            #                 all_socs = soc[gcID]
+            #                 all_disconnect = dis[gcID]
+            #                 all_totalLoad = totalLoad[gcID]
+            #             else:
+            #                 all_socs[index] = list(map(lambda x,y:x+y, all_socs[index], soc[gcID][index]))
+            #                 all_disconnect[index] = list(map(lambda x,y:x+y, all_disconnect[index], dis[gcID][index]))
+            #                 all_totalLoad[index] = all_totalLoad[index] + totalLoad[gcID][index]
+            #
+            # for index, row in enumerate(all_socs):
+            #     all_socs[index] = [None if v == 0 else v for v in all_socs[index]]
+            #     all_disconnect[index] = [None if v == 0 else v for v in all_disconnect[index]]
+            # all_socs = list(map(list, all_socs.values()))
+            # all_disconnect = list(map(list, all_disconnect.values()))
             sum_cs = []
             xlabels = []
 
@@ -582,41 +602,47 @@ class Scenario:
 
             # untangle external loads (with feed-in)
             loads = {}
-            for i, step in enumerate(all_extLoads):
-                for k, v in step.items():
-                    if k not in loads:
-                        # new key, not present before
-                        loads[k] = [0] * i
-                    loads[k].append(v)
-                for k in loads.keys():
-                    if k not in step:
-                        # old key not in current step
-                        loads[k].append(0)
+            for gcID, gc in self.constants.grid_connectors.items():
+                loads[gcID] = {}
+                for i, step in enumerate(extLoads[gcID]):
+                    for k, v in step.items():
+                        if k not in loads[gcID]:
+                            # new key, not present before
+                            loads[gcID][k] = [0] * i
+                        loads[gcID][k].append(v)
+                    for k in loads[gcID].keys():
+                        if k not in step:
+                            # old key not in current step
+                            loads[gcID][k].append(0)
 
             # plot!
 
             # batteries
-            if all_batteryLevels:
+            if batteryLevels:
                 plots_top_row = 3
                 ax = plt.subplot(2, plots_top_row, 3)
                 ax.set_title('Batteries')
                 ax.set(ylabel='Stored power in kWh')
-                for name, values in all_batteryLevels.items():
-                    ax.plot(xlabels, values, label=name)
-                ax.legend()
-            else:
-                plots_top_row = 2
+                for gcID, gc in self.constants.grid_connectors.items():
+                    if batteryLevels[gcID]:
+                        for name, values in batteryLevels[gcID].items():
+                            ax.plot(xlabels, values, label=name)
+                        ax.legend()
+                    else:
+                        plots_top_row = 2
 
             # vehicles
             ax = plt.subplot(2, plots_top_row, 1)
             ax.set_title('Vehicles')
             ax.set(ylabel='SoC')
-            lines = ax.step(xlabels, all_socs)
-            # reset color cycle, so lines have same color
-            ax.set_prop_cycle(None)
-            ax.plot(xlabels, all_disconnect, '--')
-            if len(self.constants.vehicles) <= 10:
-                ax.legend(lines, sorted(self.constants.vehicles.keys()))
+            for gcID, soc in socs.items():
+                lines = ax.step(xlabels, soc)
+                # reset color cycle, so lines have same color
+                ax.set_prop_cycle(None)
+            for gcID, dis in disconnect.items():
+                ax.plot(xlabels,dis, '--')
+                if len(self.constants.vehicles) <= 10: # todo: should this be intended
+                    ax.legend(lines, sorted(self.constants.vehicles.keys()))
 
             # charging stations
             ax = plt.subplot(2, plots_top_row, 2)
@@ -629,21 +655,22 @@ class Scenario:
             # total power
             ax = plt.subplot(2, 2, 3)
             ax.plot(xlabels, list([sum(cs) for cs in sum_cs]), label="CS")
-            for name, values in loads.items():
-                ax.plot(xlabels, values, label=name)
+            for gcID, gc in self.constants.grid_connectors.items():
+                for name, values in loads[gcID].items():
+                    ax.plot(xlabels, values, label=name)
             # draw schedule
-            for gcID, schedule in all_gcWindowSchedule.items():
+            for gcID, schedule in gcWindowSchedule.items():
                 if all(s is not None for s in schedule):
                     # schedule exists
-                    window_values = [v * int(max(totalLoad)) for v in schedule]
+                    window_values = [v * int(max(totalLoad[gcID])) for v in schedule]
                     ax.plot(xlabels, window_values, label="window {}".format(gcID), linestyle='--')
 
-            for gcID, schedule in all_gcPowerSchedule.items():
+            for gcID, schedule in gcPowerSchedule.items():
                 if any(s is not None for s in schedule):
                     # schedule exists
                     ax.plot(xlabels, schedule, label="Schedule {}".format(gcID))
-
-            ax.plot(xlabels, totalLoad, label="total")
+            for gcID, total in totalLoad.items():
+                ax.plot(xlabels, total, label="total")
             # ax.axhline(color='k', linestyle='--', linewidth=1)
             ax.set_title('Power')
             ax.set(ylabel='Power in kW')
@@ -652,7 +679,8 @@ class Scenario:
 
             # price
             ax = plt.subplot(2, 2, 4)
-            lines = ax.step(xlabels, prices)
+            for gcID, price in prices.items():
+                lines = ax.step(xlabels, price)
             ax.set_title('Price for 1 kWh')
             ax.set(ylabel='€')
             if len(self.constants.grid_connectors) <= 10:
