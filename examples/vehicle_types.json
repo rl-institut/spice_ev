@@ -43,6 +43,7 @@
         "charging_curve": [[0,1],[1,0]],
         "min_charging_power": 0,
         "v2g": false,
+        "v2g_power_factor": 1.0,
         "battery_efficiency": 0.95
     }
 }

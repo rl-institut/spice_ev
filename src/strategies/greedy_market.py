@@ -295,8 +295,8 @@ class GreedyMarket(Strategy):
             # and stop once it reaches charging timestep
             # off-by-one: v2g_sorted_idx is immediately decreased by one
             v2g_sorted_idx = len(sorted_ts)
-            max_discharge_power = \
-                min(power, sim_battery.loading_curve.max_power * self.V2G_POWER_FACTOR)
+            max_discharge_power = min(
+                power, sim_battery.loading_curve.max_power * vehicle.vehicle_type.v2g_power_factor)
             while v2g_sorted_idx > (sorted_idx + 1):
                 sim_power = None
                 v2g_sorted_idx -= 1
