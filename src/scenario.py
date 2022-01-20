@@ -63,6 +63,7 @@ class Scenario:
         options['interval'] = self.interval
         options['events'] = self.events
         options['core_standing_time'] = self.core_standing_time
+        options['discharge_limit'] = self.discharge_limit
         strat = strategy.class_from_str(strategy_name)(self.constants, self.start_time, **options)
 
         event_steps = self.events.get_event_steps(self.start_time, self.n_intervals, self.interval)
