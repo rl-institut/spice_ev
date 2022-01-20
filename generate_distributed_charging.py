@@ -6,6 +6,7 @@ import datetime
 import json
 import random
 import numpy as np
+from os import path
 
 from src.util import set_options_from_config
 
@@ -274,6 +275,75 @@ def generate_opp_trips_from_schedule(args):
                             "value": 0.05 + random.gauss(0, 0.03)
                         }
                     }]
+
+    # add timeseries from csv
+
+    # save path and options for CSV timeseries
+    # all paths are relative to output file
+    target_path = path.dirname(args.output)
+
+    if args.include_ext_load_csv:
+        filename = args.include_ext_load_csv
+        basename = path.splitext(path.basename(filename))[0]
+        options = {
+            "csv_file": filename,
+            "start_time": start.isoformat(),
+            "step_duration_s": 900,  # 15 minutes
+            "grid_connector_id": "GC1",
+            "column": "energy"
+        }
+        if args.include_ext_csv_option:
+            for key, value in args.include_ext_csv_option:
+                if key == "step_duration_s":
+                    value = int(value)
+                options[key] = value
+        events['external_load'][basename] = options
+        # check if CSV file exists
+        ext_csv_path = path.join(target_path, filename)
+        if not path.exists(ext_csv_path):
+            print("Warning: external csv file '{}' does not exist yet".format(ext_csv_path))
+
+    if args.include_feed_in_csv:
+        filename = args.include_feed_in_csv
+        basename = path.splitext(path.basename(filename))[0]
+        options = {
+            "csv_file": filename,
+            "start_time": start.isoformat(),
+            "step_duration_s": 3600,  # 60 minutes
+            "grid_connector_id": "GC1",
+            "column": "energy"
+        }
+        if args.include_feed_in_csv_option:
+            for key, value in args.include_feed_in_csv_option:
+                if key == "step_duration_s":
+                    value = int(value)
+                options[key] = value
+        events['energy_feed_in'][basename] = options
+        feed_in_path = path.join(target_path, filename)
+        if not path.exists(feed_in_path):
+            print("Warning: feed-in csv file '{}' does not exist yet".format(feed_in_path))
+
+    if args.include_price_csv:
+        filename = args.include_price_csv
+        # basename = path.splitext(path.basename(filename))[0]
+        options = {
+            "csv_file": filename,
+            "start_time": start.isoformat(),
+            "step_duration_s": 3600,  # 60 minutes
+            "grid_connector_id": "GC1",
+            "column": "price [ct/kWh]"
+        }
+        for key, value in args.include_price_csv_option:
+            if key == "step_duration_s":
+                value = int(value)
+            options[key] = value
+        events['energy_price_from_csv'] = options
+        price_csv_path = path.join(target_path, filename)
+        if not path.exists(price_csv_path):
+            print("Warning: price csv file '{}' does not exist yet".format(price_csv_path))
+
+
+
     for idx, (capacity, c_rate, gc) in enumerate(args.battery):
         if capacity > 0:
             max_power = c_rate * capacity

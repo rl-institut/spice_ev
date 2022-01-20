@@ -107,13 +107,14 @@ class Scenario:
                 break
             results.append(res)
 
-            # get current loads
-            cost = 0
-            price = []
-            curLoad = 0
-            curFeedIn = 0
-
             for gcID, gc in strat.world_state.grid_connectors.items():
+
+                # get current loads
+                cost = 0
+                price = []
+                curLoad = 0
+                curFeedIn = 0
+
                 # loads without charging stations (external + feed-in)
                 stepLoads = {k: v for k, v in gc.current_loads.items()
                              if k not in self.constants.charging_stations.keys()}
@@ -556,40 +557,14 @@ class Scenario:
             import matplotlib.pyplot as plt
 
             print('Done. Create plots...')
-#            all_extLoads = []
-#            all_batteryLevels = {}
-            # all_socs = []
-            # all_disconnect = []
-            # all_totalLoad = []
-            # soc = {}
-            # dis = {}
- #          for gcID, gc in self.constants.grid_connectors.items():
-            #     soc[gcID] = {}
-            #     dis[gcID] = {}
-#                if not all_extLoads:
-#                    all_extLoads = extLoads[gcID]
-#                else:
-#                 all_batteryLevels.update(batteryLevels[gcID])
-            #     # replace all Nons
-            #     for index, row in enumerate(socs[gcID]):
-            #         soc[gcID][index] = [0 if v is None else v for v in socs[gcID][index]]
-            #         dis[gcID][index] = [0 if v is None else v for v in disconnect[gcID][index]]
-            #     else:
-            #         for index, row in enumerate(soc[gcID]):
-            #             if index == 0:
-            #                 all_socs = soc[gcID]
-            #                 all_disconnect = dis[gcID]
-            #                 all_totalLoad = totalLoad[gcID]
-            #             else:
-            #                 all_socs[index] = list(map(lambda x,y:x+y, all_socs[index], soc[gcID][index]))
-            #                 all_disconnect[index] = list(map(lambda x,y:x+y, all_disconnect[index], dis[gcID][index]))
-            #                 all_totalLoad[index] = all_totalLoad[index] + totalLoad[gcID][index]
-            #
-            # for index, row in enumerate(all_socs):
-            #     all_socs[index] = [None if v == 0 else v for v in all_socs[index]]
-            #     all_disconnect[index] = [None if v == 0 else v for v in all_disconnect[index]]
-            # all_socs = list(map(list, all_socs.values()))
-            # all_disconnect = list(map(list, all_disconnect.values()))
+            # sum up total load of all grid connectors
+            all_totalLoad = []
+            for gcID, gc in self.constants.grid_connectors.items():
+                if not all_totalLoad:
+                    all_totalLoad = totalLoad[gcID]
+                else:
+                    all_totalLoad = list(map(lambda x,y:x+y, all_totalLoad, totalLoad[gcID]))
+
             sum_cs = []
             xlabels = []
 
@@ -627,9 +602,11 @@ class Scenario:
                     if batteryLevels[gcID]:
                         for name, values in batteryLevels[gcID].items():
                             ax.plot(xlabels, values, label=name)
-                        ax.legend()
-                    else:
-                        plots_top_row = 2
+                ax.legend()
+            else:
+                plots_top_row = 2
+
+
 
             # vehicles
             ax = plt.subplot(2, plots_top_row, 1)
@@ -669,8 +646,8 @@ class Scenario:
                 if any(s is not None for s in schedule):
                     # schedule exists
                     ax.plot(xlabels, schedule, label="Schedule {}".format(gcID))
-            for gcID, total in totalLoad.items():
-                ax.plot(xlabels, total, label="total")
+
+            ax.plot(xlabels, all_totalLoad, label="total")
             # ax.axhline(color='k', linestyle='--', linewidth=1)
             ax.set_title('Power')
             ax.set(ylabel='Power in kW')

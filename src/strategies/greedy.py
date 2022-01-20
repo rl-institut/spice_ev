@@ -18,12 +18,13 @@ class Greedy(Strategy):
     def step(self, event_list=[]):
         super().step(event_list)
 
-        # get power that can be drawn from battery in this timestep
+        # get power that can be drawn from battery in this timestep at each grid connector
         avail_bat_power = {}
-        for bat in self.world_state.batteries.values():
-            if bat.parent not in avail_bat_power.keys():
-                avail_bat_power[bat.parent] = 0
-            avail_bat_power[bat.parent] += bat.get_available_power(self.interval)
+        for gcID, gc in self.world_state.grid_connectors.items():
+            avail_bat_power[gcID] = 0
+            for bat in self.world_state.batteries.values():
+                if bat.parent == gcID:
+                    avail_bat_power[gcID] += bat.get_available_power(self.interval)
 
         # dict to hold charging commands
         charging_stations = {}
@@ -41,7 +42,7 @@ class Greedy(Strategy):
             cs = self.world_state.charging_stations[cs_id]
             gc = self.world_state.grid_connectors[cs.parent]
 
-            charging_stations = Greedy.load_vehicles_greedy(self, cs, gc, vehicle, cs_id, charging_stations, avail_bat_power)
+            charging_stations = load_vehicles_greedy(self, cs, gc, vehicle, cs_id, charging_stations, avail_bat_power)
 
         # all vehicles loaded
         # distribute surplus power to vehicles
@@ -74,63 +75,64 @@ class Greedy(Strategy):
                 cs.current_power -= avg_power
 
         # charge/discharge batteries
-        Greedy.load_batteries_greedy(self)
+        load_batteries_greedy(self)
 
         return {'current_time': self.current_time, 'commands': charging_stations}
 
 
-    def load_vehicles_greedy(self, cs, gc, vehicle, cs_id, charging_stations, avail_bat_power):
-        """
+def load_vehicles_greedy(self, cs, gc, vehicle, cs_id, charging_stations, avail_bat_power):
+    """
 
-        :param cs:
-        :param gc:
-        :param vehicle:
-        :param cs_id:
-        :param charging_stations:
-        :return:
-        """
-        gc_power_left = gc.cur_max_power - gc.get_current_load()
-        power = 0
-        avg_power = 0
-        bat_power_used = False
+    :param cs:
+    :param gc:
+    :param vehicle:
+    :param cs_id:
+    :param charging_stations:
+    :return:
+    """
+    gc_power_left = gc.cur_max_power - gc.get_current_load()
+    power = 0
+    avg_power = 0
+    bat_power_used = False
+    if get_cost(1, gc.cost) <= self.PRICE_THRESHOLD:
+        # low energy price: take max available power from GC without batteries
+        power = clamp_power(gc_power_left, vehicle, cs)
+        avg_power = vehicle.battery.load(self.interval, power)['avg_power']
+    elif vehicle.get_delta_soc() > 0:
+        # vehicle needs charging: take max available power (with batteries)
+        # limit to desired SoC
+        power = gc_power_left + avail_bat_power[cs.parent]
+        power = clamp_power(power, vehicle, cs)
+        avg_power = vehicle.battery.load(
+            self.interval, power, target_soc=vehicle.desired_soc)['avg_power']
+        bat_power_used = True
+
+    # update CS and GC
+    charging_stations[cs_id] = gc.add_load(cs_id, avg_power)
+    cs.current_power += avg_power
+    if bat_power_used:
+        avail_bat_power[cs.parent] = max(avail_bat_power[cs.parent] - avg_power, 0)
+
+    return charging_stations
+
+
+def load_batteries_greedy(self):
+
+    for b_id, battery in self.world_state.batteries.items():
+        gc = self.world_state.grid_connectors[battery.parent]
         if get_cost(1, gc.cost) <= self.PRICE_THRESHOLD:
-            # low energy price: take max available power from GC without batteries
-            power = clamp_power(gc_power_left, vehicle, cs)
-            avg_power = vehicle.battery.load(self.interval, power)['avg_power']
-        elif vehicle.get_delta_soc() > 0:
-            # vehicle needs charging: take max available power (with batteries)
-            # limit to desired SoC
-            power = gc_power_left + avail_bat_power[cs.parent]
-            power = clamp_power(power, vehicle, cs)
-            avg_power = vehicle.battery.load(
-                self.interval, power, target_soc=vehicle.desired_soc)['avg_power']
-            bat_power_used = True
-
-        # update CS and GC
-        charging_stations[cs_id] = gc.add_load(cs_id, avg_power)
-        cs.current_power += avg_power
-        if bat_power_used:
-            avail_bat_power[cs.parent] = max(avail_bat_power[cs.parent] - avg_power, 0)
-
-        return charging_stations
-
-    def load_batteries_greedy(self):
-
-        for b_id, battery in self.world_state.batteries.items():
-            gc = self.world_state.grid_connectors[battery.parent]
-            if get_cost(1, gc.cost) <= self.PRICE_THRESHOLD:
-                # low price: charge with full power
-                power = gc.cur_max_power - gc.get_current_load()
-                power = 0 if power < battery.min_charging_power else power
-                avg_power = battery.load(self.interval, power)['avg_power']
-                gc.add_load(b_id, avg_power)
-            elif gc.get_current_load() < 0:
-                # surplus energy: charge
-                power = -gc.get_current_load()
-                power = 0 if power < battery.min_charging_power else power
-                avg_power = battery.load(self.interval, power)['avg_power']
-                gc.add_load(b_id, avg_power)
-            else:
-                # GC draws power: use stored energy to support GC
-                bat_power = battery.unload(self.interval, gc.get_current_load())['avg_power']
-                gc.add_load(b_id, -bat_power)
+            # low price: charge with full power
+            power = gc.cur_max_power - gc.get_current_load()
+            power = 0 if power < battery.min_charging_power else power
+            avg_power = battery.load(self.interval, power)['avg_power']
+            gc.add_load(b_id, avg_power)
+        elif gc.get_current_load() < 0:
+            # surplus energy: charge
+            power = -gc.get_current_load()
+            power = 0 if power < battery.min_charging_power else power
+            avg_power = battery.load(self.interval, power)['avg_power']
+            gc.add_load(b_id, avg_power)
+        else:
+            # GC draws power: use stored energy to support GC
+            bat_power = battery.unload(self.interval, gc.get_current_load())['avg_power']
+            gc.add_load(b_id, -bat_power)

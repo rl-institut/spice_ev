@@ -39,7 +39,7 @@
         "mileage": "examples/consumption_inputs/Energieverbrauch_Eindecker_Solaris.csv",
         "hc": "winter"
     },
-    "CKB_OPP": {
+    "CKB_opp": {
         "name": "articulated bus",
         "capacity": 190,
         "charging_curve": [[0, 190], [0.8, 190], [1, 1900]],
@@ -57,7 +57,7 @@
         "mileage": "examples/consumption_inputs/Energieverbrauch_Eindecker_Solaris.csv",
         "hc": "winter"
     },
-    "VDL_OPP": {
+    "VDL_opp": {
         "name": "solo bus",
         "capacity": 250,
         "charging_curve": [[0, 250], [0.8, 250], [1, 250]],
