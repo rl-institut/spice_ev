@@ -325,8 +325,8 @@ class FlexWindow(Strategy):
             cs = self.world_state.charging_stations[cs_id]
             sim_vehicle = deepcopy(vehicle)
             cur_time = self.current_time - self.interval
-            max_discharge_power = \
-                sim_vehicle.battery.loading_curve.max_power * self.V2G_POWER_FACTOR
+            max_discharge_power = (sim_vehicle.battery.loading_curve.max_power
+                                   * sim_vehicle.vehicle_type.v2g_power_factor)
 
             # check if cehicles can be loaded until desired_soc in connected timesteps
             old_soc = vehicle.battery.soc
@@ -686,8 +686,8 @@ class FlexWindow(Strategy):
             sim_vehicle = deepcopy(vehicle)
             cs_id = sim_vehicle.connected_charging_station
             cs = self.world_state.charging_stations[cs_id]
-            max_discharge_power = \
-                sim_vehicle.battery.loading_curve.max_power * self.V2G_POWER_FACTOR
+            max_discharge_power = (sim_vehicle.battery.loading_curve.max_power
+                                   * sim_vehicle.vehicle_type.v2g_power_factor)
 
             # check if cehicles can be loaded until desired_soc in connected timesteps
             old_soc = vehicle.battery.soc
