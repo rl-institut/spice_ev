@@ -38,6 +38,9 @@ class Scenario:
             delta = self.stop_time - self.start_time
             self.n_intervals = delta // self.interval
 
+        # discharge limit for v2g, defaults to 0 if not specified by user
+        self.discharge_limit = scenario.get('discharge_limit')
+
         # only relevant for schedule strategy
         self.core_standing_time = scenario.get('core_standing_time', None)
 

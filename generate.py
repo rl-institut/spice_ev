@@ -331,7 +331,8 @@ def generate(args):
             "start_time": start.isoformat(),
             # "stop_time": stop.isoformat(),
             "interval": interval.days * 24 * 60 + interval.seconds // 60,
-            "n_intervals": (stop - start) // interval
+            "n_intervals": (stop - start) // interval,
+            "discharge_limit": args.discharge_limit
         },
         "constants": {
             "vehicle_types": vehicle_types,
@@ -381,6 +382,8 @@ if __name__ == '__main__':
 
     parser.add_argument('--vehicle-types', default=None,
                         help='location of vehicle type definitions')
+    parser.add_argument('--discharge_limit', default=0,
+                        help='Minimum SoC to discharge to during v2g. [0-1]')
     parser.add_argument('--include-ext-load-csv',
                         help='include CSV for external load. \
                         You may define custom options with --include-ext-csv-option')
