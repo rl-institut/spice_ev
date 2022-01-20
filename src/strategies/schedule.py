@@ -453,7 +453,7 @@ class Schedule(Strategy):
 
             # during the last window always aim for desired SoC no matter if in charge
             # or discharge window
-            # In case the current window is not the last in the standing time, 
+            # In case the current window is not the last in the standing time,
             # discharge to discharge_limit or charge to full capacity.
             if charge_now:
                 desired_soc = vehicle.desired_soc if window_change == 0 else 1
