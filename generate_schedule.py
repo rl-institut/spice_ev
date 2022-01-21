@@ -25,8 +25,7 @@ def generate_flex_band(scenario, gc_index, core_standing_time=None):
     :rtype: dict
 
     """
-
-
+    gc = list(scenario.constants.grid_connectors.values())[gc_index]
     # generate basic strategy
     s = strategy.Strategy(
         scenario.constants, scenario.start_time, **{"interval": scenario.interval})
@@ -111,7 +110,6 @@ def generate_flex_band(scenario, gc_index, core_standing_time=None):
                         cars[vid] = [charging_power, vehicle_power_needed, v2g]
                         num_cars_present += 1
                     just_arrived[vid] = False
-
 
         pv_support = max(-base_flex, 0)
         if num_cars_present:

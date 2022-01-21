@@ -342,8 +342,6 @@ def generate_opp_trips_from_schedule(args):
         if not path.exists(price_csv_path):
             print("Warning: price csv file '{}' does not exist yet".format(price_csv_path))
 
-
-
     for idx, (capacity, c_rate, gc) in enumerate(args.battery):
         if capacity > 0:
             max_power = c_rate * capacity
