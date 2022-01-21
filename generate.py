@@ -321,7 +321,7 @@ def generate(args):
 
     # remove temporary information, only retain vehicle types that are actually present
     vehicle_types_present = {}
-    for k,v in vehicle_types.items():
+    for k, v in vehicle_types.items():
         if "count" in v and v["count"] > 0:
             del v["count"]
             vehicle_types_present[k] = v
