@@ -51,12 +51,13 @@ class Distributed(Strategy):
             cs = self.world_state.charging_stations[cs_id]
             gc = self.world_state.grid_connectors[cs.parent]
 
+            #----------------------------PRIORISATION AT OPP STATIONS -----------------------------#
             load = True
             # check if standing time is > MIN_CHARGING_TIME
             if (vehicle.estimated_time_of_departure -
                vehicle.estimated_time_of_arrival).total_seconds() / 60.0 < self.MIN_CHARGING_TIME:
                 load = False
-            # if number of cs is limited get other connected vehicles in this and future timesteps
+            # if number of cs is limited get other connected vehicles in this and future time steps
             timesteps = []
             if gc.number_cs and load:
                 # get all other vehicles connected to gc in this timestep
@@ -112,7 +113,7 @@ class Distributed(Strategy):
                         # if current vehicle does not have lowest soc set load to false
                         if not all(i >= vehicle.battery.soc for i in [t["soc"] for t in timesteps]):
                             load = False
-
+            #--------------------------------------------------------------------------------------#
             if load:
                 if cs.parent in electrified_stations["opp_stations"]:
                     charging_stations = greedy.load_vehicle_greedy(self, cs, gc, vehicle, cs_id,
@@ -126,8 +127,6 @@ class Distributed(Strategy):
                                                                        avail_bat_power)
                     # load batteries
                     greedy.load_batteries_greedy(self)
-#                    charging_stations = self.load_balanced(cs, gc, vehicle,
-#                                                           cs_id, charging_stations)
                 else:
                     print(f"The station {cs.parent} is not in {self.electrifies_stations_file}. "
                           f"Please check for consistency.")

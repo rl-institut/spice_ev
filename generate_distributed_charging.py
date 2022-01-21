@@ -7,6 +7,7 @@ import json
 import random
 import numpy as np
 from os import path
+from copy import deepcopy
 
 from src.util import set_options_from_config
 
@@ -468,12 +469,14 @@ def calculate_trip_consumption(trip, vehicle_dict, vehicle_type, rush_hour=None)
     return con
 
 
-def add_vehicle_id(input):
+def add_vehicle_id(input, safe=True):
     """
     Assigns all rotations to specific vehicles with distinct vehicle_id.
 
     :param input: schedule of rotations
     :type input: dict
+    :param safe: saved input dict as csv
+    :type safe: bool
     :return: schedule of rotations
     :rtype: dict
     """
@@ -507,6 +510,22 @@ def add_vehicle_id(input):
                 else:
                     bus_number += 1
                     input[rotation]["vehicle_id"] = vt + "_" + str(bus_number)
+    if safe:
+        dict = deepcopy(input)
+        all_rotations = []
+        header = []
+        for rotation_id, rotation in dict.items():
+            del rotation["trips"]
+            if not header:
+                for k, v in rotation.items():
+                    header.append(k)
+            all_rotations.append(rotation)
+
+        with open('examples/input_vehicle_id.csv', 'w', encoding='UTF8', newline='') as f:
+            writer = csv.DictWriter(f, fieldnames=header)
+            writer.writeheader()
+            writer.writerows(all_rotations)
+
     return input
 
 
