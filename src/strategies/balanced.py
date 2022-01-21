@@ -3,7 +3,8 @@ from src.strategy import Strategy
 
 
 class Balanced(Strategy):
-    """
+    """Balanced strategy
+
     Charging strategy that calculates the minimum required charging power to
     arrive at the desired SOC during the estimated parking time for each vehicle.
     """
@@ -16,6 +17,14 @@ class Balanced(Strategy):
         self.description = "balanced"
 
     def step(self, event_list=[]):
+        """
+        Calculates charging in each timestep.
+
+        :param event_list: List of events
+        :type event_list: list
+        :return: current time and commands of the charging stations
+        :rtype: dict
+        """
         super().step(event_list)
 
         # get power that can be drawn from battery in this timestep

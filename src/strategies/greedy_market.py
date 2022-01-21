@@ -6,7 +6,8 @@ from src.strategy import Strategy
 
 
 class GreedyMarket(Strategy):
-    """
+    """ GreedyMarket strategy
+
     Moves all charging events to times with low energy price
     """
     def __init__(self, constants, start_time, **kwargs):
@@ -31,6 +32,14 @@ class GreedyMarket(Strategy):
             print(changed, "events signaled earlier")
 
     def step(self, event_list=[]):
+        """
+        Calculates charging in each timestep.
+
+        :param event_list: List of events
+        :type event_list: list
+        :return: current time and commands of the charging stations
+        :rtype: dict
+        """
         super().step(event_list)
 
         gc = list(self.world_state.grid_connectors.values())[0]

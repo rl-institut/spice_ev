@@ -4,8 +4,7 @@ from src.events import ExternalLoad
 
 
 class Constants:
-    """ constants values of a scenario
-    """
+    """ Constants class"""
     def __init__(self, obj):
         self.grid_connectors = dict(
             {k: GridConnector(v) for k, v in obj['grid_connectors'].items()})
@@ -20,6 +19,7 @@ class Constants:
 
 
 class GridConnector:
+    """GridConnector class"""
     def __init__(self, obj):
         keys = [
             ('max_power', float),
@@ -36,8 +36,15 @@ class GridConnector:
         self.cur_max_power = self.max_power
 
     def add_load(self, key, value):
-        # add power __value__ to current_loads dict under __key__
-        # return updated value
+        """Add power __value__ to current_loads dict under __key__ , return updated value
+
+        :param key: key of dictionary
+        :type key: str
+        :param value: value to be added
+        :type value: numeric
+        :return: updated dict
+        :rtype: dict
+        """
         if key in self.current_loads.keys():
             self.current_loads[key] += value
         else:
@@ -45,7 +52,13 @@ class GridConnector:
         return self.current_loads[key]
 
     def get_current_load(self, exclude=[]):
-        # get sum of current loads not in exclude list
+        """Get sum of current loads not in exclude list
+
+        :param exclude: list of keys that should be excluded
+        :type exclude: list
+        :return: current load
+        :rtype: numeric
+        """
         current_load = 0
         for key, value in self.current_loads.items():
             if key not in exclude:
@@ -53,10 +66,16 @@ class GridConnector:
         return current_load
 
     def add_avg_ext_load_week(self, ext_load_list, interval):
-        # Compute average load using EnergyValuesList
-        # Each weekday has its own sequence of average values, depending on interval
-        # Multiple external loads are added up
+        """Compute average load using EnergyValuesList
 
+        Each weekday has its own sequence of average values, depending on interval.
+        Multiple external loads are added up
+
+        :param ext_load_list: list of external loads
+        :type ext_load_list: list
+        :param interval: interval of one timestep
+        :type interval: timedelta
+        """
         # convert EnergyValuesList to event list
         events = ext_load_list.get_events(None, ExternalLoad, has_perfect_foresight=False)
         events_per_day = int(datetime.timedelta(hours=24) / interval)
@@ -99,7 +118,15 @@ class GridConnector:
                 self.avg_ext_load[i] = [e + v for (e, v) in zip(self.avg_ext_load[i], values)]
 
     def get_avg_ext_load(self, dt, interval):
-        # get average external load for specific timeslot
+        """Get average external load for specific timeslot
+
+        :param dt: time
+        :type dt: datetime
+        :param interval: interval of one timestep
+        :type interval: timedelta
+        :return: average external load
+        :rtype: dict
+        """
         # dt: datetime, interval: scenario interval timedelta
         if self.avg_ext_load is None:
             return 0
@@ -110,6 +137,7 @@ class GridConnector:
 
 
 class ChargingStation:
+    """ChargingStation class"""
     def __init__(self, obj):
         keys = [
             ('max_power', float),
@@ -123,6 +151,7 @@ class ChargingStation:
 
 
 class VehicleType:
+    """VehicleType class"""
     def __init__(self, obj):
         keys = [
             ('name', str),
@@ -140,6 +169,7 @@ class VehicleType:
 
 
 class Vehicle:
+    """Vehicle class"""
     def __init__(self, obj, vehicle_types):
         keys = [
             ('vehicle_type', vehicle_types.get),
@@ -163,15 +193,27 @@ class Vehicle:
         del self.soc
 
     def get_delta_soc(self):
+        """Calculates delta soc
+
+        :return: delta_soc
+        :rtype: numeric
+        """
         return self.desired_soc - self.battery.soc
 
     def get_energy_needed(self, full=False):
-        # calculate energy needed to reach desired SoC (positive or zero)
+        """Calculate energy needed to reach desired SoC (positive or zero)
+
+        :param full: True if battery should be charged completely
+        :type full: bool
+        :return: energy needed to charge battery
+        :rtype: numeric
+        """
         target_soc = 1 if full else self.desired_soc
         return max(target_soc - self.battery.soc, 0) * self.battery.capacity
 
 
 class StationaryBattery(battery.Battery):
+    """StationaryBattery class"""
     def __init__(self, obj):
         keys = [
             ('charging_curve', loading_curve.LoadingCurve),

@@ -14,9 +14,18 @@ EPS = 1e-8
 
 
 def generate_flex_band(scenario, gc_index, core_standing_time=None):
-    # generate flexibility potential with perfect foresight
+    """Generate flexibility potential with perfect foresight
 
-    gc = list(scenario.constants.grid_connectors.values())[gc_index]
+    :param scenario: dictionary from scenario json
+    :type scenario: dict
+    :param core_standing_time: core standing time during which flexibility is guaranteed e.g.
+        {"times":[{"start": [22,0], "end":[5,0]}], "full_days":[7]}
+    :type core_standing_time: dict
+    :return: flex band
+    :rtype: dict
+
+    """
+
 
     # generate basic strategy
     s = strategy.Strategy(
@@ -152,6 +161,12 @@ def generate_flex_band(scenario, gc_index, core_standing_time=None):
 
 
 def generate_schedule(args):
+    """Generate schedule for grid signals
+
+    :param args: input arguments
+    :type args: argparse.Namespace
+    :return: None
+    """
 
     # read in scenario
     with open(args.scenario, 'r') as f:
