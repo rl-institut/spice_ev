@@ -132,9 +132,17 @@ class Scenario:
                 stepLoads = {k: v for k, v in gc.current_loads.items()
                              if k not in self.constants.charging_stations.keys()}
                 extLoads.append(stepLoads)
-                # sum up loads (with charging stations), compute cost
-                gc_load = gc.get_current_load()
-                # price in ct/kWh -> get price in EUR
+
+                # sum up total feed-in power
+                feed_in_keys = self.events.energy_feed_in_lists.keys()
+                curFeedIn -= sum([gc.current_loads.get(k, 0) for k in feed_in_keys])
+
+                # get GC load without feed-in power
+                gc_load = gc.get_current_load(exclude=feed_in_keys)
+                # add feed-in power, but don't exceed GC discharge power limit
+                gc_load = max(-gc.max_power, gc_load - curFeedIn)
+
+                # compute cost: price in ct/kWh -> get price in EUR
                 if gc.cost:
                     power = max(gc_load, 0)
                     energy = power / stepsPerHour
@@ -146,10 +154,6 @@ class Scenario:
 
                 gcPowerSchedule[gcID].append(gc.target)
                 gcWindowSchedule[gcID].append(gc.window)
-
-                # sum up total feed-in power
-                feed_in_keys = self.events.energy_feed_in_lists.keys()
-                curFeedIn -= sum([gc.current_loads.get(k, 0) for k in feed_in_keys])
 
             # get SOC and connected CS of all connected vehicles
             cur_cs = []
