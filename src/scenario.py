@@ -146,7 +146,7 @@ class Scenario:
                 for vidx, vid in enumerate(sorted(strat.world_state.vehicles.keys())):
                     vehicle = strat.world_state.vehicles[vid]
                     if vehicle.connected_charging_station and (strat.world_state.charging_stations[
-                        vehicle.connected_charging_station].parent == gcID):
+                            vehicle.connected_charging_station].parent == gcID):
                         cur_cs.append(vehicle.connected_charging_station)
                         cur_dis.append(None)
                         cur_socs.append(vehicle.battery.soc)
@@ -179,7 +179,6 @@ class Scenario:
                 feedInPower[gcID].append(curFeedIn)
                 connChargeByTS[gcID].append(cur_cs)
 
-
                 # get battery levels
                 for batName, bat in strat.world_state.batteries.items():
                     if strat.world_state.batteries[batName].parent == gcID:
@@ -194,8 +193,8 @@ class Scenario:
 
         for gcID, gc in self.constants.grid_connectors.items():
             print("Energy drawn from {}: {:.0f} kWh, Costs: {:.2f} €".format(gcID,
-                                                                             sum(totalLoad[
-                                                                                     gcID]) / stepsPerHour,
+                                                                             sum(totalLoad[gcID]) /
+                                                                             stepsPerHour,
                                                                              sum(costs[gcID])))
 
         if options.get("save_timeseries", False) or options.get("save_results", False):
@@ -230,7 +229,8 @@ class Scenario:
                         # compute window index
                         widx = (shifted_time // datetime.timedelta(hours=6)) % 4
 
-                        load_window[widx].append((flex["max"][idx] - flex["min"][idx], totalLoad[gcID][idx]))
+                        load_window[widx].append(flex["max"][idx] - flex["min"][idx],
+                                                 totalLoad[gcID][idx])
                         count_window[widx] = list(map(
                             lambda c, t: c + (t is not None),
                             count_window[widx], socs[gcID][idx]))
@@ -249,7 +249,8 @@ class Scenario:
                         max_variable_load = max(max_variable_load, var_load)
 
                     # avg flex per window
-                    avg_flex_per_window = [sum([t[0] for t in w]) / len(w) if w else 0 for w in load_window]
+                    avg_flex_per_window = [sum([t[0] for t in w]) / len(w) if w else 0 for w in
+                                           load_window]
                     json_results["avg flex per window"] = {
                         "04-10": avg_flex_per_window[0],
                         "10-16": avg_flex_per_window[1],
@@ -260,7 +261,8 @@ class Scenario:
                     }
 
                     # sum of used energy per window
-                    sum_energy_per_window = [sum([t[1] for t in w]) / stepsPerHour for w in load_window]
+                    sum_energy_per_window = [sum([t[1] for t in w]) / stepsPerHour for w in
+                                             load_window]
                     json_results["sum of energy per window"] = {
                         "04-10": sum_energy_per_window[0],
                         "10-16": sum_energy_per_window[1],
@@ -286,7 +288,8 @@ class Scenario:
                     # avg total standing time
                     # count per car: list(zip(*count_window))
                     total_standing = sum(map(sum, count_window))
-                    avg_total_standing_time = total_standing / len(self.constants.vehicles) / stepsPerHour
+                    avg_total_standing_time = total_standing / len(
+                        self.constants.vehicles) / stepsPerHour
                     json_results["avg standing time"] = {
                         "single": avg_stand_time,
                         "total": avg_total_standing_time,
@@ -313,7 +316,9 @@ class Scenario:
                     avg_needed_energy = sum([i["needed"] for i in intervals]) / len(intervals)
                     json_results["avg needed energy"] = {
                         # avg energy per standing period and vehicle
-                        "value": avg_needed_energy / len(self.constants.vehicles), #todo: number of cars at this gc instead? wouldn't it make more sense to only take timesteps with load into account?
+                        # todo: number of cars at this gc instead? wouldn't it make more sense to
+                        #  only take timesteps with load into account?
+                        "value": avg_needed_energy / len(self.constants.vehicles),
                         "unit": "kWh",
                         "info": "Average amount of energy needed to reach the desired SoC"
                                 " (averaged over all vehicles and charge events)"
@@ -327,7 +332,8 @@ class Scenario:
                             "total": max(totalLoad[gcID]),
                             "unit": "kW",
                             "info": "Maximum drawn power, by fixed loads (building, PV),"
-                                    " variable loads (charging stations, stationary batteries) and all loads"
+                                    " variable loads (charging stations, stationary batteries) "
+                                    "and all loads"
                         }
 
                     # average drawn power
@@ -364,7 +370,8 @@ class Scenario:
                             if battery.capacity > 2**63:
                                 # unlimited capacity
                                 max_cap = max(batteryLevels[gcID][batID])
-                                print("Battery {} is unlimited, set capacity to {} kWh".format(batID, max_cap))
+                                print("Battery {} is unlimited, set capacity to {} kWh".format(
+                                    batID, max_cap))
                                 total_bat_cap += max_cap
                             else:
                                 total_bat_cap += battery.capacity
@@ -380,7 +387,8 @@ class Scenario:
                             "info": "Number of load cycles of stationary batteries (averaged)"
                         }
                     # vehicles
-                    total_car_cap = sum([v.battery.capacity for v in self.constants.vehicles.values()])
+                    total_car_cap = sum([v.battery.capacity for v in
+                                         self.constants.vehicles.values()])
                     total_car_energy = sum([sum(map(
                         lambda v: max(v, 0), r["commands"].values())) for r in results])
                     json_results["all vehicle battery cycles"] = {
@@ -390,8 +398,8 @@ class Scenario:
                     }
 
                     # write to file
-                    file_name = options['save_results'].split(".")[0] + f"_{gcID}." + \
-                                options['save_results'].split(".")[1]
+                    file_name = options['save_results'].split(".")[0] + f"_{gcID}." + options[
+                        'save_results'].split(".")[1]
                     with open(file_name, 'w') as results_file:
                         json.dump(json_results, results_file, indent=2)
 
@@ -536,7 +544,7 @@ class Scenario:
                             if r['commands']:
                                 for k, v in r["commands"].items():
                                     if k in cs_ids:
-                                        gc_commands.update({k:v})
+                                        gc_commands.update({k: v})
                             row.append(round(sum(gc_commands.values()), round_to_places))
                             # sum up all charging power at gc for each use case
                             row += [round(sum([cs_value for cs_id, cs_value in gc_commands.items()
@@ -547,9 +555,11 @@ class Scenario:
                             # get number of occupied CS at gc for each use case
                             row += [
                                 sum([1 if uc_key in cs_id else 0
-                                    for cs_id in connChargeByTS[gcID]]) for uc_key in uc_keys_present]
+                                    for cs_id in connChargeByTS[gcID]]) for uc_key in
+                                uc_keys_present]
                             # get individual charging power of cs_id that is connected to gc
-                            row += [round(gc_commands.get(cs_id, 0), round_to_places) for cs_id in cs_ids]
+                            row += [round(gc_commands.get(cs_id, 0), round_to_places) for cs_id in
+                                    cs_ids]
                             # write row to file
                             timeseries_file.write('\n' + ','.join(map(lambda x: str(x), row)))
 
@@ -563,7 +573,7 @@ class Scenario:
                 if not all_totalLoad:
                     all_totalLoad = totalLoad[gcID]
                 else:
-                    all_totalLoad = list(map(lambda x,y:x+y, all_totalLoad, totalLoad[gcID]))
+                    all_totalLoad = list(map(lambda x, y: x+y, all_totalLoad, totalLoad[gcID]))
 
             sum_cs = []
             xlabels = []
@@ -606,8 +616,6 @@ class Scenario:
             else:
                 plots_top_row = 2
 
-
-
             # vehicles
             ax = plt.subplot(2, plots_top_row, 1)
             ax.set_title('Vehicles')
@@ -617,9 +625,9 @@ class Scenario:
                 # reset color cycle, so lines have same color
                 ax.set_prop_cycle(None)
             for gcID, dis in disconnect.items():
-                ax.plot(xlabels,dis, '--')
-                if len(self.constants.vehicles) <= 10: # todo: should this be intended
-                    ax.legend(lines, sorted(self.constants.vehicles.keys()))
+                ax.plot(xlabels, dis, '--')
+            if len(self.constants.vehicles) <= 10:
+                ax.legend(lines, sorted(self.constants.vehicles.keys()))
 
             # charging stations
             ax = plt.subplot(2, plots_top_row, 2)

@@ -1,10 +1,10 @@
 import json
 
-from src.util import clamp_power, get_cost
 from src.strategy import Strategy
 from src import events
 from src.strategies import greedy
 from src.strategies import balanced
+
 
 class Distributed(Strategy):
     """
@@ -13,7 +13,7 @@ class Distributed(Strategy):
     def __init__(self, constants, start_time, **kwargs):
         self.PRICE_THRESHOLD = 0.001  # EUR/kWh
         super().__init__(constants, start_time, **kwargs)
-        self.description = "greedy"
+        self.description = "distributed"
         self.ITERATIONS = 12
         self.MIN_CHARGING_TIME = 2
 
@@ -115,11 +115,15 @@ class Distributed(Strategy):
 
             if load:
                 if cs.parent in electrified_stations["opp_stations"]:
-                    charging_stations = greedy.load_vehicle_greedy(self, cs, gc, vehicle, cs_id, charging_stations, avail_bat_power)
+                    charging_stations = greedy.load_vehicle_greedy(self, cs, gc, vehicle, cs_id,
+                                                                   charging_stations,
+                                                                   avail_bat_power)
                     # load batteries
                     greedy.load_batteries_greedy(self)
                 elif cs.parent in electrified_stations["depot_stations"]:
-                    charging_stations = balanced.load_vehicle_balanced(self, cs, gc, vehicle, cs_id, charging_stations, avail_bat_power)
+                    charging_stations = balanced.load_vehicle_balanced(self, cs, gc, vehicle, cs_id,
+                                                                       charging_stations,
+                                                                       avail_bat_power)
                     # load batteries
                     greedy.load_batteries_greedy(self)
 #                    charging_stations = self.load_balanced(cs, gc, vehicle,
@@ -143,8 +147,8 @@ class Distributed(Strategy):
                     charging_stations = greedy.add_surplus_to_vehicle(self, cs, gc, vehicle, cs_id,
                                                                       charging_stations)
                 elif cs.parent in electrified_stations["depot_stations"]:
-                    charging_stations = balanced.add_surplus_to_vehicle(self, cs, gc, vehicle, cs_id,
-                                                                        charging_stations)
+                    charging_stations = balanced.add_surplus_to_vehicle(self, cs, gc, vehicle,
+                                                                        cs_id, charging_stations)
                 else:
                     print(f"The station {cs.parent} is not in {self.electrifies_stations_file}. "
                           f"Please check for consistency.")
@@ -152,7 +156,4 @@ class Distributed(Strategy):
             # charge/discharge batteries
             balanced.load_batteries(self)
 
-
         return {'current_time': self.current_time, 'commands': charging_stations}
-
-

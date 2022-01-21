@@ -42,7 +42,8 @@ class Greedy(Strategy):
             cs = self.world_state.charging_stations[cs_id]
             gc = self.world_state.grid_connectors[cs.parent]
 
-            charging_stations = load_vehicle_greedy(self, cs, gc, vehicle, cs_id, charging_stations, avail_bat_power)
+            charging_stations = load_vehicle(self, cs, gc, vehicle, cs_id, charging_stations,
+                                             avail_bat_power)
 
         # all vehicles loaded
         # distribute surplus power to vehicles
@@ -58,7 +59,7 @@ class Greedy(Strategy):
             add_surplus_to_vehicle(self, cs, gc, vehicle, cs_id, charging_stations)
 
         # charge/discharge batteries
-        load_batteries_greedy(self)
+        load_batteries(self)
 
         return {'current_time': self.current_time, 'commands': charging_stations}
 
