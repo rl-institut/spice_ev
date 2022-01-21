@@ -319,10 +319,12 @@ def generate(args):
 
     # end of scenario
 
-    # remove temporary information
-    for vtype in vehicle_types:
-        if "count" in vtype:
-            del vtype["count"]
+    # remove temporary information, only retain vehicle types that are actually present
+    vehicle_types_present = {}
+    for k,v in vehicle_types.items():
+        if "count" in v and v["count"] > 0:
+            del v["count"]
+            vehicle_types_present[k] = v
     for v in vehicles.values():
         del v["last_arrival_idx"]
 
@@ -334,7 +336,7 @@ def generate(args):
             "n_intervals": (stop - start) // interval
         },
         "constants": {
-            "vehicle_types": vehicle_types,
+            "vehicle_types": vehicle_types_present,
             "vehicles": vehicles,
             "grid_connectors": {
                 "GC1": {
