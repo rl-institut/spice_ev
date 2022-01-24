@@ -401,7 +401,8 @@ if __name__ == '__main__':
     parser.add_argument('--include-price-csv-option', '-po', metavar=('KEY', 'VALUE'),
                         nargs=2, default=[], action='append',
                         help='append additional argument to price signals')
-    parser.add_argument('--config', help='Use config file to set arguments', default="examples/generate.cfg")
+    parser.add_argument('--config', help='Use config file to set arguments',
+                        default="examples/generate.cfg")
 
     args = parser.parse_args()
 
