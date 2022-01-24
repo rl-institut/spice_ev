@@ -398,7 +398,7 @@ class Schedule(Strategy):
             max_discharge_power = (sim_vehicle.battery.loading_curve.max_power
                                    * sim_vehicle.vehicle_type.v2g_power_factor)
 
-            # check if cehicles can be loaded until desired_soc in connected timesteps
+            # check if vehicles can be loaded until desired_soc in connected timesteps
             old_soc = vehicle.battery.soc
             connected_timesteps = []
             window_change = 0

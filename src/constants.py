@@ -161,7 +161,7 @@ class VehicleType:
             ('min_charging_power', float, 0.0),
             ('battery_efficiency', float, 0.95),
             ('v2g', bool, False),
-            ('v2g_power_factor', float, 1.0),
+            ('v2g_power_factor', float, 0.5),
         ]
         util.set_attr_from_dict(obj, self, keys, optional_keys)
 

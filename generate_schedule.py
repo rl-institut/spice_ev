@@ -41,10 +41,13 @@ def generate_flex_band(scenario, core_standing_time=None):
         # helper function: make sure to stay within GC power limits
         return min(max(power, -gc.max_power), gc.max_power)
 
-    # collect and accumulate information about the entire fleet
+    # Collect and accumulate information about the entire fleet.
+    # capacity of all vehicles combined [kWh]
     total_vehicle_capacity = 0
+    # Total energy stored in fleet if all vehicles have SoC == desired SoC
     total_desired_energy = 0
     average_efficiency = 0
+    # True if any vehicle has v2g enabled
     v2g_enabled = False
     for v in s.world_state.vehicles.values():
         total_vehicle_capacity += v.battery.capacity
@@ -285,7 +288,7 @@ def generate_schedule(args):
         :param period: List of timestep indicies of the period the energy is distributed to
         :type period: list
         :param charge_period: Determines whether schedule should be raised or lowered.
-        "type charge_period: bool
+        :type charge_period: bool
         :param energy_needed: Amount of energy to be distributed.
         :type energy_needed: float
         :param priority_selection: List of priorities ordered by preference starting with most
