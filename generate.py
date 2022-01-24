@@ -77,6 +77,9 @@ def generate(args):
     if args.output is None:
         raise SystemExit("The following argument is required: output")
 
+    # all paths are relative to output file
+    target_path = path.dirname(args.output)
+
     random.seed(args.seed)
 
     # SIMULATION TIME
@@ -102,7 +105,7 @@ def generate(args):
     ext = args.vehicle_types.split('.')[-1]
     if ext != "json":
         print("File extension mismatch: vehicle type file should be .json")
-    with open(args.vehicle_types) as f:
+    with open(path.join(target_path, args.vehicle_types)) as f:
         vehicle_types = json.load(f)
 
     for count, vehicle_type in args.cars:
@@ -154,8 +157,6 @@ def generate(args):
     }
 
     # save path and options for CSV timeseries
-    # all paths are relative to output file
-    target_path = path.dirname(args.output)
 
     if args.include_ext_load_csv:
         filename = args.include_ext_load_csv
@@ -400,7 +401,7 @@ if __name__ == '__main__':
     parser.add_argument('--include-price-csv-option', '-po', metavar=('KEY', 'VALUE'),
                         nargs=2, default=[], action='append',
                         help='append additional argument to price signals')
-    parser.add_argument('--config', help='Use config file to set arguments')
+    parser.add_argument('--config', help='Use config file to set arguments', default="examples/generate.cfg")
 
     args = parser.parse_args()
 
