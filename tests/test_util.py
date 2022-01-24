@@ -1,10 +1,7 @@
 import datetime
-import json
 import unittest
 
-from src import battery, constants, loading_curve, scenario, util
-
-
+from src import constants, util
 
 
 class UtilTest(unittest.TestCase):
