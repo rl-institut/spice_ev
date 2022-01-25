@@ -612,8 +612,8 @@ class Scenario:
             if type(strat).__name__ == "FlexWindow":
                 for gcID, schedule in gcWindowSchedule.items():
                     if all(s is not None for s in schedule):
-                        window_values = [v * int(max(totalLoad)) for v in schedule]
-                        ax.plot(xlabels, window_values, label="Window {}".format(gcID), linestyle='--')
+                        w_values = [v * int(max(totalLoad)) for v in schedule]
+                        ax.plot(xlabels, w_values, label="Window {}".format(gcID), linestyle='--')
             if type(strat).__name__ == "Schedule":
                 for gcID, schedule in gcPowerSchedule.items():
                     if any(s is not None for s in schedule):
