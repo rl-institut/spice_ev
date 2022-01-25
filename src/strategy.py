@@ -34,7 +34,6 @@ class Strategy():
         # relative allowed difference between battery SoC and desired SoC when leaving
         self.margin = 0.05
         self.allow_negative_soc = False
-        self.DISCHARGE_LIMIT = 0
         self.V2G_POWER_FACTOR = 1.0
         # tolerance for floating point comparison
         self.EPS = 1e-5
