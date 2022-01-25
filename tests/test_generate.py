@@ -1,6 +1,8 @@
 import unittest
 import argparse
 import sys
+from copy import deepcopy
+import os
 
 import generate
 import generate_from_csv
@@ -12,39 +14,86 @@ from src.util import set_options_from_config
 sys.argv = ['']
 del sys
 
+ARG_VALUES1 = {
+    "--cars": [[1, "golf"], [1, "sprinter"]],
+    "--days": 2,
+    "--interval": 15,
+    "--min_soc": 0.8,
+    "--battery": [[350, 0.5]],
+    "--start-time": '2018-01-01T00:15',
+    "--vehicle_types": "test_data/input_test_generate/vehicle_types.json",
+    "--include-ext-load-csv": None,
+    "--include-ext-csv-option": [],
+    "--include-feed-in-csv": None,
+    "--include-feed-in-csv-option": [],
+    "--seed": None,
+    "--include_price_csv": None,
+    "--include_price_csv_option": []
+}
 
-def create_parser(config_filename):
+
+def create_parser(arg_values):
     parser = argparse.ArgumentParser(
         description='Generate scenarios as JSON files for vehicle charging modelling')
-    parser.add_argument('--config', help='Use config file to set arguments',
-                        default=config_filename)
+    for k, v in arg_values.items():
+        parser.add_argument(k, nargs='?', default = v)
+
     args = parser.parse_args()
     set_options_from_config(args, check=False, verbose=False)
     return args
 
 
-class TestGenerate(unittest.TestCase):
+class TestCaseBase(unittest.TestCase):
+    def assertIsFile(self, path):
+        if not os.path.isfile(path):
+            raise AssertionError("File does not exist: %s" % str(path))
+
+
+class TestGenerate(TestCaseBase):
 
     def test_generate(self):
-        config_filename = "test_data/input_test_generate/generate.cfg"
-        args = create_parser(config_filename)
+        output_file = "test_data/input_test_generate/generate.json"
+        current_arg_values = deepcopy(ARG_VALUES1)
+        current_arg_values.update({"output": output_file})
+        args = create_parser(current_arg_values)
         generate.generate(args)
+        self.assertIsFile(output_file)
 
     def test_generate_from_csv(self):
-        config_filename = "test_data/input_test_generate/generate_from_csv.cfg"
-        args = create_parser(config_filename)
+        output_file = "test_data/input_test_generate/generate_from_csv.json"
+        current_arg_values = deepcopy(ARG_VALUES1)
+        current_arg_values.update({"output": output_file})
+        current_arg_values.update({"input_file": "test_data/input_test_generate/rotations_example_table.csv"})
+        args = create_parser(current_arg_values)
         generate_from_csv.generate_from_csv(args)
+        self.assertIsFile(output_file)
 
     def test_generate_energy_price(self):
-        config_filename = "test_data/input_test_generate/price.cfg"
-        args = create_parser(config_filename)
+        output_file = "test_data/input_test_generate/price.csv"
+        current_arg_values = {
+            "output": output_file,
+            "--start": "2020-12-31T00:00:00+01:00",
+            "--n-intervals": 336,
+            "--interval": 1,
+            "--price_seed": 0,
+        }
+        args = create_parser(current_arg_values)
         generate_energy_price.generate_energy_price(args)
+        self.assertIsFile(output_file)
 
     def test_generate_schedule(self):
-        config_filename = "test_data/input_test_generate/generate_schedule.cfg"
-        args = create_parser(config_filename)
+        output_file = "test_data/input_test_generate/schedule_example.csv"
+        current_arg_values = {
+            "input": "test_data/input_test_generate/nsm_00_dummy.csv",
+            "scenario": "test_data/input_test_generate/scenario_C.json",
+            "output": output_file,
+            "--priority_percentile": 0.25,
+            "--visual": False,
+            "--core_standing_time": {"times": [{"start": [22, 0], "end": [5, 0]}], "full_days": [7]}
+        }
+        args = create_parser(current_arg_values)
         generate_schedule.generate_schedule(args)
-
+        self.assertIsFile(output_file)
 
 if __name__ == '__main__':
     unittest.main()
