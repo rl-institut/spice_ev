@@ -493,7 +493,7 @@ class Scenario:
                             v for k, v in extLoads[idx].items()
                             if k in self.events.external_load_lists])
                         row.append(round(sumExtLoads, round_to_places))
-                    # feed-in (negative since grid power is fed into system)
+                    # feed-in (negative since power is fed into system)
                     if any(feedInPower):
                         row.append(-1 * round(feedInPower[idx], round_to_places))
                     # batteries
@@ -607,19 +607,19 @@ class Scenario:
             ax.plot(xlabels, list([sum(cs) for cs in sum_cs]), label="CS")
             for name, values in loads.items():
                 ax.plot(xlabels, values, label=name)
-            # draw schedule
-            for gcID, schedule in gcWindowSchedule.items():
-                if all(s is not None for s in schedule):
-                    # schedule exists
-                    window_values = [v * int(max(totalLoad)) for v in schedule]
-                    ax.plot(xlabels, window_values, label="window {}".format(gcID), linestyle='--')
 
-            for gcID, schedule in gcPowerSchedule.items():
-                if any(s is not None for s in schedule):
-                    # schedule exists
-                    ax.plot(xlabels, schedule, label="Schedule {}".format(gcID))
+            # draw schedule or charge-windows
+            if type(strat).__name__ == "FlexWindow":
+                for gcID, schedule in gcWindowSchedule.items():
+                    if all(s is not None for s in schedule):
+                        window_values = [v * int(max(totalLoad)) for v in schedule]
+                        ax.plot(xlabels, window_values, label="Window {}".format(gcID), linestyle='--')
+            if type(strat).__name__ == "Schedule":
+                for gcID, schedule in gcPowerSchedule.items():
+                    if any(s is not None for s in schedule):
+                        ax.plot(xlabels, schedule, label="Schedule {}".format(gcID))
 
-            ax.plot(xlabels, totalLoad, label="total")
+            ax.plot(xlabels, totalLoad, label="Total")
             # ax.axhline(color='k', linestyle='--', linewidth=1)
             ax.set_title('Power')
             ax.set(ylabel='Power in kW')
