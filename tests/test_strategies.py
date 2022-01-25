@@ -164,14 +164,6 @@ class TestScenarios(unittest.TestCase):
             assert max_total_load <= s.constants.grid_connectors[gcID].max_power
             assert max_total_load > 0
 
-    def test_greedy_market_C(self):  # todo: does not work. why?
-        input = 'test_data/input_test_strategies/scenario_B.json'
-        s = scenario.Scenario(load_json(input), os.path.dirname(input))
-        max_total_load = s.run('greedy_market', {})
-        for gcID, gc in s.constants.grid_connectors.items():
-            assert max_total_load <= s.constants.grid_connectors[gcID].max_power
-            assert max_total_load > 0
-
     def test_peak_load_window_C(self):
         input = 'test_data/input_test_strategies/scenario_C.json'
         s = scenario.Scenario(load_json(input), os.path.dirname(input))
