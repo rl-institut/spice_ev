@@ -237,7 +237,7 @@ class Schedule(Strategy):
         if missing_energy > self.EPS:
             total_energy_batteries = 0
             for bat in self.world_state.batteries.values():
-                total_energy_batteries += bat.soc * bat.capacity
+                total_energy_batteries += (bat.soc * bat.capacity) * bat.efficiency
             bat_energy_for_vehicles = min(missing_energy, total_energy_batteries)
         else:
             bat_energy_for_vehicles = 0
@@ -305,8 +305,14 @@ class Schedule(Strategy):
             n_vehicles = len(vehicles)
 
             gc = list(self.world_state.grid_connectors.values())[0]
+            # reality check: Can the batteries provide as much energy as we expect them to?
+            total_bat_power_remaining = sum(
+                [(b.soc * b.capacity) * b.efficiency for b in self.world_state.batteries.values()]
+                ) / self.TS_per_hour
+            available_bat_power_for_current_TS = min(
+                self.bat_power_for_vehicles, total_bat_power_remaining)
             remaining_power_on_schedule = (gc.target - gc.get_current_load()
-                                           + self.bat_power_for_vehicles)
+                                           + available_bat_power_for_current_TS)
             # iteration counter to determine whether each vehicle got a chance to charge
             i = 0
             while len(vehicles) > 0:
