@@ -21,9 +21,6 @@ def generate_from_csv(args):
     if missing:
         raise SystemExit("The following arguments are required: {}".format(", ".join(missing)))
 
-    # all paths are relative to output file
-    target_path = path.dirname(args.output)
-
     random.seed(args.seed)
 
     interval = datetime.timedelta(minutes=args.interval)
@@ -37,7 +34,7 @@ def generate_from_csv(args):
     ext = args.vehicle_types.split('.')[-1]
     if ext != "json":
         print("File extension mismatch: vehicle type file should be .json")
-    with open(path.join(target_path, args.vehicle_types)) as f:
+    with open(args.vehicle_types) as f:
         predefined_vehicle_types = json.load(f)
 
     for row in input:
@@ -152,6 +149,9 @@ def generate_from_csv(args):
             "charging_curve": [[0, max_power], [1, max_power]]
         }
     # save path and options for CSV timeseries
+    # all paths are relative to output file
+    target_path = path.dirname(args.output)
+
     times = []
     for row in input:
         times.append(row["departure time"])

@@ -51,11 +51,6 @@ class TestScenario(unittest.TestCase):
         with open('test_data/scenario.json', 'r') as f:
             scenario.Scenario(json.load(f), "")
 
-    def test_greedy(self):
-        # test basic strategy
-        s = scenario.Scenario(get_test_json(), None)
-        s.run('greedy', {})
-
 
 def approx_eq(x, y, eps=1e-3):
     return abs(x - y) < eps

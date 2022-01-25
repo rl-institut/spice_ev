@@ -77,8 +77,6 @@ def generate(args):
     if args.output is None:
         raise SystemExit("The following argument is required: output")
 
-    # all paths are relative to output file
-    target_path = path.dirname(args.output)
 
     random.seed(args.seed)
 
@@ -105,7 +103,7 @@ def generate(args):
     ext = args.vehicle_types.split('.')[-1]
     if ext != "json":
         print("File extension mismatch: vehicle type file should be .json")
-    with open(path.join(target_path, args.vehicle_types)) as f:
+    with open(args.vehicle_types) as f:
         vehicle_types = json.load(f)
 
     for count, vehicle_type in args.cars:
@@ -157,6 +155,8 @@ def generate(args):
     }
 
     # save path and options for CSV timeseries
+    # all paths are relative to output file
+    target_path = path.dirname(args.output)
 
     if args.include_ext_load_csv:
         filename = args.include_ext_load_csv
