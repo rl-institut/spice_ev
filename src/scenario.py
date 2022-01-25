@@ -537,33 +537,35 @@ class Scenario:
                     # write row to file
                     timeseries_file.write('\n' + ','.join(map(lambda x: str(x), row)))
 
+        # calculate results
+
+        sum_cs = []
+        xlabels = []
+
+        for r in results:
+            xlabels.append(r['current_time'])
+            cur_cs = []
+            for cs_id in sorted(self.constants.charging_stations):
+                cur_cs.append(r['commands'].get(cs_id, 0.0))
+            sum_cs.append(cur_cs)
+
+        # untangle external loads (with feed-in)
+        loads = {}
+        for i, step in enumerate(extLoads):
+            for k, v in step.items():
+                if k not in loads:
+                    # new key, not present before
+                    loads[k] = [0] * i
+                loads[k].append(v)
+            for k in loads.keys():
+                if k not in step:
+                    # old key not in current step
+                    loads[k].append(0)
+
         if options.get('visual', False):
             import matplotlib.pyplot as plt
 
             print('Done. Create plots...')
-
-            sum_cs = []
-            xlabels = []
-
-            for r in results:
-                xlabels.append(r['current_time'])
-                cur_cs = []
-                for cs_id in sorted(self.constants.charging_stations):
-                    cur_cs.append(r['commands'].get(cs_id, 0.0))
-                sum_cs.append(cur_cs)
-
-            # untangle external loads (with feed-in)
-            loads = {}
-            for i, step in enumerate(extLoads):
-                for k, v in step.items():
-                    if k not in loads:
-                        # new key, not present before
-                        loads[k] = [0] * i
-                    loads[k].append(v)
-                for k in loads.keys():
-                    if k not in step:
-                        # old key not in current step
-                        loads[k].append(0)
 
             # plot!
 
@@ -640,3 +642,9 @@ class Scenario:
                 plt.setp(ax.get_xticklabels(), rotation=30, ha='right')
 
             plt.show()
+
+        ###########################
+        # get some numbers for testing
+        max_total_load = max(totalLoad) if totalLoad else 0
+
+        return(max_total_load)
