@@ -307,7 +307,7 @@ class Schedule(Strategy):
             gc = list(self.world_state.grid_connectors.values())[0]
             # reality check: Can the batteries provide as much energy as we expect them to?
             total_bat_power_remaining = sum(
-                [(b.soc * b.capacity) * b.efficiency for b in self.world_state.batteries.values()]
+                [b.get_available_power(self.interval) for b in self.world_state.batteries.values()]
                 ) / self.TS_per_hour
             available_bat_power_for_current_TS = min(
                 self.bat_power_for_vehicles, total_bat_power_remaining)
