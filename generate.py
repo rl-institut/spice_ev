@@ -77,7 +77,6 @@ def generate(args):
     if args.output is None:
         raise SystemExit("The following argument is required: output")
 
-
     random.seed(args.seed)
 
     # SIMULATION TIME

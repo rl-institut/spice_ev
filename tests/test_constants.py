@@ -2,7 +2,7 @@ import datetime
 import json
 import unittest
 
-from src import battery, constants, loading_curve, scenario, util
+from src import battery, loading_curve, scenario
 
 
 def get_test_json():
