@@ -85,8 +85,8 @@ class PeakLoadWindow(Strategy):
         energy_needed = 0
         for vid, v in self.world_state.vehicles.items():
             if v.vehicle_type.v2g:
-                warnings.warn("The vehicle type of vehicle {} is set to v2g although v2g is not "
-                              "supported with peak_load_window strategy. V2g will thus be "
+                warnings.warn("The vehicle type of vehicle {} is set to V2G although V2G is not "
+                              "supported with peak_load_window strategy. V2G will thus be "
                               "neglected.".format(vid))
             if v.connected_charging_station is not None:
                 vehicles[vid] = v
