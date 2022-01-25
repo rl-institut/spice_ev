@@ -381,7 +381,6 @@ if __name__ == '__main__':
     parser.add_argument('--gc-power', type=int, default=530, help='set power at grid connection '
                                                                   'point in kW')
     parser.add_argument('--seed', default=None, type=int, help='set random seed')
-
     parser.add_argument('--vehicle-types', default=None,
                         help='location of vehicle type definitions')
     parser.add_argument('--include-ext-load-csv',
@@ -401,8 +400,7 @@ if __name__ == '__main__':
     parser.add_argument('--include-price-csv-option', '-po', metavar=('KEY', 'VALUE'),
                         nargs=2, default=[], action='append',
                         help='append additional argument to price signals')
-    parser.add_argument('--config', help='Use config file to set arguments',
-                        default="examples/generate.cfg")
+    parser.add_argument('--config', help='Use config file to set arguments')
 
     args = parser.parse_args()
 
