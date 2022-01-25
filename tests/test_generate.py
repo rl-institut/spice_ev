@@ -58,6 +58,8 @@ class TestGenerate(TestCaseBase):
         args = create_parser(current_arg_values)
         generate.generate(args)
         self.assertIsFile(output_file)
+        # remove output file
+        os.remove(output_file)
 
     def test_generate_from_csv(self):
         output_file = "test_data/input_test_generate/generate_from_csv.json"
@@ -68,6 +70,7 @@ class TestGenerate(TestCaseBase):
         args = create_parser(current_arg_values)
         generate_from_csv.generate_from_csv(args)
         self.assertIsFile(output_file)
+        os.remove(output_file)
 
     def test_generate_energy_price(self):
         output_file = "test_data/input_test_generate/price.csv"
@@ -81,6 +84,7 @@ class TestGenerate(TestCaseBase):
         args = create_parser(current_arg_values)
         generate_energy_price.generate_energy_price(args)
         self.assertIsFile(output_file)
+        os.remove(output_file)
 
     def test_generate_schedule(self):
         output_file = "test_data/input_test_generate/schedule_example.csv"
@@ -95,6 +99,7 @@ class TestGenerate(TestCaseBase):
         args = create_parser(current_arg_values)
         generate_schedule.generate_schedule(args)
         self.assertIsFile(output_file)
+        os.remove(output_file)
 
 
 if __name__ == '__main__':
