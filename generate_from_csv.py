@@ -151,7 +151,6 @@ def generate_from_csv(args):
     # save path and options for CSV timeseries
     # all paths are relative to output file
     target_path = path.dirname(args.output)
-
     times = []
     for row in input:
         times.append(row["departure time"])
