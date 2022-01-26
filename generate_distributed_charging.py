@@ -174,6 +174,7 @@ def generate_opp_trips_from_schedule(args):
                         if gc_name in stations:
                             # if station is depot, set min_soc = args.min_soc, else: None
                             if gc_name in stations_dict["depot_stations"]:
+                                station_type = "depot"
                                 desired_soc = args.min_soc
                                 number_cs = stations_dict["depot_stations"][gc_name]
                                 cs_power = args.cs_power_depot
@@ -185,6 +186,7 @@ def generate_opp_trips_from_schedule(args):
                                 if ct == "depot":
                                     skip = True
                                 else:
+                                    station_type = "opp"
                                     number_cs = stations_dict["opp_stations"][gc_name]
                                     cs_power = args.cs_power_opp
                                     desired_soc = 1
@@ -193,10 +195,12 @@ def generate_opp_trips_from_schedule(args):
                                     else:
                                         gc_power = 100 * cs_power
                             if not skip:
-                                connected_charging_station = cs_name
+                                cs_name_and_type = cs_name + "_" + station_type
+                                connected_charging_station = cs_name_and_type
                                 # add one charging station for each bus at bus station
                                 if cs_name not in charging_stations:
-                                    charging_stations[cs_name] = {
+
+                                    charging_stations[cs_name_and_type] = {
                                         "max_power": cs_power,
                                         "min_power": 0.1 * cs_power,
                                         "parent": gc_name
