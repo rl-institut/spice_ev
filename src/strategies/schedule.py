@@ -22,6 +22,7 @@ class Schedule(Strategy):
 
         self.description = "schedule ({})".format(self.LOAD_STRAT)
         self.uses_schedule = True
+        
         if self.LOAD_STRAT == "greedy":
             self.sort_key = lambda v: (
                 v[0].battery.soc >= v[0].desired_soc,
