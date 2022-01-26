@@ -116,17 +116,17 @@ class Distributed(Strategy):
             #--------------------------------------------------------------------------------------#
             if load:
                 if cs.parent in electrified_stations["opp_stations"]:
-                    charging_stations = greedy.load_vehicle_greedy(self, cs, gc, vehicle, cs_id,
+                    charging_stations = greedy.load_vehicle(self, cs, gc, vehicle, cs_id,
                                                                    charging_stations,
                                                                    avail_bat_power)
                     # load batteries
-                    greedy.load_batteries_greedy(self)
+                    greedy.load_batteries(self)
                 elif cs.parent in electrified_stations["depot_stations"]:
-                    charging_stations = balanced.load_vehicle_balanced(self, cs, gc, vehicle, cs_id,
+                    charging_stations = balanced.load_vehicle(self, cs, gc, vehicle, cs_id,
                                                                        charging_stations,
                                                                        avail_bat_power)
                     # load batteries
-                    greedy.load_batteries_greedy(self)
+                    greedy.load_batteries(self)
                 else:
                     print(f"The station {cs.parent} is not in {self.electrifies_stations_file}. "
                           f"Please check for consistency.")
