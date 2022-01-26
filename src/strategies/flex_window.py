@@ -20,6 +20,7 @@ class FlexWindow(Strategy):
         assert (len(self.world_state.grid_connectors) == 1), "Only one grid connector supported"
         self.description = "Flex Window ({}, {} hour horizon)".format(
             self.LOAD_STRAT, self.HORIZON)
+        self.uses_window = True
 
         if self.LOAD_STRAT == "greedy":
             # charge vehicles in need first, then by order of departure

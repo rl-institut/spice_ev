@@ -609,12 +609,12 @@ class Scenario:
                 ax.plot(xlabels, values, label=name)
 
             # draw schedule or charge-windows
-            if strategy_name == "flex_window":
+            if strat.uses_window:
                 for gcID, schedule in gcWindowSchedule.items():
                     if all(s is not None for s in schedule):
                         w_values = [v * int(max(totalLoad)) for v in schedule]
                         ax.plot(xlabels, w_values, label="Window {}".format(gcID), linestyle='--')
-            if strategy_name == "schedule":
+            if strat.uses_schedule:
                 for gcID, schedule in gcPowerSchedule.items():
                     if any(s is not None for s in schedule):
                         ax.plot(xlabels, schedule, label="Schedule {}".format(gcID))
