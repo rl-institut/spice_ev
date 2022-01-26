@@ -1,8 +1,7 @@
 import datetime
-import json
 import unittest
 
-from src import battery, loading_curve, scenario
+from src import battery, loading_curve
 
 
 def approx_eq(x, y, eps=1e-3):

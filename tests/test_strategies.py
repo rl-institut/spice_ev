@@ -37,7 +37,7 @@ def load_json(filename):
 class TestScenarios(unittest.TestCase):
 
     def test_scenario_times(self):
-        # corect number of timesteps?
+        # correct number of timesteps?
         j = get_test_json()
         s = scenario.Scenario(j)
         self.assertEqual(s.n_intervals, 35040)
