@@ -380,6 +380,7 @@ if __name__ == '__main__':
     parser.add_argument('--gc-power', type=int, default=530, help='set power at grid connection '
                                                                   'point in kW')
     parser.add_argument('--seed', default=None, type=int, help='set random seed')
+    
     parser.add_argument('--vehicle-types', default=None,
                         help='location of vehicle type definitions')
     parser.add_argument('--include-ext-load-csv',
