@@ -243,8 +243,8 @@ class Scenario:
                         # compute window index
                         widx = (shifted_time // datetime.timedelta(hours=6)) % 4
 
-                        load_window[widx].append(flex["max"][idx] - flex["min"][idx],
-                                                 totalLoad[gcID][idx])
+                        load_window[widx].append((flex["max"][idx] - flex["min"][idx],
+                                                 totalLoad[gcID][idx]))
                         count_window[widx] = list(map(
                             lambda c, t: c + (t is not None),
                             count_window[widx], socs[gcID][idx]))
