@@ -1,12 +1,4 @@
 {
-    "sprinter_small": {
-        "name": "Sprinter (small)",
-        "capacity": 38,
-        "mileage": 25,
-        "charging_curve": [[0, 11], [0.8, 11], [1, 11]],
-        "min_charging_power": 0.2,
-        "v2g": false
-    },
     "sprinter": {
         "name": "Sprinter",
         "capacity": 76,
@@ -29,20 +21,5 @@
         "charging_curve": [[0, 150], [0.8, 150], [1, 150]],
         "min_charging_power": 0,
         "v2g": false
-    },
-    "minimum_information": {
-        "name": "Displayed name",
-        "capacity": 0,
-        "mileage": 0,
-        "charging_curve": [[0,1],[1,0]]
-    },
-    "all_information": {
-        "name": "Displayed name",
-        "capacity": 0,
-        "mileage": 0,
-        "charging_curve": [[0,1],[1,0]],
-        "min_charging_power": 0,
-        "v2g": false,
-        "battery_efficiency": 0.95
     }
 }
