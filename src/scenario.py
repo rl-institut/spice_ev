@@ -47,6 +47,9 @@ class Scenario:
             gc = self.constants.grid_connectors[gc_id]
             gc.add_avg_ext_load_week(ext_load_list, self.interval)
 
+        # stor parameters for testing reasons
+        self.testing = {}
+
     def run(self, strategy_name, options):
         """
         Run the scenario. Goes stepwise through all timesteps of the simulation and calls the
@@ -206,6 +209,15 @@ class Scenario:
         print("Energy drawn from grid: {:.0f} kWh, Costs: {:.2f} €".format(
             sum(totalLoad)/stepsPerHour, sum(costs)))
 
+        # add testing params
+        self.testing["timeseries"] = {}
+        self.testing["timeseries"]["total_load"] = totalLoad
+        self.testing["timeseries"]["prices"] = prices
+        self.testing["max_total_load"] = max(totalLoad)
+        self.testing["timeseries"]["schedule"] = {}
+        for gcID, gc in strat.world_state.grid_connectors.items():
+            self.testing["timeseries"]["schedule"][gcID] = gcWindowSchedule[gcID]
+
         if options.get("save_timeseries", False) or options.get("save_results", False):
             # get flexibility band
             from generate_schedule import generate_flex_band
@@ -265,10 +277,11 @@ class Scenario:
                 "unit": "kW",
                 "info": "Average flexible power range per time window"
             }
+            self.testing["avg_flex_per_window"] = avg_flex_per_window
 
             # sum of used energy per window
             sum_energy_per_window = [sum([t[1] for t in w]) / stepsPerHour for w in load_window]
-            json_results["sum of energy per window"] = {
+            json_results["sum_energy_per_window"] = {
                 "04-10": sum_energy_per_window[0],
                 "10-16": sum_energy_per_window[1],
                 "16-22": sum_energy_per_window[2],
@@ -276,6 +289,7 @@ class Scenario:
                 "unit": "kWh",
                 "info": "Total drawn energy per time window"
             }
+            self.testing["sum_energy_per_window"] = sum_energy_per_window
 
             # avg standing time
             # don't use info from flex band, as standing times might be interleaved
@@ -288,10 +302,12 @@ class Scenario:
                 avg_stand_time = sum(map(sum, load_count)) / stepsPerHour / num_loads
             else:
                 avg_stand_time = 0
+            self.testing["avg_stand_time"] = avg_stand_time
             # avg total standing time
             # count per car: list(zip(*count_window))
             total_standing = sum(map(sum, count_window))
             avg_total_standing_time = total_standing / len(self.constants.vehicles) / stepsPerHour
+            self.testing["avg_total_standing_time"] = avg_total_standing_time
             json_results["avg standing time"] = {
                 "single": avg_stand_time,
                 "total": avg_total_standing_time,
@@ -316,6 +332,7 @@ class Scenario:
             # avg needed energy per standing period
             intervals = flex["intervals"]
             avg_needed_energy = sum([i["needed"] for i in intervals]) / len(intervals)
+            self.testing["avg_needed_energy"] = avg_needed_energy
             json_results["avg needed energy"] = {
                 # avg energy per standing period and vehicle
                 "value": avg_needed_energy / len(self.constants.vehicles),
@@ -341,6 +358,7 @@ class Scenario:
                 "unit": "kW",
                 "info": "Drawn power, averaged over all time steps"
             }
+            self.testing["avg_drawn_pwer"] = avg_drawn
 
             # total feed-in energy
             json_results["feed-in energy"] = {
@@ -348,6 +366,7 @@ class Scenario:
                 "unit": "kWh",
                 "info": "Total energy from renewable energy sources"
             }
+            self.testing["sum_feed_in_per_h"] = sum(feedInPower) / stepsPerHour
 
             # battery sizes
             if batteryLevels:
@@ -383,6 +402,7 @@ class Scenario:
             total_car_cap = sum([v.battery.capacity for v in self.constants.vehicles.values()])
             total_car_energy = sum([sum(map(
                 lambda v: max(v, 0), r["commands"].values())) for r in results])
+            self.testing["vehicle_battery_cycles"] = total_car_energy/total_car_cap
             json_results["vehicle battery cycles"] = {
                 "value": total_car_energy/total_car_cap,
                 "unit": None,
@@ -537,34 +557,36 @@ class Scenario:
                     # write row to file
                     timeseries_file.write('\n' + ','.join(map(lambda x: str(x), row)))
 
+        sum_cs = []
+        xlabels = []
+
+        for r in results:
+            xlabels.append(r['current_time'])
+            cur_cs = []
+            for cs_id in sorted(self.constants.charging_stations):
+                cur_cs.append(r['commands'].get(cs_id, 0.0))
+            sum_cs.append(cur_cs)
+        self.testing["timeseries"]["sum_cs"] = sum_cs
+
+        # untangle external loads (with feed-in)
+        loads = {}
+        for i, step in enumerate(extLoads):
+            for k, v in step.items():
+                if k not in loads:
+                    # new key, not present before
+                    loads[k] = [0] * i
+                loads[k].append(v)
+            for k in loads.keys():
+                if k not in step:
+                    # old key not in current step
+                    loads[k].append(0)
+        self.testing["timeseries"]["loads"] = loads
+
         # calculate results
         if options.get('visual', False):
             import matplotlib.pyplot as plt
 
             print('Done. Create plots...')
-
-            sum_cs = []
-            xlabels = []
-
-            for r in results:
-                xlabels.append(r['current_time'])
-                cur_cs = []
-                for cs_id in sorted(self.constants.charging_stations):
-                    cur_cs.append(r['commands'].get(cs_id, 0.0))
-                sum_cs.append(cur_cs)
-
-            # untangle external loads (with feed-in)
-            loads = {}
-            for i, step in enumerate(extLoads):
-                for k, v in step.items():
-                    if k not in loads:
-                        # new key, not present before
-                        loads[k] = [0] * i
-                    loads[k].append(v)
-                for k in loads.keys():
-                    if k not in step:
-                        # old key not in current step
-                        loads[k].append(0)
 
             # plot!
 
@@ -642,8 +664,3 @@ class Scenario:
 
             plt.show()
 
-        ###########################
-        # get some numbers for testing
-        max_total_load = max(totalLoad) if totalLoad else 0
-
-        return(max_total_load)
