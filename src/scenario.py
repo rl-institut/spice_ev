@@ -281,7 +281,7 @@ class Scenario:
 
             # sum of used energy per window
             sum_energy_per_window = [sum([t[1] for t in w]) / stepsPerHour for w in load_window]
-            json_results["sum_energy_per_window"] = {
+            json_results["sum of energy per window"] = {
                 "04-10": sum_energy_per_window[0],
                 "10-16": sum_energy_per_window[1],
                 "16-22": sum_energy_per_window[2],
