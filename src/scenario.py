@@ -663,4 +663,3 @@ class Scenario:
                 plt.setp(ax.get_xticklabels(), rotation=30, ha='right')
 
             plt.show()
-
