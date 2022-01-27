@@ -119,7 +119,7 @@ class TestScenarios(unittest.TestCase):
     # TEST with battery, feedin, extLoad, V2G and schedule (Scenario C)
 
     def test_balanced_C(self):
-        input = 'test_data/input_test_strategies/scenario_C.json'
+        input = 'test_data/input_test_strategies/scenario_C1.json'
         s = scenario.Scenario(load_json(input), os.path.dirname(input))
         s.run('balanced', {})
         for gcID, gc in s.constants.grid_connectors.items():
@@ -127,7 +127,7 @@ class TestScenarios(unittest.TestCase):
             assert s.testing["max_total_load"] > 0
 
     def test_balanced_market_C(self):
-        input = 'test_data/input_test_strategies/scenario_C.json'
+        input = 'test_data/input_test_strategies/scenario_C1.json'
         s = scenario.Scenario(load_json(input), os.path.dirname(input))
         s.run('balanced_market', {})
         for gcID, gc in s.constants.grid_connectors.items():
@@ -135,7 +135,7 @@ class TestScenarios(unittest.TestCase):
             assert s.testing["max_total_load"] > 0
 
     def test_flex_window_C(self):
-        input = 'test_data/input_test_strategies/scenario_C.json'
+        input = 'test_data/input_test_strategies/scenario_C1.json'
         s = scenario.Scenario(load_json(input), os.path.dirname(input))
         s.run('flex_window', {})
         for gcID, gc in s.constants.grid_connectors.items():
@@ -143,7 +143,7 @@ class TestScenarios(unittest.TestCase):
             assert s.testing["max_total_load"] > 0
 
     def test_peak_load_window_C(self):
-        input = 'test_data/input_test_strategies/scenario_C.json'
+        input = 'test_data/input_test_strategies/scenario_C1.json'
         s = scenario.Scenario(load_json(input), os.path.dirname(input))
         s.run('peak_load_window', {})
         for gcID, gc in s.constants.grid_connectors.items():
@@ -187,7 +187,7 @@ class TestScenarios(unittest.TestCase):
         options['save_results'] = 'test_data/input_test_strategies/simulation.json'
         s.run('flex_window', options)
 
-        # check if vehicles and battery are only loaded in window
+        # check if vehicles are only loaded in window
         cs_load = [sum(item) for item in s.testing["timeseries"]["sum_cs"]]
         indices_load_vehicle = [idx for idx, val in enumerate(cs_load) if val > 0]
         for idx in indices_load_vehicle:
@@ -213,7 +213,6 @@ class TestScenarios(unittest.TestCase):
         s = scenario.Scenario(load_json(input), os.path.dirname(input))
         options = {}
         options['save_results'] = 'test_data/input_test_strategies/simulation.json'
-        options["visual"] = True
         s.run('flex_window', options)
 
         # check if vehicles are loaded with max power in window
