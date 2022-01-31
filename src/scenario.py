@@ -206,7 +206,8 @@ class Scenario:
         print("Energy drawn from grid: {:.0f} kWh, Costs: {:.2f} €".format(
             sum(totalLoad)/stepsPerHour, sum(costs)))
 
-        if options.get("save_timeseries", False) or options.get("save_results", False) or options.get("testing", False):
+        if options.get("save_timeseries", False) or options.get("save_results", False) or \
+                options.get("testing", False):
             # get flexibility band
             from generate_schedule import generate_flex_band
             flex = generate_flex_band(self)
@@ -610,7 +611,8 @@ class Scenario:
                     if all(s is not None for s in schedule):
                         # schedule exists
                         window_values = [v * int(max(totalLoad)) for v in schedule]
-                        ax.plot(xlabels, window_values, label="window {}".format(gcID), linestyle='--')
+                        ax.plot(xlabels, window_values, label="window {}".format(gcID),
+                                linestyle='--')
 
                 for gcID, schedule in gcPowerSchedule.items():
                     if any(s is not None for s in schedule):
