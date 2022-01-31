@@ -53,7 +53,7 @@ class Balanced(Strategy):
             gc = self.world_state.grid_connectors[cs.parent]
 
             charging_stations = load_vehicle(self, cs, gc, vehicle, cs_id, charging_stations,
-                                             avail_bat_power)
+                                             avail_bat_power[cs.parent])
 
         # all vehicles loaded
         # distribute surplus power to vehicles
@@ -90,7 +90,7 @@ def load_vehicle(self, cs, gc, vehicle, cs_id, charging_stations, avail_bat_powe
         bat_power_used = True
         # get limits
         min_power = max(vehicle.vehicle_type.min_charging_power, cs.min_power)
-        max_power = gc_power_left + avail_bat_power[cs.parent]
+        max_power = gc_power_left + avail_bat_power
         max_power = min(max_power, vehicle.vehicle_type.charging_curve.max_power)
         max_power = clamp_power(max_power, vehicle, cs)
         # time until departure
@@ -125,7 +125,7 @@ def load_vehicle(self, cs, gc, vehicle, cs_id, charging_stations, avail_bat_powe
     charging_stations[cs_id] = gc.add_load(cs_id, avg_power)
     cs.current_power += avg_power
     if bat_power_used:
-        avail_bat_power[cs.parent] = max(avail_bat_power[cs.parent] - avg_power, 0)
+        avail_bat_power = max(avail_bat_power - avg_power, 0)
 
     # can active charging station bear minimum load?
     assert cs.max_power >= cs.current_power - self.EPS, (
