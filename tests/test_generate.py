@@ -67,9 +67,10 @@ class TestGenerate(TestCaseBase):
                                    "test_data/input_test_generate/generate_from_csv.json")
         current_arg_values = deepcopy(ARG_VALUES1)
         current_arg_values.update({"output": output_file})
-        current_arg_values.update({"input_file":
-                                   os.path.join(TEST_REPO_PATH,
-                                   "test_data/input_test_generate/rotations_example_table.csv")})
+        current_arg_values.update({
+            "input_file":
+                os.path.join(TEST_REPO_PATH,
+                             "test_data/input_test_generate/rotations_example_table.csv")})
         args = create_parser(current_arg_values)
         generate_from_csv.generate_from_csv(args)
         self.assertIsFile(output_file)
