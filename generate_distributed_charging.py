@@ -169,8 +169,9 @@ def generate_opp_trips_from_schedule(args):
                     connected_charging_station = None
                     skip = False
                     desired_soc = 0
-                    # if arrival = departure time, do not connect charging station
-                    if arrival != departure:
+                    # if departure - arrival shorter than min_charging_time,
+                    # do not connect charging station
+                    if (departure - arrival).seconds / 60 >= args.min_charging_time:
                         if gc_name in stations:
                             # if station is depot, set min_soc = args.min_soc, else: None
                             if gc_name in stations_dict["depot_stations"]:
@@ -721,6 +722,8 @@ if __name__ == '__main__':
                         default='examples/electrified_stations.json')
     parser.add_argument('--vehicle_types', help='include vehicle_types json',
                         default='examples/vehicle_types.json')
+    parser.add_argument('--min_charging_time', help='define minimum time of charging',
+                        default=2)
     parser.add_argument('--config', help='Use config file to set arguments',
                         default='examples/generate_distributed_charging.cfg')
 
