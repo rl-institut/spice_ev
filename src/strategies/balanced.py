@@ -76,6 +76,24 @@ class Balanced(Strategy):
 
 
 def load_vehicle(self, cs, gc, vehicle, cs_id, charging_stations, avail_bat_power):
+    """
+    Load one vehicle with greedy strategy
+
+    :param cs: charging station dict
+    :type cs: dict
+    :param gc: grid connector dict
+    :type gc: dict
+    :param vehicle: vehicle dict
+    :type vehicle: dict
+    :param cs_id: name of the charging station
+    :type cs_id: str
+    :param charging_stations: charging stations
+    :type charging_stations: dict
+    :param avail_bat_power: available battery power of the gc
+    :type avail_bat_power: float
+    :return: current time and commands of the charging stations
+    :rtype: dict
+    """
 
     gc_power_left = gc.cur_max_power - gc.get_current_load()
     power = 0
@@ -140,6 +158,22 @@ def load_vehicle(self, cs, gc, vehicle, cs_id, charging_stations, avail_bat_powe
 
 
 def add_surplus_to_vehicle(self, cs, gc, vehicle, cs_id, charging_stations):
+    """
+    Add left over energy to vehicle
+
+    :param cs: charging station dict
+    :type cs: dict
+    :param gc: grid connector dict
+    :type gc: dict
+    :param vehicle: vehicle dict
+    :type vehicle: dict
+    :param cs_id: name of the charging station
+    :type cs_id: str
+    :param charging_stations: charging stations
+    :type charging_stations: dict
+    :return: current time and commands of the charging stations
+    :rtype: dict
+    """
 
     if gc.get_current_load() < 0:
         # surplus power
@@ -165,6 +199,9 @@ def add_surplus_to_vehicle(self, cs, gc, vehicle, cs_id, charging_stations):
 
 
 def load_batteries(self):
+    """
+    Load batteries with balanced strategy
+    """
 
     for b_id, battery in self.world_state.batteries.items():
         gc = self.world_state.grid_connectors[battery.parent]
