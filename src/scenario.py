@@ -541,7 +541,6 @@ class Scenario:
 
         # calculate results
         if options.get('visual', False) or options.get("testing", False):
-            import matplotlib.pyplot as plt
 
             print('Done. Create plots...')
 
@@ -570,6 +569,7 @@ class Scenario:
 
             # plot!
             if options.get('visual', False):
+                import matplotlib.pyplot as plt
                 # batteries
                 if batteryLevels:
                     plots_top_row = 3
