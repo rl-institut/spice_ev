@@ -15,7 +15,7 @@ def datetime_from_string(s):
     return datetime.datetime(1972, 1, 1, h, m)
 
 
-def generate_trip(args):
+def generate_trip(args, parser):
     """
     Creates randomly generated dummy trips from average input arguments
 
@@ -66,7 +66,7 @@ def generate_trip(args):
     return start.time(), stop.time(), distance
 
 
-def generate(args):
+def generate(args, parser):
     """Generates a scenario JSON from input Parameters
 
     :param args: input arguments
@@ -241,7 +241,7 @@ def generate(args):
             mileage = vehicle_types[v["vehicle_type"]]["mileage"] / 100
 
             # generate trip event
-            dep_time, arr_time, distance = generate_trip(args)
+            dep_time, arr_time, distance = generate_trip(args, parser)
             departure = datetime.datetime.combine(now.date(), dep_time, now.tzinfo)
             arrival = datetime.datetime.combine(now.date(), arr_time, now.tzinfo)
             soc_delta = distance * mileage / capacity
@@ -370,7 +370,7 @@ if __name__ == '__main__':
                         help='set duration of scenario as number of days')
     parser.add_argument('--interval', metavar='MIN', type=int, default=15,
                         help='set number of minutes for each timestep (Δt)')
-    parser.add_argument('--start-time', default='2018-01-01T00:00:15',
+    parser.add_argument('--start-time', default='2018-01-01T00:15',
                         help='Provide start time of simulation in ISO format YYYY-MM-DDTHH:MM. '
                              'Precision is 1 minute. E.g. 2018-01-31T00:15')
     parser.add_argument('--min-soc', metavar='SOC', type=float, default=0.8,
@@ -409,4 +409,4 @@ if __name__ == '__main__':
 
     set_options_from_config(args, check=False, verbose=False)
 
-    generate(args)
+    generate(args, parser)

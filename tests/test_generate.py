@@ -21,7 +21,7 @@ ARG_VALUES1 = {
     "--interval": 15,
     "--min_soc": 0.8,
     "--battery": [[350, 0.5]],
-    "--start-time": '2018-01-01T00:15:00',
+    "--start-time": '2018-01-01T15:00',
     "--vehicle_types": "test_data/input_test_generate/vehicle_types.json",
     "--include-ext-load-csv": None,
     "--include-ext-csv-option": [],
@@ -41,7 +41,7 @@ def create_parser(arg_values):
 
     args = parser.parse_args()
     set_options_from_config(args, check=False, verbose=False)
-    return args
+    return args, parser
 
 
 class TestCaseBase(unittest.TestCase):
@@ -62,8 +62,8 @@ class TestGenerate(TestCaseBase):
                              "test_data/input_test_generate/vehicle_types.json")})
         current_arg_values.update({
             "discharge_limit": 0.5})
-        args = create_parser(current_arg_values)
-        generate.generate(args)
+        args, parser = create_parser(current_arg_values)
+        generate.generate(args, parser)
         self.assertIsFile(output_file)
         # remove output file
         os.remove(output_file)
