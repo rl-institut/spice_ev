@@ -33,10 +33,13 @@ class Strategy():
         self.current_time = start_time - self.interval
         self.count_negative_soc = {}
         # relative allowed difference between battery SoC and desired SoC when leaving
-        self.margin = 0.05
+        self.margin = 0.01
         self.ALLOW_NEGATIVE_SOC = False
         self.DISCHARGE_LIMIT = 0
-        self.V2G_POWER_FACTOR = 1.0
+        self.V2G_POWER_FACTOR = 0.5
+        # check if strategy uses grid signals & enable/disable plotting of schedule or window
+        self.uses_schedule = False
+        self.uses_window = False
         # tolerance for floating point comparison
         self.EPS = 1e-5
         # Reduce available power at each charging station to given fraction (0 - 1)
