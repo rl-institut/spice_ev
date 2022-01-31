@@ -38,6 +38,24 @@ def generate_flex_band(scenario, gc_index, core_standing_time=None):
         # helper function: make sure to stay within GC power limits
         return min(max(power, -gc.max_power), gc.max_power)
 
+    # todo: adapt this for gc?
+    # Collect and accumulate information about the entire fleet.
+    # capacity of all vehicles combined [kWh]
+    total_vehicle_capacity = 0
+    # Total energy stored in fleet if all vehicles have SoC == desired SoC
+    total_desired_energy = 0
+    average_efficiency = 0
+    # True if any vehicle has v2g enabled
+    v2g_enabled = False
+    for v in s.world_state.vehicles.values():
+        total_vehicle_capacity += v.battery.capacity
+        total_desired_energy += v.desired_soc * v.battery.capacity
+        average_efficiency += v.battery.efficiency * v.battery.capacity
+        if v.vehicle_type.v2g:
+            v2g_enabled = True
+    average_efficiency /= total_vehicle_capacity
+    # todo: till here
+
     cars = {vid: [0, 0, 0] for vid in s.world_state.vehicles}
     just_arrived = {vid: True for vid in s.world_state.vehicles}
     flex = {
