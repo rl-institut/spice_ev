@@ -104,7 +104,7 @@ def load_vehicle(self, cs, gc, vehicle, cs_id, charging_stations, avail_bat_powe
     charging_stations[cs_id] = gc.add_load(cs_id, avg_power)
     cs.current_power += avg_power
     if bat_power_used:
-        avail_bat_power= max(avail_bat_power - avg_power, 0)
+        avail_bat_power = max(avail_bat_power - avg_power, 0)
 
     return charging_stations
 
