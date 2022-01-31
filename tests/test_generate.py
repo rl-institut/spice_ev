@@ -13,6 +13,7 @@ from src.util import set_options_from_config
 
 sys.argv = ['']
 del sys
+TEST_REPO_PATH = os.path.dirname(__file__)
 
 ARG_VALUES1 = {
     "--cars": [[1, "golf"], [1, "sprinter"]],
@@ -52,7 +53,7 @@ class TestCaseBase(unittest.TestCase):
 class TestGenerate(TestCaseBase):
 
     def test_generate(self):
-        output_file = "test_data/input_test_generate/generate.json"
+        output_file = os.path.join(TEST_REPO_PATH, "test_data/input_test_generate/generate.json")
         current_arg_values = deepcopy(ARG_VALUES1)
         current_arg_values.update({"output": output_file})
         args = create_parser(current_arg_values)
@@ -62,7 +63,8 @@ class TestGenerate(TestCaseBase):
         os.remove(output_file)
 
     def test_generate_from_csv(self):
-        output_file = "test_data/input_test_generate/generate_from_csv.json"
+        output_file = os.path.join(TEST_REPO_PATH,
+                                   "test_data/input_test_generate/generate_from_csv.json")
         current_arg_values = deepcopy(ARG_VALUES1)
         current_arg_values.update({"output": output_file})
         current_arg_values.update({"input_file":
@@ -73,7 +75,7 @@ class TestGenerate(TestCaseBase):
         os.remove(output_file)
 
     def test_generate_energy_price(self):
-        output_file = "test_data/input_test_generate/price.csv"
+        output_file = os.path.join(TEST_REPO_PATH, "test_data/input_test_generate/price.csv")
         current_arg_values = {
             "output": output_file,
             "--start": "2020-12-31T00:00:00+01:00",
@@ -87,7 +89,8 @@ class TestGenerate(TestCaseBase):
         os.remove(output_file)
 
     def test_generate_schedule(self):
-        output_file = "test_data/input_test_generate/schedule_example.csv"
+        output_file = os.path.join(TEST_REPO_PATH,
+                                   "test_data/input_test_generate/schedule_example.csv")
         current_arg_values = {
             "input": "test_data/input_test_generate/nsm_00_dummy.csv",
             "scenario": "test_data/input_test_generate/scenario_C.json",

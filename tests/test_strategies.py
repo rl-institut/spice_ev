@@ -4,6 +4,8 @@ import os
 
 from src import scenario
 
+TEST_REPO_PATH = os.path.dirname(__file__)
+
 
 def get_test_json():
     # get minimum working json example
@@ -53,72 +55,72 @@ class TestScenarios(unittest.TestCase):
 
     def test_file(self):
         # open from file
-        input = 'test_data/input_test_strategies/scenario_A.json'
+        input = os.path.join(TEST_REPO_PATH, 'test_data/input_test_strategies/scenario_A.json')
         scenario.Scenario(load_json(input), os.path.dirname(input))
 
     # TEST SCENARIOS WITH BATTERY, FEEDIN AND EXTERNAL LOAD (Scenario A)
 
     def test_greedy_A(self):
         # test basic strategy
-        input = 'test_data/input_test_strategies/scenario_A.json'
+        input = os.path.join(TEST_REPO_PATH, 'test_data/input_test_strategies/scenario_A.json')
         s = scenario.Scenario(load_json(input), os.path.dirname(input))
         s.run('greedy', {})
 
     def test_balanced_A(self):
         # test basic strategy
-        input = 'test_data/input_test_strategies/scenario_A.json'
+        input = os.path.join(TEST_REPO_PATH, 'test_data/input_test_strategies/scenario_A.json')
         s = scenario.Scenario(load_json(input), os.path.dirname(input))
         s.run('balanced', {})
 
     def test_balanced_market_A(self):
         # test basic strategy
-        input = 'test_data/input_test_strategies/scenario_A.json'
+        input = os.path.join(TEST_REPO_PATH, 'test_data/input_test_strategies/scenario_A.json')
         s = scenario.Scenario(load_json(input), os.path.dirname(input))
         s.run('balanced_market', {})
 
     def test_flex_window_A(self):
         # test basic strategy
-        input = 'test_data/input_test_strategies/scenario_A.json'
+        input = os.path.join(TEST_REPO_PATH, 'test_data/input_test_strategies/scenario_A.json')
         s = scenario.Scenario(load_json(input), os.path.dirname(input))
         s.run('flex_window', {})
 
     def test_peak_load_window_A(self):
         # test basic strategy
-        input = 'test_data/input_test_strategies/scenario_A.json'
+        input = os.path.join(TEST_REPO_PATH, 'test_data/input_test_strategies/scenario_A.json')
         s = scenario.Scenario(load_json(input), os.path.dirname(input))
         s.run('peak_load_window', {})
 
     # TEST with battery, feedin, extLoad and V2G (Scenario B)
 
     def test_greedy_B(self):
-        input = 'test_data/input_test_strategies/scenario_B.json'
+        input = os.path.join(TEST_REPO_PATH, 'test_data/input_test_strategies/scenario_B.json')
         s = scenario.Scenario(load_json(input), os.path.dirname(input))
         s.run('greedy', {})
 
     def test_balanced_B(self):
-        input = 'test_data/input_test_strategies/scenario_B.json'
+        input = os.path.join(TEST_REPO_PATH, 'test_data/input_test_strategies/scenario_B.json')
         s = scenario.Scenario(load_json(input), os.path.dirname(input))
         s.run('balanced', {})
 
     def test_balanced_market_B(self):
-        input = 'test_data/input_test_strategies/scenario_B.json'
+        input = os.path.join(TEST_REPO_PATH, 'test_data/input_test_strategies/scenario_B.json')
         s = scenario.Scenario(load_json(input), os.path.dirname(input))
         s.run('balanced_market', {})
 
     def test_flex_window_B(self):
-        input = 'test_data/input_test_strategies/scenario_B.json'
+        input = os.path.join(TEST_REPO_PATH, 'test_data/input_test_strategies/scenario_B.json')
         s = scenario.Scenario(load_json(input), os.path.dirname(input))
         s.run('flex_window', {})
 
     def test_peak_load_window_B(self):
-        input = 'test_data/input_test_strategies/scenario_B.json'
+        input = os.path.join(TEST_REPO_PATH, 'test_data/input_test_strategies/scenario_B.json')
         s = scenario.Scenario(load_json(input), os.path.dirname(input))
         s.run('peak_load_window', {})
 
     # TEST with battery, feedin, extLoad, V2G and schedule (Scenario C)
 
     def test_balanced_C(self):
-        input = 'test_data/input_test_strategies/scenario_C1.json'
+        input = os.path.join(TEST_REPO_PATH, 'test_data/input_test_strategies/scenario_C1.json')
         s = scenario.Scenario(load_json(input), os.path.dirname(input))
         s.run('balanced', {"testing": True})
         for gcID, gc in s.constants.grid_connectors.items():
@@ -126,7 +128,7 @@ class TestScenarios(unittest.TestCase):
             assert s.testing["max_total_load"] > 0
 
     def test_balanced_market_C(self):
-        input = 'test_data/input_test_strategies/scenario_C1.json'
+        input = os.path.join(TEST_REPO_PATH, 'test_data/input_test_strategies/scenario_C1.json')
         s = scenario.Scenario(load_json(input), os.path.dirname(input))
         s.run('balanced_market', {"testing": True})
         for gcID, gc in s.constants.grid_connectors.items():
@@ -134,7 +136,7 @@ class TestScenarios(unittest.TestCase):
             assert s.testing["max_total_load"] > 0
 
     def test_flex_window_C(self):
-        input = 'test_data/input_test_strategies/scenario_C1.json'
+        input = os.path.join(TEST_REPO_PATH, 'test_data/input_test_strategies/scenario_C1.json')
         s = scenario.Scenario(load_json(input), os.path.dirname(input))
         s.run('flex_window', {"testing": True})
         for gcID, gc in s.constants.grid_connectors.items():
@@ -142,7 +144,7 @@ class TestScenarios(unittest.TestCase):
             assert s.testing["max_total_load"] > 0
 
     def test_peak_load_window_C(self):
-        input = 'test_data/input_test_strategies/scenario_C1.json'
+        input = os.path.join(TEST_REPO_PATH, 'test_data/input_test_strategies/scenario_C1.json')
         s = scenario.Scenario(load_json(input), os.path.dirname(input))
         s.run('peak_load_window', {"testing": True})
         for gcID, gc in s.constants.grid_connectors.items():
@@ -152,7 +154,7 @@ class TestScenarios(unittest.TestCase):
     # TEST STRATEGY OUTPUTS
 
     def test_general_outputs(self):
-        input = 'test_data/input_test_strategies/scenario_C1.json'
+        input = os.path.join(TEST_REPO_PATH, 'test_data/input_test_strategies/scenario_C1.json')
         s = scenario.Scenario(load_json(input), os.path.dirname(input))
         s.run('greedy', {"testing": True})
 
@@ -177,7 +179,7 @@ class TestScenarios(unittest.TestCase):
         assert s.testing["max_total_load"] > 0
 
     def test_flex_window_all_loaded_in_windows(self):
-        input = 'test_data/input_test_strategies/scenario_C1.json'
+        input = os.path.join(TEST_REPO_PATH, 'test_data/input_test_strategies/scenario_C1.json')
         s = scenario.Scenario(load_json(input), os.path.dirname(input))
         s.run('flex_window', {"testing": True})
 
@@ -202,7 +204,7 @@ class TestScenarios(unittest.TestCase):
             assert s.testing["timeseries"]["schedule"]["GC1"][idx] is False
 
     def test_flex_window_not_loaded_in_windows(self):
-        input = 'test_data/input_test_strategies/scenario_C2.json'
+        input = os.path.join(TEST_REPO_PATH, 'test_data/input_test_strategies/scenario_C2.json')
         s = scenario.Scenario(load_json(input), os.path.dirname(input))
         s.run('flex_window', {"testing": True})
 
