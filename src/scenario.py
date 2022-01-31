@@ -38,6 +38,9 @@ class Scenario:
             delta = self.stop_time - self.start_time
             self.n_intervals = delta // self.interval
 
+        # minimum SoC to discharge to during v2g
+        self.discharge_limit = scenario.get('discharge_limit', 0.5)
+
         # only relevant for schedule strategy
         self.core_standing_time = scenario.get('core_standing_time', None)
 
@@ -60,6 +63,7 @@ class Scenario:
         options['interval'] = self.interval
         options['events'] = self.events
         options['core_standing_time'] = self.core_standing_time
+        options['DISCHARGE_LIMIT'] = options.get('DISCHARGE_LIMIT', self.discharge_limit)
         strat = strategy.class_from_str(strategy_name)(self.constants, self.start_time, **options)
 
         event_steps = self.events.get_event_steps(self.start_time, self.n_intervals, self.interval)
@@ -491,7 +495,7 @@ class Scenario:
                             v for k, v in extLoads[idx].items()
                             if k in self.events.external_load_lists])
                         row.append(round(sumExtLoads, round_to_places))
-                    # feed-in (negative since grid power is fed into system)
+                    # feed-in (negative since power is fed into system)
                     if any(feedInPower):
                         row.append(-1 * round(feedInPower[idx], round_to_places))
                     # batteries

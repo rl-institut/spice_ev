@@ -32,10 +32,12 @@ class Strategy():
         self.interval = kwargs.get('interval')  # required
         self.current_time = start_time - self.interval
         # relative allowed difference between battery SoC and desired SoC when leaving
-        self.margin = 0.05
+        self.margin = 0.1
         self.allow_negative_soc = False
-        self.DISCHARGE_LIMIT = 0
-        self.V2G_POWER_FACTOR = 1.0
+        self.V2G_POWER_FACTOR = 0.5
+        # check if strategy uses grid signals & enable/disable plotting of schedule or window
+        self.uses_schedule = False
+        self.uses_window = False
         # tolerance for floating point comparison
         self.EPS = 1e-5
         # Reduce available power at each charging station to given fraction (0 - 1)

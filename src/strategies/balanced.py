@@ -129,7 +129,7 @@ class Balanced(Strategy):
                 # GC draws power, surplus in vehicle and V2G capable: support GC
                 discharge_power = min(
                     gc.get_current_load(),
-                    vehicle.battery.loading_curve.max_power * self.V2G_POWER_FACTOR)
+                    vehicle.battery.loading_curve.max_power * vehicle.vehicle_type.v2g_power_factor)
                 target_soc = max(vehicle.desired_soc, self.DISCHARGE_LIMIT)
                 avg_power = vehicle.battery.unload(
                     self.interval, discharge_power, target_soc)['avg_power']

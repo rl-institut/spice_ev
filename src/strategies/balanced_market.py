@@ -13,7 +13,6 @@ class BalancedMarket(Strategy):
     def __init__(self, constants, start_time, **kwargs):
         self.PRICE_THRESHOLD = 0.001  # EUR/kWh
         self.HORIZON = 24  # maximum number of hours ahead
-        self.V2G_POWER_FACTOR = 1
 
         super().__init__(constants, start_time, **kwargs)
         assert len(self.world_state.grid_connectors) == 1, "Only one grid connector supported"
@@ -228,7 +227,8 @@ class BalancedMarket(Strategy):
                 old_sorted_idx = sorted_idx
 
                 # discharge with maximum power (scaled with power factor)
-                p = -(vehicle.battery.loading_curve.max_power * self.V2G_POWER_FACTOR)
+                p = -(vehicle.battery.loading_curve.max_power
+                      * vehicle.vehicle_type.v2g_power_factor)
                 # limit to GC discharge power
                 # derivation and reasoning:
                 # max unload power is symmetric to max load
