@@ -87,7 +87,7 @@ if __name__ == '__main__':
     parser.add_argument('--save-timeseries', help='Write timesteps to file')
     parser.add_argument('--save-results', help='Write general info to file')
     parser.add_argument('--testing', help='Stores testing results')
-    parser.add_argument('--config', help='Use config file to set arguments', default = "examples/simulate.cfg")
+    parser.add_argument('--config', help='Use config file to set arguments')
     args = parser.parse_args()
 
     set_options_from_config(args, check=True, verbose=False)
