@@ -81,7 +81,7 @@ class TestGenerate(TestCaseBase):
             "vehicle_types":
                 os.path.join(TEST_REPO_PATH,
                              "test_data/input_test_generate/vehicle_types.json")})
-        args = create_parser(current_arg_values)
+        args, parser = create_parser(current_arg_values)
         generate_from_csv.generate_from_csv(args)
         self.assertIsFile(output_file)
         os.remove(output_file)
@@ -95,7 +95,7 @@ class TestGenerate(TestCaseBase):
             "--interval": 1,
             "--price_seed": 0,
         }
-        args = create_parser(current_arg_values)
+        args, parser = create_parser(current_arg_values)
         generate_energy_price.generate_energy_price(args)
         self.assertIsFile(output_file)
         os.remove(output_file)
@@ -112,7 +112,7 @@ class TestGenerate(TestCaseBase):
             "--visual": False,
             "--core_standing_time": {"times": [{"start": [22, 0], "end": [5, 0]}], "full_days": [7]}
         }
-        args = create_parser(current_arg_values)
+        args, parser = create_parser(current_arg_values)
         generate_schedule.generate_schedule(args)
         self.assertIsFile(output_file)
         os.remove(output_file)
