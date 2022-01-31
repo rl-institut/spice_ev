@@ -7,7 +7,7 @@ import random
 import warnings
 from os import path
 
-from src.util import set_options_from_config
+from src.util import set_options_from_config, datetime_from_isoformat
 
 
 def datetime_from_string(s):
@@ -81,11 +81,11 @@ def generate(args):
 
     # SIMULATION TIME
     try:
-        start = datetime.datetime.fromisoformat(args.start_time)
+        start = datetime_from_isoformat(args.start_time)
     except ValueError:
         # start time could not be parsed. Use default value.
         default_start_time = parser.parse_args([]).start_time
-        start = datetime.datetime.fromisoformat(default_start_time)
+        start = datetime_from_isoformat(default_start_time)
         warnings.warn("Start time could not be parsed. Use ISO format like YYYY-MM-DDTHH:MM."
                       f"Default start time {default_start_time} will be used.")
     start = start.replace(tzinfo=datetime.timezone(datetime.timedelta(hours=2)))

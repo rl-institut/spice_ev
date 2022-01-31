@@ -56,6 +56,12 @@ class TestGenerate(TestCaseBase):
         output_file = os.path.join(TEST_REPO_PATH, "test_data/input_test_generate/generate.json")
         current_arg_values = deepcopy(ARG_VALUES1)
         current_arg_values.update({"output": output_file})
+        current_arg_values.update({
+            "vehicle_types":
+                os.path.join(TEST_REPO_PATH,
+                             "test_data/input_test_generate/vehicle_types.json")})
+        current_arg_values.update({
+            "discharge_limit": 0.5})
         args = create_parser(current_arg_values)
         generate.generate(args)
         self.assertIsFile(output_file)
@@ -71,6 +77,10 @@ class TestGenerate(TestCaseBase):
             "input_file":
                 os.path.join(TEST_REPO_PATH,
                              "test_data/input_test_generate/rotations_example_table.csv")})
+        current_arg_values.update({
+            "vehicle_types":
+                os.path.join(TEST_REPO_PATH,
+                             "test_data/input_test_generate/vehicle_types.json")})
         args = create_parser(current_arg_values)
         generate_from_csv.generate_from_csv(args)
         self.assertIsFile(output_file)
