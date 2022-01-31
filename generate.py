@@ -370,7 +370,7 @@ if __name__ == '__main__':
                         help='set duration of scenario as number of days')
     parser.add_argument('--interval', metavar='MIN', type=int, default=15,
                         help='set number of minutes for each timestep (Δt)')
-    parser.add_argument('--start-time', default='2018-01-01T00:15',
+    parser.add_argument('--start-time', default='2018-01-01T00:00:15',
                         help='Provide start time of simulation in ISO format YYYY-MM-DDTHH:MM. '
                              'Precision is 1 minute. E.g. 2018-01-31T00:15')
     parser.add_argument('--min-soc', metavar='SOC', type=float, default=0.8,
