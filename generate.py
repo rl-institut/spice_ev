@@ -319,10 +319,12 @@ def generate(args):
 
     # end of scenario
 
-    # remove temporary information
-    for vtype in vehicle_types:
-        if "count" in vtype:
-            del vtype["count"]
+    # remove temporary information, only retain vehicle types that are actually present
+    vehicle_types_present = {}
+    for k, v in vehicle_types.items():
+        if "count" in v and v["count"] > 0:
+            del v["count"]
+            vehicle_types_present[k] = v
     for v in vehicles.values():
         del v["last_arrival_idx"]
 
@@ -331,10 +333,11 @@ def generate(args):
             "start_time": start.isoformat(),
             # "stop_time": stop.isoformat(),
             "interval": interval.days * 24 * 60 + interval.seconds // 60,
-            "n_intervals": (stop - start) // interval
+            "n_intervals": (stop - start) // interval,
+            "discharge_limit": args.discharge_limit
         },
         "constants": {
-            "vehicle_types": vehicle_types,
+            "vehicle_types": vehicle_types_present,
             "vehicles": vehicles,
             "grid_connectors": {
                 "GC1": {
@@ -381,6 +384,8 @@ if __name__ == '__main__':
 
     parser.add_argument('--vehicle-types', default=None,
                         help='location of vehicle type definitions')
+    parser.add_argument('--discharge_limit', default=0.5,
+                        help='Minimum SoC to discharge to during v2g. [0-1]')
     parser.add_argument('--include-ext-load-csv',
                         help='include CSV for external load. \
                         You may define custom options with --include-ext-csv-option')
