@@ -625,84 +625,85 @@ class Scenario:
             if options.get('visual', False):
                 import matplotlib.pyplot as plt
 
-		    # batteries
-		    if batteryLevels:
-		        plots_top_row = 3
-		        ax = plt.subplot(2, plots_top_row, 3)
-		        ax.set_title('Batteries')
-		        ax.set(ylabel='Stored power in kWh')
-		        for gcID, gc in self.constants.grid_connectors.items():
-		            if batteryLevels[gcID]:
-		                for name, values in batteryLevels[gcID].items():
-		                    ax.plot(xlabels, values, label=name)
-		        ax.legend()
-		    else:
-		        plots_top_row = 2
+                # batteries
+                if batteryLevels:
+                    plots_top_row = 3
+                    ax = plt.subplot(2, plots_top_row, 3)
+                    ax.set_title('Batteries')
+                    ax.set(ylabel='Stored power in kWh')
+                    for gcID, gc in self.constants.grid_connectors.items():
+                        if batteryLevels[gcID]:
+                            for name, values in batteryLevels[gcID].items():
+                                ax.plot(xlabels, values, label=name)
+                    ax.legend()
+                else:
+                    plots_top_row = 2
 
-		    # vehicles
-		    ax = plt.subplot(2, plots_top_row, 1)
-		    ax.set_title('Vehicles')
-		    ax.set(ylabel='SoC')
-		    for gcID, soc in socs.items():
-		        lines = ax.step(xlabels, soc)
-		        # reset color cycle, so lines have same color
-		        ax.set_prop_cycle(None)
-		    for gcID, dis in disconnect.items():
-		        ax.plot(xlabels, dis, '--')
-		    if len(self.constants.vehicles) <= 10:
-		        ax.legend(lines, sorted(self.constants.vehicles.keys()))
+                # vehicles
+                ax = plt.subplot(2, plots_top_row, 1)
+                ax.set_title('Vehicles')
+                ax.set(ylabel='SoC')
+                for gcID, soc in socs.items():
+                    lines = ax.step(xlabels, soc)
+                    # reset color cycle, so lines have same color
+                    ax.set_prop_cycle(None)
+                for gcID, dis in disconnect.items():
+                    ax.plot(xlabels, dis, '--')
+                if len(self.constants.vehicles) <= 10:
+                    ax.legend(lines, sorted(self.constants.vehicles.keys()))
 
-		    # charging stations
-		    ax = plt.subplot(2, plots_top_row, 2)
-		    ax.set_title('Charging Stations')
-		    ax.set(ylabel='Power in kW')
-		    lines = ax.step(xlabels, sum_cs)
-		    if len(self.constants.charging_stations) <= 10:
-		        ax.legend(lines, sorted(self.constants.charging_stations.keys()))
+                # charging stations
+                ax = plt.subplot(2, plots_top_row, 2)
+                ax.set_title('Charging Stations')
+                ax.set(ylabel='Power in kW')
+                lines = ax.step(xlabels, sum_cs)
+                if len(self.constants.charging_stations) <= 10:
+                    ax.legend(lines, sorted(self.constants.charging_stations.keys()))
 
-		    # total power
-		    ax = plt.subplot(2, 2, 3)
-		    ax.plot(xlabels, list([sum(cs) for cs in sum_cs]), label="CS")
-		    for gcID, gc in self.constants.grid_connectors.items():
-		        for name, values in loads[gcID].items():
-		            ax.plot(xlabels, values, label=name)
-		    # draw schedule
-		    if strat.uses_window:		
-		        for gcID, schedule in gcWindowSchedule.items():
-	                    if all(s is not None for s in schedule):
-			        # schedule exists
-			        window_values = [v * int(max(totalLoad[gcID])) for v in schedule]
-			        ax.plot(xlabels, window_values, label="window {}".format(gcID), linestyle='--')
+                # total power
+                ax = plt.subplot(2, 2, 3)
+                ax.plot(xlabels, list([sum(cs) for cs in sum_cs]), label="CS")
+                for gcID, gc in self.constants.grid_connectors.items():
+                    for name, values in loads[gcID].items():
+                        ax.plot(xlabels, values, label=name)
+                # draw schedule
+                if strat.uses_window:
+                    for gcID, schedule in gcWindowSchedule.items():
+                            if all(s is not None for s in schedule):
+                                # schedule exists
+                                window_values = [v * int(max(totalLoad[gcID])) for v in schedule]
+                                ax.plot(xlabels, window_values, label="window {}".format(gcID),
+                                        linestyle='--')
 
 
-		    if strat.uses_schedule:
-		        for gcID, schedule in gcPowerSchedule.items():
-		            if any(s is not None for s in schedule):
-		                ax.plot(xlabels, schedule, label="Schedule {}".format(gcID))
+                if strat.uses_schedule:
+                    for gcID, schedule in gcPowerSchedule.items():
+                        if any(s is not None for s in schedule):
+                            ax.plot(xlabels, schedule, label="Schedule {}".format(gcID))
 
-		    ax.plot(xlabels, totalLoad, label="Total")
-		    # ax.axhline(color='k', linestyle='--', linewidth=1)
-		    ax.set_title('Power')
-		    ax.set(ylabel='Power in kW')
-		    ax.legend()
-		    ax.xaxis_date()  # xaxis are datetime objects
+                ax.plot(xlabels, totalLoad, label="Total")
+                # ax.axhline(color='k', linestyle='--', linewidth=1)
+                ax.set_title('Power')
+                ax.set(ylabel='Power in kW')
+                ax.legend()
+                ax.xaxis_date()  # xaxis are datetime objects
 
-		    # price
-		    ax = plt.subplot(2, 2, 4)
-		    for gcID, price in prices.items():
-		        lines = ax.step(xlabels, price)
-		    ax.set_title('Price for 1 kWh')
-		    ax.set(ylabel='€')
-		    if len(self.constants.grid_connectors) <= 10:
-		        ax.legend(lines, sorted(self.constants.grid_connectors.keys()))
+                # price
+                ax = plt.subplot(2, 2, 4)
+                for gcID, price in prices.items():
+                    lines = ax.step(xlabels, price)
+                ax.set_title('Price for 1 kWh')
+                ax.set(ylabel='€')
+                if len(self.constants.grid_connectors) <= 10:
+                    ax.legend(lines, sorted(self.constants.grid_connectors.keys()))
 
-		    # figure title
-		    fig = plt.gcf()
-		    fig.suptitle('Strategy: {}'.format(type(strat).__name__), fontweight='bold')
+                # figure title
+                fig = plt.gcf()
+                fig.suptitle('Strategy: {}'.format(type(strat).__name__), fontweight='bold')
 
-		    # fig.autofmt_xdate()  # rotate xaxis labels (dates) to fit
-		    # autofmt removes some axis labels, so rotate by hand:
-		    for ax in fig.get_axes():
-		        plt.setp(ax.get_xticklabels(), rotation=30, ha='right')
+                # fig.autofmt_xdate()  # rotate xaxis labels (dates) to fit
+                # autofmt removes some axis labels, so rotate by hand:
+                for ax in fig.get_axes():
+                    plt.setp(ax.get_xticklabels(), rotation=30, ha='right')
 
-		    plt.show()
+                plt.show()
