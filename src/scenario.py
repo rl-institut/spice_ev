@@ -546,8 +546,6 @@ class Scenario:
         # calculate results
         if options.get('visual', False) or options.get("testing", False):
 
-            print('Done. Create plots...')
-
             sum_cs = []
             xlabels = []
 
@@ -574,6 +572,9 @@ class Scenario:
             # plot!
             if options.get('visual', False):
                 import matplotlib.pyplot as plt
+
+                print('Done. Create plots...')
+
                 # batteries
                 if batteryLevels:
                     plots_top_row = 3

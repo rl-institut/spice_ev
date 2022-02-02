@@ -66,7 +66,7 @@ def generate_trip(args):
     return start.time(), stop.time(), distance
 
 
-def generate(args, parser):
+def generate(args):
     """Generates a scenario JSON from input Parameters
 
     :param args: input arguments
@@ -84,7 +84,7 @@ def generate(args, parser):
         start = datetime_from_isoformat(args.start_time)
     except ValueError:
         # start time could not be parsed. Use default value.
-        default_start_time = parser.parse_args([]).start_time
+        default_start_time = args.start_time
         start = datetime_from_isoformat(default_start_time)
         warnings.warn("Start time could not be parsed. Use ISO format like YYYY-MM-DDTHH:MM."
                       f"Default start time {default_start_time} will be used.")
