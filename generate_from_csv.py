@@ -85,24 +85,23 @@ def generate_from_csv(args):
             [vid_list.append(row) for row in input if (row["vehicle_id"] == v_name)]
 
             # check if each bus is only used once a day
-            list_vehicle_days = [d["day"] for d in vid_list]
+            list_vehicle_days = [datetime.datetime.strptime(d["arrival_time"], '%Y-%m-%d %H:%M:%S').weekday() for d in vid_list]
             count_v_per_day = {i: list_vehicle_days.count(i) for i in list_vehicle_days}
             if any(v > 1 for v in count_v_per_day.values()):
-                raise ValueError("A vehicle is used for more than one rotation on the same day. "
-                                 "Please check the column >vehicle_id< in the input csv for "
-                                 "consistency.")
+                print("A vehicle is used for more than one rotation on the same day. Please check "
+                      "the column >vehicle_id< in the input csv for consistency.")
 
             # sort events for their departure time, so that the matching departure time of an
             # arrival event can be read out of the next element in vid_list
-            vid_list = sorted(vid_list, key=lambda x: x["departure time"])
+            vid_list = sorted(vid_list, key=lambda x: x["departure_time"])
             for index, row in enumerate(vid_list):
                 departure_event_in_input = True
-                arrival = row["arrival time"]
+                arrival = row["arrival_time"]
                 arrival = datetime.datetime.strptime(arrival, '%Y-%m-%d %H:%M:%S')
                 try:
-                    departure = vid_list[index+1]["departure time"]
+                    departure = vid_list[index+1]["departure_time"]
                     departure = datetime.datetime.strptime(departure, '%Y-%m-%d %H:%M:%S')
-                    next_arrival = vid_list[index+1]["arrival time"]
+                    next_arrival = vid_list[index+1]["arrival_time"]
                     next_arrival = datetime.datetime.strptime(next_arrival, '%Y-%m-%d %H:%M:%S')
                 except IndexError:
                     departure_event_in_input = False
@@ -153,7 +152,7 @@ def generate_from_csv(args):
     target_path = path.dirname(args.output)
     times = []
     for row in input:
-        times.append(row["departure time"])
+        times.append(row["departure_time"])
     times.sort()
     start = times[0]
     start = datetime.datetime.strptime(start, '%Y-%m-%d %H:%M:%S')
@@ -305,7 +304,8 @@ def get_number_vehicles_per_vehicle_type(dict):
     # restructure trips to days of the week and count max number of vehicles per day
     count_vehicles = {bus_type: [0] * 7 for bus_type in count_vt.keys()}
     for row in dict:
-        count_vehicles[row["vehicle_type"]][int(row["day"])-1] += 1
+        weekday = datetime.datetime.strptime(row["arrival_time"], '%Y-%m-%d %H:%M:%S').weekday()
+        count_vehicles[row["vehicle_type"]][weekday-1] += 1
     for bus_type in count_vehicles.keys():
         count_vehicles[bus_type] = max(count_vehicles[bus_type])
 
