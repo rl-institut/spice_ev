@@ -24,8 +24,7 @@ jobs:
         flake8 .
     - name: Test with pytest
       run: |
-        pip install pytest
-        pytest tests/
+        unittest tests/
     - name: Build documentation
       run: |
         pip install -r doc/requirements.txt
