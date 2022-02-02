@@ -7,7 +7,7 @@ import random
 import warnings
 from os import path
 
-from src.util import set_options_from_config
+from src.util import set_options_from_config, datetime_from_isoformat
 
 
 def datetime_from_string(s):
@@ -66,7 +66,7 @@ def generate_trip(args):
     return start.time(), stop.time(), distance
 
 
-def generate(args):
+def generate(args, parser):
     """Generates a scenario JSON from input Parameters
 
     :param args: input arguments
@@ -81,11 +81,11 @@ def generate(args):
 
     # SIMULATION TIME
     try:
-        start = datetime.datetime.fromisoformat(args.start_time)
+        start = datetime_from_isoformat(args.start_time)
     except ValueError:
         # start time could not be parsed. Use default value.
         default_start_time = parser.parse_args([]).start_time
-        start = datetime.datetime.fromisoformat(default_start_time)
+        start = datetime_from_isoformat(default_start_time)
         warnings.warn("Start time could not be parsed. Use ISO format like YYYY-MM-DDTHH:MM."
                       f"Default start time {default_start_time} will be used.")
     start = start.replace(tzinfo=datetime.timezone(datetime.timedelta(hours=2)))
@@ -370,9 +370,9 @@ if __name__ == '__main__':
                         help='set duration of scenario as number of days')
     parser.add_argument('--interval', metavar='MIN', type=int, default=15,
                         help='set number of minutes for each timestep (Δt)')
-    parser.add_argument('--start-time', default='2018-01-01T00:15',
-                        help='Provide start time of simulation in ISO format YYYY-MM-DDTHH:MM. '
-                             'Precision is 1 minute. E.g. 2018-01-31T00:15')
+    parser.add_argument('--start-time', default='2018-01-01T01:00:00+00:00',
+                        help='Provide start time of simulation in ISO format YYYY-MM-DDTHH:MM:SS.'
+                             'Precision is 1 second. E.g. 2018-01-31T01:00:00')
     parser.add_argument('--min-soc', metavar='SOC', type=float, default=0.8,
                         help='set minimum desired SOC (0 - 1) for each charging process')
     parser.add_argument('--battery', '-b', default=[], nargs=2, type=float, action='append',
@@ -409,4 +409,4 @@ if __name__ == '__main__':
 
     set_options_from_config(args, check=False, verbose=False)
 
-    generate(args)
+    generate(args, parser)
