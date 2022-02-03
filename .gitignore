@@ -2,6 +2,7 @@
 /__pycache__
 *.pyc
 
-tests/
 docs/
 .vscode/
+_build/
+scenarios/

@@ -38,6 +38,9 @@ class Scenario:
             delta = self.stop_time - self.start_time
             self.n_intervals = delta // self.interval
 
+        # minimum SoC to discharge to during v2g
+        self.discharge_limit = scenario.get('discharge_limit', 0.5)
+
         # only relevant for schedule strategy
         self.core_standing_time = scenario.get('core_standing_time', None)
 
@@ -60,6 +63,7 @@ class Scenario:
         options['interval'] = self.interval
         options['events'] = self.events
         options['core_standing_time'] = self.core_standing_time
+        options['DISCHARGE_LIMIT'] = options.get('DISCHARGE_LIMIT', self.discharge_limit)
         strat = strategy.class_from_str(strategy_name)(self.constants, self.start_time, **options)
 
         event_steps = self.events.get_event_steps(self.start_time, self.n_intervals, self.interval)
@@ -133,8 +137,15 @@ class Scenario:
                 stepLoads = {k: v for k, v in gc.current_loads.items()
                              if k not in self.constants.charging_stations.keys()}
                 extLoads.append(stepLoads)
-                # sum up loads (with charging stations), compute cost
-                gc_load = gc.get_current_load()
+
+                # sum up total feed-in power
+                feed_in_keys = self.events.energy_feed_in_lists.keys()
+                curFeedIn -= sum([gc.current_loads.get(k, 0) for k in feed_in_keys])
+
+                # get GC load without feed-in power
+                gc_load = gc.get_current_load(exclude=feed_in_keys)
+                # add feed-in power, but don't exceed GC discharge power limit
+                gc_load = max(-gc.max_power, gc_load - curFeedIn)
 
                 # safety check: GC load within bounds?
                 gcWithinPowerLimit &= -gc.max_power-strat.EPS <= gc_load <= gc.max_power+strat.EPS
@@ -143,7 +154,7 @@ class Scenario:
                     print("GC load exceeded: {} / {}".format(gc_load, gc.max_power))
                     strat.description = "*** {} (ABORTED) ***".format(strat.description)
 
-                # price in ct/kWh -> get price in EUR
+                # compute cost: price in ct/kWh -> get price in EUR
                 if gc.cost:
                     power = max(gc_load, 0)
                     energy = power / stepsPerHour
@@ -155,10 +166,6 @@ class Scenario:
 
                 gcPowerSchedule[gcID].append(gc.target)
                 gcWindowSchedule[gcID].append(gc.window)
-
-                # sum up total feed-in power
-                feed_in_keys = self.events.energy_feed_in_lists.keys()
-                curFeedIn -= sum([gc.current_loads.get(k, 0) for k in feed_in_keys])
 
             # get SOC and connected CS of all connected vehicles
             cur_cs = []
@@ -214,16 +221,18 @@ class Scenario:
         print("Energy drawn from grid: {:.0f} kWh, Costs: {:.2f} €".format(
             sum(totalLoad)/stepsPerHour, sum(costs)))
 
-        if options.get("save_timeseries", False) or options.get("save_results", False):
+        if options.get("save_timeseries", False) or options.get("save_results", False) or \
+                options.get("testing", False):
             # get flexibility band
             from generate_schedule import generate_flex_band
             flex = generate_flex_band(self)
 
-        if options.get("save_results", False):
-            # save general simulation info to JSON file
-            ext = options["save_results"].split('.')[-1]
-            if ext != "json":
-                print("File extension mismatch: results file is of type .json")
+        if options.get("save_results", False) or options.get("testing", False):
+            if options.get("save_results", False):
+                # save general simulation info to JSON file
+                ext = options["save_results"].split('.')[-1]
+                if ext != "json":
+                    print("File extension mismatch: results file is of type .json")
 
             json_results = {}
 
@@ -396,10 +405,10 @@ class Scenario:
                 "unit": None,
                 "info": "Number of load cycles per vehicle (averaged)"
             }
-
-            # write to file
-            with open(options['save_results'], 'w') as results_file:
-                json.dump(json_results, results_file, indent=2)
+            if options.get("save_results", False):
+                # write to file
+                with open(options['save_results'], 'w') as results_file:
+                    json.dump(json_results, results_file, indent=2)
 
         if options.get("save_timeseries", False):
             # save power use for each timestep in file
@@ -497,7 +506,7 @@ class Scenario:
                             v for k, v in extLoads[idx].items()
                             if k in self.events.external_load_lists])
                         row.append(round(sumExtLoads, round_to_places))
-                    # feed-in (negative since grid power is fed into system)
+                    # feed-in (negative since power is fed into system)
                     if any(feedInPower):
                         row.append(-1 * round(feedInPower[idx], round_to_places))
                     # batteries
@@ -545,10 +554,8 @@ class Scenario:
                     # write row to file
                     timeseries_file.write('\n' + ','.join(map(lambda x: str(x), row)))
 
-        if options.get('visual', False):
-            import matplotlib.pyplot as plt
-
-            print('Done. Create plots...')
+        # calculate results
+        if options.get('visual', False) or options.get("testing", False):
 
             sum_cs = []
             xlabels = []
@@ -574,77 +581,104 @@ class Scenario:
                         loads[k].append(0)
 
             # plot!
+            if options.get('visual', False):
+                import matplotlib.pyplot as plt
 
-            # batteries
-            if batteryLevels:
-                plots_top_row = 3
-                ax = plt.subplot(2, plots_top_row, 3)
-                ax.set_title('Batteries')
-                ax.set(ylabel='Stored power in kWh')
-                for name, values in batteryLevels.items():
+                print('Done. Create plots...')
+
+                # batteries
+                if batteryLevels:
+                    plots_top_row = 3
+                    ax = plt.subplot(2, plots_top_row, 3)
+                    ax.set_title('Batteries')
+                    ax.set(ylabel='Stored power in kWh')
+                    for name, values in batteryLevels.items():
+                        ax.plot(xlabels, values, label=name)
+                    ax.legend()
+                else:
+                    plots_top_row = 2
+
+                # vehicles
+                ax = plt.subplot(2, plots_top_row, 1)
+                ax.set_title('Vehicles')
+                ax.set(ylabel='SoC')
+                lines = ax.step(xlabels, socs)
+                # reset color cycle, so lines have same color
+                ax.set_prop_cycle(None)
+                ax.plot(xlabels, disconnect, '--')
+                if len(self.constants.vehicles) <= 10:
+                    ax.legend(lines, sorted(self.constants.vehicles.keys()))
+
+                # charging stations
+                ax = plt.subplot(2, plots_top_row, 2)
+                ax.set_title('Charging Stations')
+                ax.set(ylabel='Power in kW')
+                lines = ax.step(xlabels, sum_cs)
+                if len(self.constants.charging_stations) <= 10:
+                    ax.legend(lines, sorted(self.constants.charging_stations.keys()))
+
+                # total power
+                ax = plt.subplot(2, 2, 3)
+                ax.plot(xlabels, list([sum(cs) for cs in sum_cs]), label="CS")
+                for name, values in loads.items():
                     ax.plot(xlabels, values, label=name)
+                # draw schedule
+                for gcID, schedule in gcWindowSchedule.items():
+                    if all(s is not None for s in schedule):
+                        # schedule exists
+                        window_values = [v * int(max(totalLoad)) for v in schedule]
+                        ax.plot(xlabels, window_values, label="window {}".format(gcID),
+                                linestyle='--')
+
+                for gcID, schedule in gcPowerSchedule.items():
+                    if any(s is not None for s in schedule):
+                        # schedule exists
+                        ax.plot(xlabels, schedule, label="Schedule {}".format(gcID))
+
+                ax.plot(xlabels, totalLoad, label="total")
+                # ax.axhline(color='k', linestyle='--', linewidth=1)
+                ax.set_title('Power')
+                ax.set(ylabel='Power in kW')
                 ax.legend()
-            else:
-                plots_top_row = 2
+                ax.xaxis_date()  # xaxis are datetime objects
 
-            # vehicles
-            ax = plt.subplot(2, plots_top_row, 1)
-            ax.set_title('Vehicles')
-            ax.set(ylabel='SoC')
-            lines = ax.step(xlabels, socs)
-            # reset color cycle, so lines have same color
-            ax.set_prop_cycle(None)
-            ax.plot(xlabels, disconnect, '--')
-            if len(self.constants.vehicles) <= 10:
-                ax.legend(lines, sorted(self.constants.vehicles.keys()))
+                # price
+                ax = plt.subplot(2, 2, 4)
+                lines = ax.step(xlabels, prices)
+                ax.set_title('Price for 1 kWh')
+                ax.set(ylabel='€')
+                if len(self.constants.grid_connectors) <= 10:
+                    ax.legend(lines, sorted(self.constants.grid_connectors.keys()))
 
-            # charging stations
-            ax = plt.subplot(2, plots_top_row, 2)
-            ax.set_title('Charging Stations')
-            ax.set(ylabel='Power in kW')
-            lines = ax.step(xlabels, sum_cs)
-            if len(self.constants.charging_stations) <= 10:
-                ax.legend(lines, sorted(self.constants.charging_stations.keys()))
+                # figure title
+                fig = plt.gcf()
+                fig.suptitle('Strategy: {}'.format(type(strat).__name__), fontweight='bold')
 
-            # total power
-            ax = plt.subplot(2, 2, 3)
-            ax.plot(xlabels, list([sum(cs) for cs in sum_cs]), label="CS")
-            for name, values in loads.items():
-                ax.plot(xlabels, values, label=name)
-            # draw schedule
-            for gcID, schedule in gcWindowSchedule.items():
-                if all(s is not None for s in schedule):
-                    # schedule exists
-                    window_values = [v * int(max(totalLoad)) for v in schedule]
-                    ax.plot(xlabels, window_values, label="window {}".format(gcID), linestyle='--')
+                # fig.autofmt_xdate()  # rotate xaxis labels (dates) to fit
+                # autofmt removes some axis labels, so rotate by hand:
+                for ax in fig.get_axes():
+                    plt.setp(ax.get_xticklabels(), rotation=30, ha='right')
 
-            for gcID, schedule in gcPowerSchedule.items():
-                if any(s is not None for s in schedule):
-                    # schedule exists
-                    ax.plot(xlabels, schedule, label="Schedule {}".format(gcID))
+                plt.show()
 
-            ax.plot(xlabels, totalLoad, label="total")
-            # ax.axhline(color='k', linestyle='--', linewidth=1)
-            ax.set_title('Power')
-            ax.set(ylabel='Power in kW')
-            ax.legend()
-            ax.xaxis_date()  # xaxis are datetime objects
-
-            # price
-            ax = plt.subplot(2, 2, 4)
-            lines = ax.step(xlabels, prices)
-            ax.set_title('Price for 1 kWh')
-            ax.set(ylabel='€')
-            if len(self.constants.grid_connectors) <= 10:
-                ax.legend(lines, sorted(self.constants.grid_connectors.keys()))
-
-            # figure title
-            fig = plt.gcf()
-            fig.suptitle('Strategy: {}'.format(type(strat).__name__), fontweight='bold')
-
-            # fig.autofmt_xdate()  # rotate xaxis labels (dates) to fit
-            # autofmt removes some axis labels, so rotate by hand:
-            for ax in fig.get_axes():
-                plt.setp(ax.get_xticklabels(), rotation=30, ha='right')
-
-            plt.show()
+        # add testing params
+        if options.get("testing", False):
+            self.testing = {
+                "timeseries": {
+                    "total_load": totalLoad,
+                    "prices": prices,
+                    "schedule": {gcID: gcWindowSchedule[gcID] for gcID in
+                                 strat.world_state.grid_connectors.keys()},
+                    "sum_cs": sum_cs,
+                    "loads": loads
+                },
+                "max_total_load": max(totalLoad),
+                "avg_flex_per_window": avg_flex_per_window,
+                "sum_energy_per_window": sum_energy_per_window,
+                "avg_stand_time": avg_stand_time,
+                "avg_total_standing_time": avg_total_standing_time,
+                "avg_needed_energy": avg_needed_energy,
+                "avg_drawn_pwer": avg_drawn,
+                "sum_feed_in_per_h": sum(feedInPower) / stepsPerHour,
+                "vehicle_battery_cycles": total_car_energy / total_car_cap
+            }

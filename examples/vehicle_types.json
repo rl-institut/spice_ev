@@ -5,7 +5,8 @@
         "mileage": 25,
         "charging_curve": [[0, 11], [0.8, 11], [1, 11]],
         "min_charging_power": 0.2,
-        "v2g": false
+        "v2g": false,
+        "v2g_power_factor": 0.5
     },
     "sprinter": {
         "name": "Sprinter",
@@ -13,7 +14,8 @@
         "mileage": 40,
         "charging_curve": [[0, 11], [0.8, 11], [1, 11]],
         "min_charging_power": 0.2,
-        "v2g": false
+        "v2g": false,
+        "v2g_power_factor": 0.5
     },
     "golf": {
         "name": "E-Golf",
@@ -21,14 +23,16 @@
         "mileage": 16,
         "charging_curve": [[0, 22], [0.8, 22], [1, 22]],
         "min_charging_power": 0,
-        "v2g": false
+        "v2g": false,
+        "v2g_power_factor": 0.5
     },
     "AB-OPP": {
-        "name": "articulated bus - oppotunity charging",
+        "name": "articulated bus - opportunity charging",
         "capacity": 50,
         "charging_curve": [[0, 150], [0.8, 150], [1, 150]],
         "min_charging_power": 0,
-        "v2g": false
+        "v2g": false,
+        "v2g_power_factor": 0.5
     },
     "minimum_information": {
         "name": "Displayed name",
@@ -43,6 +47,7 @@
         "charging_curve": [[0,1],[1,0]],
         "min_charging_power": 0,
         "v2g": false,
+        "v2g_power_factor": 0.5,
         "battery_efficiency": 0.95
     }
 }

@@ -1,5 +1,6 @@
 from copy import deepcopy
 import datetime
+import warnings
 
 from src import events, util
 from src.strategy import Strategy
@@ -83,6 +84,10 @@ class PeakLoadWindow(Strategy):
         standing = {}
         energy_needed = 0
         for vid, v in self.world_state.vehicles.items():
+            if v.vehicle_type.v2g:
+                warnings.warn("The vehicle type of vehicle {} is set to V2G although V2G is not "
+                              "supported with peak_load_window strategy. V2G will thus be "
+                              "neglected.".format(vid))
             if v.connected_charging_station is not None:
                 vehicles[vid] = v
                 energy_needed += v.get_energy_needed(full=False)

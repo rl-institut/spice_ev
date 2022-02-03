@@ -13,7 +13,6 @@ class BalancedMarket(Strategy):
     def __init__(self, constants, start_time, **kwargs):
         self.PRICE_THRESHOLD = 0.001  # EUR/kWh
         self.HORIZON = 24  # maximum number of hours ahead
-        self.V2G_POWER_FACTOR = 1
 
         super().__init__(constants, start_time, **kwargs)
         assert len(self.world_state.grid_connectors) == 1, "Only one grid connector supported"
@@ -44,10 +43,6 @@ class BalancedMarket(Strategy):
         super().step(event_list)
 
         gc = list(self.world_state.grid_connectors.values())[0]
-
-        # get power that can be drawn from battery in this timestep
-        avail_bat_power = sum([
-            bat.get_available_power(self.interval) for bat in self.world_state.batteries.values()])
 
         # dict to hold charging commands
         charging_stations = {}
@@ -105,8 +100,6 @@ class BalancedMarket(Strategy):
             if timestep_idx == 0:
                 # use actual external load
                 ext_load = gc.get_current_load()
-                # add battery power (sign switch, as ext_load is subtracted)
-                ext_load -= avail_bat_power
             else:
                 ext_load = gc.get_avg_ext_load(cur_time, self.interval) - sum(cur_feed_in.values())
             timesteps.append({
@@ -234,7 +227,8 @@ class BalancedMarket(Strategy):
                 old_sorted_idx = sorted_idx
 
                 # discharge with maximum power (scaled with power factor)
-                p = -(vehicle.battery.loading_curve.max_power * self.V2G_POWER_FACTOR)
+                p = -(vehicle.battery.loading_curve.max_power
+                      * vehicle.vehicle_type.v2g_power_factor)
                 # limit to GC discharge power
                 # derivation and reasoning:
                 # max unload power is symmetric to max load
@@ -386,15 +380,13 @@ class BalancedMarket(Strategy):
                     power = (min_power + max_power) / 2
                     # reset SoC
                     battery.soc = old_soc
-                    # t = 0 (current timestep): add feed-in
-                    bat_power = max(-avail_power, 0) + power
-                    bat_power = 0 if bat_power < battery.min_charging_power else bat_power
-                    battery.load(self.interval, bat_power)
-                    # future timesteps
-                    for i in range(1, num_cheap_ts):
+                    # simulate
+                    for i in range(0, num_cheap_ts):
                         p = min(timesteps[i]["power"], power)
                         p = 0 if p < battery.min_charging_power else p
                         battery.load(self.interval, p)
+                        if i == 0:
+                            bat_power = p
                     if battery.soc > (1 - self.EPS):
                         max_power = power
                     else:
@@ -405,9 +397,10 @@ class BalancedMarket(Strategy):
             avg_power = battery.load(self.interval, bat_power)["avg_power"]
             gc.add_load(bat_id, avg_power)
 
-            if avail_power >= 0 and num_cheap_ts == 0:
+            if avail_power > 0 and num_cheap_ts == 0 and battery.soc > 0:
                 # no surplus, no cheap price: support GC by discharging
-                bat_power = battery.unload(self.interval, avail_power)['avg_power']
+                bat_power = min(avail_power, gc.max_power + gc.get_current_load())
+                bat_power = battery.unload(self.interval, bat_power)['avg_power']
                 gc.add_load(bat_id, -bat_power)
                 discharging_stations.append(bat_id)
 

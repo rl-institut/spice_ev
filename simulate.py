@@ -34,6 +34,7 @@ def simulate(args):
         'margin': args.margin,
         'save_timeseries': args.save_timeseries,
         'save_results': args.save_results,
+        'testing': args.testing
     }
 
     # parse strategy options
@@ -85,6 +86,7 @@ if __name__ == '__main__':
     parser.add_argument('--output', '-o', help='Deprecated, use save-timeseries instead')
     parser.add_argument('--save-timeseries', help='Write timesteps to file')
     parser.add_argument('--save-results', help='Write general info to file')
+    parser.add_argument('--testing', help='Stores testing results', action='store_true')
     parser.add_argument('--config', help='Use config file to set arguments')
     args = parser.parse_args()
 

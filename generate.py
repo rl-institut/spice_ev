@@ -7,7 +7,10 @@ import random
 import warnings
 from os import path
 
-from src.util import set_options_from_config
+from src.util import set_options_from_config, datetime_from_isoformat
+
+
+DEFAULT_START_TIME = "2018-01-01T01:00:00+02:00"
 
 
 def datetime_from_string(s):
@@ -81,13 +84,13 @@ def generate(args):
 
     # SIMULATION TIME
     try:
-        start = datetime.datetime.fromisoformat(args.start_time)
+        start = datetime_from_isoformat(args.start_time)
     except ValueError:
         # start time could not be parsed. Use default value.
-        default_start_time = parser.parse_args([]).start_time
-        start = datetime.datetime.fromisoformat(default_start_time)
-        warnings.warn("Start time could not be parsed. Use ISO format like YYYY-MM-DDTHH:MM."
-                      f"Default start time {default_start_time} will be used.")
+        start = datetime_from_isoformat(DEFAULT_START_TIME)
+        warnings.warn("Start time could not be parsed. "
+                      "Use ISO format like YYYY-MM-DDTHH:MM:SS+TZ:TZ. "
+                      "Default start time {} will be used.".format(DEFAULT_START_TIME))
     start = start.replace(tzinfo=datetime.timezone(datetime.timedelta(hours=2)))
     stop = start + datetime.timedelta(days=args.days)
     interval = datetime.timedelta(minutes=args.interval)
@@ -319,10 +322,12 @@ def generate(args):
 
     # end of scenario
 
-    # remove temporary information
-    for vtype in vehicle_types:
-        if "count" in vtype:
-            del vtype["count"]
+    # remove temporary information, only retain vehicle types that are actually present
+    vehicle_types_present = {}
+    for k, v in vehicle_types.items():
+        if "count" in v and v["count"] > 0:
+            del v["count"]
+            vehicle_types_present[k] = v
     for v in vehicles.values():
         del v["last_arrival_idx"]
 
@@ -331,10 +336,11 @@ def generate(args):
             "start_time": start.isoformat(),
             # "stop_time": stop.isoformat(),
             "interval": interval.days * 24 * 60 + interval.seconds // 60,
-            "n_intervals": (stop - start) // interval
+            "n_intervals": (stop - start) // interval,
+            "discharge_limit": args.discharge_limit
         },
         "constants": {
-            "vehicle_types": vehicle_types,
+            "vehicle_types": vehicle_types_present,
             "vehicles": vehicles,
             "grid_connectors": {
                 "GC1": {
@@ -367,9 +373,10 @@ if __name__ == '__main__':
                         help='set duration of scenario as number of days')
     parser.add_argument('--interval', metavar='MIN', type=int, default=15,
                         help='set number of minutes for each timestep (Δt)')
-    parser.add_argument('--start-time', default='2018-01-01T00:15',
-                        help='Provide start time of simulation in ISO format YYYY-MM-DDTHH:MM. '
-                             'Precision is 1 minute. E.g. 2018-01-31T00:15')
+    parser.add_argument('--start-time', default=DEFAULT_START_TIME,
+                        help='Provide start time of simulation in ISO format '
+                             'YYYY-MM-DDTHH:MM:SS+TZ:TZ. Precision is 1 second. E.g. '
+                             '2018-01-31T01:00:00+02:00')
     parser.add_argument('--min-soc', metavar='SOC', type=float, default=0.8,
                         help='set minimum desired SOC (0 - 1) for each charging process')
     parser.add_argument('--battery', '-b', default=[], nargs=2, type=float, action='append',
@@ -381,6 +388,8 @@ if __name__ == '__main__':
 
     parser.add_argument('--vehicle-types', default=None,
                         help='location of vehicle type definitions')
+    parser.add_argument('--discharge_limit', default=0.5,
+                        help='Minimum SoC to discharge to during v2g. [0-1]')
     parser.add_argument('--include-ext-load-csv',
                         help='include CSV for external load. \
                         You may define custom options with --include-ext-csv-option')
