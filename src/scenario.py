@@ -622,21 +622,20 @@ class Scenario:
                 ax.plot(xlabels, list([sum(cs) for cs in sum_cs]), label="CS")
                 for name, values in loads.items():
                     ax.plot(xlabels, values, label=name)
-                # draw schedule
-                for gcID, schedule in gcWindowSchedule.items():
-                    if all(s is not None for s in schedule):
-                        # schedule exists
-                        window_values = [v * int(max(totalLoad)) for v in schedule]
-                        ax.plot(xlabels, window_values, label="window {}".format(gcID),
-                                linestyle='--')
 
-                for gcID, schedule in gcPowerSchedule.items():
-                    if any(s is not None for s in schedule):
-                        # schedule exists
-                        ax.plot(xlabels, schedule, label="Schedule {}".format(gcID))
+                # draw schedule or charge-windows
+                if strat.uses_window:
+                    for gcID, schedule in gcWindowSchedule.items():
+                        if all(s is not None for s in schedule):
+                            w_values = [v * int(max(totalLoad)) for v in schedule]
+                            ax.plot(xlabels, w_values, label="Window {}".format(gcID),
+                                    linestyle='--')
+                if strat.uses_schedule:
+                    for gcID, schedule in gcPowerSchedule.items():
+                        if any(s is not None for s in schedule):
+                            ax.plot(xlabels, schedule, label="Schedule {}".format(gcID))
 
-                ax.plot(xlabels, totalLoad, label="total")
-                # ax.axhline(color='k', linestyle='--', linewidth=1)
+                ax.plot(xlabels, totalLoad, label="Total")
                 ax.set_title('Power')
                 ax.set(ylabel='Power in kW')
                 ax.legend()
