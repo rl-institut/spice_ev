@@ -90,7 +90,6 @@ class FlexWindow(Strategy):
                         cur_window = event.window
                 elif type(event) == events.EnergyFeedIn:
                     cur_feed_in[event.name] = event.value
-                    gc.current_loads[event.name] = -event.value
                 # vehicle events ignored (use vehicle info such as estimated_time_of_departure)
 
             ext_load = gc.get_avg_ext_load(cur_time, self.interval) - sum(cur_feed_in.values())
