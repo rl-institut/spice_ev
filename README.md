@@ -87,4 +87,4 @@ generate_from_simbev.py --simbev /path/to/simbev/output/ example.json
 
 # License
 
-SpiceEV is licensed under the MIT License as described in the file [LICENSE](https://github.com/rl-institut/spice_ev/blob/feature/%2344_add_license/LICENSE)
+SpiceEV is licensed under the MIT License as described in the file [LICENSE](https://github.com/rl-institut/spice_ev/blob/dev/LICENSE)
