@@ -169,7 +169,7 @@ class TestScenarios(unittest.TestCase):
         assert round(s.testing["sum_energy_per_window"]["GC1"][0], 2) == 215.87
         assert round(s.testing["sum_energy_per_window"]["GC1"][3], 2) == 33.11
         load = [0] * 96
-        for key, values in s.testing["timeseries"]["loads"].items():
+        for key, values in s.testing["timeseries"]["loads"]["GC1"].items():
             load = [a + b for a, b in zip(load, values)]
         cs_load = [sum(item) for item in s.testing["timeseries"]["sum_cs"]]
         total_load = [a + b for a, b in zip(load, cs_load)]

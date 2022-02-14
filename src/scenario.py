@@ -273,7 +273,7 @@ class Scenario:
                         widx = (shifted_time // datetime.timedelta(hours=6)) % 4
 
                         load_window[widx].append((flex["max"][idx] - flex["min"][idx],
-                                                 totalLoad[gcID][idx]))
+                                                  totalLoad[gcID][idx]))
                         count_window[widx] = list(map(
                             lambda c, t: c + (t is not None),
                             count_window[widx], socs[gcID][idx]))
@@ -292,8 +292,8 @@ class Scenario:
                         max_variable_load = max(max_variable_load, var_load)
 
                     # avg flex per window
-                    avg_flex_per_window[gcID] = [sum([t[0] for t in w]) / len(w) if w else 0 for w in
-                                           load_window]
+                    avg_flex_per_window[gcID] = [sum([t[0] for t in w]) / len(w) if w else 0 for w
+                                                 in load_window]
                     json_results["avg flex per window"] = {
                         "04-10": avg_flex_per_window[gcID][0],
                         "10-16": avg_flex_per_window[gcID][1],
@@ -305,7 +305,7 @@ class Scenario:
 
                     # sum of used energy per window
                     sum_energy_per_window[gcID] = [sum([t[1] for t in w]) / stepsPerHour for w in
-                                             load_window]
+                                                   load_window]
                     json_results["sum of energy per window"] = {
                         "04-10": sum_energy_per_window[gcID][0],
                         "10-16": sum_energy_per_window[gcID][1],
@@ -431,7 +431,7 @@ class Scenario:
                         }
                     # vehicles
                     total_car_cap[gcID] = sum([v.battery.capacity for v in
-                                         self.constants.vehicles.values()])
+                                               self.constants.vehicles.values()])
                     total_car_energy[gcID] = sum([sum(map(
                         lambda v: max(v, 0), r["commands"].values())) for r in results])
                     json_results["all vehicle battery cycles"] = {
@@ -690,19 +690,17 @@ class Scenario:
                 # draw schedule
                 if strat.uses_window:
                     for gcID, schedule in gcWindowSchedule.items():
-                            if all(s is not None for s in schedule):
-                                # schedule exists
-                                window_values = [v * int(max(totalLoad[gcID])) for v in schedule]
-                                ax.plot(xlabels, window_values, label="window {}".format(gcID),
-                                        linestyle='--')
-
-
+                        if all(s is not None for s in schedule):
+                            # schedule exists
+                            window_values = [v * int(max(totalLoad[gcID])) for v in schedule]
+                            ax.plot(xlabels, window_values, label="window {}".format(gcID),
+                                    linestyle='--')
                 if strat.uses_schedule:
                     for gcID, schedule in gcPowerSchedule.items():
                         if any(s is not None for s in schedule):
                             ax.plot(xlabels, schedule, label="Schedule {}".format(gcID))
 
-                ax.plot(xlabels, totalLoad, label="Total")
+                ax.plot(xlabels, all_totalLoad, label="Total")
                 ax.set_title('Power')
                 ax.set(ylabel='Power in kW')
                 ax.legend()
@@ -741,19 +739,19 @@ class Scenario:
                 },
                 "max_total_load": max(all_totalLoad),
                 "avg_flex_per_window": {gcID: avg_flex_per_window[gcID] for gcID in
-                                 strat.world_state.grid_connectors.keys()},
+                                        strat.world_state.grid_connectors.keys()},
                 "sum_energy_per_window": {gcID: sum_energy_per_window[gcID] for gcID in
-                                 strat.world_state.grid_connectors.keys()},
+                                          strat.world_state.grid_connectors.keys()},
                 "avg_stand_time": {gcID: avg_stand_time[gcID] for gcID in
-                                 strat.world_state.grid_connectors.keys()},
+                                   strat.world_state.grid_connectors.keys()},
                 "avg_total_standing_time": {gcID: avg_total_standing_time[gcID] for gcID in
-                                 strat.world_state.grid_connectors.keys()},
+                                            strat.world_state.grid_connectors.keys()},
                 "avg_needed_energy": {gcID: avg_needed_energy[gcID] for gcID in
-                                 strat.world_state.grid_connectors.keys()},
+                                      strat.world_state.grid_connectors.keys()},
                 "avg_drawn_pwer": {gcID: avg_drawn[gcID] for gcID in
-                                 strat.world_state.grid_connectors.keys()},
+                                   strat.world_state.grid_connectors.keys()},
                 "sum_feed_in_per_h": {gcID: (sum(feedInPower[gcID]) / stepsPerHour) for gcID in
-                                 strat.world_state.grid_connectors.keys()},
-                "vehicle_battery_cycles": {gcID: (total_car_energy[gcID] / total_car_cap[gcID]) for gcID in
-                                 strat.world_state.grid_connectors.keys()},
+                                      strat.world_state.grid_connectors.keys()},
+                "vehicle_battery_cycles": {gcID: (total_car_energy[gcID] / total_car_cap[gcID]) for
+                                           gcID in strat.world_state.grid_connectors.keys()}
             }
