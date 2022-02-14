@@ -10,6 +10,9 @@ from os import path
 from src.util import set_options_from_config, datetime_from_isoformat
 
 
+DEFAULT_START_TIME = "2018-01-01T01:00:00+02:00"
+
+
 def datetime_from_string(s):
     h, m = map(int, s.split(':'))
     return datetime.datetime(1972, 1, 1, h, m)
@@ -66,7 +69,7 @@ def generate_trip(args):
     return start.time(), stop.time(), distance
 
 
-def generate(args, parser):
+def generate(args):
     """Generates a scenario JSON from input Parameters
 
     :param args: input arguments
@@ -84,10 +87,10 @@ def generate(args, parser):
         start = datetime_from_isoformat(args.start_time)
     except ValueError:
         # start time could not be parsed. Use default value.
-        default_start_time = parser.parse_args([]).start_time
-        start = datetime_from_isoformat(default_start_time)
-        warnings.warn("Start time could not be parsed. Use ISO format like YYYY-MM-DDTHH:MM."
-                      f"Default start time {default_start_time} will be used.")
+        start = datetime_from_isoformat(DEFAULT_START_TIME)
+        warnings.warn("Start time could not be parsed. "
+                      "Use ISO format like YYYY-MM-DDTHH:MM:SS+TZ:TZ. "
+                      "Default start time {} will be used.".format(DEFAULT_START_TIME))
     start = start.replace(tzinfo=datetime.timezone(datetime.timedelta(hours=2)))
     stop = start + datetime.timedelta(days=args.days)
     interval = datetime.timedelta(minutes=args.interval)
@@ -370,9 +373,10 @@ if __name__ == '__main__':
                         help='set duration of scenario as number of days')
     parser.add_argument('--interval', metavar='MIN', type=int, default=15,
                         help='set number of minutes for each timestep (Δt)')
-    parser.add_argument('--start-time', default='2018-01-01T01:00:00+00:00',
-                        help='Provide start time of simulation in ISO format YYYY-MM-DDTHH:MM:SS.'
-                             'Precision is 1 second. E.g. 2018-01-31T01:00:00')
+    parser.add_argument('--start-time', default=DEFAULT_START_TIME,
+                        help='Provide start time of simulation in ISO format '
+                             'YYYY-MM-DDTHH:MM:SS+TZ:TZ. Precision is 1 second. E.g. '
+                             '2018-01-31T01:00:00+02:00')
     parser.add_argument('--min-soc', metavar='SOC', type=float, default=0.8,
                         help='set minimum desired SOC (0 - 1) for each charging process')
     parser.add_argument('--battery', '-b', default=[], nargs=2, type=float, action='append',
@@ -409,4 +413,4 @@ if __name__ == '__main__':
 
     set_options_from_config(args, check=False, verbose=False)
 
-    generate(args, parser)
+    generate(args)

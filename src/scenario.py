@@ -81,6 +81,7 @@ class Scenario:
         connChargeByTS = {gcID: [] for gcID in self.constants.grid_connectors.keys()}
         gcPowerSchedule = {gcID: [] for gcID in self.constants.grid_connectors.keys()}
         gcWindowSchedule = {gcID: [] for gcID in self.constants.grid_connectors.keys()}
+        gcWithinPowerLimit = True
 
         begin = datetime.datetime.now()
         for step_i in range(self.n_intervals):
@@ -146,6 +147,13 @@ class Scenario:
                 gc_load = gc.get_current_load(exclude=feed_in_keys)
                 # add feed-in power, but don't exceed GC discharge power limit
                 gc_load = max(-gc.max_power, gc_load - curFeedIn)
+
+                # safety check: GC load within bounds?
+                gcWithinPowerLimit &= -gc.max_power-strat.EPS <= gc_load <= gc.max_power+strat.EPS
+                if not gcWithinPowerLimit:
+                    print('\n', '*'*42)
+                    print("GC load exceeded: {} / {}".format(gc_load, gc.max_power))
+                    strat.description = "*** {} (ABORTED) ***".format(strat.description)
 
                 # compute cost: price in ct/kWh -> get price in EUR
                 if gc.cost:
@@ -638,7 +646,6 @@ class Scenario:
             # plot!
             if options.get('visual', False):
                 import matplotlib.pyplot as plt
-
                 # batteries
                 if batteryLevels:
                     plots_top_row = 3
@@ -696,7 +703,6 @@ class Scenario:
                             ax.plot(xlabels, schedule, label="Schedule {}".format(gcID))
 
                 ax.plot(xlabels, totalLoad, label="Total")
-                # ax.axhline(color='k', linestyle='--', linewidth=1)
                 ax.set_title('Power')
                 ax.set(ylabel='Power in kW')
                 ax.legend()

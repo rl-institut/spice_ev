@@ -1,7 +1,9 @@
 .*.sw[op]
 /__pycache__
 *.pyc
+.DS_Store
 
 docs/
 .vscode/
 _build/
+scenarios/

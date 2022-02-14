@@ -1,47 +1,34 @@
 import unittest
-import argparse
 import sys
 from copy import deepcopy
 import os
+from argparse import Namespace
 
 import generate
 import generate_from_csv
 import generate_energy_price
 import generate_schedule
 
-from src.util import set_options_from_config
-
 sys.argv = ['']
 del sys
 TEST_REPO_PATH = os.path.dirname(__file__)
 
 ARG_VALUES1 = {
-    "--cars": [[1, "golf"], [1, "sprinter"]],
-    "--days": 2,
-    "--interval": 15,
-    "--min_soc": 0.8,
-    "--battery": [[350, 0.5]],
-    "--start-time": '2018-01-01T00:15:00+00:00',
-    "--vehicle_types": "test_data/input_test_generate/vehicle_types.json",
-    "--include-ext-load-csv": None,
-    "--include-ext-csv-option": [],
-    "--include-feed-in-csv": None,
-    "--include-feed-in-csv-option": [],
-    "--seed": None,
-    "--include_price_csv": None,
-    "--include_price_csv_option": []
+    "cars": [[1, "golf"], [1, "sprinter"]],
+    "days": 2,
+    "interval": 15,
+    "min_soc": 0.8,
+    "battery": [[350, 0.5]],
+    "start_time": '2018-01-01T00:15:00+00:00',
+    "vehicle_types": "test_data/input_test_generate/vehicle_types.json",
+    "include_ext_load_csv": None,
+    "include_ext_csv_option": [],
+    "include_feed_in_csv": None,
+    "include_feed_in_csv-option": [],
+    "seed": None,
+    "include_price_csv": None,
+    "include_price_csv_option": []
 }
-
-
-def create_parser(arg_values):
-    parser = argparse.ArgumentParser(
-        description='Generate scenarios as JSON files for vehicle charging modelling')
-    for k, v in arg_values.items():
-        parser.add_argument(k, nargs='?', default=v)
-
-    args = parser.parse_args()
-    set_options_from_config(args, check=False, verbose=False)
-    return args, parser
 
 
 class TestCaseBase(unittest.TestCase):
@@ -62,8 +49,7 @@ class TestGenerate(TestCaseBase):
                              "test_data/input_test_generate/vehicle_types.json")})
         current_arg_values.update({
             "discharge_limit": 0.5})
-        args, parser = create_parser(current_arg_values)
-        generate.generate(args, parser)
+        generate.generate(Namespace(**current_arg_values))
         self.assertIsFile(output_file)
         # remove output file
         os.remove(output_file)
@@ -81,8 +67,7 @@ class TestGenerate(TestCaseBase):
             "vehicle_types":
                 os.path.join(TEST_REPO_PATH,
                              "test_data/input_test_generate/vehicle_types.json")})
-        args, parser = create_parser(current_arg_values)
-        generate_from_csv.generate_from_csv(args)
+        generate_from_csv.generate_from_csv(Namespace(**current_arg_values))
         self.assertIsFile(output_file)
         os.remove(output_file)
 
@@ -90,13 +75,12 @@ class TestGenerate(TestCaseBase):
         output_file = os.path.join(TEST_REPO_PATH, "test_data/input_test_generate/price.csv")
         current_arg_values = {
             "output": output_file,
-            "--start": "2020-12-31T00:00:00+01:00",
-            "--n-intervals": 336,
-            "--interval": 1,
-            "--price_seed": 0,
+            "start": "2020-12-31T00:00:00+01:00",
+            "n_intervals": 336,
+            "interval": 1,
+            "price_seed": 0,
         }
-        args, parser = create_parser(current_arg_values)
-        generate_energy_price.generate_energy_price(args)
+        generate_energy_price.generate_energy_price(Namespace(**current_arg_values))
         self.assertIsFile(output_file)
         os.remove(output_file)
 
@@ -108,12 +92,11 @@ class TestGenerate(TestCaseBase):
             "scenario": os.path.join(TEST_REPO_PATH,
                                      "test_data/input_test_generate/scenario_C.json"),
             "output": output_file,
-            "--priority_percentile": 0.25,
-            "--visual": False,
-            "--core_standing_time": {"times": [{"start": [22, 0], "end": [5, 0]}], "full_days": [7]}
+            "priority_percentile": 0.25,
+            "visual": False,
+            "core_standing_time": {"times": [{"start": [22, 0], "end": [5, 0]}], "full_days": [7]}
         }
-        args, parser = create_parser(current_arg_values)
-        generate_schedule.generate_schedule(args)
+        generate_schedule.generate_schedule(Namespace(**current_arg_values))
         self.assertIsFile(output_file)
         os.remove(output_file)
 
