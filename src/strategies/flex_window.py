@@ -111,16 +111,15 @@ class FlexWindow(Strategy):
 
         if self.LOAD_STRAT == "balanced":
             commands = self.distribute_balanced_vehicles(timesteps)
-            self.distribute_balanced_batteries(timesteps)
             commands = self.distribute_balanced_v2g(timesteps, commands)
+            self.distribute_balanced_batteries(timesteps)
         else:
             # load cars with peak shaving strategy
             commands = self.distribute_peak_shaving_vehicles(timesteps)
-            # charge/discharge batteries with peak shaving strategy
-            self.distribute_peak_shaving_batteries(timesteps)
-
             # charge/discharge vehicles with peak shaving strategy
             commands = self.distribute_peak_shaving_v2g(timesteps, commands)
+            # charge/discharge batteries with peak shaving strategy
+            self.distribute_peak_shaving_batteries(timesteps)
 
         return {"current_time": self.current_time, "commands": commands}
 
