@@ -161,13 +161,13 @@ class TestScenarios(unittest.TestCase):
         assert s.testing["avg_total_standing_time"] == 17.5
         assert s.testing["avg_stand_time"] == 8.75
         assert round(s.testing["avg_needed_energy"], 2) == 2.7
-        assert round(s.testing["avg_drawn_pwer"], 2) == 10.69
+        assert round(s.testing["avg_drawn_power"], 2) == 10.81
         assert round(s.testing["sum_feed_in_per_h"], 2) == 347.59
         assert round(s.testing["vehicle_battery_cycles"], 2) == 2.12
         assert round(s.testing["avg_flex_per_window"][0], 2) == 373.7
         assert round(s.testing["avg_flex_per_window"][3], 2) == 382.38
         assert round(s.testing["sum_energy_per_window"][0], 2) == 215.87
-        assert round(s.testing["sum_energy_per_window"][3], 2) == 33.11
+        assert round(s.testing["sum_energy_per_window"][3], 2) == 35.90
         load = [0] * 96
         for key, values in s.testing["timeseries"]["loads"].items():
             load = [a + b for a, b in zip(load, values)]
