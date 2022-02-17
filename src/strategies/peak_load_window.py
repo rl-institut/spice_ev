@@ -1,12 +1,14 @@
 from copy import deepcopy
 import datetime
+import warnings
 
 from src import events, util
 from src.strategy import Strategy
 
 
 class PeakLoadWindow(Strategy):
-    """
+    """PeakLoadWindow strategy
+
     Charging strategy that prioritizes times outside of high load time windows.
 
     Charge balanced outside of windows, inside different substrategies are possible.
@@ -57,6 +59,14 @@ class PeakLoadWindow(Strategy):
         assert len(self.world_state.grid_connectors) == 1, "Only one grid connector supported"
 
     def step(self, event_list=[]):
+        """
+        Calculates charging in each timestep.
+
+        :param event_list: List of events
+        :type event_list: list
+        :return: current time and commands of the charging stations
+        :rtype: dict
+        """
         super().step(event_list)
 
         timesteps_per_day = datetime.timedelta(days=1) // self.interval
@@ -74,6 +84,10 @@ class PeakLoadWindow(Strategy):
         standing = {}
         energy_needed = 0
         for vid, v in self.world_state.vehicles.items():
+            if v.vehicle_type.v2g:
+                warnings.warn("The vehicle type of vehicle {} is set to V2G although V2G is not "
+                              "supported with peak_load_window strategy. V2G will thus be "
+                              "neglected.".format(vid))
             if v.connected_charging_station is not None:
                 vehicles[vid] = v
                 energy_needed += v.get_energy_needed(full=False)
@@ -246,8 +260,19 @@ class PeakLoadWindow(Strategy):
         return {'current_time': self.current_time, 'commands': commands}
 
     def distribute_power(self, vehicles, total_power, energy_needed):
+        """Distribute total_power to vehicles in iterable vehicles according to self.LOAD_STRAT
+
+        :param vehicles: vehicles object
+        :type vehicles: object
+        :param total_power: total available power
+        :type total_power: numeric
+        :param energy_needed: total energy needed to charge every vehicle (used in needy strategy)
+        :type energy_needed: numeric
+        :return: commands for charging station
+        :rtype: dict
+        """
         # distribute total_power to vehicles in iterable vehicles according to self.LOAD_STRAT
-        # energy_needed is total energy needed to charge every vehicle, used in needy strategy
+        # energy_needed is
         if not vehicles:
             return {}
         if total_power < self.EPS:

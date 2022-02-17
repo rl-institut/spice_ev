@@ -12,24 +12,50 @@ def class_from_str(strategy_name):
 
 
 class Strategy():
-    """ strategy
+    """
+    Parent class for the individual strategies.
+
+    :param constants: class containing the constant componants
+    :type constants: class
+    :param start_time: start time of the simulation
+    :type start_time: datetime
+    :param interval: interval of one timestep of the simulation (e.g. 15 min)
+    :type interval: timedelta
+    :param kwargs: other input parameters
+    :type kwargs: dict
     """
 
     def __init__(self, constants, start_time, **kwargs):
+
         self.world_state = deepcopy(constants)
         self.world_state.future_events = []
         self.interval = kwargs.get('interval')  # required
         self.current_time = start_time - self.interval
         # relative allowed difference between battery SoC and desired SoC when leaving
-        self.margin = 0.05
+        self.margin = 0.1
         self.allow_negative_soc = False
+        self.V2G_POWER_FACTOR = 0.5
+        # check if strategy uses grid signals & enable/disable plotting of schedule or window
+        self.uses_schedule = False
+        self.uses_window = False
         # tolerance for floating point comparison
         self.EPS = 1e-5
+        # Reduce available power at each charging station to given fraction (0 - 1)
+        for cs in self.world_state.charging_stations.values():
+            cs.max_power = kwargs.get('CONCURRENCY', 1.0) * cs.max_power
         # update optional
         for k, v in kwargs.items():
             setattr(self, k, v)
 
     def step(self, event_list=[]):
+        """
+        Method of Strategy that sets up initial conditions for the charging strategy in each time
+        step.
+
+        :param event_list: List of events
+        :type event_list: list
+        """
+
         self.current_time += self.interval
 
         self.world_state.future_events += event_list
@@ -63,6 +89,8 @@ class Strategy():
                 if ev.target is not None:
                     # set target power from schedule
                     connector.target = ev.target
+                if ev.window is not None:
+                    connector.window = ev.window
                 # set max power from event
                 if connector.max_power:
                     if ev.max_power is None:

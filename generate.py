@@ -4,9 +4,13 @@ import argparse
 import datetime
 import json
 import random
+import warnings
 from os import path
 
-from src.util import set_options_from_config
+from src.util import set_options_from_config, datetime_from_isoformat
+
+
+DEFAULT_START_TIME = "2018-01-01T01:00:00+02:00"
 
 
 def datetime_from_string(s):
@@ -15,21 +19,29 @@ def datetime_from_string(s):
 
 
 def generate_trip(args):
+    """
+    Creates randomly generated dummy trips from average input arguments
+
+    :param args: input arguments
+    :type args: argparse.Namespace
+    :return:
+        start.time(), stop.time(), distance
+    """
     # distance of one trip
-    avg_distance = vars(args).get("avg_distance", 44.38)  # km
-    std_distance = vars(args).get("std_distance", 22.59)
-    min_distance = vars(args).get("min_distance", 2.5)
-    max_distance = vars(args).get("max_distance", 175.33)
+    avg_distance = vars(args).get("avg_distance", 47.13)  # km
+    std_distance = vars(args).get("std_distance", 19.89)
+    min_distance = vars(args).get("min_distance", 27.23)
+    max_distance = vars(args).get("max_distance", 67.02)
     # departure time
-    avg_start = vars(args).get("avg_start", "08:30")  # hh:mm
-    std_start = vars(args).get("std_start", 0.75)  # hours
-    min_start = vars(args).get("min_start", "06:15")
-    max_start = vars(args).get("max_start", "10:45")
+    avg_start = vars(args).get("avg_start", "08:15")  # hh:mm
+    std_start = vars(args).get("std_start", 0.42)  # hours
+    min_start = vars(args).get("min_start", "07:00")
+    max_start = vars(args).get("max_start", "09:30")
     # trip duration
-    avg_driving = vars(args).get("avg_driving", 7.75)  # hours
-    std_driving = vars(args).get("std_driving", 2.25)
-    min_driving = vars(args).get("min_driving", 4)
-    max_driving = vars(args).get("max_driving", 11)
+    avg_driving = vars(args).get("avg_driving", 8.33)  # hours
+    std_driving = vars(args).get("std_driving", 1.35)
+    min_driving = vars(args).get("min_driving", 4.28)
+    max_driving = vars(args).get("max_driving", 12.38)
 
     # start time
     start = datetime_from_string(avg_start)
@@ -59,7 +71,11 @@ def generate_trip(args):
 
 def generate(args):
     """Generates a scenario JSON from input Parameters
-    args: argparse.Namespace
+
+    :param args: input arguments
+    :type args: argparse.Namespace
+
+    :return: None
     """
     if args.output is None:
         raise SystemExit("The following argument is required: output")
@@ -67,51 +83,43 @@ def generate(args):
     random.seed(args.seed)
 
     # SIMULATION TIME
-    start = datetime.datetime(year=2021, month=1, day=1,
-                              tzinfo=datetime.timezone(datetime.timedelta(hours=2)))
+    try:
+        start = datetime_from_isoformat(args.start_time)
+    except ValueError:
+        # start time could not be parsed. Use default value.
+        start = datetime_from_isoformat(DEFAULT_START_TIME)
+        warnings.warn("Start time could not be parsed. "
+                      "Use ISO format like YYYY-MM-DDTHH:MM:SS+TZ:TZ. "
+                      "Default start time {} will be used.".format(DEFAULT_START_TIME))
+    start = start.replace(tzinfo=datetime.timezone(datetime.timedelta(hours=2)))
     stop = start + datetime.timedelta(days=args.days)
     interval = datetime.timedelta(minutes=args.interval)
 
     # VEHICLES
-    if not args.cars:
+    if args.cars is None:
         args.cars = [['1', 'golf'], ['1', 'sprinter']]
 
-    # VEHICLE TYPES
-    vehicle_types = {
-        "sprinter": {
-            "name": "sprinter",
-            "capacity": 76,  # kWh
-            "mileage": 40,  # kWh / 100km
-            "charging_curve": [[0, 11], [0.8, 11], [1, 11]],  # kW
-            "min_charging_power": 0,  # kW
-            "v2g": vars(args).get("v2g", False),
-            "count": 0
-        },
-        "golf": {
-            "name": "E-Golf",
-            "capacity": 50,  # kWh
-            "mileage": 16,  # kWh/100km
-            "charging_curve": [[0, 22], [0.8, 22], [1, 22]],  # kW
-            "min_charging_power": 0,  # kW
-            "v2g": vars(args).get("v2g", False),
-            "count": 0
-        }
-    }
+    if args.vehicle_types is None:
+        args.vehicle_types = "examples/vehicle_types.json"
+        print("No definition of vehicle types found, using {}".format(args.vehicle_types))
+    ext = args.vehicle_types.split('.')[-1]
+    if ext != "json":
+        print("File extension mismatch: vehicle type file should be .json")
+    with open(args.vehicle_types) as f:
+        vehicle_types = json.load(f)
 
     for count, vehicle_type in args.cars:
         assert vehicle_type in vehicle_types,\
             'The given vehicle type "{}" is not valid. Should be one of {}'\
             .format(vehicle_type, list(vehicle_types.keys()))
-
-        count = int(count)
-        vehicle_types[vehicle_type]['count'] = count
+        vehicle_types[vehicle_type]["count"] = int(count)
 
     # VEHICLES WITH THEIR CHARGING STATION
     vehicles = {}
     batteries = {}
     charging_stations = {}
     for name, t in vehicle_types.items():
-        for i in range(t["count"]):
+        for i in range(t.get("count", 0)):
             v_name = "{}_{}".format(name, i)
             cs_name = "CS_" + v_name
             vehicles[v_name] = {
@@ -125,7 +133,7 @@ def generate(args):
             cs_power = max([v[1] for v in t['charging_curve']])
             charging_stations[cs_name] = {
                 "max_power": cs_power,
-                "min_power": 0.1 * cs_power,
+                "min_power": 0,  # Could be set to "0.1 * cs_power"
                 "parent": "GC1"
             }
 
@@ -314,7 +322,12 @@ def generate(args):
 
     # end of scenario
 
-    # remove temporary information
+    # remove temporary information, only retain vehicle types that are actually present
+    vehicle_types_present = {}
+    for k, v in vehicle_types.items():
+        if "count" in v and v["count"] > 0:
+            del v["count"]
+            vehicle_types_present[k] = v
     for v in vehicles.values():
         del v["last_arrival_idx"]
 
@@ -323,10 +336,11 @@ def generate(args):
             "start_time": start.isoformat(),
             # "stop_time": stop.isoformat(),
             "interval": interval.days * 24 * 60 + interval.seconds // 60,
-            "n_intervals": (stop - start) // interval
+            "n_intervals": (stop - start) // interval,
+            "discharge_limit": args.discharge_limit
         },
         "constants": {
-            "vehicle_types": vehicle_types,
+            "vehicle_types": vehicle_types_present,
             "vehicles": vehicles,
             "grid_connectors": {
                 "GC1": {
@@ -359,13 +373,23 @@ if __name__ == '__main__':
                         help='set duration of scenario as number of days')
     parser.add_argument('--interval', metavar='MIN', type=int, default=15,
                         help='set number of minutes for each timestep (Δt)')
+    parser.add_argument('--start-time', default=DEFAULT_START_TIME,
+                        help='Provide start time of simulation in ISO format '
+                             'YYYY-MM-DDTHH:MM:SS+TZ:TZ. Precision is 1 second. E.g. '
+                             '2018-01-31T01:00:00+02:00')
     parser.add_argument('--min-soc', metavar='SOC', type=float, default=0.8,
                         help='set minimum desired SOC (0 - 1) for each charging process')
     parser.add_argument('--battery', '-b', default=[], nargs=2, type=float, action='append',
                         help='add battery with specified capacity in kWh and C-rate \
                         (-1 for variable capacity, second argument is fixed power))')
+    parser.add_argument('--gc-power', type=int, default=530, help='set power at grid connection '
+                                                                  'point in kW')
     parser.add_argument('--seed', default=None, type=int, help='set random seed')
 
+    parser.add_argument('--vehicle-types', default=None,
+                        help='location of vehicle type definitions')
+    parser.add_argument('--discharge_limit', default=0.5,
+                        help='Minimum SoC to discharge to during v2g. [0-1]')
     parser.add_argument('--include-ext-load-csv',
                         help='include CSV for external load. \
                         You may define custom options with --include-ext-csv-option')

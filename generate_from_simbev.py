@@ -14,7 +14,11 @@ from src.loading_curve import LoadingCurve
 
 def generate_from_simbev(args):
     """Generate a scenario JSON from simBEV results.
-    args: argparse.Namespace
+
+    :param args: input arguments
+    :type args: argparse.Namespace
+    :return: None
+
     """
     missing = [arg for arg in ["output", "simbev"] if vars(args).get(arg) is None]
     if missing:
@@ -27,75 +31,14 @@ def generate_from_simbev(args):
     interval = datetime.timedelta(minutes=args.interval)
     n_intervals = 0
 
-    # possible vehicle types
-    vehicle_types = {
-        "bev_luxury": {
-            "name": "bev_luxury",
-            "capacity": 90,  # kWh
-            "mileage": 40,  # kWh / 100 km
-            "charging_curve": [[0, 300], [0.8, 300], [1, 300]],  # SOC -> kWh
-            "min_charging_power": 0,
-        },
-        "bev_medium": {
-            "name": "bev_medium",
-            "capacity": 65,  # kWh
-            "mileage": 40,  # kWh / 100 km
-            "charging_curve": [[0, 150], [0.8, 150], [1, 150]],  # SOC -> kWh
-            "min_charging_power": 0,
-        },
-        "bev_mini": {
-            "name": "bev_mini",
-            "capacity": 30,  # kWh
-            "mileage": 40,  # kWh / 100 km
-            "charging_curve": [[0, 50], [0.8, 50], [1, 50]],  # SOC -> kWh
-            "min_charging_power": 0,
-        },
-        "phev_luxury": {
-            "name": "phev_luxury",
-            "capacity": 40,  # kWh
-            "mileage": 40,  # kWh / 100 km
-            "charging_curve": [[0, 22], [0.8, 22], [1, 0]],  # SOC -> kWh
-            "min_charging_power": 0,
-        },
-        "phev_medium": {
-            "name": "phev_medium",
-            "capacity": 20,  # kWh
-            "mileage": 30,  # kWh / 100 km
-            "charging_curve": [[0, 22], [0.8, 22], [1, 0]],  # SOC -> kWh
-            "min_charging_power": 0,
-        },
-        "phev_mini": {
-            "name": "phev_mini",
-            "capacity": 15,  # kWh
-            "mileage": 25,  # kWh / 100 km
-            "charging_curve": [[0, 22], [0.8, 22], [1, 0]],  # SOC -> kWh
-            "min_charging_power": 0,
-        },
-        "bev_luxury_v2g": {
-            "name": "bev_luxury_v2g",
-            "capacity": 90,  # kWh
-            "mileage": 40,  # kWh / 100 km
-            "charging_curve": [[0, 300], [0.8, 300], [1, 300]],  # SOC -> kWh
-            "min_charging_power": 0,
-            "v2g": True
-        },
-        "bev_medium_v2g": {
-            "name": "bev_medium_v2g",
-            "capacity": 65,  # kWh
-            "mileage": 40,  # kWh / 100 km
-            "charging_curve": [[0, 150], [0.8, 150], [1, 150]],  # SOC -> kWh
-            "min_charging_power": 0,
-            "v2g": True
-        },
-        "bev_mini_v2g": {
-            "name": "bev_mini_v2g",
-            "capacity": 30,  # kWh
-            "mileage": 40,  # kWh / 100 km
-            "charging_curve": [[0, 50], [0.8, 50], [1, 50]],  # SOC -> kWh
-            "min_charging_power": 0,
-            "v2g": True
-        }
-    }
+    if args.vehicle_types is None:
+        args.vehicle_types = "examples/vehicle_types.json"
+        print("No definition of vehicle types found, using {}".format(args.vehicle_types))
+    ext = args.vehicle_types.split('.')[-1]
+    if ext != "json":
+        print("File extension mismatch: vehicle type file should be .json")
+    with open(args.vehicle_types) as f:
+        vehicle_types = json.load(f)
 
     def datetime_from_timestep(timestep):
         assert type(timestep) == int
@@ -549,7 +492,9 @@ if __name__ == '__main__':
                         help='Set verbosity level. Use this multiple times for more output. '
                              'Default: only errors, 1: warnings, 2: debug')
 
-    # csv files
+    # input files (CSV, JSON)
+    parser.add_argument('--vehicle-types', default=None,
+                        help='location of vehicle type definitions')
     parser.add_argument('--include-ext-load-csv',
                         help='include CSV for external load. \
                         You may define custom options with --include-ext-csv-option')

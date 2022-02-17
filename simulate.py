@@ -11,17 +11,19 @@ from src.util import set_options_from_config
 
 STRATEGIES = [
     'greedy', 'greedy_market',
-    'balanced',
+    'balanced', 'balanced_market',
     'inverse',
-    'peak_load_window',
+    'peak_load_window', 'flex_window',
     'schedule', 'schedule_foresight',
     'v2g',
 ]
 
 
 def simulate(args):
-    """Simulate with input-JSON.
-    args: argparse.Namespace
+    """Reads in simulation input arguments, sets up scenario and runs the simulation.
+
+    :param args: input arguments from simulate.cfg file or command line arguments
+    :type args: argparse.Namespace
     """
     if args.input is None or not os.path.exists(args.input):
         raise SystemExit("Please specify a valid input file.")
@@ -32,6 +34,7 @@ def simulate(args):
         'margin': args.margin,
         'save_timeseries': args.save_timeseries,
         'save_results': args.save_results,
+        'testing': args.testing
     }
 
     # parse strategy options
@@ -83,6 +86,7 @@ if __name__ == '__main__':
     parser.add_argument('--output', '-o', help='Deprecated, use save-timeseries instead')
     parser.add_argument('--save-timeseries', help='Write timesteps to file')
     parser.add_argument('--save-results', help='Write general info to file')
+    parser.add_argument('--testing', help='Stores testing results', action='store_true')
     parser.add_argument('--config', help='Use config file to set arguments')
     args = parser.parse_args()
 
