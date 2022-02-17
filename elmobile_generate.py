@@ -17,7 +17,8 @@ def generate_function(output, simbev, interval=15, price_seed=0, min_soc=0.5, mi
                        include_ext_load_csv=include_ext_load_csv, include_ext_csv_option=include_ext_csv_option,
                        include_feed_in_csv=include_feed_in_csv, include_feed_in_csv_option=include_feed_in_csv_option,
                        include_price_csv=None, include_price_csv_option=[], min_soc_threshold=min_soc_threshold,
-                       verbose=verbose, config=None, eps=1e-10, use_simbev_soc=True, gc_power=1000000, v2g=v2g)
+                       verbose=verbose, config=None, eps=1e-10, use_simbev_soc=True, gc_power=1000000, v2g=v2g,
+                       vehicle_types="vehicle_types_elmobile.json")
     generate_from_simbev(params)
 
 

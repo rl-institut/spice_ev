@@ -8,12 +8,12 @@ from argparse import Namespace
 from pathlib import Path
 
 
-def simulate_function(input_file, output_file, result_file="results.json", strategy="balanced"):
+def simulate_function(input_file, output_file, result_file="results.json", strategy="balanced", testing=False):
     """Call simulate with a complete Namespace
     input_file: Path to scenario json as String
     """
     params = Namespace(input=input_file, strategy=strategy, margin=1,
-                       strategy_option=[("allow_negative_soc", True)], visual=False,
+                       strategy_option=[("allow_negative_soc", True)], visual=False, testing=testing,
                        save_timeseries=output_file, save_results=result_file, config=None, eta=False)
     simulate(params)
 
