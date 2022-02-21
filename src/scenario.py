@@ -375,6 +375,15 @@ class Scenario:
                 })
                 json_results["max. stored energy in batteries"] = bat_dict
 
+            # total energy charged (without discharge events) by all vehicles
+            total_car_energy = sum([sum(map(
+                lambda v: max(v, 0), r["commands"].values())) for r in results])
+            json_results["sum_energy_vehicles"] = {
+                "value": total_car_energy/stepsPerHour,
+                "unit": "kWh",
+                "info": "Total energy charged by all vehicles (only charge, no discharge events)"
+            }
+
             # charging cycles
             # stationary batteries
             total_bat_cap = 0
@@ -398,8 +407,6 @@ class Scenario:
                 }
             # vehicles
             total_car_cap = sum([v.battery.capacity for v in self.constants.vehicles.values()])
-            total_car_energy = sum([sum(map(
-                lambda v: max(v, 0), r["commands"].values())) for r in results])
             json_results["vehicle battery cycles"] = {
                 "value": total_car_energy/total_car_cap,
                 "unit": None,
