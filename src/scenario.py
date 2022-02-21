@@ -381,7 +381,7 @@ class Scenario:
             json_results["sum_energy_vehicles"] = {
                 "value": total_car_energy/stepsPerHour,
                 "unit": "kWh",
-                "info": "Total energy charged by all vehicles (only charge, no discharge events)"
+                "info": "Total energy charged by all vehicles (sum of positive charging events)"
             }
 
             # charging cycles
