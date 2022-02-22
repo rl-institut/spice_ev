@@ -11,7 +11,20 @@ from src.util import set_options_from_config
 
 
 def generate_from_csv(args):
-    """Generates a scenario JSON from csv rotation schedule of fleets.
+    """Generates a scenario JSON from csv rotation schedule of fleets to/from one grid connector.
+
+    note: only one grid connector supported. Each line in the csv resembles one trip. The vehicle is
+    assigned by the vehicle_id. If the column vehicle_id is not given, the trips are assigned to the
+    vehicles by the principle: first in, first out. Note that in this case a minimum standing time
+    can be assigned to control the minimum time a vehicle can charge at the depot.
+
+    Needed columns:
+    - departure time (datetime)
+    - arrival time (datetime)
+    - vehicle_type (as in vehicle_types.json
+    - soc or delta_soc (optional, if not given the milage is taken instead)
+    - vehicle_id (optinal, see explanation above)
+
 
     :param args: input arguments
     :type args: argparse.Namespace
@@ -374,6 +387,8 @@ if __name__ == '__main__':
     parser.add_argument('--include-price-csv-option', '-po', metavar=('KEY', 'VALUE'),
                         nargs=2, default=[], action='append',
                         help='append additional argument to price signals')
+    parser.add_argument('--minimum_standing_time', type=int, default=None,
+                        help='add minimum standing time at depot in hours')
     parser.add_argument('--config', help='Use config file to set arguments',
                         default='examples/generate_from_csv.cfg')
 
