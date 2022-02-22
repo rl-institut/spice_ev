@@ -19,7 +19,7 @@ def generate_from_csv(args):
     can be assigned to control the minimum time a vehicle can charge at the depot.
 
     Needed columns:
-    - departure time (datetime)
+    - departure time in %Y-%m-%d %H:%M:%S
     - arrival time (datetime)
     - vehicle_type (as in vehicle_types.json
     - soc or delta_soc (optional, if not given the milage is taken instead) in [0,1]
