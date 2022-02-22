@@ -138,6 +138,9 @@ def generate_from_csv(args):
             else:
                 delta_soc = float(row["delta_soc"])
 
+            desired_soc = delta_soc * (1 + vars(args).get("buffer", 0.1))
+            desired_soc = max(args.min_soc, desired_soc)
+
             events["vehicle_events"].append({
                 "signal_time": arrival.isoformat(),
                 "start_time": arrival.isoformat(),
@@ -162,7 +165,8 @@ def generate_from_csv(args):
                     "vehicle_id": v_name,
                     "event_type": "departure",
                     "update": {
-                        "estimated_time_of_arrival":  next_arrival.isoformat()
+                        "estimated_time_of_arrival":  next_arrival.isoformat(),
+                        "desired_soc": desired_soc,
                     }
                 })
 
