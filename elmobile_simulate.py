@@ -8,7 +8,7 @@ from argparse import Namespace
 from pathlib import Path
 
 
-def simulate_function(input_file, output_file, result_file="results.json", strategy="balanced", testing=False):
+def simulate_function(input_file, output_file, result_file, strategy="balanced", testing=False):
     """Call simulate with a complete Namespace
     input_file: Path to scenario json as String
     """
@@ -27,5 +27,6 @@ if __name__ == '__main__':
     result_dir = Path(dirs, "res_" + strat)
     result_dir.mkdir(exist_ok=True)
     for counter, plz in enumerate(plz_list):
-        simulate_function(Path(dirs, plz + ".json"), str(Path(result_dir, plz + ".csv")), strategy=strat)
+        simulate_function(Path(dirs, plz + ".json"), str(Path(result_dir, plz + ".csv")),
+                          str(Path(result_dir, plz + ".json")), strategy=strat)
         print("Region {} done! ({}/{})".format(plz, counter+1, len(plz_list)))
