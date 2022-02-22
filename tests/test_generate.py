@@ -129,7 +129,7 @@ class TestGenerate(TestCaseBase):
              "vehicle_types": os.path.join(TEST_REPO_PATH,
                                            "test_data/input_test_generate/vehicle_types.json"),
              "min_standing_time": 10,
-             "export_vehicle_id_csv" : vehicle_id_file})
+             "export_vehicle_id_csv": vehicle_id_file})
         generate_from_csv.generate_from_csv(Namespace(**current_arg_values))
         self.assertIsFile(output_file)
         target_path = os.path.dirname(output_file)

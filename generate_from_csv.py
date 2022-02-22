@@ -412,8 +412,6 @@ def assign_vehicle_id(input, min_standing_time, export=None):
                 input[rotation]["vehicle_id"] = vt + "_" + str(vehicle_number)
     if export:
         from copy import deepcopy
-
-
         dict = deepcopy(input)
         all_rotations = []
         header = []
