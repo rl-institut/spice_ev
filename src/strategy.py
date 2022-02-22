@@ -33,9 +33,8 @@ class Strategy():
         self.current_time = start_time - self.interval
         self.count_negative_soc = {}
         # relative allowed difference between battery SoC and desired SoC when leaving
-        self.margin = 0.01
+	self.margin = 0.1
         self.ALLOW_NEGATIVE_SOC = False
-        self.DISCHARGE_LIMIT = 0
         self.V2G_POWER_FACTOR = 0.5
         # check if strategy uses grid signals & enable/disable plotting of schedule or window
         self.uses_schedule = False
