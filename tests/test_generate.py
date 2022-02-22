@@ -54,7 +54,7 @@ class TestGenerate(TestCaseBase):
         # remove output file
         os.remove(output_file)
 
-    def test_generate_from_csv(self):
+    def test_generate_from_csv_1_soc(self):
         output_file = os.path.join(TEST_REPO_PATH,
                                    "test_data/input_test_generate/generate_from_csv.json")
         current_arg_values = deepcopy(ARG_VALUES1)
@@ -62,11 +62,75 @@ class TestGenerate(TestCaseBase):
         current_arg_values.update({
             "input_file":
                 os.path.join(TEST_REPO_PATH,
-                             "test_data/input_test_generate/rotations_example_table.csv")})
+                             "test_data/input_test_generate/generate_from_csv_template1.csv")})
         current_arg_values.update({
             "vehicle_types":
                 os.path.join(TEST_REPO_PATH,
                              "test_data/input_test_generate/vehicle_types.json")})
+        generate_from_csv.generate_from_csv(Namespace(**current_arg_values))
+        self.assertIsFile(output_file)
+        os.remove(output_file)
+
+    def test_generate_from_csv_2_delta_soc(self):
+        output_file = os.path.join(TEST_REPO_PATH,
+                                   "test_data/input_test_generate/generate_from_csv.json")
+        current_arg_values = deepcopy(ARG_VALUES1)
+        current_arg_values.update({"output": output_file})
+        current_arg_values.update({
+            "input_file":
+                os.path.join(TEST_REPO_PATH,
+                             "test_data/input_test_generate/generate_from_csv_template2.csv")})
+        current_arg_values.update({
+            "vehicle_types":
+                os.path.join(TEST_REPO_PATH,
+                             "test_data/input_test_generate/vehicle_types.json")})
+        generate_from_csv.generate_from_csv(Namespace(**current_arg_values))
+        self.assertIsFile(output_file)
+        os.remove(output_file)
+
+    def test_generate_from_csv_3_distance(self):
+        output_file = os.path.join(TEST_REPO_PATH,
+                                   "test_data/input_test_generate/generate_from_csv.json")
+        current_arg_values = deepcopy(ARG_VALUES1)
+        current_arg_values.update({"output": output_file})
+        current_arg_values.update({
+            "input_file":
+                os.path.join(TEST_REPO_PATH,
+                             "test_data/input_test_generate/generate_from_csv_template3.csv")})
+        current_arg_values.update({
+            "vehicle_types":
+                os.path.join(TEST_REPO_PATH,
+                             "test_data/input_test_generate/vehicle_types.json")})
+        generate_from_csv.generate_from_csv(Namespace(**current_arg_values))
+        self.assertIsFile(output_file)
+        os.remove(output_file)
+
+    def test_generate_from_csv_4_vehicle_id(self):
+        output_file = os.path.join(TEST_REPO_PATH,
+                                   "test_data/input_test_generate/generate_from_csv.json")
+        current_arg_values = deepcopy(ARG_VALUES1)
+        current_arg_values.update({"output": output_file,
+                                    "input_file":
+                                        os.path.join(TEST_REPO_PATH,
+                                                     "test_data/input_test_generate/generate_from_csv_template4.csv"),
+                                   "vehicle_types": os.path.join(TEST_REPO_PATH,
+                                                                 "test_data/input_test_generate/vehicle_types.json"),
+                                   "min_standing_time": None})
+        generate_from_csv.generate_from_csv(Namespace(**current_arg_values))
+        self.assertIsFile(output_file)
+        os.remove(output_file)
+
+    def test_generate_from_csv_5_min_standing_time(self):
+        output_file = os.path.join(TEST_REPO_PATH,
+                                   "test_data/input_test_generate/generate_from_csv.json")
+        current_arg_values = deepcopy(ARG_VALUES1)
+        current_arg_values.update({"output": output_file,
+                                    "input_file":
+                                        os.path.join(TEST_REPO_PATH,
+                                                     "test_data/input_test_generate/generate_from_csv_template4.csv"),
+                                   "vehicle_types": os.path.join(TEST_REPO_PATH,
+                                                                 "test_data/input_test_generate/vehicle_types.json"),
+                                   "min_standing_time": 10})
         generate_from_csv.generate_from_csv(Namespace(**current_arg_values))
         self.assertIsFile(output_file)
         os.remove(output_file)

@@ -11,7 +11,21 @@ from src.util import set_options_from_config
 
 
 def generate_from_csv(args):
-    """Generates a scenario JSON from csv rotation schedule of fleets.
+    """Generates a scenario JSON from csv rotation schedule of fleets to/from one grid connector.
+
+    note: only one grid connector supported. Each line in the csv resembles one trip. The vehicle is
+    assigned by the vehicle_id. If the column vehicle_id is not given, the trips are assigned to the
+    vehicles by the principle: first in, first out. Note that in this case a minimum standing time
+    can be assigned to control the minimum time a vehicle can charge at the depot.
+
+    Needed columns:
+    - departure time (datetime)
+    - arrival time (datetime)
+    - vehicle_type (as in vehicle_types.json
+    - soc or delta_soc (optional, if not given the milage is taken instead) in [0,1]
+    - vehicle_id (optinal, see explanation above)
+    - distance (optinal, needed if columns soc or delta_soc are not given) in km
+
 
     :param args: input arguments
     :type args: argparse.Namespace
@@ -37,15 +51,11 @@ def generate_from_csv(args):
     with open(args.vehicle_types) as f:
         predefined_vehicle_types = json.load(f)
 
-    for row in input:
-        row["vehicle_type"] = row["vehicle_type"] + "-" + row["charging_type"]
+    if "vehicle_id" not in input[0].keys():
+        print("The column 'vehicle_id' is missing, therefore vehicles are assigned atomatically by "
+              "the principle 'first in first out'.")
+        input = add_vehicle_id(input, args.min_standing_time)
 
-    input = add_vehicle_id(input)
-
-    for row in input:
-        row["vehicle_type"] = row["vehicle_id"].split('_')[0]
-
-    number_vehicles_per_type = get_number_vehicles_per_vehicle_type(input)
     vehicle_types = {}
     vehicles = {}
     batteries = {}
@@ -56,7 +66,7 @@ def generate_from_csv(args):
         "energy_feed_in": {},
         "vehicle_events": []
     }
-    for vehicle_type in number_vehicles_per_type:
+    for vehicle_type in {item['vehicle_type'] for item in input}:
         # update vehicle types with vehicles in input csv
         try:
             vehicle_types.update({vehicle_type: predefined_vehicle_types[vehicle_type]})
@@ -64,83 +74,97 @@ def generate_from_csv(args):
             print(f"The vehicle type {vehicle_type} defined in the input csv cannot be found in "
                   f"vehicle_types.json. Please check for consistency.")
 
-    for bus_type in number_vehicles_per_type.keys():
-        for i in range(1, number_vehicles_per_type[bus_type]+1):
-            name = bus_type
-            v_name = "{}_{}".format(name, i)
-            cs_name = "CS_" + v_name
-            # define start conditions
-            vehicles[v_name] = {
-                "connected_charging_station": None,
-                "estimated_time_of_departure": None,
-                "desired_soc": args.min_soc,
-                "soc": args.min_soc,
-                "vehicle_type": name
-            }
+    for vehicle_id in {item['vehicle_id'] for item in input}:
+        vt = vehicle_id.split("_")[0]
+        v_name = vehicle_id
+        cs_name = "CS_" + v_name
+        # define start conditions
+        vehicles[v_name] = {
+            "connected_charging_station": None,
+            "estimated_time_of_departure": None,
+            "desired_soc": args.min_soc,
+            "soc": args.min_soc,
+            "vehicle_type": vt
+        }
 
-            t = vehicle_types[name]
+        cs_power = max([v[1] for v in vehicle_types[vt]['charging_curve']])
+        charging_stations[cs_name] = {
+            "max_power": cs_power,
+            "min_power": 0.1 * cs_power,
+            "parent": "GC1"
+        }
 
-            cs_power = max([v[1] for v in t['charging_curve']])
-            charging_stations[cs_name] = {
-                "max_power": cs_power,
-                "min_power": 0.1 * cs_power,
-                "parent": "GC1"
-            }
+        # filter all rides for that vehicle
+        vid_list = []
+        [vid_list.append(row) for row in input if (row["vehicle_id"] == v_name)]
 
-            # filter all rides for that bus
-            vid_list = []
-            [vid_list.append(row) for row in input if (row["vehicle_id"] == v_name)]
+        # sort events for their departure time, so that the matching departure time of an
+        # arrival event can be read out of the next element in vid_list
+        vid_list = sorted(vid_list, key=lambda x: x["departure_time"])
+        for index, row in enumerate(vid_list):
+            departure_event_in_input = True
+            arrival = row["arrival_time"]
+            arrival = datetime.datetime.strptime(arrival, '%Y-%m-%d %H:%M:%S')
+            try:
+                departure = vid_list[index+1]["departure_time"]
+                departure = datetime.datetime.strptime(departure, '%Y-%m-%d %H:%M:%S')
+                next_arrival = vid_list[index+1]["arrival_time"]
+                next_arrival = datetime.datetime.strptime(next_arrival, '%Y-%m-%d %H:%M:%S')
+            except IndexError:
+                departure_event_in_input = False
+                departure = arrival + datetime.timedelta(hours=8)
 
-            # check if each bus is only used once a day
-            list_vehicle_days = [datetime.datetime.strptime(d["arrival_time"], '%Y-%m-%d %H:%M:%S').weekday() for d in vid_list]
-            count_v_per_day = {i: list_vehicle_days.count(i) for i in list_vehicle_days}
-            if any(v > 1 for v in count_v_per_day.values()):
-                print("A vehicle is used for more than one rotation on the same day. Please check "
-                      "the column >vehicle_id< in the input csv for consistency.")
+            # check if column delta_soc or column soc exists
+            if "delta_soc" not in row.keys():
+                if "soc" in row.keys():
+                    delta_soc = 1 - float(row["soc"])
+                else:
+                    # get vehicle infos
+                    capacity = vehicle_types[vt]["capacity"]
+                    try:
+                        # convert mileage per 100 km in 1 km
+                        mileage = vehicle_types[vt]["mileage"] / 100
+                    except ValueError:
+                        print("In order to assign the vehicle consumption, either a mileage must"
+                              "be given in vehicle_types.json or a soc or delta_soc must be "
+                              "given in the input file. Please check for consistency.")
+                    try:
+                        distance = float(row["distance"])
+                    except ValueError:
+                        print("In order to assign the vehicle consumption via the mileage, the "
+                              "column 'distance' must be given in the input csv. Please check "
+                              "for consistency.")
+                    delta_soc = distance * mileage / capacity
+            else:
+                delta_soc = float(row["delta_soc"])
 
-            # sort events for their departure time, so that the matching departure time of an
-            # arrival event can be read out of the next element in vid_list
-            vid_list = sorted(vid_list, key=lambda x: x["departure_time"])
-            for index, row in enumerate(vid_list):
-                departure_event_in_input = True
-                arrival = row["arrival_time"]
-                arrival = datetime.datetime.strptime(arrival, '%Y-%m-%d %H:%M:%S')
-                try:
-                    departure = vid_list[index+1]["departure_time"]
-                    departure = datetime.datetime.strptime(departure, '%Y-%m-%d %H:%M:%S')
-                    next_arrival = vid_list[index+1]["arrival_time"]
-                    next_arrival = datetime.datetime.strptime(next_arrival, '%Y-%m-%d %H:%M:%S')
-                except IndexError:
-                    departure_event_in_input = False
-                    departure = arrival + datetime.timedelta(hours=8)
+            events["vehicle_events"].append({
+                "signal_time": arrival.isoformat(),
+                "start_time": arrival.isoformat(),
+                "vehicle_id": v_name,
+                "event_type": "arrival",
+                "update": {
+                    "connected_charging_station": "CS_" + v_name,
+                    "estimated_time_of_departure": departure.isoformat(),
+                    "soc_delta": delta_soc,
+                }
+            })
 
+            # give warning if desired_soc < soc_delta
+            if args.min_soc < delta_soc:
+                print(f"The minimum desired soc of {args.min_soc} is lower than the delta_soc"
+                      f" of the next ride.")
+
+            if departure_event_in_input:
                 events["vehicle_events"].append({
-                    "signal_time": arrival.isoformat(),
-                    "start_time": arrival.isoformat(),
+                    "signal_time": departure.isoformat(),
+                    "start_time": departure.isoformat(),
                     "vehicle_id": v_name,
-                    "event_type": "arrival",
+                    "event_type": "departure",
                     "update": {
-                        "connected_charging_station": "CS_" + v_name,
-                        "estimated_time_of_departure": departure.isoformat(),
-                        "soc_delta": ((100 - float(row["soc"])) / 100) * (-1),
+                        "estimated_time_of_arrival":  next_arrival.isoformat()
                     }
                 })
-
-                # give warning if desired_soc < soc_delta
-                if args.min_soc < ((100 - float(row["soc"])) / 100):
-                    print(f"The minimum desired soc of {args.min_soc} is lower than the delta_soc"
-                          f" of the next ride.")
-
-                if departure_event_in_input:
-                    events["vehicle_events"].append({
-                        "signal_time": departure.isoformat(),
-                        "start_time": departure.isoformat(),
-                        "vehicle_id": v_name,
-                        "event_type": "departure",
-                        "update": {
-                            "estimated_time_of_arrival":  next_arrival.isoformat()
-                        }
-                    })
 
     # add stationary battery
     for idx, (capacity, c_rate) in enumerate(args.battery):
@@ -291,35 +315,6 @@ def generate_from_csv(args):
         json.dump(j, f, indent=2)
 
 
-def get_number_vehicles_per_vehicle_type(dict):
-    """
-    Evaluates the number of vehicles per vehicle_type from the input csv.
-
-    :param dict: dictionary with all trips as elements
-    :type dict: dict
-    :return: dictionary {vehicle_type : number of vehicles}
-    :rtype: dict
-    """
-
-    count_vehicles = {}
-    list_vt = []
-    for row in dict:
-        list_vt.append(row["vehicle_type"])
-    # count the appearance of each vehicle_type
-    count_vt = {i: list_vt.count(i) for i in list_vt}
-
-    # restructure trips to days of the week and count max number of vehicles per day
-    count_vehicles = {bus_type: [0] * 7 for bus_type in count_vt.keys()}
-    for row in dict:
-        weekday = datetime.datetime.strptime(row["arrival_time"], '%Y-%m-%d %H:%M:%S').weekday()
-
-        count_vehicles[row["vehicle_type"]][weekday-1] += 1
-    for bus_type in count_vehicles.keys():
-        count_vehicles[bus_type] = max(count_vehicles[bus_type])
-
-    return count_vehicles
-
-
 def csv_to_dict(csv_path):
     """
     Reads csv file and returns a dict with each element representing a trip
@@ -348,64 +343,72 @@ def csv_to_dict(csv_path):
             dict.append(row_data)
     return dict
 
-def add_vehicle_id(input, safe=True):
+
+def add_vehicle_id(input, min_standing_time, export=False):
     """
-    Assigns all rotations to specific vehicles with distinct vehicle_id.
+    Assigns all rotations to specific vehicles with distinct vehicle_id. The assignment follows the
+    principle "first in, first out". The assignment of a minimum standing time in hours is optional.
+
     :param input: schedule of rotations
     :type input: dict
+    :param min_standing_time: minimum standing time at depot in hours
+    :type min_standing_time: int
     :param safe: saved input dict as csv
     :type safe: bool
     :return: schedule of rotations
     :rtype: dict
     """
+    # add index
+    for i, row in enumerate(input):
+        row["index"] = i
     # list of dicts to dict
-    input = {item['rotation_id']: item for item in input}
-    from copy import deepcopy
+    input = {item['index']: item for item in input}
 
-    # sort rotations and add add vehicle_id
+    if not min_standing_time:
+        min_standing_time = 0
+
     # filter for vehicle_type
     vehicle_types = set(d['vehicle_type'] for d in input.values())
     for vt in vehicle_types:
         vt_line = {k: v for k, v in input.items() if v["vehicle_type"] == vt}
+        vehicle_number = 0
         # sort list of vehicles by departure time
-#        depot_stations = set(d['arrival_name'] for d in vt_line.values())
-#        for depot in depot_stations:
-        bus_number = 0
-#        d_line = {k: v for k, v in vt_line.items() if v["arrival_name"] == depot}
         departures = {key: value for key, value in sorted(vt_line.items(),
                       key=lambda x: x[1]['departure_time'])}
+        # sort list of vehicles by arrival time
         arrivals = {key: value for key, value in sorted(vt_line.items(),
                     key=lambda x: x[1]['arrival_time'])}
         # get the first arrival
         first_arrival_time = arrivals[list(arrivals.keys())[0]]["arrival_time"]
+        # parse through rotations in departure list and assign vehicle id
         for rotation in departures.keys():
-            # solange erstes fahrzeug noch nicht wieder angekommen ist: hochzählen
-            if datetime.datetime.strptime(first_arrival_time, '%Y-%m-%d %H:%M:%S')+datetime.timedelta(hours=6) >= datetime.datetime.strptime(vt_line[rotation]["departure_time"], '%Y-%m-%d %H:%M:%S'):
-                bus_number += 1
-                input[rotation]["vehicle_id"] = vt + "_" + str(bus_number)
-            # sobald erstes Fahreug wieder angekommen ist, alte Fahreugnummer nehmen
-            elif datetime.datetime.strptime(arrivals[list(arrivals.keys())[0]]["arrival_time"], '%Y-%m-%d %H:%M:%S') +datetime.timedelta(hours=6) < \
-                    datetime.datetime.strptime(vt_line[rotation]["departure_time"], '%Y-%m-%d %H:%M:%S'):
-                #try:
-                #    a_bus_number = arrivals[list(arrivals.keys())[0]]["vehicle_id"]
-                #except:
-                #    print("stop")
+            # as long as the first vehicle has not arrived yet: add vehicle_id number
+            if datetime.datetime.strptime(first_arrival_time, '%Y-%m-%d %H:%M:%S') + \
+                    datetime.timedelta(hours=min_standing_time) >= \
+                    datetime.datetime.strptime(vt_line[rotation]["departure_time"],
+                                               '%Y-%m-%d %H:%M:%S'):
+                vehicle_number += 1
+                input[rotation]["vehicle_id"] = vt + "_" + str(vehicle_number)
+            # as soon as departure is after the first arrival take first vehicle_number in line
+            elif datetime.datetime.strptime(arrivals[list(arrivals.keys())[0]]["arrival_time"],
+                                            '%Y-%m-%d %H:%M:%S') + \
+                    datetime.timedelta(hours=min_standing_time) < \
+                    datetime.datetime.strptime(vt_line[rotation]["departure_time"],
+                                               '%Y-%m-%d %H:%M:%S'):
                 arrival_rotation = list(arrivals.keys())[0]
-                try:
-                    a_bus_number = input[arrival_rotation]["vehicle_id"]
-                except:
-                    print("stop")
+                a_bus_number = input[arrival_rotation]["vehicle_id"]
                 del arrivals[arrival_rotation]
                 input[rotation]["vehicle_id"] = a_bus_number
             else:
-                bus_number += 1
-                input[rotation]["vehicle_id"] = vt + "_" + str(bus_number)
-    if safe:
+                # no vehicle in line left, add new vehicle number
+                vehicle_number += 1
+                input[rotation]["vehicle_id"] = vt + "_" + str(vehicle_number)
+    if export:
+        from copy import deepcopy
         dict = deepcopy(input)
         all_rotations = []
         header = []
         for rotation_id, rotation in dict.items():
-#            del rotation["trips"]
             if not header:
                 for k, v in rotation.items():
                     header.append(k)
@@ -453,6 +456,10 @@ if __name__ == '__main__':
     parser.add_argument('--include-price-csv-option', '-po', metavar=('KEY', 'VALUE'),
                         nargs=2, default=[], action='append',
                         help='append additional argument to price signals')
+    parser.add_argument('--min-standing-time', type=int, default=None,
+                        help='set minimum standing time at depot in hours')
+    parser.add_argument('--export-vehicle-id-csv', default=False,
+                        help='option to export csv after assigning vehicle_id')
     parser.add_argument('--config', help='Use config file to set arguments',
                         default='examples/generate_from_csv.cfg')
 
