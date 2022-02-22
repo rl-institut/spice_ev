@@ -24,7 +24,7 @@ def generate_from_csv(args):
     - vehicle_type (as in vehicle_types.json
     - soc or delta_soc (optional, if not given the milage is taken instead) in [0,1]
     - vehicle_id (optinal, see explanation above)
-    - distance (optinal, needed if columns soc or delta_soc are not given) in km
+    - distance in km (optinal, needed if columns soc or delta_soc are not given)
 
 
     :param args: input arguments
