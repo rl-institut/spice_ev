@@ -38,6 +38,11 @@ def generate_from_csv(args):
         predefined_vehicle_types = json.load(f)
 
     for row in input:
+        row["vehicle_type"] = row["vehicle_type"] + "-" + row["charging_type"]
+
+    input = add_vehicle_id(input)
+
+    for row in input:
         row["vehicle_type"] = row["vehicle_id"].split('_')[0]
 
     number_vehicles_per_type = get_number_vehicles_per_vehicle_type(input)
@@ -72,7 +77,9 @@ def generate_from_csv(args):
                 "soc": args.min_soc,
                 "vehicle_type": name
             }
+
             t = vehicle_types[name]
+
             cs_power = max([v[1] for v in t['charging_curve']])
             charging_stations[cs_name] = {
                 "max_power": cs_power,
@@ -305,6 +312,7 @@ def get_number_vehicles_per_vehicle_type(dict):
     count_vehicles = {bus_type: [0] * 7 for bus_type in count_vt.keys()}
     for row in dict:
         weekday = datetime.datetime.strptime(row["arrival_time"], '%Y-%m-%d %H:%M:%S').weekday()
+
         count_vehicles[row["vehicle_type"]][weekday-1] += 1
     for bus_type in count_vehicles.keys():
         count_vehicles[bus_type] = max(count_vehicles[bus_type])
@@ -339,6 +347,77 @@ def csv_to_dict(csv_path):
             # add data to json store
             dict.append(row_data)
     return dict
+
+def add_vehicle_id(input, safe=True):
+    """
+    Assigns all rotations to specific vehicles with distinct vehicle_id.
+    :param input: schedule of rotations
+    :type input: dict
+    :param safe: saved input dict as csv
+    :type safe: bool
+    :return: schedule of rotations
+    :rtype: dict
+    """
+    # list of dicts to dict
+    input = {item['rotation_id']: item for item in input}
+    from copy import deepcopy
+
+    # sort rotations and add add vehicle_id
+    # filter for vehicle_type
+    vehicle_types = set(d['vehicle_type'] for d in input.values())
+    for vt in vehicle_types:
+        vt_line = {k: v for k, v in input.items() if v["vehicle_type"] == vt}
+        # sort list of vehicles by departure time
+#        depot_stations = set(d['arrival_name'] for d in vt_line.values())
+#        for depot in depot_stations:
+        bus_number = 0
+#        d_line = {k: v for k, v in vt_line.items() if v["arrival_name"] == depot}
+        departures = {key: value for key, value in sorted(vt_line.items(),
+                      key=lambda x: x[1]['departure_time'])}
+        arrivals = {key: value for key, value in sorted(vt_line.items(),
+                    key=lambda x: x[1]['arrival_time'])}
+        # get the first arrival
+        first_arrival_time = arrivals[list(arrivals.keys())[0]]["arrival_time"]
+        for rotation in departures.keys():
+            # solange erstes fahrzeug noch nicht wieder angekommen ist: hochzählen
+            if datetime.datetime.strptime(first_arrival_time, '%Y-%m-%d %H:%M:%S')+datetime.timedelta(hours=6) >= datetime.datetime.strptime(vt_line[rotation]["departure_time"], '%Y-%m-%d %H:%M:%S'):
+                bus_number += 1
+                input[rotation]["vehicle_id"] = vt + "_" + str(bus_number)
+            # sobald erstes Fahreug wieder angekommen ist, alte Fahreugnummer nehmen
+            elif datetime.datetime.strptime(arrivals[list(arrivals.keys())[0]]["arrival_time"], '%Y-%m-%d %H:%M:%S') +datetime.timedelta(hours=6) < \
+                    datetime.datetime.strptime(vt_line[rotation]["departure_time"], '%Y-%m-%d %H:%M:%S'):
+                #try:
+                #    a_bus_number = arrivals[list(arrivals.keys())[0]]["vehicle_id"]
+                #except:
+                #    print("stop")
+                arrival_rotation = list(arrivals.keys())[0]
+                try:
+                    a_bus_number = input[arrival_rotation]["vehicle_id"]
+                except:
+                    print("stop")
+                del arrivals[arrival_rotation]
+                input[rotation]["vehicle_id"] = a_bus_number
+            else:
+                bus_number += 1
+                input[rotation]["vehicle_id"] = vt + "_" + str(bus_number)
+    if safe:
+        dict = deepcopy(input)
+        all_rotations = []
+        header = []
+        for rotation_id, rotation in dict.items():
+#            del rotation["trips"]
+            if not header:
+                for k, v in rotation.items():
+                    header.append(k)
+            all_rotations.append(rotation)
+
+        with open('examples/input_vehicle_id.csv', 'w', encoding='UTF8', newline='') as f:
+            writer = csv.DictWriter(f, fieldnames=header)
+            writer.writeheader()
+            writer.writerows(all_rotations)
+
+    input = list(input.values())
+    return input
 
 
 if __name__ == '__main__':
