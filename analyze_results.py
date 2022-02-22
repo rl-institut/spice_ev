@@ -29,12 +29,8 @@ def analyze_results(dirs):
                 "plz": file.stem,
                 "grid_power_max_kw": grid_power_max,
                 "grid_power_sum_kwh": grid_power_sum,
-                "feed_in_max_kw": feed_in_max,
-                "feed_in_sum_kwh": feed_in_sum,
                 "charging_max_kw": max_charging,
                 "charging_sum_kwh": total_charging,
-                "pv_consumption_%": e,
-                "self_sufficiency_%": a
             }
             output = output.append(result, ignore_index=True)
         else:
@@ -42,9 +38,10 @@ def analyze_results(dirs):
             continue
     for json_file in dirs.rglob("*.json"):
         json_df = pd.read_json(json_file)
+        plz_row = output.loc[output["plz"] == json_file.stem]
         # select values here
         sum_energy_vehicles = json_df.at["value", "sum_energy_vehicles"]
-        output.loc[json_file.stem, "sum_energy_vehicles"] = sum_energy_vehicles
+        output.loc[plz_row.index, "sum_energy_vehicles"] = sum_energy_vehicles
     output_path = Path(dirs, '0_analyzed_results.csv')
     output.to_csv(output_path, sep=';')
     print("Resulting csv is saved as " + str(output_path))
