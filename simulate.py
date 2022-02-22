@@ -23,39 +23,42 @@ def simulate(args):
     """Reads in simulation input arguments, sets up scenario and runs the simulation.
 
     :param args: input arguments from simulate.cfg file or command line arguments
-    :type args: argparse.Namespace
+    :type args: argparse.Namespace or dictionary
     """
-    if args.input is None or not os.path.exists(args.input):
+
+    if type(args) == argparse.Namespace:
+        # cast arguments to dictionary for default handling
+        args = vars(args)
+
+    if args.get("input") is None or not os.path.exists(args["input"]):
         raise SystemExit("Please specify a valid input file.")
 
     options = {
-        'timing': args.eta,
-        'visual': args.visual,
-        'margin': args.margin,
-        'save_timeseries': args.save_timeseries,
-        'save_results': args.save_results,
-        'testing': args.testing
+        'timing': args.get("eta"),
+        'visual': args.get("visual"),
+        'margin': args.get("margin"),
+        'save_timeseries': args.get("save_timeseries"),
+        'save_results': args.get("save_results"),
+        'testing': args.get("testing")
     }
 
     # parse strategy options
-    if args.strategy:
-        # first argument: strategy name
-        strategy_name = args.strategy
-        if strategy_name not in STRATEGIES:
-            raise NotImplementedError("Unknown strategy: {}".format(strategy_name))
-        if args.strategy_option:
-            for opt_key, opt_val in args.strategy_option:
-                try:
-                    # option may be number
-                    opt_val = float(opt_val)
-                except ValueError:
-                    # or not
-                    pass
-                options[opt_key] = opt_val
+    strategy_name = args.get("strategy", "greedy")
+    if strategy_name not in STRATEGIES:
+        raise NotImplementedError("Unknown strategy: {}".format(strategy_name))
+    if args.get("strategy_option"):
+        for opt_key, opt_val in args["strategy_option"]:
+            try:
+                # option may be number
+                opt_val = float(opt_val)
+            except ValueError:
+                # or not
+                pass
+            options[opt_key] = opt_val
 
     # Read JSON
-    with open(args.input, 'r') as f:
-        s = Scenario(json.load(f), os.path.dirname(args.input))
+    with open(args["input"], 'r') as f:
+        s = Scenario(json.load(f), os.path.dirname(args["input"]))
 
     # RUN!
     s.run(strategy_name, options)
