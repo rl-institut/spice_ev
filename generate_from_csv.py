@@ -54,7 +54,7 @@ def generate_from_csv(args):
     if "vehicle_id" not in input[0].keys():
         print("The column 'vehicle_id' is missing, therefore vehicles are assigned atomatically by "
               "the principle 'first in first out'.")
-        input = add_vehicle_id(input, args.min_standing_time)
+        input = assign_vehicle_id(input, args.min_standing_time, args.export_vehicle_id_csv)
 
     vehicle_types = {}
     vehicles = {}
@@ -348,7 +348,7 @@ def csv_to_dict(csv_path):
     return dict
 
 
-def add_vehicle_id(input, min_standing_time, export=False):
+def assign_vehicle_id(input, min_standing_time, export=False):
     """
     Assigns all rotations to specific vehicles with distinct vehicle_id. The assignment follows the
     principle "first in, first out". The assignment of a minimum standing time in hours is optional.
