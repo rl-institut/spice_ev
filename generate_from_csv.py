@@ -57,6 +57,8 @@ def generate_from_csv(args):
         if args.export_vehicle_id_csv:
             target_path = path.dirname(args.output)
             export_filename = path.join(target_path, args.export_vehicle_id_csv)
+        else:
+            export_filename = None
         input = assign_vehicle_id(input, args.min_standing_time, export_filename)
 
     vehicle_types = {}

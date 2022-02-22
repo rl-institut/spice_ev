@@ -66,7 +66,8 @@ class TestGenerate(TestCaseBase):
         current_arg_values.update({
             "vehicle_types":
                 os.path.join(TEST_REPO_PATH,
-                             "test_data/input_test_generate/vehicle_types.json")})
+                             "test_data/input_test_generate/vehicle_types.json"),
+            "export_vehicle_id_csv": None})
         generate_from_csv.generate_from_csv(Namespace(**current_arg_values))
         self.assertIsFile(output_file)
         os.remove(output_file)
@@ -83,7 +84,8 @@ class TestGenerate(TestCaseBase):
         current_arg_values.update({
             "vehicle_types":
                 os.path.join(TEST_REPO_PATH,
-                             "test_data/input_test_generate/vehicle_types.json")})
+                             "test_data/input_test_generate/vehicle_types.json"),
+            "export_vehicle_id_csv": None})
         generate_from_csv.generate_from_csv(Namespace(**current_arg_values))
         self.assertIsFile(output_file)
         os.remove(output_file)
@@ -97,7 +99,8 @@ class TestGenerate(TestCaseBase):
         current_arg_values.update({
             "input_file": os.path.join(TEST_REPO_PATH, input_csv),
             "vehicle_types": os.path.join(TEST_REPO_PATH,
-                                          "test_data/input_test_generate/vehicle_types.json")})
+                                          "test_data/input_test_generate/vehicle_types.json"),
+            "export_vehicle_id_csv": None})
         generate_from_csv.generate_from_csv(Namespace(**current_arg_values))
         self.assertIsFile(output_file)
         os.remove(output_file)
@@ -112,7 +115,8 @@ class TestGenerate(TestCaseBase):
              "input_file": os.path.join(TEST_REPO_PATH, input_csv),
              "vehicle_types": os.path.join(TEST_REPO_PATH,
                                            "test_data/input_test_generate/vehicle_types.json"),
-             "min_standing_time": None})
+             "min_standing_time": None,
+             "export_vehicle_id_csv": None})
         generate_from_csv.generate_from_csv(Namespace(**current_arg_values))
         self.assertIsFile(output_file)
         os.remove(output_file)
