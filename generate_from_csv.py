@@ -20,7 +20,7 @@ def generate_from_csv(args):
 
     Needed columns:
     - departure time in %Y-%m-%d %H:%M:%S
-    - arrival time (datetime)
+    - arrival time in %Y-%m-%d %H:%M:%S
     - vehicle_type (as in vehicle_types.json
     - soc or delta_soc (optional, if not given the milage is taken instead) in [0,1]
     - vehicle_id (optinal, see explanation above)
