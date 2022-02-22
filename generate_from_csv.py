@@ -96,7 +96,7 @@ def generate_from_csv(args):
         cs_power = max([v[1] for v in vehicle_types[vt]['charging_curve']])
         charging_stations[cs_name] = {
             "max_power": cs_power,
-            "min_power": args.cs_power_min,
+            "min_power": vars(args).get("cs_power_min", 0),
             "parent": "GC1"
         }
 
