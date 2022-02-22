@@ -54,7 +54,10 @@ def generate_from_csv(args):
     if "vehicle_id" not in input[0].keys():
         print("The column 'vehicle_id' is missing, therefore vehicles are assigned atomatically by "
               "the principle 'first in first out'.")
-        input = assign_vehicle_id(input, args.min_standing_time, args.export_vehicle_id_csv)
+        if args.export_vehicle_id_csv:
+            target_path = path.dirname(args.output)
+            export_filename = path.join(target_path, args.export_vehicle_id_csv)
+        input = assign_vehicle_id(input, args.min_standing_time, export_filename)
 
     vehicle_types = {}
     vehicles = {}
@@ -348,7 +351,7 @@ def csv_to_dict(csv_path):
     return dict
 
 
-def assign_vehicle_id(input, min_standing_time, export=False):
+def assign_vehicle_id(input, min_standing_time, export=None):
     """
     Assigns all rotations to specific vehicles with distinct vehicle_id. The assignment follows the
     principle "first in, first out". The assignment of a minimum standing time in hours is optional.
@@ -409,6 +412,8 @@ def assign_vehicle_id(input, min_standing_time, export=False):
                 input[rotation]["vehicle_id"] = vt + "_" + str(vehicle_number)
     if export:
         from copy import deepcopy
+
+
         dict = deepcopy(input)
         all_rotations = []
         header = []
@@ -418,7 +423,7 @@ def assign_vehicle_id(input, min_standing_time, export=False):
                     header.append(k)
             all_rotations.append(rotation)
 
-        with open('examples/input_vehicle_id.csv', 'w', encoding='UTF8', newline='') as f:
+        with open(export, 'w', encoding='UTF8', newline='') as f:
             writer = csv.DictWriter(f, fieldnames=header)
             writer.writeheader()
             writer.writerows(all_rotations)
@@ -462,7 +467,7 @@ if __name__ == '__main__':
                         help='append additional argument to price signals')
     parser.add_argument('--min-standing-time', type=int, default=None,
                         help='set minimum standing time at depot in hours')
-    parser.add_argument('--export-vehicle-id-csv', default=False,
+    parser.add_argument('--export-vehicle-id-csv', default=None,
                         help='option to export csv after assigning vehicle_id')
     parser.add_argument('--config', help='Use config file to set arguments',
                         default='examples/generate_from_csv.cfg')
