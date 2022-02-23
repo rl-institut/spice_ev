@@ -42,6 +42,8 @@ def generate_from_csv(args):
     interval = datetime.timedelta(minutes=args.interval)
     # read csv input file
     input = csv_to_dict(args.input_file)
+    # define target path for relative input or output files
+    target_path = path.dirname(args.output)
 
     # VEHICLES
     if args.vehicle_types is None:
@@ -57,7 +59,6 @@ def generate_from_csv(args):
         warnings.warn("Column 'vehicle_id' missing, vehicles are assigned by the principle first in"
                       ", first out.")
         if args.export_vehicle_id_csv:
-            target_path = path.dirname(args.output)
             export_filename = path.join(target_path, args.export_vehicle_id_csv)
         else:
             export_filename = None
@@ -186,8 +187,6 @@ def generate_from_csv(args):
             "charging_curve": [[0, max_power], [1, max_power]]
         }
     # save path and options for CSV timeseries
-    # all paths are relative to output file
-    target_path = path.dirname(args.output)
     times = []
     for row in input:
         times.append(row["departure_time"])
@@ -448,6 +447,9 @@ if __name__ == '__main__':
     parser.add_argument('--cs-power-min', type=float, default=0, help='set minimal power at '
                                                                       'charging station in kW')
     parser.add_argument('--seed', default=None, type=int, help='set random seed')
+
+    parser.add_argument('--vehicle-types', default=None,
+                        help='location of vehicle type definitions')
     parser.add_argument('--include-ext-load-csv',
                         help='include CSV for external load. \
                         You may define custom options with --include-ext-csv-option')
