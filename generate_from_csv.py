@@ -81,7 +81,7 @@ def generate_from_csv(args):
                   f"vehicle_types.json. Please check for consistency.")
 
     for vehicle_id in {item['vehicle_id'] for item in input}:
-        vt = vehicle_id.split("_")[0]
+        vt = [d for d in input if d['vehicle_id'] == vehicle_id][0]["vehicle_type"]
         v_name = vehicle_id
         cs_name = "CS_" + v_name
         # define start conditions
