@@ -14,9 +14,9 @@ from src.util import set_options_from_config
 def generate_from_csv(args):
     """Generates a scenario JSON from csv rotation schedule of fleets to/from one grid connector.
 
-    note: only one grid connector supported. Each line in the csv represents one trip. The vehicle
-    is assigned by the vehicle_id. If the column vehicle_id is not given, the trips are assigned to
-    the vehicles by the principle: first in, first out. Note that in this case a minimum standing
+    note: only one grid connector supported. Each line in the csv represents one trip. Each
+    vehicle_id represents one vehicle. If the column vehicle_id is not given, the trips are assigned
+    to the vehicles by the principle: first in, first out. Note that in this case a minimum standing
     time can be assigned to control the minimum time a vehicle can charge at the depot.
 
     Needed columns:
