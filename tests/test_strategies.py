@@ -157,7 +157,7 @@ class TestScenarios(unittest.TestCase):
         s.run('distributed', {"testing": True, "strategy_option": [["ALLOW_NEGATIVE_SOC", True]]})
         max_power = 0
         for gcID, gc in s.constants.grid_connectors.items():
-             max_power += s.constants.grid_connectors[gcID].max_power
+            max_power += s.constants.grid_connectors[gcID].max_power
         assert s.testing["max_total_load"] <= max_power
         assert s.testing["max_total_load"] > 0
 
