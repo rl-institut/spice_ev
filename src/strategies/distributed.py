@@ -134,15 +134,15 @@ class Distributed(Strategy):
                 # get station type
                 station_type = cs_id.split("_")[-1]
                 if station_type == "opp":
-                    charging_stations = greedy.load_vehicle(self, cs, gc, v, cs_id,
-                                                            charging_stations,
-                                                            avail_bat_power[gcID])
+                    charging_stations, avail_bat_power[gcID] = \
+                        greedy.load_vehicle(self, cs, gc, v, cs_id, charging_stations,
+                                            avail_bat_power[gcID])
                     # load batteries
                     greedy.load_batteries(self)
                 elif station_type == "depot":
-                    charging_stations = balanced.load_vehicle(self, cs, gc, v, cs_id,
-                                                              charging_stations,
-                                                              avail_bat_power[gcID])
+                    charging_stations, avail_bat_power[gcID] = \
+                        balanced.load_vehicle(self, cs, gc, v, cs_id, charging_stations,
+                                              avail_bat_power[gcID])
                     # load batteries
                     greedy.load_batteries(self)
                 else:

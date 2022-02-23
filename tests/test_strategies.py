@@ -151,6 +151,16 @@ class TestScenarios(unittest.TestCase):
             assert s.testing["max_total_load"] <= s.constants.grid_connectors[gcID].max_power
             assert s.testing["max_total_load"] > 0
 
+    def test_distributed_D(self):
+        input = os.path.join(TEST_REPO_PATH, 'test_data/input_test_strategies/bus_scenario_D.json')
+        s = scenario.Scenario(load_json(input), os.path.dirname(input))
+        s.run('distributed', {"testing": True, "strategy_option": [["ALLOW_NEGATIVE_SOC", True]]})
+        max_power = 0
+        for gcID, gc in s.constants.grid_connectors.items():
+             max_power += s.constants.grid_connectors[gcID].max_power
+        assert s.testing["max_total_load"] <= max_power
+        assert s.testing["max_total_load"] > 0
+
     # TEST STRATEGY OUTPUTS
 
     def test_general_outputs(self):
@@ -193,13 +203,13 @@ class TestScenarios(unittest.TestCase):
         for idx in indices_unload_vehicle:
             assert s.testing["timeseries"]["schedule"]["GC1"][idx] is False
         # check if batteries are only loaded in window
-        indices_load_battery = [idx for idx, val in enumerate(s.testing["timeseries"]["loads"]["GC1"][
-                                                                  "BAT1"]) if val > 0]
+        indices_load_battery = [idx for idx, val in enumerate(s.testing["timeseries"]["loads"]
+                                                              ["GC1"]["BAT1"]) if val > 0]
         for idx in indices_load_battery:
             assert s.testing["timeseries"]["schedule"]["GC1"][idx] is True
         # check if batteries are only unloaded outside window
-        indices_unload_battery = [idx for idx, val in enumerate(s.testing["timeseries"]["loads"]["GC1"][
-                                                                    "BAT1"]) if val < 0]
+        indices_unload_battery = [idx for idx, val in enumerate(s.testing["timeseries"]["loads"]
+                                                                ["GC1"]["BAT1"]) if val < 0]
         for idx in indices_unload_battery:
             assert s.testing["timeseries"]["schedule"]["GC1"][idx] is False
 
@@ -217,13 +227,13 @@ class TestScenarios(unittest.TestCase):
                     assert round(cs_load[idx], 0) == s.constants.charging_stations[
                         "CS_golf_0"].max_power
         # check if batteries are only loaded in window
-        indices_load_battery = [idx for idx, val in enumerate(s.testing["timeseries"]["loads"]["GC1"][
-                                                                  "BAT1"]) if val > 0]
+        indices_load_battery = [idx for idx, val in enumerate(s.testing["timeseries"]["loads"]
+                                                              ["GC1"]["BAT1"]) if val > 0]
         for idx in indices_load_battery:
             assert s.testing["timeseries"]["schedule"]["GC1"][idx] is True
         # check if batteries are only unloaded outside window
-        indices_unload_battery = [idx for idx, val in enumerate(s.testing["timeseries"]["loads"]["GC1"][
-                                                                    "BAT1"]) if val < 0]
+        indices_unload_battery = [idx for idx, val in enumerate(s.testing["timeseries"]["loads"]
+                                                                ["GC1"]["BAT1"]) if val < 0]
         for idx in indices_unload_battery:
             assert s.testing["timeseries"]["schedule"]["GC1"][idx] is False
 

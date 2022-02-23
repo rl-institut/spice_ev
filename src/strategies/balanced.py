@@ -52,7 +52,7 @@ class Balanced(Strategy):
 
             charging_stations, avail_bat_power[cs.parent] = \
                 load_vehicle(self, cs, gc, vehicle, cs_id, charging_stations,
-                                             avail_bat_power[cs.parent])
+                             avail_bat_power[cs.parent])
 
         # all vehicles loaded
         # distribute surplus power to vehicles
