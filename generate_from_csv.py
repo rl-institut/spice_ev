@@ -6,6 +6,7 @@ import datetime
 import json
 from os import path
 import random
+import warnings
 
 from src.util import set_options_from_config
 
@@ -13,14 +14,14 @@ from src.util import set_options_from_config
 def generate_from_csv(args):
     """Generates a scenario JSON from csv rotation schedule of fleets to/from one grid connector.
 
-    note: only one grid connector supported. Each line in the csv resembles one trip. The vehicle is
-    assigned by the vehicle_id. If the column vehicle_id is not given, the trips are assigned to the
-    vehicles by the principle: first in, first out. Note that in this case a minimum standing time
-    can be assigned to control the minimum time a vehicle can charge at the depot.
+    note: only one grid connector supported. Each line in the csv represents one trip. The vehicle
+    is assigned by the vehicle_id. If the column vehicle_id is not given, the trips are assigned to
+    the vehicles by the principle: first in, first out. Note that in this case a minimum standing
+    time can be assigned to control the minimum time a vehicle can charge at the depot.
 
     Needed columns:
-    - departure time in %Y-%m-%d %H:%M:%S
-    - arrival time in %Y-%m-%d %H:%M:%S
+    - departure time in YYYY-MM-DD HH:MM:SS
+    - arrival time in YYYY-MM-DD HH:MM:SS
     - vehicle_type (as in examples/vehicle_types.json)
     - soc (SoC at arrival) or delta_soc in [0,1] (optional, if not given the mileage is taken
     instead)
@@ -53,8 +54,8 @@ def generate_from_csv(args):
         predefined_vehicle_types = json.load(f)
 
     if "vehicle_id" not in input[0].keys():
-        print("The column 'vehicle_id' is missing, therefore vehicles are assigned atomatically by "
-              "the principle 'first in first out'.")
+        warnings.warn("Column 'vehicle_id' missing, vehicles are assigned by the principle first in"
+                      ", first out.")
         if args.export_vehicle_id_csv:
             target_path = path.dirname(args.output)
             export_filename = path.join(target_path, args.export_vehicle_id_csv)
@@ -410,11 +411,9 @@ def assign_vehicle_id(input, min_standing_time, export=None):
                 vehicle_number += 1
                 input[rotation]["vehicle_id"] = vt + "_" + str(vehicle_number)
     if export:
-        from copy import deepcopy
-        dict = deepcopy(input)
         all_rotations = []
         header = []
-        for rotation_id, rotation in dict.items():
+        for rotation_id, rotation in input.items():
             if not header:
                 for k, v in rotation.items():
                     header.append(k)
@@ -444,10 +443,10 @@ if __name__ == '__main__':
     parser.add_argument('--battery', '-b', default=[], nargs=2, type=float, action='append',
                         help='add battery with specified capacity in kWh and C-rate \
                         (-1 for variable capacity, second argument is fixed power))')
-    parser.add_argument('--gc-power', type=int, default=530, help='set power at grid connection '
-                                                                  'point in kW')
-    parser.add_argument('--cs-power-min', type=int, default=0, help='set minimal power at charging '
-                                                                    'station in kW')
+    parser.add_argument('--gc-power', type=float, default=530, help='set power at grid connection '
+                                                                    'point in kW')
+    parser.add_argument('--cs-power-min', type=float, default=0, help='set minimal power at '
+                                                                      'charging station in kW')
     parser.add_argument('--seed', default=None, type=int, help='set random seed')
     parser.add_argument('--include-ext-load-csv',
                         help='include CSV for external load. \
@@ -466,7 +465,7 @@ if __name__ == '__main__':
     parser.add_argument('--include-price-csv-option', '-po', metavar=('KEY', 'VALUE'),
                         nargs=2, default=[], action='append',
                         help='append additional argument to price signals')
-    parser.add_argument('--min-standing-time', type=int, default=None,
+    parser.add_argument('--min-standing-time', type=float, default=None,
                         help='set minimum standing time at depot in hours')
     parser.add_argument('--export-vehicle-id-csv', default=None,
                         help='option to export csv after assigning vehicle_id')

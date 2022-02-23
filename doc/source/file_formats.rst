@@ -49,8 +49,9 @@ Inputs
 
 File type: CSV
 
-Each row in csv file resemples one trip. The following columns are needed:
-departure time (datetime), arrival time (datetime),vehicle_type (str), soc (numeric) / delta_soc (numeric) / distance (numeric)
+Each row in csv file represents one trip. The following columns are needed:
+
+departure time (datetime), arrival time (datetime), vehicle_type (str), soc (numeric) / delta_soc (numeric) / distance (numeric)
 optional columns: vehicle_id (str)
 
 **Configuration**
