@@ -15,9 +15,9 @@ class Distributed(Strategy):
         super().__init__(constants, start_time, **kwargs)
         self.description = "distributed"
         self.ITERATIONS = 12
-        self.MIN_CHARGING_TIME = 2
         self.C_HORIZON = 3  # min
-        self.V_CONNECT = {}
+        # dict that holds the current vehicles connected to a grid connector for each gc
+        self.v_connect = {}
 
     def step(self, event_list=[]):
         super().step(event_list)
@@ -46,19 +46,19 @@ class Distributed(Strategy):
                 continue
             else:
                 skip_priorization[gcID] = False
-            if gcID not in self.V_CONNECT.keys():
-                self.V_CONNECT[gcID] = []
-            # remove vehicle from c-line if it left already or their desired_soc is reached
-            if self.V_CONNECT[gcID]:
-                for v_id in self.V_CONNECT[gcID]:
+            if gcID not in self.v_connect.keys():
+                self.v_connect[gcID] = []
+            # remove vehicle from v_connect if it left already or their desired_soc is reached
+            if self.v_connect[gcID]:
+                for v_id in self.v_connect[gcID]:
                     v = self.world_state.vehicles[v_id]
                     if v.connected_charging_station is None or v.battery.soc > 0.8:
-                        self.V_CONNECT[gcID].remove(v_id)
+                        self.v_connect[gcID].remove(v_id)
             # check if length connected vehicles is smaller or same than cs_number
-            assert len(self.V_CONNECT[gcID]) <= self.world_state.grid_connectors[gcID].number_cs
+            assert len(self.v_connect[gcID]) <= self.world_state.grid_connectors[gcID].number_cs
 
             # check if available loading stations are already taken
-            if len(self.V_CONNECT[gcID]) == gc.number_cs:
+            if len(self.v_connect[gcID]) == gc.number_cs:
                 continue
 
             timesteps = []
@@ -102,21 +102,21 @@ class Distributed(Strategy):
                                                   "soc": current_soc,
                                                   "gc": gcID})
 
-            # add number of freee spots' vehicles with lowest soc to V_CONNECT
-            free_spots = gc.number_cs - len(self.V_CONNECT[gcID])
+            # get number of free spots
+            free_spots = gc.number_cs - len(self.v_connect[gcID])
             while free_spots > 0 and timesteps:
                 # get vehicle with lowest soc
                 v_id_min = min(timesteps, key=lambda x: x['soc'])["vehicle_id"]
                 # add vehicle to v-connect, if it is not already in list
-                if v_id_min not in self.V_CONNECT[gcID]:
-                    self.V_CONNECT[gcID].append(v_id_min)
-                    free_spots = gc.number_cs - len(self.V_CONNECT[gcID])
+                if v_id_min not in self.v_connect[gcID]:
+                    self.v_connect[gcID].append(v_id_min)
+                    free_spots = gc.number_cs - len(self.v_connect[gcID])
                 timesteps = [i for i in timesteps if not (i['vehicle_id'] == v_id_min)]
 
-        # all cars are ranked. Now load cars that are in V_CONNECT if prioritized
+        # all cars are ranked. Load cars that are in v_connect
         for gcID, gc in self.world_state.grid_connectors.items():
             if not skip_priorization[gcID]:
-                vehicle_list = self.V_CONNECT[gcID]
+                vehicle_list = self.v_connect[gcID]
             else:
                 vehicle_list = []
                 for v_id, v in self.world_state.vehicles.items():

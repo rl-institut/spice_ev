@@ -168,3 +168,33 @@ V2G supported: **YES**
     |   LOAD_STRAT      |   "balanced   | Sub-strategies for behaviour within charging windows    |
     |                   |               | (see description above for options and explanations)    |
     +-------------------+---------------+---------------------------------------------------------+
+
+Distributed
+===========
+
+Distributed is a strategy that supports multiple grid connectors. The ending of each grid connector name indicates if it is a 'depot' or a 'opp' (opportunity charging) station. Vehicles connected to opp grid connectors are charged
+according to the 'greedy' strategy. Vehicles connected to depot grid connectors are charged according to the 'balanced' strategy. A maximum number of charging stations can be assigned for each grid connector.
+
+Prioritization of vehicles at station with limited charging stations:
+
+If the number of charging stations is limited all vehicles that want to connect in this and future times teps (limited by C-HORIZON) are collected and ranked by their SoC. The vehicle(s) with lowest SoC are loaded for the time defined in C-Horizon.
+After that new vehicles with lowest SoC at that time step are loaded, etc.
+
+Stationary batteries supported: **YES**
+
+V2G supported: **YES**
+
+    +----------------------+---------------+---------------------------------------------------------------------+
+    |**Strategy option**   | **default**   |              **explanation**                                        |
+    +----------------------+---------------+---------------------------------------------------------------------+
+    |   ALLOW_NEGATIVE_SOC |   True        | simulation does not abort if SoC becomes negative                   |
+    +----------------------+---------------+---------------------------------------------------------------------+
+    |   C-HORIZON          |      3        | loading time in min reserved for vehicle if number of cs is limited |
+    +----------------------+---------------+---------------------------------------------------------------------+
+    |   DISCHARGE_LIMIT    |      0        | V2G: maximum depth of discharge [0-1]                               |
+    +----------------------+---------------+---------------------------------------------------------------------+
+    |  V2G_POWER_FACTOR    |      1        | Fraction of max battery power used for discharge                    |
+    |                      |               | process [0-1]                                                       |
+    +----------------------+---------------+---------------------------------------------------------------------+
+    |   PRICE_THRESHOLD    |    0.001      | A price below this is considered cheap. Unit: € / 1 kWh             |
+    +----------------------+---------------+---------------------------------------------------------------------+
