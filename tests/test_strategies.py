@@ -154,7 +154,8 @@ class TestScenarios(unittest.TestCase):
     def test_distributed_D(self):
         input = os.path.join(TEST_REPO_PATH, 'test_data/input_test_strategies/bus_scenario_D.json')
         s = scenario.Scenario(load_json(input), os.path.dirname(input))
-        s.run('distributed', {"testing": True, "strategy_option": [["ALLOW_NEGATIVE_SOC", True]]})
+        s.run('distributed', {"testing": True, "strategy_option": [["ALLOW_NEGATIVE_SOC", True],
+                                                                   ["margin",1]], "margin":1})
         max_power = 0
         for gcID, gc in s.constants.grid_connectors.items():
             max_power += s.constants.grid_connectors[gcID].max_power
