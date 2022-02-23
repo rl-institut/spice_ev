@@ -13,9 +13,8 @@ from src import scenario, strategy, util
 EPS = 1e-8
 
 
-def generate_flex_band(scenario, core_standing_time=None):
+def generate_flex_band(scenario, gc_index, core_standing_time=None):
     """Generate flexibility potential with perfect foresight
-
     :param scenario: dictionary from scenario json
     :type scenario: dict
     :param core_standing_time: core standing time during which flexibility is guaranteed e.g.
@@ -23,12 +22,8 @@ def generate_flex_band(scenario, core_standing_time=None):
     :type core_standing_time: dict
     :return: flex band
     :rtype: dict
-
     """
-
-    assert len(scenario.constants.grid_connectors) == 1, "Only one grid connector supported"
-    gc = list(scenario.constants.grid_connectors.values())[0]
-
+    gc = list(scenario.constants.grid_connectors.values())[gc_index]
     # generate basic strategy
     s = strategy.Strategy(
         scenario.constants, scenario.start_time, **{"interval": scenario.interval})
@@ -57,6 +52,7 @@ def generate_flex_band(scenario, core_standing_time=None):
             v2g_enabled = True
     average_efficiency /= total_vehicle_capacity
 
+    cars = {vid: [0, 0, 0] for vid in s.world_state.vehicles}
     flex = {
         "min": [],
         "base": [],
@@ -78,7 +74,12 @@ def generate_flex_band(scenario, core_standing_time=None):
     }
 
     # get battery info: how much can be discharged in beginning, how much if fully charged?
-    batteries = s.world_state.batteries.values()
+    batteries = {}
+    for battery, values in s.world_state.batteries.items():
+        if s.world_state.batteries[battery].parent == list(
+                scenario.constants.grid_connectors)[gc_index]:
+            batteries.update({battery: values})
+    batteries = batteries.values()
     bat_init_discharge_power = sum([b.get_available_power(s.interval) for b in batteries])
     for b in batteries:
         if b.capacity > 2**50:
@@ -92,7 +93,6 @@ def generate_flex_band(scenario, core_standing_time=None):
     flex["batteries"]["efficiency"] = \
         flex["batteries"]["efficiency"] / len(batteries) if len(batteries) else 1
 
-    cars = {vid: [0, 0, 0] for vid in s.world_state.vehicles}
     vehicles_present = False
     power_needed = 0
 
@@ -105,9 +105,7 @@ def generate_flex_band(scenario, core_standing_time=None):
 
         # basic value: external load, feed-in power
         base_flex = sum([gc.get_current_load() for gc in s.world_state.grid_connectors.values()])
-
         num_cars_present = 0
-
         # update vehicles
         for vid, v in s.world_state.vehicles.items():
             if v.connected_charging_station is None:
@@ -115,23 +113,26 @@ def generate_flex_band(scenario, core_standing_time=None):
                 power_needed += cars[vid][1]
                 cars[vid] = [0, 0, 0]
             else:
-                num_cars_present += 1
-                if cars[vid][0] == 0:
-                    # just arrived
-                    charging_power = v.battery.loading_curve.max_power
-                    delta_soc = max(v.get_delta_soc(), 0)
-                    # scale with remaining steps
-                    if v.estimated_time_of_departure is not None:
-                        dep = v.estimated_time_of_departure
-                        # try to understand this one
-                        dep = -((scenario.start_time - dep) // s.interval)
-                        factor = min((scenario.n_intervals - step_i) / (dep - step_i), 1)
-                        delta_soc *= factor
-                    vehicle_energy_needed = (delta_soc * v.battery.capacity) / v.battery.efficiency
-                    v.battery.soc = max(v.battery.soc, v.desired_soc)
-                    v2g = (v.battery.get_available_power(s.interval)
-                           * v.vehicle_type.v2g_power_factor) if v.vehicle_type.v2g else 0
-                    cars[vid] = [charging_power, vehicle_energy_needed, v2g]
+                if s.world_state.charging_stations[v.connected_charging_station].parent == \
+                        list(scenario.constants.grid_connectors)[gc_index]:
+                    num_cars_present += 1
+                    if cars[vid][0] == 0:
+                        # just arrived
+                        charging_power = v.battery.loading_curve.max_power
+                        delta_soc = max(v.get_delta_soc(), 0)
+                        # scale with remaining steps
+                        if v.estimated_time_of_departure is not None:
+                            dep = v.estimated_time_of_departure
+                            # try to understand this one
+                            dep = -((scenario.start_time - dep) // s.interval)
+                            factor = min((scenario.n_intervals - step_i) / (dep - step_i), 1)
+                            delta_soc *= factor
+                        vehicle_energy_needed = (delta_soc *
+                                                 v.battery.capacity) / v.battery.efficiency
+                        v.battery.soc = max(v.battery.soc, v.desired_soc)
+                        v2g = (v.battery.get_available_power(s.interval)
+                               * v.vehicle_type.v2g_power_factor) if v.vehicle_type.v2g else 0
+                        cars[vid] = [charging_power, vehicle_energy_needed, v2g]
 
         pv_support = max(-base_flex, 0)
         if num_cars_present:
@@ -185,7 +186,6 @@ def generate_flex_band(scenario, core_standing_time=None):
 
 def generate_schedule(args):
     """Generate schedule for grid signals
-
     :param args: input arguments
     :type args: argparse.Namespace
     :return: None
@@ -199,8 +199,10 @@ def generate_schedule(args):
 
     ts_per_hour = datetime.timedelta(hours=1) / s.interval
 
+    assert len(s.constants.grid_connectors) == 1, "Only one grid connector supported"
+
     # compute flexibility potential (min/max) for each timestep
-    flex = generate_flex_band(s, args.core_standing_time)
+    flex = generate_flex_band(s, gc_index=0, core_standing_time=args.core_standing_time)
 
     netto = []
     curtailment = []
@@ -284,7 +286,6 @@ def generate_schedule(args):
         are taken into account and so on.
         Schedule is raised if we want to allow customer to charge more during this period.
         Otherwise the schedule is lowered.
-
         :param period: List of timestep indicies of the period the energy is distributed to
         :type period: list
         :param charge_period: Determines whether schedule should be raised or lowered.
