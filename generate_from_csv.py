@@ -469,8 +469,7 @@ if __name__ == '__main__':
                         help='set minimum standing time at depot in hours')
     parser.add_argument('--export-vehicle-id-csv', default=None,
                         help='option to export csv after assigning vehicle_id')
-    parser.add_argument('--config', help='Use config file to set arguments',
-                        default='examples/generate_from_csv.cfg')
+    parser.add_argument('--config', help='Use config file to set arguments')
 
     args = parser.parse_args()
 
