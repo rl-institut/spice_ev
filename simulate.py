@@ -15,7 +15,7 @@ STRATEGIES = [
     'inverse',
     'peak_load_window', 'flex_window',
     'schedule', 'schedule_foresight',
-    'v2g',
+    'v2g', 'distributed'
 ]
 
 
