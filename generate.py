@@ -58,15 +58,13 @@ def generate_trip(args):
 
     # get trip duration
     duration = random.gauss(avg_driving, std_driving)
-    duration = min(max(duration, min_driving), max_driving)
-    stop = start + datetime.timedelta(hours=duration)
-    stop = stop.replace(second=0, microsecond=0)
+    duration = round(min(max(duration, min_driving), max_driving), 1)
 
     # get trip distance
     distance = random.gauss(avg_distance, std_distance)
     distance = min(max(distance, min_distance), max_distance)
 
-    return start.time(), stop.time(), distance
+    return start.time(), duration, distance
 
 
 def generate(args):
@@ -234,8 +232,7 @@ def generate(args):
 
         # create vehicle events for this day
         for v_id, v in vehicles.items():
-            if now.weekday() == 6:
-                # no driving on Sunday
+            if now.weekday() == args.no_drive_day:
                 break
 
             # get vehicle infos
@@ -244,9 +241,9 @@ def generate(args):
             mileage = vehicle_types[v["vehicle_type"]]["mileage"] / 100
 
             # generate trip event
-            dep_time, arr_time, distance = generate_trip(args)
+            dep_time, duration, distance = generate_trip(args)
             departure = datetime.datetime.combine(now.date(), dep_time, now.tzinfo)
-            arrival = datetime.datetime.combine(now.date(), arr_time, now.tzinfo)
+            arrival = departure + datetime.timedelta(hours=duration)
             soc_delta = distance * mileage / capacity
 
             desired_soc = soc_delta * (1 + vars(args).get("buffer", 0.1))
@@ -377,6 +374,8 @@ if __name__ == '__main__':
                         help='Provide start time of simulation in ISO format '
                              'YYYY-MM-DDTHH:MM:SS+TZ:TZ. Precision is 1 second. E.g. '
                              '2018-01-31T01:00:00+02:00')
+    parser.add_argument('--no-drive-day', default=None,
+                        help='Provide weekday of vehicles not driving (Monday = 0)')
     parser.add_argument('--min-soc', metavar='SOC', type=float, default=0.8,
                         help='set minimum desired SOC (0 - 1) for each charging process')
     parser.add_argument('--battery', '-b', default=[], nargs=2, type=float, action='append',
