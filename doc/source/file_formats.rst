@@ -49,13 +49,16 @@ Inputs
 
 File type: CSV
 
-Needs the following columns: rotation_ID (str), departure time (datetime), arrival time (datetime),day (int 1-7),vehicle_type (str), charging_type (str), soc (numeric), vehicle_id (str)
+Each row in csv file represents one trip. The following columns are needed:
+
+departure time (datetime), arrival time (datetime), vehicle_type (str), soc (numeric) / delta_soc (numeric) / distance (numeric)
+optional columns: vehicle_id (str)
 
 **Configuration**
 
 File type: text
 
-Refer to generate_from_csv.cfg in examples folder.
+Refer to generate_from_csv.cfg in examples folder or the generate_from_csv_template.csv
 
 Output
 ------
