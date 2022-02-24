@@ -25,7 +25,7 @@ def generate_trip(args):
     :param args: input arguments
     :type args: argparse.Namespace
     :return:
-        start.time(), duration, distance
+        start (datetime), duration (timedelta), distance (float)
     """
     # distance of one trip
     avg_distance = vars(args).get("avg_distance", 47.13)  # km
@@ -33,10 +33,10 @@ def generate_trip(args):
     min_distance = vars(args).get("min_distance", 27.23)
     max_distance = vars(args).get("max_distance", 67.02)
     # departure time
-    avg_start = vars(args).get("avg_start", "08:15")  # hh:mm
+    avg_start = vars(args).get("avg_start", "18:15")  # hh:mm
     std_start = vars(args).get("std_start", 0.42)  # hours
-    min_start = vars(args).get("min_start", "07:00")
-    max_start = vars(args).get("max_start", "09:30")
+    min_start = vars(args).get("min_start", "17:00")
+    max_start = vars(args).get("max_start", "19:30")
     # trip duration
     avg_driving = vars(args).get("avg_driving", 8.33)  # hours
     std_driving = vars(args).get("std_driving", 1.35)
@@ -57,9 +57,13 @@ def generate_trip(args):
     start = min(max(start, min_start), max_start)
 
     # get trip duration
+    # random distribution
     duration = random.gauss(avg_driving, std_driving)
-    duration = round(min(max(duration, min_driving), max_driving), 1)
-
+    # clipping to min/max
+    duration = min(max(duration, min_driving), max_driving)
+    duration = datetime.timedelta(hours=duration)
+    # ignore sub-minute resolution
+    duration = datetime.timedelta(minutes=duration // datetime.timedelta(minutes=1))
     # get trip distance
     distance = random.gauss(avg_distance, std_distance)
     distance = min(max(distance, min_distance), max_distance)
@@ -240,7 +244,7 @@ def generate(args):
             # generate trip event
             dep_time, duration, distance = generate_trip(args)
             departure = datetime.datetime.combine(now.date(), dep_time, now.tzinfo)
-            arrival = departure + datetime.timedelta(hours=duration)
+            arrival = departure + duration
             soc_delta = distance * mileage / capacity
 
             desired_soc = soc_delta * (1 + vars(args).get("buffer", 0.1))
@@ -371,8 +375,8 @@ if __name__ == '__main__':
                         help='Provide start time of simulation in ISO format '
                              'YYYY-MM-DDTHH:MM:SS+TZ:TZ. Precision is 1 second. E.g. '
                              '2018-01-31T01:00:00+02:00')
-    parser.add_argument('--no-drive-day', default=None,
-                        help='Provide weekday of vehicles not driving (Monday = 0)')
+    parser.add_argument('--no-drive-day', default=6, type=int,
+                        help='Provide weekday of vehicles not driving (default: Sunday)')
     parser.add_argument('--min-soc', metavar='SOC', type=float, default=0.8,
                         help='set minimum desired SOC (0 - 1) for each charging process')
     parser.add_argument('--battery', '-b', default=[], nargs=2, type=float, action='append',
