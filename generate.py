@@ -25,7 +25,7 @@ def generate_trip(args):
     :param args: input arguments
     :type args: argparse.Namespace
     :return:
-        start.time(), stop.time(), distance
+        start.time(), duration, distance
     """
     # distance of one trip
     avg_distance = vars(args).get("avg_distance", 47.13)  # km
@@ -218,14 +218,11 @@ def generate(args):
         if not path.exists(price_csv_path):
             print("Warning: price csv file '{}' does not exist yet".format(price_csv_path))
 
-    daily = datetime.timedelta(days=1)
-
     # count number of trips where desired_soc is above min_soc
     trips_above_min_soc = 0
 
     # create vehicle and price events
-    # each day (except Sunday), each vehicle leaves and returns after using some battery power
-
+    daily = datetime.timedelta(days=1)
     now = start - daily
     while now < stop + 2*daily:
         now += daily
