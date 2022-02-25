@@ -36,7 +36,7 @@ def generate_trip(args):
     avg_start = vars(args).get("avg_start", "08:15")  # hh:mm
     std_start = vars(args).get("std_start", 0.42)  # hours
     min_start = vars(args).get("min_start", "07:00")
-    max_start = vars(args).get("max_start", "17:30")
+    max_start = vars(args).get("max_start", "09:30")
     # trip duration
     avg_driving = vars(args).get("avg_driving", 8.33)  # hours
     std_driving = vars(args).get("std_driving", 1.35)
