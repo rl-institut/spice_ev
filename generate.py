@@ -232,8 +232,7 @@ def generate(args):
 
         # create vehicle events for this day
         for v_id, v in vehicles.items():
-            no_driving = True if now.weekday() in args.no_drive_days else False
-            if no_driving:
+            if now.weekday() in args.no_drive_days:
                 break
 
             # get vehicle infos
@@ -257,6 +256,9 @@ def generate(args):
             }
 
             if "last_arrival_idx" in v:
+                if v["arrival"] >= departure:
+                    # still on last trip, discard new trip
+                    continue
                 # update last arrival event
                 events["vehicle_events"][v["last_arrival_idx"]]["update"].update(update)
             else:
@@ -280,6 +282,7 @@ def generate(args):
             })
 
             v["last_arrival_idx"] = len(events["vehicle_events"])
+            v["arrival"] = arrival
 
             events["vehicle_events"].append({
                 "signal_time": arrival.isoformat(),
@@ -289,7 +292,7 @@ def generate(args):
                 "update": {
                     "connected_charging_station": "CS_" + v_id,
                     "estimated_time_of_departure": None,
-                    "desired_soc": None,
+                    "desired_soc": 0,
                     "soc_delta": -soc_delta
                 }
             })
@@ -328,6 +331,7 @@ def generate(args):
             vehicle_types_present[k] = v
     for v in vehicles.values():
         del v["last_arrival_idx"]
+        del v["arrival"]
 
     j = {
         "scenario": {
@@ -375,7 +379,7 @@ if __name__ == '__main__':
                         help='Provide start time of simulation in ISO format '
                              'YYYY-MM-DDTHH:MM:SS+TZ:TZ. Precision is 1 second. E.g. '
                              '2018-01-31T01:00:00+02:00')
-    parser.add_argument('--no-drive-days', default=[6], type=int,
+    parser.add_argument('--no-drive-days', default=[6], nargs='+', type=int,
                         help='Provide weekday of vehicles not driving (default: Sunday)')
     parser.add_argument('--min-soc', metavar='SOC', type=float, default=0.8,
                         help='set minimum desired SOC (0 - 1) for each charging process')
