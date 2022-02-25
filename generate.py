@@ -9,7 +9,6 @@ from os import path
 
 from src.util import set_options_from_config, datetime_from_isoformat
 
-
 DEFAULT_START_TIME = "2018-01-01T01:00:00+02:00"
 
 
@@ -111,9 +110,9 @@ def generate(args):
         vehicle_types = json.load(f)
 
     for count, vehicle_type in args.cars:
-        assert vehicle_type in vehicle_types,\
-            'The given vehicle type "{}" is not valid. Should be one of {}'\
-            .format(vehicle_type, list(vehicle_types.keys()))
+        assert vehicle_type in vehicle_types, \
+            'The given vehicle type "{}" is not valid. Should be one of {}' \
+                .format(vehicle_type, list(vehicle_types.keys()))
         vehicle_types[vehicle_type]["count"] = int(count)
 
     # VEHICLES WITH THEIR CHARGING STATION
@@ -145,7 +144,7 @@ def generate(args):
         else:
             # unlimited battery: set power directly
             max_power = c_rate
-        batteries["BAT{}".format(idx+1)] = {
+        batteries["BAT{}".format(idx + 1)] = {
             "parent": "GC1",
             "capacity": capacity,
             "charging_curve": [[0, max_power], [1, max_power]]
@@ -228,12 +227,13 @@ def generate(args):
     # create vehicle and price events
     daily = datetime.timedelta(days=1)
     now = start - daily
-    while now < stop + 2*daily:
+    while now < stop + 2 * daily:
         now += daily
 
         # create vehicle events for this day
         for v_id, v in vehicles.items():
-            if now.weekday() == args.no_drive_day:
+            no_driving = True if now.weekday() in args.no_drive_days else False
+            if no_driving:
                 break
 
             # get vehicle infos
@@ -297,10 +297,10 @@ def generate(args):
         # generate prices for the day
         if not args.include_price_csv and now < stop:
             morning = now + datetime.timedelta(hours=6)
-            evening_by_month = now + datetime.timedelta(hours=22-abs(6-now.month))
+            evening_by_month = now + datetime.timedelta(hours=22 - abs(6 - now.month))
             events['grid_operator_signals'] += [{
                 # day (6-evening): 15ct
-                "signal_time": max(start, now-daily).isoformat(),
+                "signal_time": max(start, now - daily).isoformat(),
                 "grid_connector_id": "GC1",
                 "start_time": morning.isoformat(),
                 "cost": {
@@ -309,7 +309,7 @@ def generate(args):
                 }
             }, {
                 # night (depending on month - 6): 5ct
-                "signal_time": max(start, now-daily).isoformat(),
+                "signal_time": max(start, now - daily).isoformat(),
                 "grid_connector_id": "GC1",
                 "start_time": evening_by_month.isoformat(),
                 "cost": {
@@ -375,7 +375,7 @@ if __name__ == '__main__':
                         help='Provide start time of simulation in ISO format '
                              'YYYY-MM-DDTHH:MM:SS+TZ:TZ. Precision is 1 second. E.g. '
                              '2018-01-31T01:00:00+02:00')
-    parser.add_argument('--no-drive-day', default=6, type=int,
+    parser.add_argument('--no-drive-days', default=[6], type=int,
                         help='Provide weekday of vehicles not driving (default: Sunday)')
     parser.add_argument('--min-soc', metavar='SOC', type=float, default=0.8,
                         help='set minimum desired SOC (0 - 1) for each charging process')
