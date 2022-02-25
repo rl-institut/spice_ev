@@ -111,8 +111,8 @@ def generate(args):
 
     for count, vehicle_type in args.cars:
         assert vehicle_type in vehicle_types, \
-            'The given vehicle type "{}" is not valid. Should be one of {}' \
-                .format(vehicle_type, list(vehicle_types.keys()))
+            'The given vehicle type "{}" is not valid. ' \
+            'Should be one of {}'.format(vehicle_type, list(vehicle_types.keys()))
         vehicle_types[vehicle_type]["count"] = int(count)
 
     # VEHICLES WITH THEIR CHARGING STATION
