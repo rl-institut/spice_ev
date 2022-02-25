@@ -9,6 +9,7 @@ from os import path
 
 from src.util import set_options_from_config, datetime_from_isoformat
 
+
 DEFAULT_START_TIME = "2018-01-01T01:00:00+02:00"
 
 
@@ -32,10 +33,10 @@ def generate_trip(args):
     min_distance = vars(args).get("min_distance", 27.23)
     max_distance = vars(args).get("max_distance", 67.02)
     # departure time
-    avg_start = vars(args).get("avg_start", "18:15")  # hh:mm
+    avg_start = vars(args).get("avg_start", "08:15")  # hh:mm
     std_start = vars(args).get("std_start", 0.42)  # hours
-    min_start = vars(args).get("min_start", "17:00")
-    max_start = vars(args).get("max_start", "19:30")
+    min_start = vars(args).get("min_start", "07:00")
+    max_start = vars(args).get("max_start", "17:30")
     # trip duration
     avg_driving = vars(args).get("avg_driving", 8.33)  # hours
     std_driving = vars(args).get("std_driving", 1.35)
