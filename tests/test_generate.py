@@ -20,7 +20,7 @@ ARG_VALUES1 = {
     "min_soc": 0.8,
     "battery": [[350, 0.5]],
     "start_time": '2018-01-01T00:15:00+00:00',
-    "no_drive_day": 6,
+    "no_drive_days": [6],
     "vehicle_types": "test_data/input_test_generate/vehicle_types.json",
     "include_ext_load_csv": None,
     "include_ext_csv_option": [],
