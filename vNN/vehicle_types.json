@@ -1,0 +1,16 @@
+{
+    "sprinter_small_skaliert": {
+        "name": "Sprinter (small)",
+        "capacity": 194.75,
+        "mileage": 128.125,
+        "charging_curve": [[0, 56.375], [0.8, 56.375], [1, 56.375]],
+        "min_charging_power": 0.2
+    },
+    "sprinter_skaliert": {
+        "name": "Sprinter",
+        "capacity": 384.75,
+        "mileage": 202.5,
+        "charging_curve": [[0, 55.6875], [0.8, 55.6875], [1, 55.6875]],
+        "min_charging_power": 0.2
+    }
+}

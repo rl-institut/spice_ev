@@ -6,10 +6,12 @@ import json
 import random
 import warnings
 from os import path
+import holidays
+import pytz
 
 from src.util import set_options_from_config
 
-
+BRANDENBURG_HOLIDAYS = holidays.Germany(prov='BB')
 def datetime_from_string(s):
     h, m = map(int, s.split(':'))
     return datetime.datetime(1972, 1, 1, h, m)
@@ -68,15 +70,8 @@ def generate(args):
     random.seed(args.seed)
 
     # SIMULATION TIME
-    try:
-        start = datetime.datetime.fromisoformat(args.start_time)
-    except ValueError:
-        # start time could not be parsed. Use default value.
-        default_start_time = parser.parse_args([]).start_time
-        start = datetime.datetime.fromisoformat(default_start_time)
-        warnings.warn("Start time could not be parsed. Use ISO format like YYYY-MM-DDTHH:MM."
-                      f"Default start time {default_start_time} will be used.")
-    start = start.replace(tzinfo=datetime.timezone(datetime.timedelta(hours=2)))
+    tz = pytz.timezone('Europe/Berlin')
+    start = tz.localize(datetime.datetime(year=2018, month=1, day=1, hour=0))
     stop = start + datetime.timedelta(days=args.days)
     interval = datetime.timedelta(minutes=args.interval)
 
@@ -219,8 +214,8 @@ def generate(args):
 
         # create vehicle events for this day
         for v_id, v in vehicles.items():
-            if now.weekday() == 6:
-                # no driving on Sunday
+            if now.weekday() == 6 or now in BRANDENBURG_HOLIDAYS:
+                # no driving on Sunday or holidays
                 break
 
             # get vehicle infos
@@ -239,7 +234,7 @@ def generate(args):
             # update initial desired SoC
             v["desired_soc"] = v["desired_soc"] or desired_soc
             update = {
-                "estimated_time_of_departure": departure.isoformat(),
+                "estimated_time_of_departure": min(stop, departure).isoformat(),
                 "desired_soc": desired_soc
             }
 

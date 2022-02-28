@@ -10,24 +10,50 @@ class BalancedMarket(Strategy):
     Moves all charging events to times with low energy price
     """
     def __init__(self, constants, start_time, **kwargs):
-        self.PRICE_THRESHOLD = 0.001  # EUR/kWh
+        self.CONCURRENCY = 1.0
+        self.PRICE_THRESHOLD = -100  # EUR/kWh
+        self.BATTERY_THRESHOLD = 0.19
+
         self.HORIZON = 24  # maximum number of hours ahead
+        self.SIGNALTIME = 0
+        self.DISCHARGE_LIMIT = 0  # V2G: maximum depth of discharge [0-1]
         self.V2G_POWER_FACTOR = 1
 
         super().__init__(constants, start_time, **kwargs)
         assert len(self.world_state.grid_connectors) == 1, "Only one grid connector supported"
         self.description = "balanced (market-oriented)"
 
+        # concurrency: set fraction of maximum available power at each charging station
+        for cs in self.world_state.charging_stations.values():
+            cs.max_power = self.CONCURRENCY * cs.max_power
+
         # adjust foresight for price events
         horizon_timedelta = datetime.timedelta(hours=self.HORIZON)
         changed = 0
         for event in self.events.grid_operator_signals:
             old_signal_time = event.signal_time
-            # make price events known at least HORIZON hours in advance
+            # make price events known at least HORIZON hours in advance or at signal time
+            if self.SIGNALTIME:
+                new_signaltime = event.signal_time.replace(hour=int(self.SIGNALTIME), minute=0, second=0, microsecond=0) - datetime.timedelta(days=1)
+            elif self.HORIZON:
+                new_signaltime = event.start_time - horizon_timedelta
+            else:
+                new_signaltime = event.signal_time
+            event.signal_time = min(event.signal_time, new_signaltime)
+            # make sure events don't signal before start
+            event.signal_time = max(event.signal_time, start_time)
+            changed += event.signal_time < old_signal_time
+
+        for event in self.events.vehicle_events:
+
+            old_signal_time = event.signal_time
+            # make events known at least HORIZON hours in advance
             event.signal_time = min(event.signal_time, event.start_time - horizon_timedelta)
             # make sure events don't signal before start
             event.signal_time = max(event.signal_time, start_time)
             changed += event.signal_time < old_signal_time
+
+
         if changed:
             print(changed, "events signaled earlier")
 
@@ -65,7 +91,6 @@ class BalancedMarket(Strategy):
         # get future events and predict external load and cost for each timestep
         event_idx = 0
         timesteps_ahead = int(datetime.timedelta(hours=self.HORIZON) / self.interval)
-
         cur_time = self.current_time - self.interval
         for timestep_idx in range(timesteps_ahead):
             cur_time += self.interval
@@ -97,7 +122,8 @@ class BalancedMarket(Strategy):
                 # use actual external load
                 ext_load = gc.get_current_load()
                 # add battery power (sign switch, as ext_load is subtracted)
-                ext_load -= avail_bat_power
+                if util.get_cost(1, cur_cost) >= self.BATTERY_THRESHOLD:
+                    ext_load -= avail_bat_power
             else:
                 ext_load = gc.get_avg_ext_load(cur_time, self.interval) - sum(cur_feed_in.values())
             timesteps.append({
@@ -325,7 +351,7 @@ class BalancedMarket(Strategy):
         # charge/discharge batteries
         for bat_id, battery in self.world_state.batteries.items():
             avail_power = gc.get_current_load(exclude=discharging_stations)
-            if util.get_cost(1, gc.cost) <= self.PRICE_THRESHOLD:
+            if util.get_cost(1, gc.cost) <= self.BATTERY_THRESHOLD:
                 # low price: charge with full power
                 power = gc.cur_max_power - avail_power
                 power = 0 if power < battery.min_charging_power else power

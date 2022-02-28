@@ -395,7 +395,7 @@ class Scenario:
                 "hub"
             ]
 
-            round_to_places = 2
+            round_to_places = 4
 
             # which SimBEV-Use Cases are in this scenario?
             # group CS by UC name
