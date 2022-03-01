@@ -238,6 +238,24 @@ class TestScenarios(unittest.TestCase):
         for idx in indices_unload_battery:
             assert s.testing["timeseries"]["schedule"]["GC1"][idx] is False
 
+    def test_distributed_C3_priorization(self):
+        input = os.path.join(TEST_REPO_PATH, 'test_data/input_test_strategies/scenario_C3.json')
+        s = scenario.Scenario(load_json(input), os.path.dirname(input))
+        s.run('distributed', {"testing": True, "strategy_option": [["ALLOW_NEGATIVE_SOC", True]],
+                              "margin": 1})
+        max_power = 0
+        for gcID, gc in s.constants.grid_connectors.items():
+            max_power += s.constants.grid_connectors[gcID].max_power
+        cs = s.testing["timeseries"]["sum_cs"]
+        cs_1 = [x for x in cs if x[0] != 0]
+        cs_2 = [x for x in cs if x[1] != 0]
+        # only one cs at a time
+        assert [x[1] == 0 for x in cs_1]
+        assert [x[0] == 0 for x in cs_2]
+        # assert that cars are loaded balanced
+        assert len(set([round(x[0], 2) for x in cs_1])) == 1
+        assert len(set([round(x[1], 2) for x in cs_2])) == 1
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -52,7 +52,8 @@ class Distributed(Strategy):
             if self.v_connect[gcID]:
                 for v_id in self.v_connect[gcID]:
                     v = self.world_state.vehicles[v_id]
-                    if v.connected_charging_station is None or v.battery.soc > 0.8:
+                    if v.connected_charging_station is None or \
+                            v.battery.soc >= v.desired_soc - self.EPS:
                         self.v_connect[gcID].remove(v_id)
             # check if length connected vehicles is smaller or same than cs_number
             assert len(self.v_connect[gcID]) <= self.world_state.grid_connectors[gcID].number_cs
