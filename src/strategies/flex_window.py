@@ -110,16 +110,27 @@ class FlexWindow(Strategy):
         gc.window = timesteps[0]["window"]
 
         if self.LOAD_STRAT == "balanced":
+            # load vehicle with balanced strategy
             commands = self.distribute_balanced_vehicles(timesteps)
+            # add surplus power to vehicle
+            commands.update(self.distribute_surplus_to_vehicles())
+            # distribute v2g to/from vehicles
             commands = self.distribute_balanced_v2g(timesteps, commands)
-            self.distribute_balanced_batteries(timesteps)
+            # if there is surplus: add surplus to batteries. Else load batteries balanced
+            if not self.load_surplus_to_batteries():
+                self.distribute_balanced_batteries(timesteps)
+
         else:
             # load cars with peak shaving strategy
             commands = self.distribute_peak_shaving_vehicles(timesteps)
+            # add surplus power to vehicle
+            commands.update(self.distribute_surplus_power())
             # charge/discharge vehicles with peak shaving strategy
             commands = self.distribute_peak_shaving_v2g(timesteps, commands)
-            # charge/discharge batteries with peak shaving strategy
-            self.distribute_peak_shaving_batteries(timesteps)
+            # if there is surplus: add surplus to batteries. Else load batteries balanced
+            # with peak shaving strategy
+            if not self.load_surplus_to_batteries():
+                self.distribute_peak_shaving_batteries(timesteps)
 
         return {"current_time": self.current_time, "commands": commands}
 
@@ -849,4 +860,44 @@ class FlexWindow(Strategy):
             # and maximum charging power.
             avg_power = v.battery.load(self.interval, power)["avg_power"]
             commands[cs_id] = avg_power
+        return commands
+
+    def load_surplus_to_batteries(self):
+        """
+        Charge/discharge batteries. In-place, no input/output
+        """
+        for b_id, battery in self.world_state.batteries.items():
+            gc = self.world_state.grid_connectors[battery.parent]
+            gc_current_load = gc.get_current_load()
+            if gc_current_load < 0:
+                # surplus energy: charge
+                power = -gc_current_load
+                power = 0 if power < battery.min_charging_power else power
+                avg_power = battery.load(self.interval, power)['avg_power']
+                gc.add_load(b_id, avg_power)
+                return True
+            else:
+                return False
+
+    def distribute_surplus_to_vehicles(self):
+        """
+        Distribute surplus power to vehicles
+
+        :return: charging commands
+        :rtype: dict
+        """
+        commands = dict()
+        for vehicle in self.world_state.vehicles.values():
+            cs_id = vehicle.connected_charging_station
+            if cs_id is None:
+                continue
+            cs = self.world_state.charging_stations[cs_id]
+            gc = self.world_state.grid_connectors[cs.parent]
+            gc_surplus = -gc.get_current_load()
+            if gc_surplus > self.EPS:
+                # surplus power
+                power = util.clamp_power(gc_surplus, vehicle, cs)
+                avg_power = vehicle.battery.load(self.interval, power)['avg_power']
+                commands[cs_id] = gc.add_load(cs_id, avg_power)
+                cs.current_power += avg_power
         return commands
