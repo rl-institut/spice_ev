@@ -172,13 +172,13 @@ V2G supported: **YES**
 Distributed
 ===========
 
-Distributed is a strategy that supports multiple grid connectors. The ending of each grid connector name indicates if it is a 'depot' or a 'opp' (opportunity charging) station. Vehicles connected to opp grid connectors are charged
-according to the 'greedy' strategy. Vehicles connected to depot grid connectors are charged according to the 'balanced' strategy. A maximum number of charging stations can be assigned for each grid connector.
+Distributed is a strategy that supports multiple grid connectors. The ending of each charging station name indicates if it is a 'depot' or a 'opp' (opportunity charging) station. Vehicles connected to opp grid connectors are charged
+according to the 'greedy' strategy. Vehicles connected to depot grid connectors are charged according to the 'balanced' strategy. A maximum number of charging stations can be assigned for each grid connector ('number_cs').
 
-Prioritization of vehicles at station with limited charging stations:
+Prioritization of vehicles at stations with a limited number charging stations:
 
-If the number of charging stations is limited all vehicles that want to connect in this and future times teps (limited by C-HORIZON) are collected and ranked by their SoC. The vehicle(s) with lowest SoC are loaded for the time defined in C-Horizon.
-After that new vehicles with lowest SoC at that time step are loaded, etc.
+If the number of charging stations is limited all vehicles that want to connect in this and future time steps (limited by C-HORIZON) are collected and ranked by their SoC. The vehicle(s) with lowest SoC are loaded first until their desired SoC is reached or the cehicle departs.
+As soon as the charging station is available again, the process is repeated.
 
 Stationary batteries supported: **YES**
 

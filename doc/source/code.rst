@@ -210,7 +210,7 @@ Given a time window of high load, tries to charge outside this window. Different
 
 Distributed
 -----------
-Unlimited grid connectors are supported. Vehicles that arrive at a station with OPP (opportunity charging) are loaded with greedy strategy, ones that arrive at Depot station are loaded with balanced strategy.
+Unlimited grid connectors are supported. Vehicles that arrive at a station with opp (opportunity charging) are loaded with greedy strategy, ones that arrive at a depot station are loaded with balanced strategy.
 Application case: Bus scenarios.
 
 .. currentmodule:: src.strategies.distributed

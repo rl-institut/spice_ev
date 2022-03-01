@@ -17,6 +17,7 @@ class Greedy(Strategy):
     def step(self, event_list=[]):
         """
         Calculates charging in each timestep.
+
         :param event_list: List of events
         :type event_list: list
         :return: current time and commands of the charging stations
@@ -74,6 +75,7 @@ class Greedy(Strategy):
 def load_vehicle(self, cs, gc, vehicle, cs_id, charging_stations, avail_bat_power):
     """
     Load one vehicle with greedy strategy
+
     :param cs: charging station dict
     :type cs: dict
     :param gc: grid connector dict
@@ -118,6 +120,7 @@ def load_vehicle(self, cs, gc, vehicle, cs_id, charging_stations, avail_bat_powe
 def add_surplus_to_vehicle(self, cs, gc, vehicle, cs_id, charging_stations):
     """
     Add left over energy to vehicle
+
     :param cs: charging station dict
     :type cs: dict
     :param gc: grid connector dict
