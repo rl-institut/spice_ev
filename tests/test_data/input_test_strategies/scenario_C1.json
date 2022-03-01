@@ -26,7 +26,7 @@
           ]
         ],
         "min_charging_power": 0.2,
-        "v2g": true
+        "v2g": false
       },
       "golf": {
         "name": "E-Golf",
@@ -47,7 +47,7 @@
           ]
         ],
         "min_charging_power": 0,
-        "v2g": true
+        "v2g": false
       }
     },
     "vehicles": {
@@ -125,26 +125,6 @@
         }
       }
     ],
-    "external_load": {
-      "Building-20210705-20210719": {
-        "csv_file": "example_load.csv",
-        "start_time": "2018-01-01T00:00:00+02:00",
-        "step_duration_s": 600,
-        "grid_connector_id": "GC1",
-        "column": "value",
-        "factor": 0.001
-      }
-    },
-    "energy_feed_in": {
-      "PV_DHL_final_zeros": {
-        "csv_file": "example_pv_feedin.csv",
-        "start_time": "2018-01-01T00:00:00+02:00",
-        "step_duration_s": 3600,
-        "grid_connector_id": "GC1",
-        "column": "Feed-in Total (kW)",
-        "factor": 1
-      }
-    },
     "vehicle_events": [
       {
         "signal_time": "2018-01-01T08:00:00+02:00",
@@ -164,7 +144,7 @@
           "connected_charging_station": "CS_sprinter_0",
           "estimated_time_of_departure": "2018-01-04T17:00:00+02:00",
           "desired_soc": 0.8,
-          "soc_delta": -0.55499694336727385
+          "soc_delta": -0.3
         }
       },
       {
@@ -185,7 +165,7 @@
           "connected_charging_station": "CS_golf_0",
           "estimated_time_of_departure": "2018-01-04T18:00:00+02:00",
           "desired_soc": 0.8,
-          "soc_delta": -0.15281037932730512
+          "soc_delta": -0.2
         }
       }
     ],
