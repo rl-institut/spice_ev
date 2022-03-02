@@ -64,6 +64,11 @@ def generate_from_csv(args):
             export_filename = None
         input = assign_vehicle_id(input, args.min_standing_time, export_filename)
 
+    if "connect_cs" not in input[0].keys():
+        warnings.warn("Column 'connect_cs' is not available. Vehicles will be connected to a "
+                      "charging station after every trip.")
+        input = [dict(item, **{'connect_cs': 1}) for item in input]
+
     vehicle_types = {}
     vehicles = {}
     batteries = {}
@@ -145,6 +150,10 @@ def generate_from_csv(args):
                     delta_soc = distance * mileage / capacity
             else:
                 delta_soc = float(row["delta_soc"])
+            if row["connect_cs"] == 1:
+                connect_cs = "CS_" + v_name
+            else:
+                connect_cs = None
 
             events["vehicle_events"].append({
                 "signal_time": arrival.isoformat(),
@@ -152,7 +161,7 @@ def generate_from_csv(args):
                 "vehicle_id": v_name,
                 "event_type": "arrival",
                 "update": {
-                    "connected_charging_station": "CS_" + v_name,
+                    "connected_charging_station": connect_cs,
                     "estimated_time_of_departure": departure.isoformat(),
                     "soc_delta": -delta_soc,
                 }
