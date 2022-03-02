@@ -866,6 +866,7 @@ class FlexWindow(Strategy):
         """
         Charge/discharge batteries. In-place, no input/output
         """
+        total_energy_used = 0
         for b_id, battery in self.world_state.batteries.items():
             gc = self.world_state.grid_connectors[battery.parent]
             gc_current_load = gc.get_current_load()
@@ -875,9 +876,8 @@ class FlexWindow(Strategy):
                 power = 0 if power < battery.min_charging_power else power
                 avg_power = battery.load(self.interval, power)['avg_power']
                 gc.add_load(b_id, avg_power)
-                return True
-            else:
-                return False
+                total_energy_used += avg_power
+        return total_energy_used
 
     def distribute_surplus_to_vehicles(self):
         """
