@@ -65,7 +65,7 @@ def generate_from_csv(args):
         input = assign_vehicle_id(input, args.min_standing_time, export_filename)
 
     if "connect_cs" not in input[0].keys():
-        warnings.warn("Column 'connect_cs' is not available, all vehicles will be connected.")
+        warnings.warn("Column 'connect_cs' is not available. Vehicles will be connected to a charging station after every trip.")
         input = [dict(item, **{'connect_cs': 1}) for item in input]
 
     vehicle_types = {}
