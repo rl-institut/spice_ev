@@ -311,7 +311,6 @@ class VehicleEvent(Event):
         conversions = [
             ('estimated_time_of_arrival', util.datetime_from_isoformat),
             ('estimated_time_of_departure', util.datetime_from_isoformat),
-            ('connected_charging_station', str),
             ('soc_delta', float),
             ('desired_soc', float),
         ]
