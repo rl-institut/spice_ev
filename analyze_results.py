@@ -14,10 +14,12 @@ def analyze_results(dirs):
         timestep = 1 / 4
         if "grid power [kW]" in file_df and "feed-in [kW]" in file_df and "ext.load [kW]" in file_df and "sum CS power" in file_df:
             # calculation of sums and max values for each column
+            grid_power_all = file_df.loc[:, "grid power [kW]"]
             grid_power_max = round(file_df.loc[:, "grid power [kW]"].max(), 2)
             grid_power_sum = round(file_df.loc[:, "grid power [kW]"].sum() * timestep, 2)
             feed_in_max = round(file_df.loc[:, "feed-in [kW]"].max(), 2)
             feed_in_sum = round(file_df.loc[:, "feed-in [kW]"].sum() * timestep, 2)
+            feed_in_all = file_df.loc[:, "feed-in [kW]"]
             building_in_max = round(file_df.loc[:, "ext.load [kW]"].max(), 2)
             building_in_sum = round(file_df.loc[:, "ext.load [kW]"].sum() * timestep, 2)
             max_charging = round(file_df.loc[:, "sum CS power"].max(), 2)
@@ -31,7 +33,8 @@ def analyze_results(dirs):
             # calculation of characteristics
             feed_in_used = feed_in_sum - surplus
             e = round(feed_in_used / feed_in_sum * 100, 2)  # TODO
-            a = round(feed_in_used / (grid_power_sum+feed_in_used) * 100, 2)  # how is autarkiegrad defined in this system
+            a_all = feed_in_all / (grid_power_all+feed_in_all)  # how is autarkiegrad defined in this system
+            a = round(a_all.mean() * 100, 2)
             result = {
                 "plz": file.stem,
                 "grid_power_max_kw": grid_power_max,
@@ -57,7 +60,7 @@ def analyze_results(dirs):
         # select values here
         sum_energy_vehicles = json_df.at["value", "sum_energy_vehicles"]
         output.loc[plz_row.index, "sum_energy_vehicles"] = sum_energy_vehicles
-    output_path = Path(dirs, '0_analyzed_results_scenario_1_v2g_Jan_balanced.csv')
+    output_path = Path(dirs, '0_analyzed_results_scenario_1_v2g_Jan_balanced_neues_a2.csv')
     output.to_csv(output_path, sep=';')
     print("Resulting csv is saved as " + str(output_path))
 
