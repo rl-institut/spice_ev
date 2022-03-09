@@ -604,6 +604,42 @@ class Scenario:
                     # write row to file
                     timeseries_file.write('\n' + ','.join(map(lambda x: str(x), row)))
 
+        if options.get("save_soc", False):
+            # save soc of each vehicle in one file
+
+            # check file extension
+            ext = options["save_soc"].split('.')[-1]
+            if ext != "csv":
+                print("File extension mismatch: timeseries file is of type .csv")
+            with open(options['save_soc'], 'w') as soc_file:
+                # write header
+                header_s = ["timestep", "time"]
+                for vidx, vid in enumerate(sorted(self.constants.vehicles.keys())):
+                    header_s.append(vid)
+                soc_file.write(','.join(header_s))
+
+                sum_soc = []
+                for gcID, soc in socs.items():
+                    soc = [[0 if x is None else x for x in line] for line in soc]
+                    if not sum_soc:
+                        sum_soc = soc
+                    else:
+                        sum_soc = [[i1+j1 for i1, j1 in zip(i,j)] for i, j in zip(sum_soc, soc)]
+
+                for idx, r in enumerate(results):
+                    # general info: timestep index and timestamp
+                    # TZ removed for spreadsheet software
+                    row_s = [idx, r['current_time'].replace(tzinfo=None)]
+                    cur_soc = sum_soc[idx]
+                    for i, j in enumerate(cur_soc):
+                        try:
+                            row_s += [j]
+                        except:
+                            print("stop")
+
+                    # write row to file
+                    soc_file.write('\n' + ','.join(map(lambda x: str(x), row_s)))
+
         # calculate results
         if options.get('visual', False) or options.get("testing", False):
 
