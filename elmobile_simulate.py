@@ -20,7 +20,7 @@ def simulate_function(input_file, output_file, result_file, strategy="balanced",
 
 if __name__ == '__main__':
     # set SpiceEV scenario directory
-    dirs = Path("elmobile_data", "scenario_1")
+    dirs = Path("elmobile_data", "elmobile_scenario_1_Jan")
     plz_list = [f.stem for f in dirs.rglob("*.json")]
     # set charging strategy
     strat = "balanced"

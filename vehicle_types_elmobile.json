@@ -41,7 +41,8 @@
         "mileage": 40,
         "charging_curve": [[0, 300], [0.8, 300], [1, 300]],
         "min_charging_power": 0,
-        "v2g": true
+        "v2g": true,
+        "v2g_power_factor": 0.5
     },
     "bev_medium_v2g": {
         "name": "bev_medium_v2g",
@@ -49,7 +50,8 @@
         "mileage": 40,
         "charging_curve": [[0, 150], [0.8, 150], [1, 150]],
         "min_charging_power": 0,
-        "v2g": true
+        "v2g": true,
+        "v2g_power_factor": 0.5
     },
     "bev_mini_v2g": {
         "name": "bev_mini_v2g",
@@ -57,6 +59,7 @@
         "mileage": 40,
         "charging_curve": [[0, 50], [0.8, 50], [1, 50]],
         "min_charging_power": 0,
-        "v2g": true
+        "v2g": true,
+        "v2g_power_factor": 0.5
     }
 }
