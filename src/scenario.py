@@ -624,7 +624,7 @@ class Scenario:
                     if not sum_soc:
                         sum_soc = soc
                     else:
-                        sum_soc = [[i1+j1 for i1, j1 in zip(i,j)] for i, j in zip(sum_soc, soc)]
+                        sum_soc = [[i1+j1 for i1, j1 in zip(i, j)] for i, j in zip(sum_soc, soc)]
 
                 for idx, r in enumerate(results):
                     # general info: timestep index and timestamp
@@ -632,10 +632,7 @@ class Scenario:
                     row_s = [idx, r['current_time'].replace(tzinfo=None)]
                     cur_soc = sum_soc[idx]
                     for i, j in enumerate(cur_soc):
-                        try:
-                            row_s += [j]
-                        except:
-                            print("stop")
+                        row_s += [j]
 
                     # write row to file
                     soc_file.write('\n' + ','.join(map(lambda x: str(x), row_s)))
