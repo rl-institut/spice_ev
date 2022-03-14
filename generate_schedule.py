@@ -27,7 +27,7 @@ def generate_flex_band(scenario, gc_index, core_standing_time=None):
     # generate basic strategy
     s = strategy.Strategy(
         scenario.constants, scenario.start_time, **{"interval": scenario.interval, "margin": 1,
-                                                    "allow_negative_soc": True})
+                                                    "ALLOW_NEGATIVE_SOC": True})
     event_steps = scenario.events.get_event_steps(
         scenario.start_time, scenario.n_intervals, scenario.interval)
 
