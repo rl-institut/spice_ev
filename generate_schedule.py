@@ -26,7 +26,7 @@ def generate_flex_band(scenario, gc_index, core_standing_time=None):
     gc = list(scenario.constants.grid_connectors.values())[gc_index]
     # generate basic strategy
     s = strategy.Strategy(
-        scenario.constants, scenario.start_time, **{"interval": scenario.interval, "margin": 1})
+        scenario.constants, scenario.start_time, **{"interval": scenario.interval, "margin": 1, "allow_negative_soc": True})
     event_steps = scenario.events.get_event_steps(
         scenario.start_time, scenario.n_intervals, scenario.interval)
 
