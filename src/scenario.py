@@ -66,19 +66,21 @@ class Scenario:
 
         event_steps = self.events.get_event_steps(self.start_time, self.n_intervals, self.interval)
 
-        socs = {gcID: [] for gcID in self.constants.grid_connectors.keys()}
-        costs = {gcID: [] for gcID in self.constants.grid_connectors.keys()}
-        prices = {gcID: [] for gcID in self.constants.grid_connectors.keys()}
+        gc_ids = self.constants.grid_connectors.keys()
+
+        socs = {gcID: [] for gcID in gc_ids}
+        costs = {gcID: [] for gcID in gc_ids}
+        prices = {gcID: [] for gcID in gc_ids}
         results = []
-        extLoads = {gcID: [] for gcID in self.constants.grid_connectors.keys()}
-        totalLoad = {gcID: [] for gcID in self.constants.grid_connectors.keys()}
-        disconnect = {gcID: [] for gcID in self.constants.grid_connectors.keys()}
-        feedInPower = {gcID: [] for gcID in self.constants.grid_connectors.keys()}
+        extLoads = {gcID: [] for gcID in gc_ids}
+        totalLoad = {gcID: [] for gcID in gc_ids}
+        disconnect = {gcID: [] for gcID in gc_ids}
+        feedInPower = {gcID: [] for gcID in gc_ids}
         stepsPerHour = datetime.timedelta(hours=1) / self.interval
-        batteryLevels = {gcID: {} for gcID in self.constants.grid_connectors.keys()}
-        connChargeByTS = {gcID: [] for gcID in self.constants.grid_connectors.keys()}
-        gcPowerSchedule = {gcID: [] for gcID in self.constants.grid_connectors.keys()}
-        gcWindowSchedule = {gcID: [] for gcID in self.constants.grid_connectors.keys()}
+        batteryLevels = {gcID: {} for gcID in gc_ids}
+        connChargeByTS = {gcID: [] for gcID in gc_ids}
+        gcPowerSchedule = {gcID: [] for gcID in gc_ids}
+        gcWindowSchedule = {gcID: [] for gcID in gc_ids}
         gcWithinPowerLimit = True
 
         begin = datetime.datetime.now()
@@ -241,7 +243,7 @@ class Scenario:
             avg_drawn = {}
 
             for gc_index, gcID in enumerate(self.constants.grid_connectors):
-                flex = generate_flex_band(self, gc_index=gc_index)
+                flex = generate_flex_band(self, gc_id=gcID)
 
                 if options.get("save_results", False) or options.get("testing", False):
                     if options.get("save_results", False):
@@ -312,8 +314,8 @@ class Scenario:
                         "unit": "kWh",
                         "info": "Total drawn energy per time window"
                     }
-                    if strat.count_negative_soc:
-                        json_results["vehicles with negative soc"] = strat.count_negative_soc
+                    if strat.negative_soc_tracker:
+                        json_results["vehicles with negative soc"] = strat.negative_soc_tracker
 
                     # avg standing time
                     # don't use info from flex band, as standing times might be interleaved
@@ -744,7 +746,7 @@ class Scenario:
                 ax.set_title('Price for 1 kWh')
                 ax.set(ylabel='€')
                 if len(self.constants.grid_connectors) <= 10:
-                    ax.legend(lines, sorted(self.constants.grid_connectors.keys()))
+                    ax.legend(lines, sorted(gc_ids))
 
                 # figure title
                 fig = plt.gcf()

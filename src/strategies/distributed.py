@@ -15,6 +15,7 @@ class Distributed(Strategy):
         super().__init__(constants, start_time, **kwargs)
         self.description = "distributed"
         self.ITERATIONS = 12
+        # minimum charging time at depot; time to look into the future for prioritization
         self.C_HORIZON = 3  # min
         # dict that holds the current vehicles connected to a grid connector for each gc
         self.v_connect = {}

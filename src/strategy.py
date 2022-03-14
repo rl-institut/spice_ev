@@ -30,7 +30,7 @@ class Strategy():
         self.world_state.future_events = []
         self.interval = kwargs.get('interval')  # required
         self.current_time = start_time - self.interval
-        self.count_negative_soc = {}
+        self.negative_soc_tracker = {}
         # relative allowed difference between battery SoC and desired SoC when leaving
         self.margin = 0.1
         self.ALLOW_NEGATIVE_SOC = False
@@ -114,15 +114,15 @@ class Strategy():
                     assert vehicle.battery.soc >= (1-self.margin)*vehicle.desired_soc - self.EPS, (
                         "{}: Vehicle {} is below desired SOC ({} < {})".format(
                             ev.start_time.isoformat(), ev.vehicle_id,
-                            vehicle.battery.soc, vehicle.desired_soc - self.margin))
+                            vehicle.battery.soc, vehicle.desired_soc))
 
                 elif ev.event_type == "arrival":
                     assert hasattr(vehicle, 'soc_delta')
                     vehicle.battery.soc += vehicle.soc_delta
                     if vehicle.battery.soc + self.EPS < 0:
-                        if ev.vehicle_id not in self.count_negative_soc.keys():
-                            self.count_negative_soc.update({ev.vehicle_id:
-                                                            self.current_time.isoformat()})
+                        if ev.vehicle_id not in self.negative_soc_tracker.keys():
+                            self.negative_soc_tracker.update({ev.vehicle_id:
+                                                              self.current_time.isoformat()})
                         if self.ALLOW_NEGATIVE_SOC:
                             print('Warning: SOC of vehicle {} became negative at {}. SOC is {}, '
                                   'continuing with SOC = 0'
