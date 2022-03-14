@@ -243,7 +243,7 @@ class Scenario:
             avg_drawn = {}
 
             for gc_index, gcID in enumerate(self.constants.grid_connectors):
-                flex = generate_flex_band(self, gc_id=gcID)
+                flex = generate_flex_band(self, gcID=gcID)
 
                 if options.get("save_results", False) or options.get("testing", False):
                     if options.get("save_results", False):
