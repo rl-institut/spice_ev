@@ -13,7 +13,7 @@ from src import scenario, strategy, util
 EPS = 1e-8
 
 
-def generate_flex_band(scenario, gc_index, core_standing_time=None):
+def generate_flex_band(scenario, gcID, core_standing_time=None):
     """Generate flexibility potential with perfect foresight
     :param scenario: dictionary from scenario json
     :type scenario: dict
@@ -23,7 +23,7 @@ def generate_flex_band(scenario, gc_index, core_standing_time=None):
     :return: flex band
     :rtype: dict
     """
-    gc = list(scenario.constants.grid_connectors.values())[gc_index]
+    gc = scenario.constants.grid_connectors[gcID]
     # generate basic strategy
     s = strategy.Strategy(
         scenario.constants, scenario.start_time, **{"interval": scenario.interval, "margin": 1})
@@ -52,7 +52,6 @@ def generate_flex_band(scenario, gc_index, core_standing_time=None):
             v2g_enabled = True
     average_efficiency /= total_vehicle_capacity
 
-    cars = {vid: [0, 0, 0] for vid in s.world_state.vehicles}
     flex = {
         "min": [],
         "base": [],
@@ -74,12 +73,7 @@ def generate_flex_band(scenario, gc_index, core_standing_time=None):
     }
 
     # get battery info: how much can be discharged in beginning, how much if fully charged?
-    batteries = {}
-    for battery, values in s.world_state.batteries.items():
-        if s.world_state.batteries[battery].parent == list(
-                scenario.constants.grid_connectors)[gc_index]:
-            batteries.update({battery: values})
-    batteries = batteries.values()
+    batteries = [b for b in s.world_state.batteries.values() if b.parent == gcID]
     bat_init_discharge_power = sum([b.get_available_power(s.interval) for b in batteries])
     for b in batteries:
         if b.capacity > 2**50:
@@ -93,6 +87,7 @@ def generate_flex_band(scenario, gc_index, core_standing_time=None):
     flex["batteries"]["efficiency"] = \
         flex["batteries"]["efficiency"] / len(batteries) if len(batteries) else 1
 
+    cars = {vid: [0, 0, 0] for vid in s.world_state.vehicles}
     vehicles_present = False
     power_needed = 0
 
@@ -108,13 +103,14 @@ def generate_flex_band(scenario, gc_index, core_standing_time=None):
         num_cars_present = 0
         # update vehicles
         for vid, v in s.world_state.vehicles.items():
-            if v.connected_charging_station is None:
+            cs_id = v.connected_charging_station
+            if cs_id is None:
                 # vehicle not present: reset info, add to power needed in last interval
                 power_needed += cars[vid][1]
                 cars[vid] = [0, 0, 0]
             else:
-                if s.world_state.charging_stations[v.connected_charging_station].parent == \
-                        list(scenario.constants.grid_connectors)[gc_index]:
+                cs = s.world_state.charging_stations[v.connected_charging_station]
+                if cs.parent == gcID:
                     num_cars_present += 1
                     if cars[vid][0] == 0:
                         # just arrived
@@ -201,8 +197,9 @@ def generate_schedule(args):
 
     assert len(s.constants.grid_connectors) == 1, "Only one grid connector supported"
 
-    # compute flexibility potential (min/max) for each timestep
-    flex = generate_flex_band(s, gc_index=0, core_standing_time=args.core_standing_time)
+    # compute flexibility potential (min/max) of single grid connector for each timestep
+    gcID = list(s.constants.grid_connectors.keys())[0]
+    flex = generate_flex_band(s, gcID=gcID, core_standing_time=args.core_standing_time)
 
     netto = []
     curtailment = []
