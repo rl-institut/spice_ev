@@ -117,11 +117,12 @@ class FlexWindow(Strategy):
                 # add surplus power to vehicle
                 commands.update(self.distribute_surplus_to_vehicles())
             else:
-                # distribute v2g to/from vehicles
-                commands_v2g = self.distribute_balanced_v2g(timesteps, commands)
-                if commands != commands_v2g:
-                    loaded_v2g = True
-                    commands = commands_v2g
+                # get commands from V2G
+                commands_v2g = self.distribute_balanced_v2g(timesteps)
+                # update old commands with V2G commands
+                commands.update(commands_v2g)
+                # loaded_v2g is True if there was V2G discharge
+                loaded_v2g = bool(commands_v2g)
             # if there is surplus: add surplus to batteries. Else load batteries balanced
             if gc.get_current_load() < 0 and not loaded_v2g:
                 self.load_surplus_to_batteries()
@@ -135,11 +136,12 @@ class FlexWindow(Strategy):
                 # add surplus power to vehicle
                 commands.update(self.distribute_surplus_power())
             else:
-                # distribute v2g to/from vehicles with peak shaving strategy
-                commands_v2g = self.distribute_peak_shaving_v2g(timesteps, commands)
-                if commands != commands_v2g:
-                    loaded_v2g = True
-                    commands = commands_v2g
+                # get commands from V2G
+                commands_v2g = self.distribute_peak_shaving_v2g(timesteps)
+                # update old commands with V2G commands
+                commands.update(commands_v2g)
+                # loaded_v2g is True if there was V2G discharge
+                loaded_v2g = bool(commands_v2g)
             # if there is surplus: add surplus to batteries. Else load batteries balanced
             if gc.get_current_load() < 0 and not loaded_v2g:
                 self.load_surplus_to_batteries()
@@ -322,7 +324,7 @@ class FlexWindow(Strategy):
                 gc.add_load(b_id, -discharge)
                 timesteps[0]["total_load"] -= discharge
 
-    def distribute_balanced_v2g(self, timesteps, commands):
+    def distribute_balanced_v2g(self, timesteps):
         """Charge/discharge vehicles with v2g with balanced method according to schedule
 
         :param timesteps: list of dictionaries for each timestep in horizon
@@ -332,9 +334,7 @@ class FlexWindow(Strategy):
         :return: commands for charging stations
         :rtype: dict
         """
-
-        if not commands:
-            commands = {}
+        commands = {}
         gc = list(self.world_state.grid_connectors.values())[0]
         # get all vehicles that are connected in this step and order vehicles
         vehicles = sorted([v for v in self.world_state.vehicles.values()
@@ -687,7 +687,7 @@ class FlexWindow(Strategy):
                 gc.add_load(b_id, -discharge)
                 timesteps[0]["total_load"] -= discharge
 
-    def distribute_peak_shaving_v2g(self, timesteps, commands):
+    def distribute_peak_shaving_v2g(self, timesteps):
         """Charge/discharge vehicles with v2g with peak shaving method according to schedule
 
         :param timesteps: list of dictionaries for each timestep in horizon
@@ -697,6 +697,7 @@ class FlexWindow(Strategy):
         :return: commands for charging stations
         :rtype: dict
         """
+        commands = {}
         gc = list(self.world_state.grid_connectors.values())[0]
         # get all vehicles that are connected in this step and order vehicles
         vehicles = sorted([v for v in self.world_state.vehicles.values()
