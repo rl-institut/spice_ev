@@ -241,7 +241,7 @@ class Scenario:
             total_car_energy = {}
             avg_drawn = {}
 
-            for gc_index, gcID in enumerate(self.constants.grid_connectors):
+            for gcID in self.constants.grid_connectors:
                 flex = generate_flex_band(self, gcID=gcID)
 
                 if options.get("save_results", False) or options.get("testing", False):
@@ -458,7 +458,7 @@ class Scenario:
             if ext != "csv":
                 print("File extension mismatch: timeseries file is of type .csv")
 
-            for gc_index, gcID in enumerate(self.constants.grid_connectors):
+            for gcID in self.constants.grid_connectors:
 
                 filename = options['save_timeseries'].split(".")[0] + f"_{gcID}." + \
                            options['save_timeseries'].split(".")[1]
