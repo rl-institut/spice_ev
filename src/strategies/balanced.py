@@ -61,6 +61,7 @@ class Balanced(Strategy):
 
         return {'current_time': self.current_time, 'commands': charging_stations}
 
+
 def load_vehicle(self, cs, gc, vehicle, cs_id, charging_stations, avail_bat_power):
     """
     Load one vehicle with balanced strategy
@@ -140,4 +141,3 @@ def load_vehicle(self, cs, gc, vehicle, cs_id, charging_stations, avail_bat_powe
             self.current_time, cs.parent, gc.get_current_load(), gc.cur_max_power))
 
     return charging_stations, avail_bat_power
-

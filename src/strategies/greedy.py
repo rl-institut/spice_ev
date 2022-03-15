@@ -59,6 +59,7 @@ class Greedy(Strategy):
 
         return {'current_time': self.current_time, 'commands': charging_stations}
 
+
 def load_vehicle(self, cs, gc, vehicle, cs_id, charging_stations, avail_bat_power):
     """
     Load one vehicle with greedy strategy
