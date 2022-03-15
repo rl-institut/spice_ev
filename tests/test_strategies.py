@@ -160,14 +160,14 @@ class TestScenarios(unittest.TestCase):
 
         assert s.testing["avg_total_standing_time"] == 17.5
         assert s.testing["avg_stand_time"] == 8.75
-        assert round(s.testing["avg_needed_energy"], 2) == 2.7
-        assert round(s.testing["avg_drawn_pwer"], 2) == 10.69
-        assert round(s.testing["sum_feed_in_per_h"], 2) == 347.59
-        assert round(s.testing["vehicle_battery_cycles"], 2) == 2.12
-        assert round(s.testing["avg_flex_per_window"][0], 2) == 373.7
-        assert round(s.testing["avg_flex_per_window"][3], 2) == 382.38
-        assert round(s.testing["sum_energy_per_window"][0], 2) == 215.87
-        assert round(s.testing["sum_energy_per_window"][3], 2) == 33.11
+        assert round(s.testing["avg_needed_energy"], 2) == 2.15
+        assert round(s.testing["avg_drawn_power"], 2) == 1.44
+        assert round(s.testing["sum_feed_in_per_h"], 2) == 0
+        assert round(s.testing["vehicle_battery_cycles"], 2) == 1.1
+        assert round(s.testing["avg_flex_per_window"][0], 2) == 363.25
+        assert round(s.testing["avg_flex_per_window"][3], 2) == 367.32
+        assert round(s.testing["sum_energy_per_window"][0], 2) == 0
+        assert round(s.testing["sum_energy_per_window"][3], 2) == 0
         load = [0] * 96
         for key, values in s.testing["timeseries"]["loads"].items():
             load = [a + b for a, b in zip(load, values)]
@@ -185,21 +185,21 @@ class TestScenarios(unittest.TestCase):
 
         # check if vehicles are only loaded in window
         cs_load = [sum(item) for item in s.testing["timeseries"]["sum_cs"]]
-        indices_load_vehicle = [idx for idx, val in enumerate(cs_load) if val > 0]
+        indices_load_vehicle = [idx for idx, val in enumerate(cs_load) if round(val, 2) > 0]
         for idx in indices_load_vehicle:
             assert s.testing["timeseries"]["schedule"]["GC1"][idx] is True
         # check if vehicles are only unloaded outside window
-        indices_unload_vehicle = [idx for idx, val in enumerate(cs_load) if val < 0]
+        indices_unload_vehicle = [idx for idx, val in enumerate(cs_load) if round(val, 2) < 0]
         for idx in indices_unload_vehicle:
             assert s.testing["timeseries"]["schedule"]["GC1"][idx] is False
         # check if batteries are only loaded in window
         indices_load_battery = [idx for idx, val in enumerate(s.testing["timeseries"]["loads"][
-                                                                  "BAT1"]) if val > 0]
+                                                                  "BAT1"]) if round(val, 2) > 0]
         for idx in indices_load_battery:
             assert s.testing["timeseries"]["schedule"]["GC1"][idx] is True
         # check if batteries are only unloaded outside window
         indices_unload_battery = [idx for idx, val in enumerate(s.testing["timeseries"]["loads"][
-                                                                    "BAT1"]) if val < 0]
+                                                                    "BAT1"]) if round(val, 2) < 0]
         for idx in indices_unload_battery:
             assert s.testing["timeseries"]["schedule"]["GC1"][idx] is False
 

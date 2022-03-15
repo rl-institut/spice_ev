@@ -684,7 +684,7 @@ class Scenario:
                 "avg_stand_time": avg_stand_time,
                 "avg_total_standing_time": avg_total_standing_time,
                 "avg_needed_energy": avg_needed_energy,
-                "avg_drawn_pwer": avg_drawn,
+                "avg_drawn_power": avg_drawn,
                 "sum_feed_in_per_h": sum(feedInPower) / stepsPerHour,
                 "vehicle_battery_cycles": total_car_energy / total_car_cap
             }

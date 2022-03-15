@@ -107,55 +107,7 @@ class Balanced(Strategy):
                     self.current_time, cs.parent, gc.get_current_load(), gc.cur_max_power))
 
         # all vehicles loaded
-        # distribute surplus power to vehicles
-        # power is clamped to CS max_power
-        for vehicle_id in sorted(self.world_state.vehicles):
-            vehicle = self.world_state.vehicles[vehicle_id]
-            cs_id = vehicle.connected_charging_station
-            if cs_id is None:
-                continue
-            cs = self.world_state.charging_stations[cs_id]
-            gc = self.world_state.grid_connectors[cs.parent]
-            if gc.get_current_load() < 0:
-                # surplus power
-                power = clamp_power(-gc.get_current_load(), vehicle, cs)
-                avg_power = vehicle.battery.load(self.interval, power)['avg_power']
-                charging_stations[cs_id] = gc.add_load(cs_id, avg_power)
-                cs.current_power += avg_power
-            elif (vehicle.get_delta_soc() < 0
-                    and vehicle.vehicle_type.v2g
-                    and cs.current_power < self.EPS
-                    and get_cost(1, gc.cost) > self.PRICE_THRESHOLD):
-                # GC draws power, surplus in vehicle and V2G capable: support GC
-                discharge_power = min(
-                    gc.get_current_load(),
-                    vehicle.battery.loading_curve.max_power * vehicle.vehicle_type.v2g_power_factor)
-                target_soc = max(vehicle.desired_soc, self.DISCHARGE_LIMIT)
-                avg_power = vehicle.battery.unload(
-                    self.interval, discharge_power, target_soc)['avg_power']
-                charging_stations[cs_id] = gc.add_load(cs_id, -avg_power)
-                cs.current_power -= avg_power
-
-        # charge/discharge batteries
-        for b_id, battery in self.world_state.batteries.items():
-            gc = self.world_state.grid_connectors[battery.parent]
-            if get_cost(1, gc.cost) <= self.PRICE_THRESHOLD:
-                # low price: charge with full power
-                power = gc.cur_max_power - gc.get_current_load()
-                power = 0 if power < battery.min_charging_power else power
-                avg_power = battery.load(self.interval, power)['avg_power']
-                gc.add_load(b_id, avg_power)
-            elif gc.get_current_load() < 0:
-                # surplus energy: charge
-                power = -gc.get_current_load()
-                power = 0 if power < battery.min_charging_power else power
-                avg_power = battery.load(self.interval, power)['avg_power']
-                gc.add_load(b_id, avg_power)
-            else:
-                # GC draws power: use stored energy to support GC
-                bat_power = battery.unload(self.interval,
-                                           gc.get_current_load() / battery.efficiency
-                                           )['avg_power']
-                gc.add_load(b_id, -bat_power)
+        charging_stations.update(self.distribute_surplus_power())
+        self.update_batteries()
 
         return {'current_time': self.current_time, 'commands': charging_stations}
