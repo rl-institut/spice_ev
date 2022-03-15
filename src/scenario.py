@@ -460,6 +460,9 @@ class Scenario:
 
             for gc_index, gcID in enumerate(self.constants.grid_connectors):
 
+                filename = options['save_timeseries'].split(".")[0] + f"_{gcID}." + \
+                           options['save_timeseries'].split(".")[1]
+
                 cs_ids = sorted(item for item in strat.world_state.charging_stations.keys() if
                                 self.constants.charging_stations[item].parent == gcID)
 
@@ -498,8 +501,7 @@ class Scenario:
                 # any loads except CS present?
                 hasExtLoads = any(extLoads)
 
-                with open(options['save_timeseries'].split(".")[0] + f"_{gcID}." +
-                          options['save_timeseries'].split(".")[1], 'w') as timeseries_file:
+                with open(filename, 'w') as timeseries_file:
                     # write header
                     # general info
                     header = ["timestep", "time"]
