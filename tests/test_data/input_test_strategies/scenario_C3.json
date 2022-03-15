@@ -105,26 +105,6 @@
         }
       }
     ],
-    "external_load": {
-      "Building-20210705-20210719": {
-        "csv_file": "example_load.csv",
-        "start_time": "2018-01-01T00:00:00+02:00",
-        "step_duration_s": 600,
-        "grid_connector_id": "GC1",
-        "column": "value",
-        "factor": 0.001
-      }
-    },
-    "energy_feed_in": {
-      "PV_DHL_final_zeros": {
-        "csv_file": "example_pv_feedin.csv",
-        "start_time": "2018-01-01T00:00:00+02:00",
-        "step_duration_s": 3600,
-        "grid_connector_id": "GC1",
-        "column": "Feed-in Total (kW)",
-        "factor": 1
-      }
-    },
     "vehicle_events": [
       {
         "signal_time": "2018-01-01T10:00:00+02:00",

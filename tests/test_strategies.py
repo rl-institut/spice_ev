@@ -169,16 +169,16 @@ class TestScenarios(unittest.TestCase):
         s = scenario.Scenario(load_json(input), os.path.dirname(input))
         s.run('greedy', {"testing": True})
 
-        assert s.testing["avg_total_standing_time"] == 17.5
-        assert s.testing["avg_stand_time"] == 8.75
-        assert round(s.testing["avg_needed_energy"], 2) == 2.15
-        assert round(s.testing["avg_drawn_power"], 2) == 1.44
-        assert round(s.testing["sum_feed_in_per_h"], 2) == 0
-        assert round(s.testing["vehicle_battery_cycles"], 2) == 1.1
-        assert round(s.testing["avg_flex_per_window"][0], 2) == 363.25
-        assert round(s.testing["avg_flex_per_window"][3], 2) == 367.32
-        assert round(s.testing["sum_energy_per_window"][0], 2) == 0
-        assert round(s.testing["sum_energy_per_window"][3], 2) == 0
+        assert s.testing["avg_total_standing_time"]["GC1"] == 17.5
+        assert s.testing["avg_stand_time"]["GC1"] == 8.75
+        assert round(s.testing["avg_needed_energy"]["GC1"], 2) == 2.15
+        assert round(s.testing["avg_drawn_pwer"]["GC1"], 2) == 1.44
+        assert round(s.testing["sum_feed_in_per_h"]["GC1"], 2) == 0
+        assert round(s.testing["vehicle_battery_cycles"]["GC1"], 2) == 1.1
+        assert round(s.testing["avg_flex_per_window"]["GC1"][0], 2) == 363.25
+        assert round(s.testing["avg_flex_per_window"]["GC1"][3], 2) == 367.32
+        assert round(s.testing["sum_energy_per_window"]["GC1"][0], 2) == 0
+        assert round(s.testing["sum_energy_per_window"]["GC1"][3], 2) == 0
         load = [0] * 96
         for key, values in s.testing["timeseries"]["loads"]["GC1"].items():
             load = [a + b for a, b in zip(load, values)]
@@ -255,6 +255,7 @@ class TestScenarios(unittest.TestCase):
         # assert that cars are loaded balanced
         assert len(set([round(x[0], 2) for x in cs_1])) == 1
         assert len(set([round(x[1], 2) for x in cs_2])) == 1
+
 
 
 if __name__ == '__main__':
