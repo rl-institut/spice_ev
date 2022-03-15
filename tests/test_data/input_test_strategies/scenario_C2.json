@@ -92,26 +92,6 @@
         }
       }
     ],
-    "external_load": {
-      "Building-20210705-20210719": {
-        "csv_file": "example_load.csv",
-        "start_time": "2018-01-01T00:00:00+02:00",
-        "step_duration_s": 600,
-        "grid_connector_id": "GC1",
-        "column": "value",
-        "factor": 0.001
-      }
-    },
-    "energy_feed_in": {
-      "PV_DHL_final_zeros": {
-        "csv_file": "example_pv_feedin.csv",
-        "start_time": "2018-01-01T00:00:00+02:00",
-        "step_duration_s": 3600,
-        "grid_connector_id": "GC1",
-        "column": "Feed-in Total (kW)",
-        "factor": 1
-      }
-    },
     "vehicle_events": [
       {
         "signal_time": "2018-01-01T08:00:00+02:00",
@@ -123,15 +103,15 @@
         }
       },
       {
-        "signal_time": "2018-01-01T18:00:00+02:00",
-        "start_time": "2018-01-01T18:00:00+02:00",
+        "signal_time": "2018-01-01T18:30:00+02:00",
+        "start_time": "2018-01-01T18:30:00+02:00",
         "vehicle_id": "golf_0",
         "event_type": "arrival",
         "update": {
           "connected_charging_station": "CS_golf_0",
           "estimated_time_of_departure": "2018-01-04T21:00:00+02:00",
           "desired_soc": 0.8,
-          "soc_delta": -0.75
+          "soc_delta": -0.6
         }
       },
       {
