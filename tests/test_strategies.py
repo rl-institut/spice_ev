@@ -257,6 +257,5 @@ class TestScenarios(unittest.TestCase):
         assert len(set([round(x[1], 2) for x in cs_2])) == 1
 
 
-
 if __name__ == '__main__':
     unittest.main()
