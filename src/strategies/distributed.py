@@ -135,17 +135,17 @@ class Distributed(Strategy):
                 cs = self.world_state.charging_stations[cs_id]
                 # get station type
                 station_type = cs_id.split("_")[-1]
-                if station_type == "opp":
+                if station_type == "opps":
                     charging_stations, avail_bat_power[gcID] = \
                         greedy.load_vehicle(self, cs, gc, v, cs_id, charging_stations,
                                             avail_bat_power[gcID])
-                elif station_type == "depot":
+                elif station_type == "deps":
                     charging_stations, avail_bat_power[gcID] = \
                         balanced.load_vehicle(self, cs, gc, v, cs_id, charging_stations,
                                               avail_bat_power[gcID])
 
                 else:
-                    print(f"The station {cs.parent} has no declaration such as 'opp' or 'depot'"
+                    print(f"The station {cs.parent} has no declaration such as 'opps' or 'deps'"
                           f"attached. Please make sure the ending of the station name is one of the"
                           f"mentioned.")
 
