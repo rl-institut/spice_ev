@@ -15,6 +15,7 @@ EPS = 1e-8
 
 def generate_flex_band(scenario, gcID, core_standing_time=None):
     """Generate flexibility potential with perfect foresight
+
     :param scenario: dictionary from scenario json
     :type scenario: dict
     :param core_standing_time: core standing time during which flexibility is guaranteed e.g.
@@ -100,7 +101,9 @@ def generate_flex_band(scenario, gcID, core_standing_time=None):
 
         # basic value: external load, feed-in power
         base_flex = sum([gc.get_current_load() for gc in s.world_state.grid_connectors.values()])
+
         num_cars_present = 0
+
         # update vehicles
         for vid, v in s.world_state.vehicles.items():
             cs_id = v.connected_charging_station
@@ -182,6 +185,7 @@ def generate_flex_band(scenario, gcID, core_standing_time=None):
 
 def generate_schedule(args):
     """Generate schedule for grid signals
+
     :param args: input arguments
     :type args: argparse.Namespace
     :return: None
@@ -283,6 +287,7 @@ def generate_schedule(args):
         are taken into account and so on.
         Schedule is raised if we want to allow customer to charge more during this period.
         Otherwise the schedule is lowered.
+
         :param period: List of timestep indicies of the period the energy is distributed to
         :type period: list
         :param charge_period: Determines whether schedule should be raised or lowered.
