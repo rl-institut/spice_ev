@@ -260,7 +260,7 @@ class TestScenarios(unittest.TestCase):
         input = os.path.join(TEST_REPO_PATH, 'test_data/input_test_strategies/scenario_C3.json')
         save_results = 'test_data/input_test_strategies/save_results.json'
         save_timeseries = 'test_data/input_test_strategies/save_timeseries.csv'
-        save_soc = 'test_data/input_test_strategies/save_soc.json'
+        save_soc = 'test_data/input_test_strategies/save_soc.csv'
         s = scenario.Scenario(load_json(input), os.path.dirname(input))
         s.run('distributed', {"testing": True, "strategy_option": [["ALLOW_NEGATIVE_SOC", True]],
                               "save_results": save_results,

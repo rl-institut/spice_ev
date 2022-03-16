@@ -606,11 +606,11 @@ class Scenario:
                                            if cs_id in cs_by_uc[uc_key]]),
                                 round_to_places) for uc_key in uc_keys_present]
                         # get total number of occupied CS that are connected to gc
-                        row.append(len(connChargeByTS[gcID]))
+                        row.append(len(connChargeByTS[gcID][idx]))
                         # get number of occupied CS at gc for each use case
                         row += [
                             sum([1 if uc_key in cs_id else 0
-                                for cs_id in connChargeByTS[gcID]]) for uc_key in
+                                for cs_id in connChargeByTS[gcID][idx]]) for uc_key in
                             uc_keys_present]
                         # get individual charging power of cs_id that is connected to gc
                         row += [round(gc_commands.get(cs_id, 0), round_to_places) for cs_id in
