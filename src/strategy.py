@@ -2,6 +2,7 @@ from copy import deepcopy
 from importlib import import_module
 
 from src import events
+from src.util import get_cost, clamp_power
 
 
 def class_from_str(strategy_name):
@@ -30,7 +31,8 @@ class Strategy():
         self.world_state.future_events = []
         self.interval = kwargs.get('interval')  # required
         self.current_time = start_time - self.interval
-        self.count_negative_soc = {}
+        # for each vehicle, save timestamps when SoC becomes negative
+        self.negative_soc_tracker = {}
         # relative allowed difference between battery SoC and desired SoC when leaving
         self.margin = 0.1
         self.ALLOW_NEGATIVE_SOC = False
@@ -114,15 +116,15 @@ class Strategy():
                     assert vehicle.battery.soc >= (1-self.margin)*vehicle.desired_soc - self.EPS, (
                         "{}: Vehicle {} is below desired SOC ({} < {})".format(
                             ev.start_time.isoformat(), ev.vehicle_id,
-                            vehicle.battery.soc, vehicle.desired_soc - self.margin))
+                            vehicle.battery.soc, vehicle.desired_soc))
 
                 elif ev.event_type == "arrival":
                     assert hasattr(vehicle, 'soc_delta')
                     vehicle.battery.soc += vehicle.soc_delta
                     if vehicle.battery.soc + self.EPS < 0:
-                        if ev.vehicle_id not in self.count_negative_soc.keys():
-                            self.count_negative_soc.update({ev.vehicle_id:
-                                                            self.current_time.isoformat()})
+                        if ev.vehicle_id not in self.negative_soc_tracker.keys():
+                            self.negative_soc_tracker.update({ev.vehicle_id:
+                                                              self.current_time.isoformat()})
                         if self.ALLOW_NEGATIVE_SOC:
                             print('Warning: SOC of vehicle {} became negative at {}. SOC is {}, '
                                   'continuing with SOC = 0'
@@ -150,3 +152,69 @@ class Strategy():
                 raise Exception(
                     "Connector {} has neither associated costs nor schedule at {}"
                     .format(name, self.current_time))
+
+    def distribute_surplus_power(self):
+        """
+        Distribute surplus power to vehicles
+
+        :return: charging commands
+        :rtype: dict
+        """
+        commands = dict()
+        gc_cheap = {
+            gc_id: get_cost(1, gc.cost) <= self.PRICE_THRESHOLD
+            for gc_id, gc in self.world_state.grid_connectors.items()}
+        for vehicle in self.world_state.vehicles.values():
+            cs_id = vehicle.connected_charging_station
+            if cs_id is None:
+                continue
+            cs = self.world_state.charging_stations[cs_id]
+            gc = self.world_state.grid_connectors[cs.parent]
+            gc_surplus = -gc.get_current_load()
+            if gc_surplus > self.EPS:
+                # surplus power
+                power = clamp_power(gc_surplus, vehicle, cs)
+                avg_power = vehicle.battery.load(self.interval, power)['avg_power']
+                commands[cs_id] = gc.add_load(cs_id, avg_power)
+                cs.current_power += avg_power
+            elif (vehicle.get_delta_soc() < -self.EPS
+                    and vehicle.vehicle_type.v2g
+                    and cs.current_power < self.EPS
+                    and not gc_cheap[cs.parent]):
+                # GC draws power, surplus in vehicle and V2G capable: support GC
+                discharge_power = min(
+                    -gc_surplus,
+                    vehicle.battery.loading_curve.max_power * vehicle.vehicle_type.v2g_power_factor)
+                target_soc = max(vehicle.desired_soc, self.DISCHARGE_LIMIT)
+                avg_power = vehicle.battery.unload(
+                    self.interval, discharge_power, target_soc)['avg_power']
+                commands[cs_id] = gc.add_load(cs_id, -avg_power)
+                cs.current_power -= avg_power
+        return commands
+
+    def update_batteries(self):
+        """
+        Charge/discharge batteries. In-place, no input/output
+        """
+        gc_cheap = {
+            gc_id: get_cost(1, gc.cost) <= self.PRICE_THRESHOLD
+            for gc_id, gc in self.world_state.grid_connectors.items()}
+        for b_id, battery in self.world_state.batteries.items():
+            gc = self.world_state.grid_connectors[battery.parent]
+            gc_current_load = gc.get_current_load()
+            if gc_cheap[battery.parent]:
+                # low price: charge with full power
+                power = gc.cur_max_power - gc_current_load
+                power = 0 if power < battery.min_charging_power else power
+                avg_power = battery.load(self.interval, power)['avg_power']
+                gc.add_load(b_id, avg_power)
+            elif gc_current_load < 0:
+                # surplus energy: charge
+                power = -gc_current_load
+                power = 0 if power < battery.min_charging_power else power
+                avg_power = battery.load(self.interval, power)['avg_power']
+                gc.add_load(b_id, avg_power)
+            else:
+                # GC draws power: use stored energy to support GC
+                bat_power = battery.unload(self.interval, gc_current_load)['avg_power']
+                gc.add_load(b_id, -bat_power)

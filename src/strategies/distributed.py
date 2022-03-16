@@ -15,6 +15,7 @@ class Distributed(Strategy):
         super().__init__(constants, start_time, **kwargs)
         self.description = "distributed"
         self.ITERATIONS = 12
+        # minimum charging time at depot; time to look into the future for prioritization
         self.C_HORIZON = 3  # min
         # dict that holds the current vehicles connected to a grid connector for each gc
         self.v_connect = {}
@@ -134,46 +135,22 @@ class Distributed(Strategy):
                 cs = self.world_state.charging_stations[cs_id]
                 # get station type
                 station_type = cs_id.split("_")[-1]
-                if station_type == "opp":
+                if station_type == "opps":
                     charging_stations, avail_bat_power[gcID] = \
                         greedy.load_vehicle(self, cs, gc, v, cs_id, charging_stations,
                                             avail_bat_power[gcID])
-                    # load batteries
-                    greedy.load_batteries(self)
-                elif station_type == "depot":
+                elif station_type == "deps":
                     charging_stations, avail_bat_power[gcID] = \
                         balanced.load_vehicle(self, cs, gc, v, cs_id, charging_stations,
                                               avail_bat_power[gcID])
-                    # load batteries
-                    greedy.load_batteries(self)
+
                 else:
-                    print(f"The station {cs.parent} has no declaration such as 'opp' or 'depot'"
+                    print(f"The station {cs.parent} has no declaration such as 'opps' or 'deps'"
                           f"attached. Please make sure the ending of the station name is one of the"
                           f"mentioned.")
 
-            # all vehicles loaded
-            # distribute surplus power to vehicles
-            # power is clamped to CS max_power (with concurrency, see init)
-            for vehicle_id in sorted(self.world_state.vehicles):
-                vehicle = self.world_state.vehicles[vehicle_id]
-                cs_id = vehicle.connected_charging_station
-                if cs_id is None:
-                    continue
-                cs = self.world_state.charging_stations[cs_id]
-                gc = self.world_state.grid_connectors[cs.parent]
-                station_type = cs_id.split("_")[-1]
-                if station_type == "opp":
-                    charging_stations = greedy.add_surplus_to_vehicle(self, cs, gc, vehicle, cs_id,
-                                                                      charging_stations)
-                elif station_type == "depot":
-                    charging_stations = balanced.add_surplus_to_vehicle(self, cs, gc, vehicle,
-                                                                        cs_id, charging_stations)
-                else:
-                    print(f"The station {cs.parent} has no declaration such as 'opp' or 'depot'"
-                          f"attached. Please make sure the ending of the station name is one of the"
-                          f"mentioned.")
-
-            # charge/discharge batteries
-            balanced.load_batteries(self)
+        # all vehicles loaded
+        charging_stations.update(self.distribute_surplus_power())
+        self.update_batteries()
 
         return {'current_time': self.current_time, 'commands': charging_stations}

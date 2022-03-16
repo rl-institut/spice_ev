@@ -31,14 +31,14 @@
     },
     "vehicles": {
       "golf_0": {
-        "connected_charging_station": "CS_golf_0_depot",
+        "connected_charging_station": "CS_golf_0_deps",
         "estimated_time_of_departure": "2018-01-01T07:55:00+02:00",
         "desired_soc": 0.8,
         "soc": 0.8,
         "vehicle_type": "golf"
       },
       "golf_1": {
-        "connected_charging_station": "CS_golf_1_depot",
+        "connected_charging_station": "CS_golf_1_deps",
         "estimated_time_of_departure": "2018-01-01T07:55:00+02:00",
         "desired_soc": 0.8,
         "soc": 0.8,
@@ -56,12 +56,12 @@
       }
     },
     "charging_stations": {
-      "CS_golf_0_depot": {
+      "CS_golf_0_deps": {
         "max_power": 22,
         "min_power": 0,
         "parent": "GC1"
       },
-      "CS_golf_1_depot": {
+      "CS_golf_1_deps": {
         "max_power": 22,
         "min_power": 0,
         "parent": "GC1"
@@ -105,26 +105,6 @@
         }
       }
     ],
-    "external_load": {
-      "Building-20210705-20210719": {
-        "csv_file": "example_load.csv",
-        "start_time": "2018-01-01T00:00:00+02:00",
-        "step_duration_s": 600,
-        "grid_connector_id": "GC1",
-        "column": "value",
-        "factor": 0.001
-      }
-    },
-    "energy_feed_in": {
-      "PV_DHL_final_zeros": {
-        "csv_file": "example_pv_feedin.csv",
-        "start_time": "2018-01-01T00:00:00+02:00",
-        "step_duration_s": 3600,
-        "grid_connector_id": "GC1",
-        "column": "Feed-in Total (kW)",
-        "factor": 1
-      }
-    },
     "vehicle_events": [
       {
         "signal_time": "2018-01-01T10:00:00+02:00",
@@ -141,7 +121,7 @@
         "vehicle_id": "golf_0",
         "event_type": "arrival",
         "update": {
-          "connected_charging_station": "CS_golf_0_depot",
+          "connected_charging_station": "CS_golf_0_deps",
           "estimated_time_of_departure": "2018-01-01T15:00:00+02:00",
           "desired_soc": 0.8,
           "soc_delta": -0.2
@@ -162,7 +142,7 @@
         "vehicle_id": "golf_1",
         "event_type": "arrival",
         "update": {
-          "connected_charging_station": "CS_golf_1_depot",
+          "connected_charging_station": "CS_golf_1_deps",
           "estimated_time_of_departure": "2018-01-01T15:00:00+02:00",
           "desired_soc": 0.8,
           "soc_delta": -0.2

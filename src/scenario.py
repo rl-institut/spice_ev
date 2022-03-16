@@ -9,6 +9,7 @@ from src import constants, events, strategy, util
 
 class Scenario:
     """ Sets up a scenario from input json.
+
     :param json_dict: input dictionary
     :type json_dict: dict
     :param dir_path: path to the directory
@@ -53,6 +54,7 @@ class Scenario:
         """
         Run the scenario. Goes stepwise through all timesteps of the simulation and calls the
         strategy.step method for each timestep. Prints and saves results.
+
         :param strategy_name: name of the charging strategy
         :type strategy_name: str
         :param options: options of the charging strategy defined in simulate.cfg
@@ -66,19 +68,21 @@ class Scenario:
 
         event_steps = self.events.get_event_steps(self.start_time, self.n_intervals, self.interval)
 
-        socs = {gcID: [] for gcID in self.constants.grid_connectors.keys()}
-        costs = {gcID: [] for gcID in self.constants.grid_connectors.keys()}
-        prices = {gcID: [] for gcID in self.constants.grid_connectors.keys()}
+        gc_ids = self.constants.grid_connectors.keys()
+
+        socs = {gcID: [] for gcID in gc_ids}
+        costs = {gcID: [] for gcID in gc_ids}
+        prices = {gcID: [] for gcID in gc_ids}
         results = []
-        extLoads = {gcID: [] for gcID in self.constants.grid_connectors.keys()}
-        totalLoad = {gcID: [] for gcID in self.constants.grid_connectors.keys()}
-        disconnect = {gcID: [] for gcID in self.constants.grid_connectors.keys()}
-        feedInPower = {gcID: [] for gcID in self.constants.grid_connectors.keys()}
+        extLoads = {gcID: [] for gcID in gc_ids}
+        totalLoad = {gcID: [] for gcID in gc_ids}
+        disconnect = {gcID: [] for gcID in gc_ids}
+        feedInPower = {gcID: [] for gcID in gc_ids}
         stepsPerHour = datetime.timedelta(hours=1) / self.interval
-        batteryLevels = {gcID: {} for gcID in self.constants.grid_connectors.keys()}
-        connChargeByTS = {gcID: [] for gcID in self.constants.grid_connectors.keys()}
-        gcPowerSchedule = {gcID: [] for gcID in self.constants.grid_connectors.keys()}
-        gcWindowSchedule = {gcID: [] for gcID in self.constants.grid_connectors.keys()}
+        batteryLevels = {k: [] for k in self.constants.batteries.keys()}
+        connChargeByTS = {gcID: [] for gcID in gc_ids}
+        gcPowerSchedule = {gcID: [] for gcID in gc_ids}
+        gcWindowSchedule = {gcID: [] for gcID in gc_ids}
         gcWithinPowerLimit = True
 
         begin = datetime.datetime.now()
@@ -207,12 +211,9 @@ class Scenario:
                 feedInPower[gcID].append(curFeedIn)
                 connChargeByTS[gcID].append(cur_cs)
 
-                # get battery levels
-                for batName, bat in strat.world_state.batteries.items():
-                    if strat.world_state.batteries[batName].parent == gcID:
-                        if batName not in batteryLevels[gcID]:
-                            batteryLevels[gcID][batName] = []
-                        batteryLevels[gcID][batName].append(bat.soc * bat.capacity)
+            # get battery levels
+            for batName, bat in strat.world_state.batteries.items():
+                batteryLevels[batName].append(bat.soc * bat.capacity)
 
             # next simulation timestep
 
@@ -240,8 +241,8 @@ class Scenario:
             total_car_energy = {}
             avg_drawn = {}
 
-            for gc_index, gcID in enumerate(self.constants.grid_connectors):
-                flex = generate_flex_band(self, gc_index=gc_index)
+            for gcID in self.constants.grid_connectors:
+                flex = generate_flex_band(self, gcID=gcID)
 
                 if options.get("save_results", False) or options.get("testing", False):
                     if options.get("save_results", False):
@@ -312,8 +313,8 @@ class Scenario:
                         "unit": "kWh",
                         "info": "Total drawn energy per time window"
                     }
-                    if strat.count_negative_soc:
-                        json_results["vehicles with negative soc"] = strat.count_negative_soc
+                    if strat.negative_soc_tracker:
+                        json_results["vehicles with negative soc"] = strat.negative_soc_tracker
 
                     # avg standing time
                     # don't use info from flex band, as standing times might be interleaved
@@ -354,7 +355,11 @@ class Scenario:
 
                     # avg needed energy per standing period
                     intervals = flex["intervals"]
-                    avg_needed_energy[gcID] = sum([i["needed"] for i in intervals]) / len(intervals)
+                    if intervals:
+                        avg_needed_energy[gcID] = sum([i["needed"] for i in intervals]
+                                                      ) / len(intervals)
+                    else:
+                        avg_needed_energy[gcID] = 0
                     json_results["avg needed energy"] = {
                         # avg energy per standing period and vehicle
                         # todo: number of cars at this gc instead? wouldn't it make more sense to
@@ -393,10 +398,10 @@ class Scenario:
                     }
 
                     # battery sizes
-                    for b in [b for b in batteryLevels[gcID].values()]:
+                    for b in batteryLevels.values():
                         if any(b):
                             bat_dict = {batName: max(values) for batName, values in
-                                        batteryLevels[gcID].items()}
+                                        batteryLevels.items()}
                             bat_dict.update({
                                 "unit": "kWh",
                                 "info": "Maximum stored energy in each battery by name"
@@ -410,7 +415,7 @@ class Scenario:
                         if self.constants.batteries[batID].parent == gcID:
                             if battery.capacity > 2**63:
                                 # unlimited capacity
-                                max_cap = max(batteryLevels[gcID][batID])
+                                max_cap = max(batteryLevels[batID])
                                 print("Battery {} is unlimited, set capacity to {} kWh".format(
                                     batID, max_cap))
                                 total_bat_cap += max_cap
@@ -453,156 +458,160 @@ class Scenario:
             if ext != "csv":
                 print("File extension mismatch: timeseries file is of type .csv")
 
-            cs_ids = sorted(item for item in strat.world_state.charging_stations.keys() if
-                            self.constants.charging_stations[item].parent == gcID)
+            for gcID in self.constants.grid_connectors:
 
-            uc_keys = [
-                "work",
-                "business",
-                "school",
-                "shopping",
-                "private/ridesharing",
-                "leisure",
-                "home",
-                "hub"
-            ]
+                filename = options['save_timeseries'].split(".")[0] + f"_{gcID}." + \
+                           options['save_timeseries'].split(".")[1]
 
-            round_to_places = 2
+                cs_ids = sorted(item for item in strat.world_state.charging_stations.keys() if
+                                self.constants.charging_stations[item].parent == gcID)
 
-            # which SimBEV-Use Cases are in this scenario?
-            # group CS by UC name
-            cs_by_uc = {}
-            for uc_key in uc_keys:
-                for cs_id in cs_ids:
-                    if uc_key in cs_id:
-                        # CS part of UC
-                        if uc_key not in cs_by_uc:
-                            # first CS of this UC
-                            cs_by_uc[uc_key] = []
-                        cs_by_uc[uc_key].append(cs_id)
+                uc_keys = [
+                    "work",
+                    "business",
+                    "school",
+                    "shopping",
+                    "private/ridesharing",
+                    "leisure",
+                    "home",
+                    "hub"
+                ]
 
-            uc_keys_present = cs_by_uc.keys()
+                round_to_places = 2
 
-            scheduleKeys = []
-            for gcID in sorted(gcPowerSchedule.keys()):
-                if any(s is not None for s in gcPowerSchedule[gcID]):
-                    scheduleKeys.append(gcID)
+                # which SimBEV-Use Cases are in this scenario?
+                # group CS by UC name
+                cs_by_uc = {}
+                for uc_key in uc_keys:
+                    for cs_id in cs_ids:
+                        if uc_key in cs_id:
+                            # CS part of UC
+                            if uc_key not in cs_by_uc:
+                                # first CS of this UC
+                                cs_by_uc[uc_key] = []
+                            cs_by_uc[uc_key].append(cs_id)
 
-            # any loads except CS present?
-            hasExtLoads = any(extLoads)
+                uc_keys_present = cs_by_uc.keys()
 
-            with open(options['save_timeseries'].split(".")[0] + f"_{gcID}." +
-                      options['save_timeseries'].split(".")[1], 'w') as timeseries_file:
-                # write header
-                # general info
-                header = ["timestep", "time"]
-                # price
-                if any(prices):
-                    # external loads (e.g., building)
-                    header.append("price [EUR/kWh]")
-                # grid power
-                header.append("grid power [kW]")
-                # external loads
-                if hasExtLoads:
-                    # external loads (e.g., building)
-                    header.append("ext.load [kW]")
-                # feed-in
-                if any(feedInPower):
-                    header.append("feed-in [kW]")
-                # batteries
-                if self.constants.batteries:
-                    header += ["battery power [kW]", "bat. stored energy [kWh]"]
-                # flex + schedule
-                header += ["flex min [kW]", "flex base [kW]", "flex max [kW]"]
-                header += ["schedule {} [kW]".format(gcID) for gcID in scheduleKeys]
-                header += ["window {}".format(gcID) for gcID in scheduleKeys]
-                # sum of charging power
-                header.append("sum CS power")
-                # charging power per use case
-                header += ["sum UC {}".format(uc) for uc in uc_keys_present]
-                # total number of occupied charging stations
-                header.append("# occupied CS")
-                # number of occupied CS per UC
-                header += ["# occupied UC {}".format(uc) for uc in uc_keys_present]
-                # charging power per CS
-                header += [str(cs_id) for cs_id in cs_ids]
-                timeseries_file.write(','.join(header))
+                scheduleKeys = []
+                for gcID in sorted(gcPowerSchedule.keys()):
+                    if any(s is not None for s in gcPowerSchedule[gcID]):
+                        scheduleKeys.append(gcID)
 
-                # write timesteps
-                for idx, r in enumerate(results):
-                    # general info: timestep index and timestamp
-                    # TZ removed for spreadsheet software
-                    row = [idx, r['current_time'].replace(tzinfo=None)]
+                # any loads except CS present?
+                hasExtLoads = any(extLoads)
+
+                with open(filename, 'w') as timeseries_file:
+                    # write header
+                    # general info
+                    header = ["timestep", "time"]
                     # price
-                    if any(prices[gcID]):
-                        row.append(round(prices[gcID][idx][0], round_to_places))
-                    # grid power (negative since grid power is fed into system)
-                    row.append(-1 * round(totalLoad[gcID][idx], round_to_places))
+                    if any(prices):
+                        # external loads (e.g., building)
+                        header.append("price [EUR/kWh]")
+                    # grid power
+                    header.append("grid power [kW]")
                     # external loads
                     if hasExtLoads:
-                        sumExtLoads = sum([
-                            v for k, v in extLoads[gcID][idx].items()
-                            if k in self.events.external_load_lists])
-                        row.append(round(sumExtLoads, round_to_places))
-                    # feed-in (negative since grid power is fed into system)
+                        # external loads (e.g., building)
+                        header.append("ext.load [kW]")
+                    # feed-in
                     if any(feedInPower):
-                        row.append(-1 * round(feedInPower[gcID][idx], round_to_places))
+                        header.append("feed-in [kW]")
                     # batteries
                     if self.constants.batteries:
-                        current_battery = {}
-                        for batID in batteryLevels[gcID]:
-                            if self.constants.batteries[batID].parent == gcID:
-                                current_battery.update({batID: batteryLevels[gcID][batID]})
-                        row += [
-                            # battery power
-                            round(sum([
+                        header += ["battery power [kW]", "bat. stored energy [kWh]"]
+                    # flex + schedule
+                    header += ["flex min [kW]", "flex base [kW]", "flex max [kW]"]
+                    header += ["schedule {} [kW]".format(gcID) for gcID in scheduleKeys]
+                    header += ["window {}".format(gcID) for gcID in scheduleKeys]
+                    # sum of charging power
+                    header.append("sum CS power")
+                    # charging power per use case
+                    header += ["sum UC {}".format(uc) for uc in uc_keys_present]
+                    # total number of occupied charging stations
+                    header.append("# occupied CS")
+                    # number of occupied CS per UC
+                    header += ["# occupied UC {}".format(uc) for uc in uc_keys_present]
+                    # charging power per CS
+                    header += [str(cs_id) for cs_id in cs_ids]
+                    timeseries_file.write(','.join(header))
+
+                    # write timesteps
+                    for idx, r in enumerate(results):
+                        # general info: timestep index and timestamp
+                        # TZ removed for spreadsheet software
+                        row = [idx, r['current_time'].replace(tzinfo=None)]
+                        # price
+                        if any(prices[gcID]):
+                            row.append(round(prices[gcID][idx][0], round_to_places))
+                        # grid power (negative since grid power is fed into system)
+                        row.append(-1 * round(totalLoad[gcID][idx], round_to_places))
+                        # external loads
+                        if hasExtLoads:
+                            sumExtLoads = sum([
                                 v for k, v in extLoads[gcID][idx].items()
-                                if k in self.constants.batteries]),
-                                round_to_places),
-                            # battery levels
-                            # get connected battery
-                            round(
-                                sum([levels[idx] for levels in current_battery.values()]),
-                                round_to_places
-                            )
+                                if k in self.events.external_load_lists])
+                            row.append(round(sumExtLoads, round_to_places))
+                        # feed-in (negative since grid power is fed into system)
+                        if any(feedInPower):
+                            row.append(-1 * round(feedInPower[gcID][idx], round_to_places))
+                        # batteries
+                        if self.constants.batteries:
+                            current_battery = {}
+                            for batID in batteryLevels:
+                                if self.constants.batteries[batID].parent == gcID:
+                                    current_battery.update({batID: batteryLevels[batID]})
+                            row += [
+                                # battery power
+                                round(sum([
+                                    v for k, v in extLoads[gcID][idx].items()
+                                    if k in self.constants.batteries]),
+                                    round_to_places),
+                                # battery levels
+                                # get connected battery
+                                round(
+                                    sum([levels[idx] for levels in current_battery.values()]),
+                                    round_to_places
+                                )
+                            ]
+                        # flex
+                        row += [
+                            round(flex["min"][idx], round_to_places),
+                            round(flex["base"][idx], round_to_places),
+                            round(flex["max"][idx], round_to_places)
                         ]
-                    # flex
-                    row += [
-                        round(flex["min"][idx], round_to_places),
-                        round(flex["base"][idx], round_to_places),
-                        round(flex["max"][idx], round_to_places)
-                    ]
-                    # schedule + window schedule
-                    row += [
-                        round(gcPowerSchedule[gcID][idx], round_to_places)
-                        for gcID in scheduleKeys]
-                    row += [
-                        round(gcWindowSchedule[gcID][idx], round_to_places)
-                        for gcID in scheduleKeys]
-                    # charging power
-                    # get sum of all current CS power that are connected to gc
-                    gc_commands = {}
-                    if r['commands']:
-                        for k, v in r["commands"].items():
-                            if k in cs_ids:
-                                gc_commands.update({k: v})
-                    row.append(round(sum(gc_commands.values()), round_to_places))
-                    # sum up all charging power at gc for each use case
-                    row += [round(sum([cs_value for cs_id, cs_value in gc_commands.items()
-                                       if cs_id in cs_by_uc[uc_key]]),
-                            round_to_places) for uc_key in uc_keys_present]
-                    # get total number of occupied CS that are connected to gc
-                    row.append(len(connChargeByTS[gcID]))
-                    # get number of occupied CS at gc for each use case
-                    row += [
-                        sum([1 if uc_key in cs_id else 0
-                            for cs_id in connChargeByTS[gcID]]) for uc_key in
-                        uc_keys_present]
-                    # get individual charging power of cs_id that is connected to gc
-                    row += [round(gc_commands.get(cs_id, 0), round_to_places) for cs_id in
-                            cs_ids]
-                    # write row to file
-                    timeseries_file.write('\n' + ','.join(map(lambda x: str(x), row)))
+                        # schedule + window schedule
+                        row += [
+                            round(gcPowerSchedule[gcID][idx], round_to_places)
+                            for gcID in scheduleKeys]
+                        row += [
+                            round(gcWindowSchedule[gcID][idx], round_to_places)
+                            for gcID in scheduleKeys]
+                        # charging power
+                        # get sum of all current CS power that are connected to gc
+                        gc_commands = {}
+                        if r['commands']:
+                            for k, v in r["commands"].items():
+                                if k in cs_ids:
+                                    gc_commands.update({k: v})
+                        row.append(round(sum(gc_commands.values()), round_to_places))
+                        # sum up all charging power at gc for each use case
+                        row += [round(sum([cs_value for cs_id, cs_value in gc_commands.items()
+                                           if cs_id in cs_by_uc[uc_key]]),
+                                round_to_places) for uc_key in uc_keys_present]
+                        # get total number of occupied CS that are connected to gc
+                        row.append(len(connChargeByTS[gcID]))
+                        # get number of occupied CS at gc for each use case
+                        row += [
+                            sum([1 if uc_key in cs_id else 0
+                                for cs_id in connChargeByTS[gcID]]) for uc_key in
+                            uc_keys_present]
+                        # get individual charging power of cs_id that is connected to gc
+                        row += [round(gc_commands.get(cs_id, 0), round_to_places) for cs_id in
+                                cs_ids]
+                        # write row to file
+                        timeseries_file.write('\n' + ','.join(map(lambda x: str(x), row)))
 
         if options.get("save_soc", False):
             # save soc of each vehicle in one file
@@ -677,16 +686,17 @@ class Scenario:
             # plot!
             if options.get('visual', False):
                 import matplotlib.pyplot as plt
+
+                print('Done. Create plots...')
+
                 # batteries
                 if batteryLevels:
                     plots_top_row = 3
                     ax = plt.subplot(2, plots_top_row, 3)
                     ax.set_title('Batteries')
                     ax.set(ylabel='Stored power in kWh')
-                    for gcID, gc in self.constants.grid_connectors.items():
-                        if batteryLevels[gcID]:
-                            for name, values in batteryLevels[gcID].items():
-                                ax.plot(xlabels, values, label=name)
+                    for name, values in batteryLevels.items():
+                        ax.plot(xlabels, values, label=name)
                     ax.legend()
                 else:
                     plots_top_row = 2
@@ -744,7 +754,7 @@ class Scenario:
                 ax.set_title('Price for 1 kWh')
                 ax.set(ylabel='€')
                 if len(self.constants.grid_connectors) <= 10:
-                    ax.legend(lines, sorted(self.constants.grid_connectors.keys()))
+                    ax.legend(lines, sorted(gc_ids))
 
                 # figure title
                 fig = plt.gcf()

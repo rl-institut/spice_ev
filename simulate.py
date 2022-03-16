@@ -12,10 +12,9 @@ from src.util import set_options_from_config
 STRATEGIES = [
     'greedy', 'greedy_market',
     'balanced', 'balanced_market',
-    'inverse',
     'peak_load_window', 'flex_window',
     'schedule', 'schedule_foresight',
-    'v2g', 'distributed'
+    'distributed',
 ]
 
 
