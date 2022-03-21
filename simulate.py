@@ -12,10 +12,9 @@ from src.util import set_options_from_config
 STRATEGIES = [
     'greedy', 'greedy_market',
     'balanced', 'balanced_market',
-    'inverse',
     'peak_load_window', 'flex_window',
     'schedule', 'schedule_foresight',
-    'v2g',
+    'distributed',
 ]
 
 
@@ -38,6 +37,7 @@ def simulate(args):
         'visual': args.get("visual"),
         'margin': args.get("margin"),
         'save_timeseries': args.get("save_timeseries"),
+        'save_soc': args.get("save_soc"),
         'save_results': args.get("save_results"),
         'testing': args.get("testing")
     }
@@ -89,6 +89,7 @@ if __name__ == '__main__':
     parser.add_argument('--output', '-o', help='Deprecated, use save-timeseries instead')
     parser.add_argument('--save-timeseries', help='Write timesteps to file')
     parser.add_argument('--save-results', help='Write general info to file')
+    parser.add_argument('--save-soc', help='Write SoCs of vehicles to file')
     parser.add_argument('--testing', help='Stores testing results', action='store_true')
     parser.add_argument('--config', help='Use config file to set arguments')
     args = parser.parse_args()

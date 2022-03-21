@@ -207,6 +207,19 @@ Given a time window of high load, tries to charge outside this window. Different
     PeakLoadWindow.step
     PeakLoadWindow.distribute_power
 
+
+Distributed
+-----------
+Unlimited grid connectors are supported. Vehicles that arrive at a station with opp (opportunity charging) are loaded with greedy strategy, ones that arrive at a depot station are loaded with balanced strategy.
+Application case: Bus scenarios.
+
+.. currentmodule:: src.strategies.distributed
+.. autosummary::
+    :toctree: temp/
+
+    Distributed
+    Distributed.step
+
 Schedule
 --------
 Allocate power according to grid operator schedule.

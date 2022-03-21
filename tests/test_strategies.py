@@ -35,7 +35,13 @@ def load_json(filename):
         return json.load(f)
 
 
-class TestScenarios(unittest.TestCase):
+class TestCaseBase(unittest.TestCase):
+    def assertIsFile(self, path):
+        if not os.path.isfile(path):
+            raise AssertionError("File does not exist: %s" % str(path))
+
+
+class TestScenarios(TestCaseBase):
 
     def test_scenario_times(self):
         # correct number of timesteps?
@@ -151,6 +157,17 @@ class TestScenarios(unittest.TestCase):
             assert s.testing["max_total_load"] <= s.constants.grid_connectors[gcID].max_power
             assert s.testing["max_total_load"] > 0
 
+    def test_distributed_D(self):
+        input = os.path.join(TEST_REPO_PATH, 'test_data/input_test_strategies/bus_scenario_D.json')
+        s = scenario.Scenario(load_json(input), os.path.dirname(input))
+        s.run('distributed', {"testing": True, "strategy_option": [["ALLOW_NEGATIVE_SOC", True]],
+                              "margin": 1})
+        max_power = 0
+        for gcID, gc in s.constants.grid_connectors.items():
+            max_power += s.constants.grid_connectors[gcID].max_power
+        assert s.testing["max_total_load"] <= max_power
+        assert s.testing["max_total_load"] > 0
+
     # TEST STRATEGY OUTPUTS
 
     def test_general_outputs(self):
@@ -158,18 +175,18 @@ class TestScenarios(unittest.TestCase):
         s = scenario.Scenario(load_json(input), os.path.dirname(input))
         s.run('greedy', {"testing": True})
 
-        assert s.testing["avg_total_standing_time"] == 17.5
-        assert s.testing["avg_stand_time"] == 8.75
-        assert round(s.testing["avg_needed_energy"], 2) == 2.15
-        assert round(s.testing["avg_drawn_power"], 2) == 1.44
-        assert round(s.testing["sum_feed_in_per_h"], 2) == 0
-        assert round(s.testing["vehicle_battery_cycles"], 2) == 1.1
-        assert round(s.testing["avg_flex_per_window"][0], 2) == 363.25
-        assert round(s.testing["avg_flex_per_window"][3], 2) == 367.32
-        assert round(s.testing["sum_energy_per_window"][0], 2) == 0
-        assert round(s.testing["sum_energy_per_window"][3], 2) == 0
+        assert s.testing["avg_total_standing_time"]["GC1"] == 17.5
+        assert s.testing["avg_stand_time"]["GC1"] == 8.75
+        assert round(s.testing["avg_needed_energy"]["GC1"], 2) == 1.08
+        assert round(s.testing["avg_drawn_pwer"]["GC1"], 2) == 1.44
+        assert round(s.testing["sum_feed_in_per_h"]["GC1"], 2) == 0
+        assert round(s.testing["vehicle_battery_cycles"]["GC1"], 2) == 1.1
+        assert round(s.testing["avg_flex_per_window"]["GC1"][0], 2) == 363.25
+        assert round(s.testing["avg_flex_per_window"]["GC1"][3], 2) == 367.32
+        assert round(s.testing["sum_energy_per_window"]["GC1"][0], 2) == 0
+        assert round(s.testing["sum_energy_per_window"]["GC1"][3], 2) == 0
         load = [0] * 96
-        for key, values in s.testing["timeseries"]["loads"].items():
+        for key, values in s.testing["timeseries"]["loads"]["GC1"].items():
             load = [a + b for a, b in zip(load, values)]
         cs_load = [sum(item) for item in s.testing["timeseries"]["sum_cs"]]
         total_load = [a + b for a, b in zip(load, cs_load)]
@@ -193,13 +210,13 @@ class TestScenarios(unittest.TestCase):
         for idx in indices_unload_vehicle:
             assert s.testing["timeseries"]["schedule"]["GC1"][idx] is False
         # check if batteries are only loaded in window
-        indices_load_battery = [idx for idx, val in enumerate(s.testing["timeseries"]["loads"][
-                                                                  "BAT1"]) if round(val, 2) > 0]
+        indices_load_battery = [idx for idx, val in enumerate(s.testing["timeseries"]["loads"]
+                                                              ["GC1"]["BAT1"]) if val > 0]
         for idx in indices_load_battery:
             assert s.testing["timeseries"]["schedule"]["GC1"][idx] is True
         # check if batteries are only unloaded outside window
-        indices_unload_battery = [idx for idx, val in enumerate(s.testing["timeseries"]["loads"][
-                                                                    "BAT1"]) if round(val, 2) < 0]
+        indices_unload_battery = [idx for idx, val in enumerate(s.testing["timeseries"]["loads"]
+                                                                ["GC1"]["BAT1"]) if val < 0]
         for idx in indices_unload_battery:
             assert s.testing["timeseries"]["schedule"]["GC1"][idx] is False
 
@@ -217,15 +234,53 @@ class TestScenarios(unittest.TestCase):
                     assert round(cs_load[idx], 0) == s.constants.charging_stations[
                         "CS_golf_0"].max_power
         # check if batteries are only loaded in window
-        indices_load_battery = [idx for idx, val in enumerate(s.testing["timeseries"]["loads"][
-                                                                  "BAT1"]) if val > 0]
+        indices_load_battery = [idx for idx, val in enumerate(s.testing["timeseries"]["loads"]
+                                                              ["GC1"]["BAT1"]) if val > 0]
         for idx in indices_load_battery:
             assert s.testing["timeseries"]["schedule"]["GC1"][idx] is True
         # check if batteries are only unloaded outside window
-        indices_unload_battery = [idx for idx, val in enumerate(s.testing["timeseries"]["loads"][
-                                                                    "BAT1"]) if val < 0]
+        indices_unload_battery = [idx for idx, val in enumerate(s.testing["timeseries"]["loads"]
+                                                                ["GC1"]["BAT1"]) if val < 0]
         for idx in indices_unload_battery:
             assert s.testing["timeseries"]["schedule"]["GC1"][idx] is False
+
+    def test_distributed_C3_priorization(self):
+        input = os.path.join(TEST_REPO_PATH, 'test_data/input_test_strategies/scenario_C3.json')
+        s = scenario.Scenario(load_json(input), os.path.dirname(input))
+        s.run('distributed', {"testing": True, "strategy_option": [["ALLOW_NEGATIVE_SOC", True]],
+                              "margin": 1})
+        max_power = 0
+        for gcID, gc in s.constants.grid_connectors.items():
+            max_power += s.constants.grid_connectors[gcID].max_power
+        cs = s.testing["timeseries"]["sum_cs"]
+        cs_1 = [x for x in cs if x[0] != 0]
+        cs_2 = [x for x in cs if x[1] != 0]
+        # only one cs at a time
+        assert [x[1] == 0 for x in cs_1]
+        assert [x[0] == 0 for x in cs_2]
+        # assert that cars are loaded balanced
+        assert len(set([round(x[0], 2) for x in cs_1])) == 1
+        assert len(set([round(x[1], 2) for x in cs_2])) == 1
+
+    def test_distributed_C3_outputs(self):
+        input = os.path.join(TEST_REPO_PATH, 'test_data/input_test_strategies/scenario_C3.json')
+        save_results = os.path.join(TEST_REPO_PATH,
+                                    'test_data/input_test_strategies/save_results.json')
+        save_timeseries = os.path.join(TEST_REPO_PATH,
+                                       'test_data/input_test_strategies/save_timeseries.csv')
+        save_soc = os.path.join(TEST_REPO_PATH, 'test_data/input_test_strategies/save_soc.csv')
+        s = scenario.Scenario(load_json(input), os.path.dirname(input))
+        s.run('distributed', {"testing": True, "strategy_option": [["ALLOW_NEGATIVE_SOC", True]],
+                              "save_results": save_results,
+                              "save_timeseries": save_timeseries,
+                              "save_soc": save_soc})
+        self.assertIsFile(save_results)
+        self.assertIsFile(save_timeseries)
+        self.assertIsFile(save_soc)
+        # remove output file
+        os.remove(save_results)
+        os.remove(save_timeseries)
+        os.remove(save_soc)
 
 
 if __name__ == '__main__':

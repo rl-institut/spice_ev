@@ -15,7 +15,6 @@ def class_from_str(strategy_name):
 class Strategy():
     """
     Parent class for the individual strategies.
-
     :param constants: class containing the constant componants
     :type constants: class
     :param start_time: start time of the simulation
@@ -32,9 +31,11 @@ class Strategy():
         self.world_state.future_events = []
         self.interval = kwargs.get('interval')  # required
         self.current_time = start_time - self.interval
+        # for each vehicle, save timestamps when SoC becomes negative
+        self.negative_soc_tracker = {}
         # relative allowed difference between battery SoC and desired SoC when leaving
         self.margin = 0.1
-        self.allow_negative_soc = False
+        self.ALLOW_NEGATIVE_SOC = False
         self.V2G_POWER_FACTOR = 0.5
         # check if strategy uses grid signals & enable/disable plotting of schedule or window
         self.uses_schedule = False
@@ -52,7 +53,6 @@ class Strategy():
         """
         Method of Strategy that sets up initial conditions for the charging strategy in each time
         step.
-
         :param event_list: List of events
         :type event_list: list
         """
@@ -117,11 +117,15 @@ class Strategy():
                         "{}: Vehicle {} is below desired SOC ({} < {})".format(
                             ev.start_time.isoformat(), ev.vehicle_id,
                             vehicle.battery.soc, vehicle.desired_soc))
+
                 elif ev.event_type == "arrival":
                     assert hasattr(vehicle, 'soc_delta')
                     vehicle.battery.soc += vehicle.soc_delta
                     if vehicle.battery.soc + self.EPS < 0:
-                        if self.allow_negative_soc:
+                        if ev.vehicle_id not in self.negative_soc_tracker.keys():
+                            self.negative_soc_tracker.update({ev.vehicle_id:
+                                                              self.current_time.isoformat()})
+                        if self.ALLOW_NEGATIVE_SOC:
                             print('Warning: SOC of vehicle {} became negative at {}. SOC is {}, '
                                   'continuing with SOC = 0'
                                   .format(ev.vehicle_id, self.current_time, vehicle.battery.soc))
