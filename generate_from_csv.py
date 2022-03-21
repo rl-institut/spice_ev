@@ -396,6 +396,8 @@ def assign_vehicle_id(input, min_standing_time, export=None):
         # get the first arrival
         first_arrival_time = arrivals[list(arrivals.keys())[0]]["arrival_time"]
         # parse through rotations in departure list and assign vehicle id
+        if min_standing_time == "None":
+            min_standing_time = 0
         for rotation in departures.keys():
             # as long as the first vehicle has not arrived yet: add vehicle_id number
             if datetime.datetime.strptime(first_arrival_time, '%Y-%m-%d %H:%M:%S') + \
