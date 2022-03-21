@@ -37,8 +37,6 @@ class Distributed(Strategy):
         for cs in self.world_state.charging_stations.values():
             cs.current_power = 0
 
-        current_and_future_events = self.world_state.future_events
-
         skip_priorization = {}
         # rank which cars should be loaded at gc
         for gcID, gc in self.world_state.grid_connectors.items():
@@ -75,7 +73,7 @@ class Distributed(Strategy):
                                       "gc": gcID})
             # look ahead (limited by C-HORIZON)
             # get additional future arrival events and precalculate the soc of the incoming vehicles
-            for event in current_and_future_events:
+            for event in self.world_state.future_events:
                 # peek into future events
                 if event.start_time > event.start_time + datetime.timedelta(minutes=self.C_HORIZON):
                     # not this timestep

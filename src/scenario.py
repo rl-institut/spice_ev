@@ -357,15 +357,13 @@ class Scenario:
                     # avg needed energy per standing period
                     intervals = flex["intervals"]
                     if intervals:
-                        avg_needed_energy[gcID] = sum([i["needed"] for i in intervals]
-                                                      ) / len(intervals)
+                        avg_needed_energy[gcID] = sum([i["needed"] / i["num_cars_present"] for i in
+                                                      intervals]) / len(intervals)
                     else:
                         avg_needed_energy[gcID] = 0
                     json_results["avg needed energy"] = {
                         # avg energy per standing period and vehicle
-                        # todo: number of cars at this gc instead? wouldn't it make more sense to
-                        #  only take timesteps with load into account?
-                        "value": avg_needed_energy[gcID] / len(self.constants.vehicles),
+                        "value": avg_needed_energy[gcID],
                         "unit": "kWh",
                         "info": "Average amount of energy needed to reach the desired SoC"
                                 " (averaged over all vehicles and charge events)"
@@ -449,8 +447,8 @@ class Scenario:
                         if len(gc_ids) == 1:
                             file_name = options["save_results"]
                         else:
-                            ext = os.path.splitext(options["save_results"])
-                            file_name = f"{ext[0]}_{gcID}{ext[-1]}"
+                            file_name, ext = os.path.splitext(options["save_results"])
+                            file_name = f"{file_name}_{gcID}{ext}"
                         with open(file_name, 'w') as results_file:
                             json.dump(json_results, results_file, indent=2)
 
@@ -458,15 +456,15 @@ class Scenario:
             # save power use for each timestep in file
 
             # check file extension
-            ext = os.path.splitext(options["save_timeseries"])
-            if ext[-1] != ".csv":
+            file_name, ext = os.path.splitext(options["save_timeseries"])
+            if ext != ".csv":
                 print("File extension mismatch: timeseries file is of type .csv")
 
             for gcID in gc_ids:
                 if len(gc_ids) == 1:
                     filename = options["save_timeseries"]
                 else:
-                    filename = f"{ext[0]}_{gcID}{ext[-1]}"
+                    filename = f"{file_name}_{gcID}{ext}"
 
                 cs_ids = sorted(item for item in strat.world_state.charging_stations.keys() if
                                 self.constants.charging_stations[item].parent == gcID)
