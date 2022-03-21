@@ -37,8 +37,8 @@ class Distributed(Strategy):
         for cs in self.world_state.charging_stations.values():
             cs.current_power = 0
 
-        current_and_future_events = sorted(self.world_state.future_events + event_list, key=lambda
-                                           x: x.start_time)
+        current_and_future_events = self.world_state.future_events
+
         skip_priorization = {}
         # rank which cars should be loaded at gc
         for gcID, gc in self.world_state.grid_connectors.items():
@@ -56,7 +56,7 @@ class Distributed(Strategy):
                     if v.connected_charging_station is None or \
                             v.battery.soc >= v.desired_soc - self.EPS:
                         self.v_connect[gcID].remove(v_id)
-            # check if length connected vehicles is smaller or same than cs_number
+            # number of charging vehicles must not exceed maximum allowed for this GC
             assert len(self.v_connect[gcID]) <= self.world_state.grid_connectors[gcID].number_cs
 
             # check if available loading stations are already taken
