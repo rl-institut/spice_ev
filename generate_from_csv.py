@@ -150,7 +150,7 @@ def generate_from_csv(args):
                     delta_soc = distance * mileage / capacity
             else:
                 delta_soc = float(row["delta_soc"])
-            if row["connect_cs"] == 1:
+            if int(row["connect_cs"]) == 1:
                 connect_cs = "CS_" + v_name
             else:
                 connect_cs = None
