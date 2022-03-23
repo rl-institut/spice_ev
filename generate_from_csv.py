@@ -394,9 +394,9 @@ def assign_vehicle_id(input, vehicle_types, recharge_fraction, export=None):
             capacity = vehicle_types[r["vehicle_type"]]["capacity"]
             cs_power = max([v[1] for v in vehicle_types[r["vehicle_type"]]['charging_curve']])
             min_standing_time = (capacity / cs_power) * recharge_fraction
+            min_standing_time = datetime.timedelta(hours=min_standing_time)
             departure_time = datetime.datetime.strptime(rot["departure_time"], DATETIME_FORMAT)
             arrival_time = datetime.datetime.strptime(r["arrival_time"], DATETIME_FORMAT)
-            min_standing_time = datetime.timedelta(hours=min_standing_time)
 
             if departure_time - arrival_time > min_standing_time:
                 idle_vehicles.append(r["vehicle_id"])
