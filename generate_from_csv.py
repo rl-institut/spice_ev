@@ -11,6 +11,8 @@ import bisect
 
 from src.util import set_options_from_config
 
+DATETIME_FORMAT = '%Y-%m-%d %H:%M:%S'
+
 
 def generate_from_csv(args):
     """Generates a scenario JSON from csv rotation schedule of fleets to/from one grid connector.
@@ -119,12 +121,12 @@ def generate_from_csv(args):
         for index, row in enumerate(vid_list):
             departure_event_in_input = True
             arrival = row["arrival_time"]
-            arrival = datetime.datetime.strptime(arrival, '%Y-%m-%d %H:%M:%S')
+            arrival = datetime.datetime.strptime(arrival, DATETIME_FORMAT)
             try:
                 departure = vid_list[index+1]["departure_time"]
-                departure = datetime.datetime.strptime(departure, '%Y-%m-%d %H:%M:%S')
+                departure = datetime.datetime.strptime(departure, DATETIME_FORMAT)
                 next_arrival = vid_list[index+1]["arrival_time"]
-                next_arrival = datetime.datetime.strptime(next_arrival, '%Y-%m-%d %H:%M:%S')
+                next_arrival = datetime.datetime.strptime(next_arrival, DATETIME_FORMAT)
             except IndexError:
                 departure_event_in_input = False
                 departure = arrival + datetime.timedelta(hours=8)
@@ -203,7 +205,7 @@ def generate_from_csv(args):
         times.append(row["departure_time"])
     times.sort()
     start = times[0]
-    start = datetime.datetime.strptime(start, '%Y-%m-%d %H:%M:%S')
+    start = datetime.datetime.strptime(start, DATETIME_FORMAT)
     stop = start + datetime.timedelta(days=args.days)
 
     if args.include_ext_load_csv:
@@ -385,17 +387,18 @@ def assign_vehicle_id(input, vehicle_types, recharge_fraction, export=None):
     rotations = sorted(input, key=lambda d: d.get('departure_time'))
 
     for rot in rotations:
-        # find vehicles that have completed rotation and stood for a minimum staning time
+        # find vehicles that have completed rotation and stood for a minimum standing time
         # mark those vehicle as idle
         for r in rotations_in_progress:
             # calculate min_standing_time deps
             capacity = vehicle_types[r["vehicle_type"]]["capacity"]
             cs_power = max([v[1] for v in vehicle_types[r["vehicle_type"]]['charging_curve']])
             min_standing_time = (capacity / cs_power) * recharge_fraction
+            departure_time = datetime.datetime.strptime(rot["departure_time"], DATETIME_FORMAT)
+            arrival_time = datetime.datetime.strptime(r["arrival_time"], DATETIME_FORMAT)
+            min_standing_time = datetime.timedelta(hours=min_standing_time)
 
-            if datetime.datetime.strptime(rot["departure_time"], '%Y-%m-%d %H:%M:%S') > \
-                    datetime.datetime.strptime(r["arrival_time"], '%Y-%m-%d %H:%M:%S') + \
-                    datetime.timedelta(hours=min_standing_time):
+            if departure_time - arrival_time > min_standing_time:
                 idle_vehicles.append(r["vehicle_id"])
                 rotations_in_progress.pop(0)
             else:
@@ -404,12 +407,14 @@ def assign_vehicle_id(input, vehicle_types, recharge_fraction, export=None):
         # find idle vehicle for rotation if exists
         # else generate new vehicle id
         vt = rot["vehicle_type"]
-        id = next((id for id in idle_vehicles if vt in id), None)
-        if id is None:
+        try:
+            # find idle vehicle for rotation
+            id = next(id for id in idle_vehicles if vt in id)
+            idle_vehicles.remove(id)
+        except StopIteration:
+            # no vehicle idle: generate new vehicle id
             vehicle_type_counts[vt] += 1
             id = f"{vt}_{vehicle_type_counts[vt]}"
-        else:
-            idle_vehicles.remove(id)
 
         rot["vehicle_id"] = id
         arrival_times = [r["arrival_time"] for r in rotations_in_progress]
