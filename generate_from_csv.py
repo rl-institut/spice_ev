@@ -7,8 +7,11 @@ import json
 from os import path
 import random
 import warnings
+import bisect
 
 from src.util import set_options_from_config
+
+DATETIME_FORMAT = '%Y-%m-%d %H:%M:%S'
 
 
 def generate_from_csv(args):
@@ -55,20 +58,6 @@ def generate_from_csv(args):
     with open(args.vehicle_types) as f:
         predefined_vehicle_types = json.load(f)
 
-    if "vehicle_id" not in input[0].keys():
-        warnings.warn("Column 'vehicle_id' missing, vehicles are assigned by the principle first in"
-                      ", first out.")
-        if args.export_vehicle_id_csv:
-            export_filename = path.join(target_path, args.export_vehicle_id_csv)
-        else:
-            export_filename = None
-        input = assign_vehicle_id(input, args.min_standing_time, export_filename)
-
-    if "connect_cs" not in input[0].keys():
-        warnings.warn("Column 'connect_cs' is not available. Vehicles will be connected to a "
-                      "charging station after every trip.")
-        input = [dict(item, **{'connect_cs': 1}) for item in input]
-
     vehicle_types = {}
     vehicles = {}
     batteries = {}
@@ -86,6 +75,21 @@ def generate_from_csv(args):
         except KeyError:
             print(f"The vehicle type {vehicle_type} defined in the input csv cannot be found in "
                   f"vehicle_types.json. Please check for consistency.")
+
+    if "vehicle_id" not in input[0].keys():
+        warnings.warn("Column 'vehicle_id' missing, vehicles are assigned by the principle first in"
+                      ", first out.")
+        if args.export_vehicle_id_csv != "None" and args.export_vehicle_id_csv is not None:
+            export_filename = path.join(target_path, args.export_vehicle_id_csv)
+        else:
+            export_filename = None
+        recharge_fraction = vars(args).get("recharge_fraction", 1)
+        input = assign_vehicle_id(input, vehicle_types, recharge_fraction, export_filename)
+
+    if "connect_cs" not in input[0].keys():
+        warnings.warn("Column 'connect_cs' is not available. Vehicles will be connected to a "
+                      "charging station after every trip.")
+        input = [dict(item, **{'connect_cs': 1}) for item in input]
 
     for vehicle_id in {item['vehicle_id'] for item in input}:
         vt = [d for d in input if d['vehicle_id'] == vehicle_id][0]["vehicle_type"]
@@ -117,12 +121,12 @@ def generate_from_csv(args):
         for index, row in enumerate(vid_list):
             departure_event_in_input = True
             arrival = row["arrival_time"]
-            arrival = datetime.datetime.strptime(arrival, '%Y-%m-%d %H:%M:%S')
+            arrival = datetime.datetime.strptime(arrival, DATETIME_FORMAT)
             try:
                 departure = vid_list[index+1]["departure_time"]
-                departure = datetime.datetime.strptime(departure, '%Y-%m-%d %H:%M:%S')
+                departure = datetime.datetime.strptime(departure, DATETIME_FORMAT)
                 next_arrival = vid_list[index+1]["arrival_time"]
-                next_arrival = datetime.datetime.strptime(next_arrival, '%Y-%m-%d %H:%M:%S')
+                next_arrival = datetime.datetime.strptime(next_arrival, DATETIME_FORMAT)
             except IndexError:
                 departure_event_in_input = False
                 departure = arrival + datetime.timedelta(hours=8)
@@ -201,7 +205,7 @@ def generate_from_csv(args):
         times.append(row["departure_time"])
     times.sort()
     start = times[0]
-    start = datetime.datetime.strptime(start, '%Y-%m-%d %H:%M:%S')
+    start = datetime.datetime.strptime(start, DATETIME_FORMAT)
     stop = start + datetime.timedelta(days=args.days)
 
     if args.include_ext_load_csv:
@@ -359,71 +363,67 @@ def csv_to_dict(csv_path):
     return dict
 
 
-def assign_vehicle_id(input, min_standing_time, export=None):
+def assign_vehicle_id(input, vehicle_types, recharge_fraction, export=None):
     """
     Assigns all rotations to specific vehicles with distinct vehicle_id. The assignment follows the
     principle "first in, first out". The assignment of a minimum standing time in hours is optional.
 
     :param input: schedule of rotations
     :type input: dict
-    :param min_standing_time: minimum standing time at depot in hours
-    :type min_standing_time: int
-    :param safe: saved input dict as csv
-    :type safe: bool
+    :param vehicle_types: dict with vehicle types
+    :type vehicle_types: dict
+    :param recharge_fraction: minimum fraction of capacity for recharge when leaving the charging
+                              station
+    :type recharge_fraction: float
+    :param export: path to output file of input with vehicle_id
+    :type export: str or None
     :return: schedule of rotations
     :rtype: dict
     """
-    # add index
-    for i, row in enumerate(input):
-        row["index"] = i
-    # list of dicts to dict
-    input = {item['index']: item for item in input}
+    rotations_in_progress = []
+    idle_vehicles = []
+    vehicle_type_counts = {vehicle_type: 0 for vehicle_type in vehicle_types.keys()}
 
-    if not min_standing_time:
-        min_standing_time = 0
+    rotations = sorted(input, key=lambda d: d.get('departure_time'))
 
-    # filter for vehicle_type
-    vehicle_types = set(d['vehicle_type'] for d in input.values())
-    for vt in vehicle_types:
-        vt_line = {k: v for k, v in input.items() if v["vehicle_type"] == vt}
-        vehicle_number = 0
-        # sort list of vehicles by departure time
-        departures = {key: value for key, value in sorted(vt_line.items(),
-                      key=lambda x: x[1]['departure_time'])}
-        # sort list of vehicles by arrival time
-        arrivals = {key: value for key, value in sorted(vt_line.items(),
-                    key=lambda x: x[1]['arrival_time'])}
-        # get the first arrival
-        first_arrival_time = arrivals[list(arrivals.keys())[0]]["arrival_time"]
-        # parse through rotations in departure list and assign vehicle id
-        if min_standing_time == "None":
-            min_standing_time = 0
-        for rotation in departures.keys():
-            # as long as the first vehicle has not arrived yet: add vehicle_id number
-            if datetime.datetime.strptime(first_arrival_time, '%Y-%m-%d %H:%M:%S') + \
-                    datetime.timedelta(hours=min_standing_time) >= \
-                    datetime.datetime.strptime(vt_line[rotation]["departure_time"],
-                                               '%Y-%m-%d %H:%M:%S'):
-                vehicle_number += 1
-                input[rotation]["vehicle_id"] = vt + "_" + str(vehicle_number)
-            # as soon as departure is after the first arrival take first vehicle_number in line
-            elif datetime.datetime.strptime(arrivals[list(arrivals.keys())[0]]["arrival_time"],
-                                            '%Y-%m-%d %H:%M:%S') + \
-                    datetime.timedelta(hours=min_standing_time) < \
-                    datetime.datetime.strptime(vt_line[rotation]["departure_time"],
-                                               '%Y-%m-%d %H:%M:%S'):
-                arrival_rotation = list(arrivals.keys())[0]
-                a_bus_number = input[arrival_rotation]["vehicle_id"]
-                del arrivals[arrival_rotation]
-                input[rotation]["vehicle_id"] = a_bus_number
+    for rot in rotations:
+        # find vehicles that have completed rotation and stood for a minimum standing time
+        # mark those vehicle as idle
+        for r in rotations_in_progress:
+            # calculate min_standing_time at a charging station for each vehicle
+            capacity = vehicle_types[r["vehicle_type"]]["capacity"]
+            cs_power = max([v[1] for v in vehicle_types[r["vehicle_type"]]['charging_curve']])
+            min_standing_time = (capacity / cs_power) * recharge_fraction
+            min_standing_time = datetime.timedelta(hours=min_standing_time)
+            departure_time = datetime.datetime.strptime(rot["departure_time"], DATETIME_FORMAT)
+            arrival_time = datetime.datetime.strptime(r["arrival_time"], DATETIME_FORMAT)
+
+            if departure_time - arrival_time > min_standing_time:
+                idle_vehicles.append(r["vehicle_id"])
+                rotations_in_progress.pop(0)
             else:
-                # no vehicle in line left, add new vehicle number
-                vehicle_number += 1
-                input[rotation]["vehicle_id"] = vt + "_" + str(vehicle_number)
+                break
+
+        # find idle vehicle for rotation if exists
+        # else generate new vehicle id
+        vt = rot["vehicle_type"]
+        try:
+            # find idle vehicle for rotation
+            id = next(id for id in idle_vehicles if vt in id)
+            idle_vehicles.remove(id)
+        except StopIteration:
+            # no vehicle idle: generate new vehicle id
+            vehicle_type_counts[vt] += 1
+            id = f"{vt}_{vehicle_type_counts[vt]}"
+
+        rot["vehicle_id"] = id
+        arrival_times = [r["arrival_time"] for r in rotations_in_progress]
+        # keep list of ongoing rotations sorted by arrival_time
+        rotations_in_progress.insert(bisect.bisect(arrival_times, rot["arrival_time"]), rot)
     if export:
         all_rotations = []
         header = []
-        for rotation_id, rotation in input.items():
+        for rotation_id, rotation in enumerate(input):
             if not header:
                 for k, v in rotation.items():
                     header.append(k)
@@ -434,7 +434,6 @@ def assign_vehicle_id(input, min_standing_time, export=None):
             writer.writeheader()
             writer.writerows(all_rotations)
 
-    input = list(input.values())
     return input
 
 
@@ -458,6 +457,9 @@ if __name__ == '__main__':
     parser.add_argument('--cs-power-min', type=float, default=0, help='set minimal power at '
                                                                       'charging station in kW')
     parser.add_argument('--seed', default=None, type=int, help='set random seed')
+    parser.add_argument('--recharge-fraction', type=float, default=1,
+                        help='Minimum fraction of vehicle battery capacity for recharge when '
+                             'leaving the charging station')
 
     parser.add_argument('--vehicle-types', default=None,
                         help='location of vehicle type definitions')
@@ -478,8 +480,6 @@ if __name__ == '__main__':
     parser.add_argument('--include-price-csv-option', '-po', metavar=('KEY', 'VALUE'),
                         nargs=2, default=[], action='append',
                         help='append additional argument to price signals')
-    parser.add_argument('--min-standing-time', type=float, default=None,
-                        help='set minimum standing time at depot in hours')
     parser.add_argument('--export-vehicle-id-csv', default=None,
                         help='option to export csv after assigning vehicle_id')
     parser.add_argument('--config', help='Use config file to set arguments')
