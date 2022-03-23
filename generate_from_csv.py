@@ -453,7 +453,7 @@ if __name__ == '__main__':
                                                                       'charging station in kW')
     parser.add_argument('--seed', default=None, type=int, help='set random seed')
     parser.add_argument('--recharge-fraction', type=float, default=1,
-                        help='Minimum fraction of capacity for recharge when leaving the charging '
+                        help='Minimum fraction of vehicle battery capacity for recharge when leaving the charging '
                              'station')
 
     parser.add_argument('--vehicle-types', default=None,
