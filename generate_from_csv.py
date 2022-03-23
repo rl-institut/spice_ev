@@ -388,7 +388,7 @@ def assign_vehicle_id(input, vehicle_types, recharge_fraction, export=None):
         # find vehicles that have completed rotation and stood for a minimum staning time
         # mark those vehicle as idle
         for r in rotations_in_progress:
-            # calculate min_standing_time deps
+            # calculate min_standing_time at a charging station for each vehicle
             capacity = vehicle_types[r["vehicle_type"]]["capacity"]
             cs_power = max([v[1] for v in vehicle_types[r["vehicle_type"]]['charging_curve']])
             min_standing_time = (capacity / cs_power) * recharge_fraction
