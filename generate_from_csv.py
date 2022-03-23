@@ -390,7 +390,7 @@ def assign_vehicle_id(input, vehicle_types, recharge_fraction, export=None):
         # find vehicles that have completed rotation and stood for a minimum standing time
         # mark those vehicle as idle
         for r in rotations_in_progress:
-            # calculate min_standing_time deps
+            # calculate min_standing_time at a charging station for each vehicle
             capacity = vehicle_types[r["vehicle_type"]]["capacity"]
             cs_power = max([v[1] for v in vehicle_types[r["vehicle_type"]]['charging_curve']])
             min_standing_time = (capacity / cs_power) * recharge_fraction
@@ -458,7 +458,7 @@ if __name__ == '__main__':
                                                                       'charging station in kW')
     parser.add_argument('--seed', default=None, type=int, help='set random seed')
     parser.add_argument('--recharge-fraction', type=float, default=1,
-                        help='Minimum fraction of capacity for recharge when leaving the charging '
+                        help='Minimum fraction of vehicle battery capacity for recharge when leaving the charging '
                              'station')
 
     parser.add_argument('--vehicle-types', default=None,
