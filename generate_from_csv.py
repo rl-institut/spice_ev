@@ -77,11 +77,12 @@ def generate_from_csv(args):
     if "vehicle_id" not in input[0].keys():
         warnings.warn("Column 'vehicle_id' missing, vehicles are assigned by the principle first in"
                       ", first out.")
-        if args.export_vehicle_id_csv != "None":
+        if args.export_vehicle_id_csv != "None" and args.export_vehicle_id_csv is not None:
             export_filename = path.join(target_path, args.export_vehicle_id_csv)
         else:
             export_filename = None
-        input = assign_vehicle_id(input, vehicle_types, export_filename)
+        recharge_fraction = vars(args).get("recharge_fraction", 1)
+        input = assign_vehicle_id(input, vehicle_types, recharge_fraction, export_filename)
 
     if "connect_cs" not in input[0].keys():
         warnings.warn("Column 'connect_cs' is not available. Vehicles will be connected to a "
@@ -360,17 +361,20 @@ def csv_to_dict(csv_path):
     return dict
 
 
-def assign_vehicle_id(input, vehicle_types, export=None):
+def assign_vehicle_id(input, vehicle_types, recharge_fraction, export=None):
     """
     Assigns all rotations to specific vehicles with distinct vehicle_id. The assignment follows the
     principle "first in, first out". The assignment of a minimum standing time in hours is optional.
 
     :param input: schedule of rotations
     :type input: dict
-    :param min_standing_time: minimum standing time at depot in hours
-    :type min_standing_time: int
-    :param safe: saved input dict as csv
-    :type safe: bool
+    :param vehicle_types: dict with vehicle types
+    :type vehicle_types: dict
+    :param recharge_fraction: minimum fraction of capacity for recharge when leaving the charging
+                              station
+    :type recharge_fraction: float
+    :param export: path to output file of input with vehicle_id
+    :type export: str or None
     :return: schedule of rotations
     :rtype: dict
     """
@@ -387,7 +391,7 @@ def assign_vehicle_id(input, vehicle_types, export=None):
             # calculate min_standing_time deps
             capacity = vehicle_types[r["vehicle_type"]]["capacity"]
             cs_power = max([v[1] for v in vehicle_types[r["vehicle_type"]]['charging_curve']])
-            min_standing_time = (capacity / cs_power) * args.recharge_fraction
+            min_standing_time = (capacity / cs_power) * recharge_fraction
 
             if datetime.datetime.strptime(rot["departure_time"], '%Y-%m-%d %H:%M:%S') > \
                     datetime.datetime.strptime(r["arrival_time"], '%Y-%m-%d %H:%M:%S') + \
@@ -471,8 +475,6 @@ if __name__ == '__main__':
     parser.add_argument('--include-price-csv-option', '-po', metavar=('KEY', 'VALUE'),
                         nargs=2, default=[], action='append',
                         help='append additional argument to price signals')
-    parser.add_argument('--min-standing-time', type=float, default=None,
-                        help='set minimum standing time at depot in hours')
     parser.add_argument('--export-vehicle-id-csv', default=None,
                         help='option to export csv after assigning vehicle_id')
     parser.add_argument('--config', help='Use config file to set arguments')
