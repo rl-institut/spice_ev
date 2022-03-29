@@ -260,7 +260,7 @@ def get_schedule_from_csv(obj, dir_path):
                 try:
                     # read out event start time from first column
                     start_time = util.datetime_from_isoformat(row[0])
-                    if not start_time.tzinfo:
+                    if (start is None or start.tzinfo) and not start_time.tzinfo:
                         # make timezone-aware for comparison
                         start_time = start_time.replace(
                             tzinfo=datetime.timezone(datetime.timedelta(hours=2)))
