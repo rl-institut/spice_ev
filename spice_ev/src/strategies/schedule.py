@@ -2,9 +2,9 @@ from copy import deepcopy
 from datetime import timedelta
 import warnings
 
-import src.events as events
-from src.strategy import Strategy
-from src.util import clamp_power, dt_within_core_standing_time
+import spice_ev.src.events as events
+from spice_ev.src.strategy import Strategy
+from spice_ev.src.util import clamp_power, dt_within_core_standing_time
 
 
 class Schedule(Strategy):

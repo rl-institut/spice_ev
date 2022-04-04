@@ -10,9 +10,9 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 import numpy
 import os
 
-from src.scenario import Scenario
-import src.events as events
-from src.util import get_cost
+from spice_ev.src.scenario import Scenario
+import spice_ev.src.events as events
+from spice_ev.src.util import get_cost
 
 if __name__ == '__main__':
 

@@ -1,7 +1,7 @@
 import datetime
 import unittest
 
-from src import battery, loading_curve
+from spice_ev.src import battery, loading_curve
 
 
 def approx_eq(x, y, eps=1e-3):

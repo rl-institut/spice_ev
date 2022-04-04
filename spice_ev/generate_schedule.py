@@ -8,7 +8,7 @@ from json.decoder import JSONDecodeError
 import os
 import warnings
 
-from src import scenario, strategy, util
+from spice_ev.src import scenario, strategy, util
 
 EPS = 1e-8
 

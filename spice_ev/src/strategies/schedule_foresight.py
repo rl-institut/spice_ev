@@ -1,9 +1,9 @@
 from copy import deepcopy
 from datetime import timedelta
 
-import src.events as events
-from src.strategy import Strategy
-from src.util import clamp_power
+import spice_ev.src.events as events
+from spice_ev.src.strategy import Strategy
+from spice_ev.src.util import clamp_power
 
 
 def get_power_needed(vehicle):

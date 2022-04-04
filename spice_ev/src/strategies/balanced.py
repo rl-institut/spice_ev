@@ -1,5 +1,5 @@
-from src.util import clamp_power, get_cost
-from src.strategy import Strategy
+from spice_ev.src.util import clamp_power, get_cost
+from spice_ev.src.strategy import Strategy
 
 
 class Balanced(Strategy):

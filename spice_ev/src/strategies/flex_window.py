@@ -1,8 +1,8 @@
 from copy import deepcopy
 import datetime
 
-from src import events, util
-from src.strategy import Strategy
+from spice_ev.src import events, util
+from spice_ev.src.strategy import Strategy
 
 
 class FlexWindow(Strategy):

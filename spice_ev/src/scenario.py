@@ -5,7 +5,7 @@ import json
 import traceback
 import os
 
-from src import constants, events, strategy, util
+from spice_ev.src import constants, events, strategy, util
 
 
 class Scenario:
@@ -230,7 +230,7 @@ class Scenario:
         if options.get("save_timeseries", False) or options.get("save_results", False) \
                 or options.get("testing", False):
             # get flexibility band
-            from generate_schedule import generate_flex_band
+            from spice_ev.generate_schedule import generate_flex_band
 
             avg_needed_energy = {}
             avg_flex_per_window = {}

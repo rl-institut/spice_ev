@@ -3,7 +3,7 @@ from math import ceil
 import os
 import datetime
 
-from src import util
+from spice_ev.src import util
 
 
 class Events:

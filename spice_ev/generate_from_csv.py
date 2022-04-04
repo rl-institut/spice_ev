@@ -9,7 +9,7 @@ import random
 import warnings
 import bisect
 
-from src.util import set_options_from_config
+from spice_ev.src.util import set_options_from_config
 
 DATETIME_FORMAT = '%Y-%m-%d %H:%M:%S'
 

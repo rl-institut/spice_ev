@@ -4,10 +4,10 @@ from copy import deepcopy
 import os
 from argparse import Namespace
 
-import generate
-import generate_from_csv
-import generate_energy_price
-import generate_schedule
+from spice_ev import generate
+from spice_ev import generate_from_csv
+from spice_ev import generate_energy_price
+from spice_ev import generate_schedule
 
 sys.argv = ['']
 del sys

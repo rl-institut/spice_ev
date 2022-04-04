@@ -7,7 +7,7 @@ import random
 import warnings
 from os import path
 
-from src.util import set_options_from_config, datetime_from_isoformat
+from spice_ev.src.util import set_options_from_config, datetime_from_isoformat
 
 
 DEFAULT_START_TIME = "2018-01-01T01:00:00+02:00"
