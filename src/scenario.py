@@ -3,6 +3,7 @@
 import datetime
 import json
 import traceback
+import os
 
 from src import constants, events, strategy, util
 
@@ -215,12 +216,12 @@ class Scenario:
             for batName, bat in strat.world_state.batteries.items():
                 batteryLevels[batName].append(bat.soc * bat.capacity)
 
-            # next simulation timestep
+        # next simulation timestep
 
-            # adjust step_i: n_intervals or failed simulation step
-            step_i += 1
+        # adjust step_i: n_intervals or failed simulation step
+        step_i += 1
 
-        for gcID, gc in self.constants.grid_connectors.items():
+        for gcID in gc_ids:
             print("Energy drawn from {}: {:.0f} kWh, Costs: {:.2f} €".format(gcID,
                                                                              sum(totalLoad[gcID]) /
                                                                              stepsPerHour,
@@ -241,14 +242,14 @@ class Scenario:
             total_car_energy = {}
             avg_drawn = {}
 
-            for gcID in self.constants.grid_connectors:
+            for gcID in gc_ids:
                 flex = generate_flex_band(self, gcID=gcID)
 
                 if options.get("save_results", False) or options.get("testing", False):
                     if options.get("save_results", False):
                         # save general simulation info to JSON file
-                        ext = options["save_results"].split('.')[-1]
-                        if ext != "json":
+                        ext = os.path.splitext(options["save_results"])
+                        if ext[-1] != ".json":
                             print("File extension mismatch: results file is of type .json")
 
                     json_results = {}
@@ -356,15 +357,13 @@ class Scenario:
                     # avg needed energy per standing period
                     intervals = flex["intervals"]
                     if intervals:
-                        avg_needed_energy[gcID] = sum([i["needed"] for i in intervals]
-                                                      ) / len(intervals)
+                        avg_needed_energy[gcID] = sum([i["needed"] / i["num_cars_present"] for i in
+                                                      intervals]) / len(intervals)
                     else:
                         avg_needed_energy[gcID] = 0
                     json_results["avg needed energy"] = {
                         # avg energy per standing period and vehicle
-                        # todo: number of cars at this gc instead? wouldn't it make more sense to
-                        #  only take timesteps with load into account?
-                        "value": avg_needed_energy[gcID] / len(self.constants.vehicles),
+                        "value": avg_needed_energy[gcID],
                         "unit": "kWh",
                         "info": "Average amount of energy needed to reach the desired SoC"
                                 " (averaged over all vehicles and charge events)"
@@ -445,8 +444,11 @@ class Scenario:
 
                     if options.get("save_results", False):
                         # write to file
-                        file_name = options['save_results'].split(".")[0] + f"_{gcID}." + options[
-                            'save_results'].split(".")[1]
+                        if len(gc_ids) == 1:
+                            file_name = options["save_results"]
+                        else:
+                            file_name, ext = os.path.splitext(options["save_results"])
+                            file_name = f"{file_name}_{gcID}{ext}"
                         with open(file_name, 'w') as results_file:
                             json.dump(json_results, results_file, indent=2)
 
@@ -454,14 +456,15 @@ class Scenario:
             # save power use for each timestep in file
 
             # check file extension
-            ext = options["save_timeseries"].split('.')[-1]
-            if ext != "csv":
+            file_name, ext = os.path.splitext(options["save_timeseries"])
+            if ext != ".csv":
                 print("File extension mismatch: timeseries file is of type .csv")
 
-            for gcID in self.constants.grid_connectors:
-
-                filename = options['save_timeseries'].split(".")[0] + f"_{gcID}." + \
-                           options['save_timeseries'].split(".")[1]
+            for gcID in gc_ids:
+                if len(gc_ids) == 1:
+                    filename = options["save_timeseries"]
+                else:
+                    filename = f"{file_name}_{gcID}{ext}"
 
                 cs_ids = sorted(item for item in strat.world_state.charging_stations.keys() if
                                 self.constants.charging_stations[item].parent == gcID)
@@ -601,11 +604,11 @@ class Scenario:
                                            if cs_id in cs_by_uc[uc_key]]),
                                 round_to_places) for uc_key in uc_keys_present]
                         # get total number of occupied CS that are connected to gc
-                        row.append(len(connChargeByTS[gcID]))
+                        row.append(len(connChargeByTS[gcID][idx]))
                         # get number of occupied CS at gc for each use case
                         row += [
                             sum([1 if uc_key in cs_id else 0
-                                for cs_id in connChargeByTS[gcID]]) for uc_key in
+                                for cs_id in connChargeByTS[gcID][idx]]) for uc_key in
                             uc_keys_present]
                         # get individual charging power of cs_id that is connected to gc
                         row += [round(gc_commands.get(cs_id, 0), round_to_places) for cs_id in
@@ -617,8 +620,8 @@ class Scenario:
             # save soc of each vehicle in one file
 
             # check file extension
-            ext = options["save_soc"].split('.')[-1]
-            if ext != "csv":
+            ext = os.path.splitext(options["save_soc"])[-1]
+            if ext != ".csv":
                 print("File extension mismatch: timeseries file is of type .csv")
             with open(options['save_soc'], 'w') as soc_file:
                 # write header
@@ -652,7 +655,7 @@ class Scenario:
             print('Done. Create plots...')
             # sum up total load of all grid connectors
             all_totalLoad = []
-            for gcID, gc in self.constants.grid_connectors.items():
+            for gcID in gc_ids:
                 if not all_totalLoad:
                     all_totalLoad = totalLoad[gcID]
                 else:
@@ -670,7 +673,7 @@ class Scenario:
 
             # untangle external loads (with feed-in)
             loads = {}
-            for gcID, gc in self.constants.grid_connectors.items():
+            for gcID in gc_ids:
                 loads[gcID] = {}
                 for i, step in enumerate(extLoads[gcID]):
                     for k, v in step.items():
@@ -725,7 +728,7 @@ class Scenario:
                 # total power
                 ax = plt.subplot(2, 2, 3)
                 ax.plot(xlabels, list([sum(cs) for cs in sum_cs]), label="CS")
-                for gcID, gc in self.constants.grid_connectors.items():
+                for gcID in gc_ids:
                     for name, values in loads[gcID].items():
                         ax.plot(xlabels, values, label=name)
                 # draw schedule
@@ -753,7 +756,7 @@ class Scenario:
                     lines = ax.step(xlabels, price)
                 ax.set_title('Price for 1 kWh')
                 ax.set(ylabel='€')
-                if len(self.constants.grid_connectors) <= 10:
+                if len(gc_ids) <= 10:
                     ax.legend(lines, sorted(gc_ids))
 
                 # figure title
@@ -773,26 +776,19 @@ class Scenario:
                 "timeseries": {
                     "total_load": all_totalLoad,
                     "prices": prices,
-                    "schedule": {gcID: gcWindowSchedule[gcID] for gcID in
-                                 strat.world_state.grid_connectors.keys()},
+                    "schedule": {gcID: gcWindowSchedule[gcID] for gcID in gc_ids},
                     "sum_cs": sum_cs,
                     "loads": loads
                 },
                 "max_total_load": max(all_totalLoad),
-                "avg_flex_per_window": {gcID: avg_flex_per_window[gcID] for gcID in
-                                        strat.world_state.grid_connectors.keys()},
-                "sum_energy_per_window": {gcID: sum_energy_per_window[gcID] for gcID in
-                                          strat.world_state.grid_connectors.keys()},
-                "avg_stand_time": {gcID: avg_stand_time[gcID] for gcID in
-                                   strat.world_state.grid_connectors.keys()},
-                "avg_total_standing_time": {gcID: avg_total_standing_time[gcID] for gcID in
-                                            strat.world_state.grid_connectors.keys()},
-                "avg_needed_energy": {gcID: avg_needed_energy[gcID] for gcID in
-                                      strat.world_state.grid_connectors.keys()},
-                "avg_drawn_pwer": {gcID: avg_drawn[gcID] for gcID in
-                                   strat.world_state.grid_connectors.keys()},
+                "avg_flex_per_window": {gcID: avg_flex_per_window[gcID] for gcID in gc_ids},
+                "sum_energy_per_window": {gcID: sum_energy_per_window[gcID] for gcID in gc_ids},
+                "avg_stand_time": {gcID: avg_stand_time[gcID] for gcID in gc_ids},
+                "avg_total_standing_time": {gcID: avg_total_standing_time[gcID] for gcID in gc_ids},
+                "avg_needed_energy": {gcID: avg_needed_energy[gcID] for gcID in gc_ids},
+                "avg_drawn_pwer": {gcID: avg_drawn[gcID] for gcID in gc_ids},
                 "sum_feed_in_per_h": {gcID: (sum(feedInPower[gcID]) / stepsPerHour) for gcID in
-                                      strat.world_state.grid_connectors.keys()},
+                                      gc_ids},
                 "vehicle_battery_cycles": {gcID: (total_car_energy[gcID] / total_car_cap[gcID]) for
-                                           gcID in strat.world_state.grid_connectors.keys()}
+                                           gcID in gc_ids}
             }

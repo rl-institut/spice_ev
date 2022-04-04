@@ -151,10 +151,12 @@ def generate_flex_band(scenario, gcID, core_standing_time=None):
                 # new standing period
                 flex["intervals"].append({
                     "needed": 0,
-                    "time": []
+                    "time": [],
+                    "num_cars_present": 0,
                 })
             info = flex["intervals"][-1]
             info["needed"] = needed
+            info["num_cars_present"] = num_cars_present
             # only timesteps in core standing time are taken added to interval
             # if no core standing time is specified step_i is always appended
             # e.g. currently_in_core_standing_time = TRUE for all step_i
