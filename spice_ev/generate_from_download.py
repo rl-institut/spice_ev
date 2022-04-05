@@ -6,7 +6,7 @@ import datetime
 import json
 from pathlib import Path  # used to check if given CSV files exist
 
-from src.util import set_options_from_config
+from spice_ev.src.util import set_options_from_config
 
 
 def generate_from_download(args):

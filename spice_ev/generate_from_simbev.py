@@ -7,9 +7,9 @@ import json
 from pathlib import Path
 import random
 
-from src.util import set_options_from_config
-from src.battery import Battery
-from src.loading_curve import LoadingCurve
+from spice_ev.src.util import set_options_from_config
+from spice_ev.src.battery import Battery
+from spice_ev.src.loading_curve import LoadingCurve
 
 
 def generate_from_simbev(args):

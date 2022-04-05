@@ -1,9 +1,9 @@
 import datetime
 
-from src.strategy import Strategy
-from src import events
-from src.strategies import greedy
-from src.strategies import balanced
+from spice_ev.src.strategy import Strategy
+from spice_ev.src import events
+from spice_ev.src.strategies import greedy
+from spice_ev.src.strategies import balanced
 
 
 class Distributed(Strategy):

@@ -2,7 +2,7 @@ import json
 import unittest
 import os
 
-from src import scenario
+from spice_ev.src import scenario
 
 TEST_REPO_PATH = os.path.dirname(__file__)
 

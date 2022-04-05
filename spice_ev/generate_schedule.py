@@ -8,7 +8,7 @@ from json.decoder import JSONDecodeError
 import os
 import warnings
 
-from src import scenario, strategy, util
+from spice_ev.src import scenario, strategy, util
 
 EPS = 1e-8
 
@@ -27,7 +27,8 @@ def generate_flex_band(scenario, gcID, core_standing_time=None):
     gc = scenario.constants.grid_connectors[gcID]
     # generate basic strategy
     s = strategy.Strategy(
-        scenario.constants, scenario.start_time, **{"interval": scenario.interval, "margin": 1})
+        scenario.constants, scenario.start_time, **{"interval": scenario.interval, "margin": 1,
+                                                    "ALLOW_NEGATIVE_SOC": True})
     event_steps = scenario.events.get_event_steps(
         scenario.start_time, scenario.n_intervals, scenario.interval)
 

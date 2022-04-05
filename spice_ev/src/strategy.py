@@ -1,14 +1,14 @@
 from copy import deepcopy
 from importlib import import_module
 
-from src import events
-from src.util import get_cost, clamp_power
+from spice_ev.src import events
+from spice_ev.src.util import get_cost, clamp_power
 
 
 def class_from_str(strategy_name):
     import_name = strategy_name.lower()
     class_name = "".join([s.capitalize() for s in strategy_name.split('_')])
-    module = import_module('src.strategies.' + import_name)
+    module = import_module('spice_ev.src.strategies.' + import_name)
     return getattr(module, class_name)
 
 

@@ -5,8 +5,8 @@ import json
 import os
 import warnings
 
-from src.scenario import Scenario
-from src.util import set_options_from_config
+from spice_ev.src.scenario import Scenario
+from spice_ev.src.util import set_options_from_config
 
 
 STRATEGIES = [

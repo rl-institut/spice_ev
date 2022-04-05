@@ -1,7 +1,7 @@
 import datetime
 import unittest
 
-from src import constants, util
+from spice_ev.src import constants, util
 
 
 class UtilTest(unittest.TestCase):

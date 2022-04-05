@@ -5,7 +5,7 @@ import datetime
 import math
 import random
 
-from src.util import datetime_from_isoformat, set_options_from_config
+from spice_ev.src.util import datetime_from_isoformat, set_options_from_config
 
 
 def generate_energy_price(args):

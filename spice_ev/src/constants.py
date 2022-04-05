@@ -1,6 +1,6 @@
 import datetime
-from src import battery, loading_curve, util
-from src.events import ExternalLoad
+from spice_ev.src import battery, loading_curve, util
+from spice_ev.src.events import ExternalLoad
 
 
 class Constants:

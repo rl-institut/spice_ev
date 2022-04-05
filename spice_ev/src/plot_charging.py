@@ -5,8 +5,8 @@ import copy
 from matplotlib import pyplot as plt
 from datetime import timedelta
 
-from battery import Battery
-from loading_curve import LoadingCurve
+from spice_ev.src.battery import Battery
+from spice_ev.src.loading_curve import LoadingCurve
 
 if __name__ == '__main__':
 
