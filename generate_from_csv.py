@@ -117,6 +117,7 @@ def generate_from_csv(args):
         # sort events for their departure time, so that the matching departure time of an
         # arrival event can be read out of the next element in vid_list
         vid_list = sorted(vid_list, key=lambda x: x["departure_time"])
+
         for index, row in enumerate(vid_list):
             departure_event_in_input = True
             arrival = row["arrival_time"]
@@ -157,6 +158,10 @@ def generate_from_csv(args):
                 connect_cs = "CS_" + v_name
             else:
                 connect_cs = None
+
+            if departure < arrival:
+                warnings.warn("{}: {} travelling in time (departing {})".format(
+                        arrival, v_name, departure))
 
             events["vehicle_events"].append({
                 "signal_time": arrival.isoformat(),
@@ -404,6 +409,7 @@ def assign_vehicle_id(input, vehicle_types, recharge_fraction, export=None):
 
     # find vehicle for each rotation
     for rot in rotations:
+        arrival_time = datetime.datetime.strptime(rot["arrival_time"], DATETIME_FORMAT)
         departure_time = datetime.datetime.strptime(rot["departure_time"], DATETIME_FORMAT)
         while rotations_in_progress:
             # find vehicles that have completed rotation and stood for a minimum standing time
@@ -438,7 +444,7 @@ def assign_vehicle_id(input, vehicle_types, recharge_fraction, export=None):
         rot["vehicle_id"] = id
         # insert new rotation into list of ongoing rotations
         # calculate earliest possible new departure time
-        min_departure_time = departure_time + min_standing_times[vt]
+        min_departure_time = arrival_time + min_standing_times[vt]
         # find place to insert
         i = 0
         for i, r in enumerate(rotations_in_progress):
