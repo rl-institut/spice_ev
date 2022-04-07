@@ -177,7 +177,8 @@ def generate_from_csv(args):
 
             if departure_event_in_input:
                 if departure > next_arrival:
-                    warnings.warn(f"{departure}: {v_name} travelling in time (arriving {next_arrival})")
+                    warnings.warn("{}: {} travelling in time (arriving {})".format(
+                            departure, v_name, next_arrival))
 
                 events["vehicle_events"].append({
                     "signal_time": departure.isoformat(),
