@@ -4,7 +4,7 @@ Fix #Issue
 - Your_changes
 
 The following steps were realized, as well (required):
-- [ ] Correct linting with `fake8 path_to_script`
+- [ ] Correct linting with `flake8 path_to_script`
 - [ ] Check if tests pass locally (`pytest ./src/tests.py`)
 
 Also the following steps were realized (if applies):
