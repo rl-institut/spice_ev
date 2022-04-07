@@ -29,6 +29,7 @@ def analyze_results_all(dirs):
             building_all = building_all + building_plz
             charging_all = charging_all + charging_plz
 
+
             result = {
                 "grid_power_kw": grid_power_all,
                 "building_in_kw": building_all,
