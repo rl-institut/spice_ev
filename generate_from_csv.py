@@ -522,7 +522,7 @@ if __name__ == '__main__':
 
     parser.add_argument('--vehicle-types', default=None,
                         help='location of vehicle type definitions')
-    parser.add_argument('--discharge_limit', default=0.5,
+    parser.add_argument('--discharge-limit', default=0.5,
                         help='Minimum SoC to discharge to during V2G. [0-1]')
     parser.add_argument('--include-ext-load-csv',
                         help='include CSV for external load. \
