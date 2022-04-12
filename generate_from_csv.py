@@ -175,10 +175,8 @@ def generate_from_csv(args):
             if args.min_soc < delta_soc:
                 trips_above_min_soc += 1
                 if last_arrival_event is None:
-                    # can't adjust initial standing time
-                    warnings.warn("{} may not make the first trip as it is not "
-                                  "connected to a charging station and the initial (minimum) "
-                                  "SoC is set too low.".format(vehicle_id))
+                    # initially unconnected: adjust initial SoC
+                    vehicles[v_name]["soc"] = delta_soc
                 else:
                     # adjust last event reference
                     last_arrival_event["update"]["desired_soc"] = delta_soc
