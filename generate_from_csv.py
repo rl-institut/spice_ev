@@ -68,6 +68,11 @@ def generate_from_csv(args):
         "energy_feed_in": {},
         "vehicle_events": []
     }
+
+    # meta info about min_soc
+    trips_above_min_soc = 0
+    trips_total = 0
+
     for vehicle_type in {item['vehicle_type'] for item in input}:
         # update vehicle types with vehicles in input csv
         try:
@@ -95,11 +100,11 @@ def generate_from_csv(args):
         vt = [d for d in input if d['vehicle_id'] == vehicle_id][0]["vehicle_type"]
         v_name = vehicle_id
         cs_name = "CS_" + v_name
+
         # define start conditions
         vehicles[v_name] = {
             "connected_charging_station": None,
             "estimated_time_of_departure": None,
-            "desired_soc": args.min_soc,
             "soc": args.min_soc,
             "vehicle_type": vt
         }
@@ -110,6 +115,9 @@ def generate_from_csv(args):
             "min_power": vars(args).get("cs_power_min", 0),
             "parent": "GC1"
         }
+
+        # keep track of last arrival event to adjust desired SoC if needed
+        last_arrival_event = None
 
         # filter all rides for that vehicle
         vid_list = []
@@ -159,7 +167,20 @@ def generate_from_csv(args):
             else:
                 connect_cs = None
 
-            events["vehicle_events"].append({
+            # adjust SoC if delta_soc < min_soc
+            if args.min_soc < delta_soc:
+                trips_above_min_soc += 1
+                if last_arrival_event is None:
+                    # can't adjust initial standing time
+                    warnings.warn("{} may not make the first trip as it is not "
+                                  "connected to a charging station and the initial (minimum) "
+                                  "SoC is set too low.".format(vehicle_id))
+                else:
+                    # adjust last event reference
+                    last_arrival_event["update"]["desired_soc"] = delta_soc
+            trips_total += 1
+
+            last_arrival_event = {
                 "signal_time": arrival.isoformat(),
                 "start_time": arrival.isoformat(),
                 "vehicle_id": v_name,
@@ -168,13 +189,11 @@ def generate_from_csv(args):
                     "connected_charging_station": connect_cs,
                     "estimated_time_of_departure": departure.isoformat(),
                     "soc_delta": -delta_soc,
+                    "desired_soc": args.min_soc,
                 }
-            })
+            }
 
-            # give warning if desired_soc < soc_delta
-            if args.min_soc < delta_soc:
-                print(f"The minimum desired soc of {args.min_soc} is lower than the delta_soc"
-                      f" of the next ride.")
+            events["vehicle_events"].append(last_arrival_event)
 
             if departure_event_in_input:
                 events["vehicle_events"].append({
@@ -186,6 +205,10 @@ def generate_from_csv(args):
                         "estimated_time_of_arrival":  next_arrival.isoformat(),
                     }
                 })
+
+    if trips_above_min_soc:
+        print(f"{trips_above_min_soc} of {trips_total} trips "
+              f"use more than {args.min_soc * 100}% capacity")
 
     # add stationary battery
     for idx, (capacity, c_rate) in enumerate(args.battery):
@@ -312,7 +335,8 @@ def generate_from_csv(args):
         "scenario": {
             "start_time": start.isoformat(),
             "interval": interval.days * 24 * 60 + interval.seconds // 60,
-            "n_intervals": (stop - start) // interval
+            "n_intervals": (stop - start) // interval,
+            "discharge_limit": args.discharge_limit,
         },
         "constants": {
             "vehicle_types": vehicle_types,
@@ -463,6 +487,8 @@ if __name__ == '__main__':
 
     parser.add_argument('--vehicle-types', default=None,
                         help='location of vehicle type definitions')
+    parser.add_argument('--discharge_limit', default=0.5,
+                        help='Minimum SoC to discharge to during V2G. [0-1]')
     parser.add_argument('--include-ext-load-csv',
                         help='include CSV for external load. \
                         You may define custom options with --include-ext-csv-option')
