@@ -7,7 +7,6 @@ import json
 from os import path
 import random
 import warnings
-import bisect
 
 from src.util import set_options_from_config
 
@@ -23,8 +22,8 @@ def generate_from_csv(args):
     time can be assigned to control the minimum time a vehicle can charge at the depot.
 
     Needed columns:
-    - departure time in YYYY-MM-DD HH:MM:SS
-    - arrival time in YYYY-MM-DD HH:MM:SS
+    - departure_time in YYYY-MM-DD HH:MM:SS
+    - arrival_time in YYYY-MM-DD HH:MM:SS
     - vehicle_type (as in examples/vehicle_types.json)
     - soc (SoC at arrival) or delta_soc in [0,1] (optional, if not given the mileage is taken
     instead)
@@ -126,6 +125,7 @@ def generate_from_csv(args):
         # sort events for their departure time, so that the matching departure time of an
         # arrival event can be read out of the next element in vid_list
         vid_list = sorted(vid_list, key=lambda x: x["departure_time"])
+
         for index, row in enumerate(vid_list):
             departure_event_in_input = True
             arrival = row["arrival_time"]
@@ -167,6 +167,10 @@ def generate_from_csv(args):
             else:
                 connect_cs = None
 
+            if departure < arrival:
+                warnings.warn("{}: {} travelling in time (departing {})".format(
+                        arrival, v_name, departure))
+
             # adjust SoC if delta_soc < min_soc
             if args.min_soc < delta_soc:
                 trips_above_min_soc += 1
@@ -196,6 +200,10 @@ def generate_from_csv(args):
             events["vehicle_events"].append(last_arrival_event)
 
             if departure_event_in_input:
+                if departure > next_arrival:
+                    warnings.warn("{}: {} travelling in time (arriving {})".format(
+                            departure, v_name, next_arrival))
+
                 events["vehicle_events"].append({
                     "signal_time": departure.isoformat(),
                     "start_time": departure.isoformat(),
@@ -404,28 +412,45 @@ def assign_vehicle_id(input, vehicle_types, recharge_fraction, export=None):
     :return: schedule of rotations
     :rtype: dict
     """
+
+    # rotations in progress: ordered by next possible departure time
     rotations_in_progress = []
+    # list of currently idle vehicles
     idle_vehicles = []
+    # keep track of number of needed vehicles per type
     vehicle_type_counts = {vehicle_type: 0 for vehicle_type in vehicle_types.keys()}
 
+    # calculate min_standing_time at a charging station for each vehicle type
+    # CS power is identical for all vehicles per type: maximum of loading curve
+    cs_power = {vt: max([v[1] for v in vi["charging_curve"]]) for vt, vi in vehicle_types.items()}
+    min_standing_times = {
+        vt: datetime.timedelta(hours=(
+            vi["capacity"] / cs_power[vt] * recharge_fraction
+        )) for vt, vi in vehicle_types.items()}
+
+    # sort rotations by departure time
     rotations = sorted(input, key=lambda d: d.get('departure_time'))
 
+    # find vehicle for each rotation
     for rot in rotations:
-        # find vehicles that have completed rotation and stood for a minimum standing time
-        # mark those vehicle as idle
-        for r in rotations_in_progress:
-            # calculate min_standing_time at a charging station for each vehicle
-            capacity = vehicle_types[r["vehicle_type"]]["capacity"]
-            cs_power = max([v[1] for v in vehicle_types[r["vehicle_type"]]['charging_curve']])
-            min_standing_time = (capacity / cs_power) * recharge_fraction
-            min_standing_time = datetime.timedelta(hours=min_standing_time)
-            departure_time = datetime.datetime.strptime(rot["departure_time"], DATETIME_FORMAT)
-            arrival_time = datetime.datetime.strptime(r["arrival_time"], DATETIME_FORMAT)
+        arrival_time = datetime.datetime.strptime(rot["arrival_time"], DATETIME_FORMAT)
+        departure_time = datetime.datetime.strptime(rot["departure_time"], DATETIME_FORMAT)
+        while rotations_in_progress:
+            # find vehicles that have completed rotation and stood for a minimum standing time
+            # mark those vehicle as idle
 
-            if departure_time - arrival_time > min_standing_time:
+            # get first rotation in progress
+            r = rotations_in_progress.pop(0)
+
+            # min_departure_time computed when inserting rotation (see below)
+            if departure_time > r["min_departure_time"]:
+                # standing time sufficient: vehicle idle, no longer in progress
                 idle_vehicles.append(r["vehicle_id"])
-                rotations_in_progress.pop(0)
             else:
+                # not arrived or standing time not sufficient:
+                # prepend to rotation again
+                rotations_in_progress.insert(0, r)
+                # ordered by possible departure time: other rotations not possible as well
                 break
 
         # find idle vehicle for rotation if exists
@@ -441,9 +466,19 @@ def assign_vehicle_id(input, vehicle_types, recharge_fraction, export=None):
             id = f"{vt}_{vehicle_type_counts[vt]}"
 
         rot["vehicle_id"] = id
-        arrival_times = [r["arrival_time"] for r in rotations_in_progress]
-        # keep list of ongoing rotations sorted by arrival_time
-        rotations_in_progress.insert(bisect.bisect(arrival_times, rot["arrival_time"]), rot)
+        # insert new rotation into list of ongoing rotations
+        # calculate earliest possible new departure time
+        min_departure_time = arrival_time + min_standing_times[vt]
+        # find place to insert
+        i = 0
+        for i, r in enumerate(rotations_in_progress):
+            # go through rotations in order, stop at same or higher departure
+            if r["min_departure_time"] >= min_departure_time:
+                break
+        rot["min_departure_time"] = min_departure_time
+        # insert at calculated index
+        rotations_in_progress.insert(i, rot)
+
     if export:
         all_rotations = []
         header = []
