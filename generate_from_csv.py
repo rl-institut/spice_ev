@@ -27,8 +27,8 @@ def generate_from_csv(args):
     - vehicle_type (as in examples/vehicle_types.json)
     - soc (SoC at arrival) or delta_soc in [0,1] (optional, if not given the mileage is taken
     instead)
-    - vehicle_id (optinal, see explanation above)
-    - distance in km (optinal, needed if columns soc or delta_soc are not given)
+    - vehicle_id (optional, see explanation above)
+    - distance in km (optional, needed if columns soc or delta_soc are not given)
 
 
     :param args: input arguments
@@ -68,7 +68,7 @@ def generate_from_csv(args):
         "vehicle_events": []
     }
 
-    # meta info about min_soc
+    # count number of trips where desired_soc is above min_soc
     trips_above_min_soc = 0
     trips_total = 0
 
@@ -126,6 +126,9 @@ def generate_from_csv(args):
         # arrival event can be read out of the next element in vid_list
         vid_list = sorted(vid_list, key=lambda x: x["departure_time"])
 
+        # initialize sum_delta_soc to add up delta_soc's of all trips until connected to a CS
+        sum_delta_soc = 0
+
         for index, row in enumerate(vid_list):
             departure_event_in_input = True
             arrival = row["arrival_time"]
@@ -162,6 +165,9 @@ def generate_from_csv(args):
                     delta_soc = distance * mileage / capacity
             else:
                 delta_soc = float(row["delta_soc"])
+
+            sum_delta_soc += delta_soc
+
             if int(row["connect_cs"]) == 1:
                 connect_cs = "CS_" + v_name
             else:
@@ -171,46 +177,49 @@ def generate_from_csv(args):
                 warnings.warn("{}: {} travelling in time (departing {})".format(
                         arrival, v_name, departure))
 
-            # adjust SoC if delta_soc < min_soc
-            if args.min_soc < delta_soc:
-                trips_above_min_soc += 1
-                if last_arrival_event is None:
-                    # initially unconnected: adjust initial SoC
-                    vehicles[v_name]["soc"] = delta_soc
-                else:
-                    # adjust last event reference
-                    last_arrival_event["update"]["desired_soc"] = delta_soc
-            trips_total += 1
+            # adjust SoC if sum_delta_soc > min_soc
+            if connect_cs is not None:
+                if args.min_soc < sum_delta_soc:
+                    trips_above_min_soc += 1
+                    if last_arrival_event is None:
+                        # initially unconnected: adjust initial SoC
+                        vehicles[v_name]["soc"] = sum_delta_soc
+                    else:
+                        # adjust last event reference
+                        last_arrival_event["update"]["desired_soc"] = sum_delta_soc
+                trips_total += 1
 
-            last_arrival_event = {
-                "signal_time": arrival.isoformat(),
-                "start_time": arrival.isoformat(),
-                "vehicle_id": v_name,
-                "event_type": "arrival",
-                "update": {
-                    "connected_charging_station": connect_cs,
-                    "estimated_time_of_departure": departure.isoformat(),
-                    "soc_delta": -delta_soc,
-                    "desired_soc": args.min_soc,
-                }
-            }
-
-            events["vehicle_events"].append(last_arrival_event)
-
-            if departure_event_in_input:
-                if departure > next_arrival:
-                    warnings.warn("{}: {} travelling in time (arriving {})".format(
-                            departure, v_name, next_arrival))
-
-                events["vehicle_events"].append({
-                    "signal_time": departure.isoformat(),
-                    "start_time": departure.isoformat(),
+                last_arrival_event = {
+                    "signal_time": arrival.isoformat(),
+                    "start_time": arrival.isoformat(),
                     "vehicle_id": v_name,
-                    "event_type": "departure",
+                    "event_type": "arrival",
                     "update": {
-                        "estimated_time_of_arrival":  next_arrival.isoformat(),
+                        "connected_charging_station": connect_cs,
+                        "estimated_time_of_departure": departure.isoformat(),
+                        "soc_delta": -sum_delta_soc,
+                        "desired_soc": args.min_soc,
                     }
-                })
+                }
+                # reset sum_delta_soc to start adding up again until connected to next CS
+                sum_delta_soc = 0
+
+                events["vehicle_events"].append(last_arrival_event)
+
+                if departure_event_in_input:
+                    if departure > next_arrival:
+                        warnings.warn("{}: {} travelling in time (arriving {})".format(
+                                departure, v_name, next_arrival))
+
+                    events["vehicle_events"].append({
+                        "signal_time": departure.isoformat(),
+                        "start_time": departure.isoformat(),
+                        "vehicle_id": v_name,
+                        "event_type": "departure",
+                        "update": {
+                            "estimated_time_of_arrival":  next_arrival.isoformat(),
+                        }
+                    })
 
     if trips_above_min_soc:
         print(f"{trips_above_min_soc} of {trips_total} trips "

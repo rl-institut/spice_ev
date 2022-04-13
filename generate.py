@@ -224,6 +224,7 @@ def generate(args):
 
     # count number of trips where desired_soc is above min_soc
     trips_above_min_soc = 0
+    trips_total = 0
 
     # create vehicle and price events
     daily = datetime.timedelta(days=1)
@@ -271,6 +272,7 @@ def generate(args):
                 continue
 
             trips_above_min_soc += desired_soc > args.min_soc
+            trips_total += 1
 
             events["vehicle_events"].append({
                 "signal_time": departure.isoformat(),
@@ -358,7 +360,8 @@ def generate(args):
     }
 
     if trips_above_min_soc:
-        print("{} trips use more than {}% capacity".format(trips_above_min_soc, args.min_soc * 100))
+        print(f"{trips_above_min_soc} of {trips_total} trips "
+              f"use more than {args.min_soc * 100}% capacity")
 
     # Write JSON
     with open(args.output, 'w') as f:
