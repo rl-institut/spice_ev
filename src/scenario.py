@@ -652,7 +652,6 @@ class Scenario:
         # calculate results
         if options.get('visual', False) or options.get("testing", False):
 
-            print('Done. Create plots...')
             # sum up total load of all grid connectors
             all_totalLoad = []
             for gcID in gc_ids:
