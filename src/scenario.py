@@ -785,7 +785,7 @@ class Scenario:
                 "avg_stand_time": {gcID: avg_stand_time[gcID] for gcID in gc_ids},
                 "avg_total_standing_time": {gcID: avg_total_standing_time[gcID] for gcID in gc_ids},
                 "avg_needed_energy": {gcID: avg_needed_energy[gcID] for gcID in gc_ids},
-                "avg_drawn_pwer": {gcID: avg_drawn[gcID] for gcID in gc_ids},
+                "avg_drawn_power": {gcID: avg_drawn[gcID] for gcID in gc_ids},
                 "sum_feed_in_per_h": {gcID: (sum(feedInPower[gcID]) / stepsPerHour) for gcID in
                                       gc_ids},
                 "vehicle_battery_cycles": {gcID: (total_car_energy[gcID] / total_car_cap[gcID]) for
