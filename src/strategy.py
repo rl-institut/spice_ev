@@ -1,5 +1,6 @@
 from copy import deepcopy
 from importlib import import_module
+from warnings import warn
 
 from src import events
 from src.util import get_cost, clamp_power
@@ -126,9 +127,12 @@ class Strategy():
                             self.negative_soc_tracker.update({ev.vehicle_id:
                                                               self.current_time.isoformat()})
                         if self.ALLOW_NEGATIVE_SOC:
-                            print('Warning: SOC of vehicle {} became negative at {}. SOC is {}, '
-                                  'continuing with SOC = 0'
-                                  .format(ev.vehicle_id, self.current_time, vehicle.battery.soc))
+                            warn('SOC of vehicle {} became negative at {}. SOC is {}, '
+                                 'continuing with SOC = 0'
+                                 .format(ev.vehicle_id, self.current_time, vehicle.battery.soc),
+                                 # settings stack level high to avoid confusing
+                                 # info about origin of error (e.g. filename, lineno)
+                                 stacklevel=100)
                             vehicle.battery.soc = 0
                         else:
                             raise RuntimeError(
