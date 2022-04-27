@@ -15,6 +15,8 @@ class Schedule(Strategy):
         # only relevant for balanced_vehicle
         self.currently_in_core_standing_time = False
         self.overcharge_necessary = False
+        # if set, only warn if vehicle not present during core_standing time instead of aborting
+        self.warn_core_standing_time = False
         self.ITERATIONS = 12
 
         super().__init__(constants, start_time, **kwargs)
@@ -221,9 +223,15 @@ class Schedule(Strategy):
         self.extra_energy_per_vehicle = {}
         for vehicle_id, vehicle in self.world_state.vehicles.items():
             cs_id = vehicle.connected_charging_station
-            assert cs_id is not None, (
-                f"Vehicle {vehicle_id} not available during core standing time!"
-            )
+            if cs_id is None:
+                # vehicle not present during core_standing time
+                if self.warn_core_standing_time:
+                    warnings.warn("{}: vehicle {} not available during core standing time".format(
+                        self.current_time, vehicle_id))
+                    continue
+                else:
+                    raise Exception(f"Vehicle {vehicle_id} not available during core standing time")
+
             cs = self.world_state.charging_stations[cs_id]
             max_charging_power = min(vehicle.vehicle_type.charging_curve.max_power, cs.max_power)
             old_soc = vehicle.battery.soc
@@ -273,7 +281,7 @@ class Schedule(Strategy):
                 vehicle = self.world_state.vehicles[vehicle_id]
                 cs_id = vehicle.connected_charging_station
                 if cs_id is None:
-                    warnings.warn("Vehicle {vehicle_id} not available during core standing time")
+                    # vehicle not present during core_standing_time
                     continue
                 # get connected charging station, GC
                 cs = self.world_state.charging_stations[cs_id]
@@ -325,7 +333,7 @@ class Schedule(Strategy):
                 # get connected charging station
                 cs_id = vehicle.connected_charging_station
                 if cs_id is None:
-                    warnings.warn("Vehicle {vehicle_id} not available during core standing time")
+                    # vehicle not present during core standing time
                     continue
                 cs = self.world_state.charging_stations[cs_id]
 

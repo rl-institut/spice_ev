@@ -22,6 +22,7 @@ ARG_VALUES1 = {
     "start_time": '2018-01-01T00:15:00+00:00',
     "no_drive_days": [6],
     "vehicle_types": "test_data/input_test_generate/vehicle_types.json",
+    "discharge_limit": 0.5,
     "include_ext_load_csv": None,
     "include_ext_csv_option": [],
     "include_feed_in_csv": None,
