@@ -185,7 +185,7 @@ class FlexWindow(Strategy):
             min_power = 0
             max_power = util.clamp_power(cs.max_power, sim_vehicle, cs)
             old_soc = vehicle.battery.soc
-            safe = False
+            safe = vehicle.get_delta_soc() <= self.EPS
             power_vec = [0] * len(timesteps)
             # Compute the optimal maximum power to charge a vehicle to desired SOC
             # For vehicles that cannot be fully charged in charge window, this power is applied to
