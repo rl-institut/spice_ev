@@ -181,13 +181,10 @@ class FlexWindow(Strategy):
                     sim_vehicle.battery.load(self.interval, p)
 
             charged_in_window = sim_vehicle.get_delta_soc() <= self.EPS
-            if charged_in_window:
-                # reset sim SoC
-                sim_vehicle.battery.soc = vehicle.battery.soc
 
             min_power = 0
             max_power = util.clamp_power(cs.max_power, sim_vehicle, cs)
-            old_soc = sim_vehicle.battery.soc
+            old_soc = vehicle.battery.soc
             safe = False
             power_vec = [0] * len(timesteps)
             # Compute the optimal maximum power to charge a vehicle to desired SOC
@@ -207,6 +204,7 @@ class FlexWindow(Strategy):
                     avg_power = 0
                     if cur_time >= sim_vehicle.estimated_time_of_departure:
                         break
+
                     if ts_info["window"] == charged_in_window:
                         p = util.clamp_power(min(power, ts_info["power"]), sim_vehicle, cs)
                         avg_power = sim_vehicle.battery.load(self.interval, p)["avg_power"]

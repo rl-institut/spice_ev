@@ -202,7 +202,7 @@ class TestScenarios(TestCaseBase):
 
         # check if vehicles are only loaded in window
         cs_load = [sum(item) for item in s.testing["timeseries"]["sum_cs"]]
-        indices_load_vehicle = [idx for idx, val in enumerate(cs_load) if round(val, 2) > 0]
+        indices_load_vehicle = [idx for idx, val in enumerate(cs_load) if round(val) > 0]
         for idx in indices_load_vehicle:
             assert s.testing["timeseries"]["schedule"]["GC1"][idx] is True
         # check if vehicles are only unloaded outside window
