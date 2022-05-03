@@ -638,15 +638,6 @@ class Scenario:
                     else:
                         sum_soc = [[i1+j1 for i1, j1 in zip(i, j)] for i, j in zip(sum_soc, soc)]
 
-                for gcID, disconnect_ts in disconnect.items():
-                    disconnect_ts = [[0 if x is None else x for x in line]
-                                     for line in disconnect_ts]
-                    if not sum_soc:
-                        sum_soc = disconnect_ts
-                    else:
-                        sum_soc = [[i1+j1 for i1, j1 in zip(i, j)]
-                                   for i, j in zip(sum_soc, disconnect_ts)]
-
                 for idx, r in enumerate(results):
                     # general info: timestep index and timestamp
                     # TZ removed for spreadsheet software
