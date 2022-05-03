@@ -20,7 +20,6 @@ class FlexWindow(Strategy):
         assert (len(self.world_state.grid_connectors) == 1), "Only one grid connector supported"
         self.description = "Flex Window ({}, {} hour horizon)".format(
             self.LOAD_STRAT, self.HORIZON)
-        self.uses_window = True
 
         if self.LOAD_STRAT == "greedy":
             # charge vehicles in need first, then by order of departure
@@ -181,7 +180,7 @@ class FlexWindow(Strategy):
                     p = util.clamp_power(p, sim_vehicle, cs)
                     sim_vehicle.battery.load(self.interval, p)
 
-            charged_in_window = sim_vehicle.get_delta_soc() <= 0
+            charged_in_window = sim_vehicle.get_delta_soc() <= self.EPS
             if charged_in_window:
                 # reset sim SoC
                 sim_vehicle.battery.soc = vehicle.battery.soc
@@ -198,7 +197,7 @@ class FlexWindow(Strategy):
             # For vehicles that can be fully charged during charge windows, at every TS of a
             # charging window the minimum of this power and the remaining power on the
             # GC is applied.
-            while (charged_in_window and not safe) or max_power - min_power > self.EPS:
+            while max_power - min_power > self.EPS:
                 power = (min_power + max_power) / 2
                 sim_vehicle.battery.soc = old_soc
 
@@ -217,7 +216,7 @@ class FlexWindow(Strategy):
                         avg_power = sim_vehicle.battery.load(self.interval, p)["avg_power"]
 
                     power_vec[ts_idx] = avg_power
-                    safe = sim_vehicle.get_delta_soc() <= 0
+                    safe = sim_vehicle.get_delta_soc() <= self.EPS
                     if safe:
                         power_vec[ts_idx + 1:] = [0] * (len(timesteps) - ts_idx - 1)
                         break
