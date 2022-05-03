@@ -71,13 +71,13 @@ class Scenario:
 
         gc_ids = self.constants.grid_connectors.keys()
 
-        socs = {gcID: [] for gcID in gc_ids}
+        socs = []
         costs = {gcID: [] for gcID in gc_ids}
         prices = {gcID: [] for gcID in gc_ids}
         results = []
         extLoads = {gcID: [] for gcID in gc_ids}
         totalLoad = {gcID: [] for gcID in gc_ids}
-        disconnect = {gcID: [] for gcID in gc_ids}
+        disconnect = []
         feedInPower = {gcID: [] for gcID in gc_ids}
         stepsPerHour = datetime.timedelta(hours=1) / self.interval
         batteryLevels = {k: [] for k in self.constants.batteries.keys()}
@@ -129,6 +129,37 @@ class Scenario:
                 break
             results.append(res)
 
+            # get SOC for all vehicle at all timesteps
+            cur_dis = []
+            cur_socs = []
+            for vidx, vid in enumerate(sorted(strat.world_state.vehicles.keys())):
+                vehicle = strat.world_state.vehicles[vid]
+                if vehicle.connected_charging_station:
+                    cur_dis.append(None)
+                    cur_socs.append(vehicle.battery.soc)
+                    if len(socs) > 0 and socs[-1][vidx] is None:
+                        # just arrived -> update disconnect
+                        # find departure
+                        start_idx = step_i-1
+                        while start_idx >= 0 and socs[start_idx][vidx] is None:
+                            start_idx -= 1
+                        if start_idx < 0:
+                            # first charge, no info about old soc
+                            continue
+                        # get start soc
+                        start_soc = socs[start_idx][vidx]
+                        # compute linear equation
+                        m = (vehicle.battery.soc - start_soc) / (step_i - start_idx - 1)
+                        # update timesteps between start and now
+                        for idx in range(start_idx+1, step_i):
+                            disconnect[idx][vidx] = m * (idx - start_idx) + start_soc
+                else:
+                    cur_socs.append(None)
+                    cur_dis.append(None)  # placeholder
+
+            socs.append(cur_socs)
+            disconnect.append(cur_dis)
+
             for gcID, gc in strat.world_state.grid_connectors.items():
 
                 # get current loads
@@ -174,41 +205,16 @@ class Scenario:
                 # get SOC and connected CS of all connected vehicles at gc
 
                 cur_cs = []
-                cur_dis = []
-                cur_socs = []
                 for vidx, vid in enumerate(sorted(strat.world_state.vehicles.keys())):
                     vehicle = strat.world_state.vehicles[vid]
                     if vehicle.connected_charging_station and (strat.world_state.charging_stations[
                             vehicle.connected_charging_station].parent == gcID):
                         cur_cs.append(vehicle.connected_charging_station)
-                        cur_dis.append(None)
-                        cur_socs.append(vehicle.battery.soc)
-                        if len(socs[gcID]) > 0 and socs[gcID][-1][vidx] is None:
-                            # just arrived -> update disconnect
-                            # find departure
-                            start_idx = step_i-1
-                            while start_idx >= 0 and socs[gcID][start_idx][vidx] is None:
-                                start_idx -= 1
-                            if start_idx < 0:
-                                # first charge, no info about old soc
-                                continue
-                            # get start soc
-                            start_soc = socs[gcID][start_idx][vidx]
-                            # compute linear equation
-                            m = (vehicle.battery.soc - start_soc) / (step_i - start_idx - 1)
-                            # update timesteps between start and now
-                            for idx in range(start_idx, step_i):
-                                disconnect[gcID][idx][vidx] = m * (idx - start_idx) + start_soc
-                    else:
-                        cur_socs.append(None)
-                        cur_dis.append(None)  # placeholder
 
                 # append accumulated info
-                socs[gcID].append(cur_socs)
                 costs[gcID].append(cost)
                 prices[gcID].append(price)
                 totalLoad[gcID].append(curLoad)
-                disconnect[gcID].append(cur_dis)
                 feedInPower[gcID].append(curFeedIn)
                 connChargeByTS[gcID].append(cur_cs)
 
@@ -276,9 +282,9 @@ class Scenario:
                                                   totalLoad[gcID][idx]))
                         count_window[widx] = list(map(
                             lambda c, t: c + (t is not None),
-                            count_window[widx], socs[gcID][idx]))
+                            count_window[widx], socs[idx]))
 
-                        for i, soc in enumerate(socs[gcID][idx]):
+                        for i, soc in enumerate(socs[idx]):
                             if soc is None and load_count[i][-1] > 0:
                                 load_count[i].append(0)
                             else:
@@ -630,21 +636,16 @@ class Scenario:
                     header_s.append(vid)
                 soc_file.write(','.join(header_s))
 
-                sum_soc = []
-                for gcID, soc in socs.items():
-                    soc = [[0 if x is None else x for x in line] for line in soc]
-                    if not sum_soc:
-                        sum_soc = soc
-                    else:
-                        sum_soc = [[i1+j1 for i1, j1 in zip(i, j)] for i, j in zip(sum_soc, soc)]
+                # combine SOCs from connected and disconnected timesteps
+                # for every time step and vehicle, exactly one of the two has
+                # a numeric value while the other contains a NoneType
+                contiuous_soc = [[s or d for s, d in zip(socs_ts, disconnect_ts)]
+                                 for socs_ts, disconnect_ts in zip(socs, disconnect)]
 
                 for idx, r in enumerate(results):
                     # general info: timestep index and timestamp
                     # TZ removed for spreadsheet software
-                    row_s = [idx, r['current_time'].replace(tzinfo=None)]
-                    cur_soc = sum_soc[idx]
-                    for i, j in enumerate(cur_soc):
-                        row_s += [j]
+                    row_s = [idx, r['current_time'].replace(tzinfo=None)] + contiuous_soc[idx]
 
                     # write row to file
                     soc_file.write('\n' + ','.join(map(lambda x: str(x), row_s)))
@@ -707,12 +708,11 @@ class Scenario:
                 ax = plt.subplot(2, plots_top_row, 1)
                 ax.set_title('Vehicles')
                 ax.set(ylabel='SoC')
-                for gcID, soc in socs.items():
-                    lines = ax.step(xlabels, soc)
-                    # reset color cycle, so lines have same color
-                    ax.set_prop_cycle(None)
-                for gcID, dis in disconnect.items():
-                    ax.plot(xlabels, dis, '--')
+                lines = ax.step(xlabels, socs)
+                # reset color cycle, so lines have same color
+                ax.set_prop_cycle(None)
+
+                ax.plot(xlabels, disconnect, '--')
                 if len(self.constants.vehicles) <= 10:
                     ax.legend(lines, sorted(self.constants.vehicles.keys()))
 
