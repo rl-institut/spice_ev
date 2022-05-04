@@ -645,7 +645,8 @@ class Scenario:
                 for idx, r in enumerate(results):
                     # general info: timestep index and timestamp
                     # TZ removed for spreadsheet software
-                    row_s = [idx, r['current_time'].replace(tzinfo=None)] + contiuous_soc[idx]
+                    row_s = [idx, r['current_time'].replace(tzinfo=None).isoformat()]
+                    row_s += contiuous_soc[idx]
 
                     # write row to file
                     soc_file.write('\n' + ','.join(map(lambda x: str(x), row_s)))
