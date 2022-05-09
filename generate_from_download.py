@@ -50,6 +50,7 @@ def generate_from_download(args):
         "energy_feed_in": {},
         "vehicle_events": []
     }
+    events_ignored = []
 
     start_time = None
     stop_time = None
@@ -88,8 +89,9 @@ def generate_from_download(args):
             # not enough minimum SoC to make the trip
             print("WARNING: minimum SoC too low, need at least {} (see transaction {})".format(
                 soc_delta, event["transactionId"]))
-        if energy_used > 1 and event["reason"] == "EVDisconnected" and event["status"] == "Beendet":
-            # less than 1 kWh used or different reason or not finished: dummy /faulty event
+        if energy_used > 1 \
+                and event["reason"] == "EVDisconnected" \
+                and event["status"] == "completed_tx":
 
             # generate events
             events["vehicle_events"].append({
@@ -113,6 +115,9 @@ def generate_from_download(args):
                     "estimated_time_of_arrival": None
                 }
             })
+        else:
+            # less than 1 kWh used or different reason or not finished: dummy /faulty event
+            events_ignored.append(event["transactionId"])
 
         # insert vehicles back into vehicle queue
         # sort by departure
@@ -238,6 +243,9 @@ def generate_from_download(args):
         },
         "events": events
     }
+
+    if events_ignored:
+        print(f"{len(events_ignored)} / {len(input_json)} events ignored: {events_ignored}")
 
     # Write JSON
     with open(args.output, 'w') as f:
