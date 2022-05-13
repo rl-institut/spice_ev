@@ -8,7 +8,7 @@ The core of SpiceEV are the different charging strategies. They decide how to re
 
 All charging strategies support the `EPS` option, which defines the difference under which two floating point numbers are considered equal. In other words, the value chosen for `EPS` determines the precision of the simulation. The smaller it is the more precise the calculations are. The downside to this is an increase running time. For some numerical procedures the algorithm might get stuck completely if `EPS` is too small. The default is 10^-5.
 
-Every strategy also supports the strategy option `allow_negative_soc`. This option sets negative SoCs to `0` and continues the simulation instead of aborting. The default value is `False`, setting it to `True` will activate the option. The option is passed in `strategy_option` list.
+Every strategy also supports the strategy option `ALLOW_NEGATIVE_SOC` and `RESET_NEGATIVE_SOC`. They control how to proceed should the SoC of a vehicle become negative. Both are False by default, which means the simulation will abort in such a case. If `ALLOW_NEGATIVE_SOC` is set, the simulation continues instead of aborting. If `RESET_NEGATIVE_SOC` is set, the SoC of the vehicle is set to zero. These options are helpful when simulating plug-in hybrids.
 
 Greedy
 ======
@@ -186,7 +186,7 @@ V2G supported: **YES**
     +----------------------+---------------+---------------------------------------------------------------------+
     |**Strategy option**   | **default**   |              **explanation**                                        |
     +----------------------+---------------+---------------------------------------------------------------------+
-    |   ALLOW_NEGATIVE_SOC |   True        | simulation does not abort if SoC becomes negative                   |
+    |   ALLOW_NEGATIVE_SOC |   False       | simulation does not abort if SoC becomes negative                   |
     +----------------------+---------------+---------------------------------------------------------------------+
     |   C-HORIZON          |      3        | loading time in min reserved for vehicle if number of cs is limited |
     +----------------------+---------------+---------------------------------------------------------------------+
