@@ -123,7 +123,7 @@ class Strategy():
                         msg = "{}: Vehicle {} is below desired SOC ({} < {})".format(
                             ev.start_time.isoformat(), ev.vehicle_id,
                             vehicle.battery.soc, vehicle.desired_soc)
-                        if self.ALLOW_NEGATIVE_SOC:
+                        if vehicle.battery.soc < 0 and self.ALLOW_NEGATIVE_SOC:
                             warn(msg)
                         else:
                             raise RuntimeError(msg)
