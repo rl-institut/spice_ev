@@ -441,6 +441,23 @@ class Scenario:
                         "unit": None,
                         "info": "Number of load cycles per vehicle (averaged)"
                     }
+                    json_results["Costs"] = {
+                        "electricity price": {
+                            "total": 0,
+                            "strompreisbeschaffung": 0,
+                            "Abgabe": 0,
+                            "netzentgelte": {"arbeitspreis": 0, "leistungspreis": 0},
+                            "unit": "eur",
+                            "info": "electricity price"
+                        },
+                        "Einspeiseverguetung": {
+                            "total": 0,
+                            "feed-in": 0,
+                            "V2G": 0,
+                            "unit": "eur",
+                            "info": "electricity price"
+                        }
+                    }
 
                     if options.get("save_results", False):
                         # write to file

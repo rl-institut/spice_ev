@@ -1,0 +1,35 @@
+{
+    "type": "lp_jlp",
+    ">=2500 h/a": {
+        "Leistungspreis EUR/kW*a": {
+            "HS": 19.13,
+            "HS/MS": 25.25,
+            "MS": 41.06,
+            "MS/NS": 44.26,
+            "NS": 44.26
+        },
+        "Arbeitspreis ct/kWh": {
+            "HS": 2.3,
+            "HS/MS": 3.81,
+            "MS": 3.49,
+            "MS/NS": 4.39,
+            "NS": 4.83
+        }
+    },
+    "<2500 h/a": {
+        "Leistungspreis EUR/kW*a": {
+            "HS": 56.33,
+            "HS/MS": 101.52,
+            "MS": 70.14,
+            "MS/NS": 97.01,
+            "NS": 64.33
+        },
+        "Arbeitspreis ct/kWh": {
+            "HS": 0.81,
+            "HS/MS": 0.76,
+            "MS": 2.32,
+            "MS/NS": 2.28,
+            "NS": 4.03
+        }
+    }
+}

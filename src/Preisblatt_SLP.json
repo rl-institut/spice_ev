@@ -1,0 +1,11 @@
+{
+    "type": "slp",
+    "Grundpreis EUR/a": {
+        "Nettopreis": 65.7,
+        "Bruttopreis": 78.18
+    },
+    "Arbeitspreis ct/kWh": {
+        "Nettopreis": 7.48,
+        "Bruttopreis": 8.9
+    }
+}

@@ -7,7 +7,7 @@ import warnings
 
 from src.scenario import Scenario
 from src.util import set_options_from_config
-
+from calculate_costs import calculate_costs
 
 STRATEGIES = [
     'greedy', 'greedy_market',
@@ -102,3 +102,8 @@ if __name__ == '__main__':
         args.save_timeseries = args.save_timeseries or args.output
 
     simulate(args)
+
+    #Cost calculation
+    test_list_a = [1,1,1]
+    test_list_b = [2,2,2]
+    calculate_costs(args.strategy,test_list_a,test_list_b,flag_cost_calc=True) #todo: Listen ersetzen
