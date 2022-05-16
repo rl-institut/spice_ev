@@ -227,231 +227,110 @@ class Scenario:
         # adjust step_i: n_intervals or failed simulation step
         step_i += 1
 
+        self.socs = socs
+        self.strat = strat
+        self.costs = costs
+        self.steps = step_i
+        self.prices = prices
+        self.results = results
+        self.extLoads = extLoads
+        self.totalLoad = totalLoad
+        self.disconnect = disconnect
+        self.feedInPower = feedInPower
+        self.stepsPerHour = stepsPerHour
+        self.batteryLevels = batteryLevels
+        self.connChargeByTS = connChargeByTS
+        self.gcPowerSchedule = gcPowerSchedule
+        self.gcWindowSchedule = gcWindowSchedule
+
         for gcID in gc_ids:
             print("Energy drawn from {}: {:.0f} kWh, Costs: {:.2f} €".format(gcID,
                                                                              sum(totalLoad[gcID]) /
                                                                              stepsPerHour,
                                                                              sum(costs[gcID])))
 
-        # this dictionary stores all aggregated outputs that are computed below
-        # for reuse in subsequent code sections or calling modules
-        self.agg_results = {}
+        if options.get("save_results", False) or options.get("testing", False):
 
-        if options.get("save_timeseries", False) or options.get("save_results", False) \
-                or options.get("testing", False):
-            # get flexibility band
-            from generate_schedule import generate_flex_band
+            self.avg_drawn = {}
+            self.flex_bands = {}
+            self.total_car_cap = {}
+            self.avg_stand_time = {}
+            self.total_car_energy = {}
+            self.avg_needed_energy = {}
+            self.perc_stand_window = {}
+            self.avg_flex_per_window = {}
+            self.sum_energy_per_window = {}
+            self.avg_total_standing_time = {}
 
-            self.agg_results.update({
-                'avg_needed_energy': {},
-                'avg_flex_per_window': {},
-                'sum_energy_per_window': {},
-                'avg_stand_time': {},
-                'avg_total_standing_time': {},
-                'perc_stand_window': {},
-                'total_car_cap': {},
-                'total_car_energy': {},
-                'avg_drawn': {},
-                'flex_band': {},
-            })
+            if options.get("save_results", False):
+                # save general simulation info to JSON file
+                ext = os.path.splitext(options["save_results"])
+                if ext[-1] != ".json":
+                    print("File extension mismatch: results file is of type .json")
 
             for gcID in gc_ids:
-                self.agg_results['flex_band'][gcID] = generate_flex_band(self, gcID=gcID)
+                # stepwise gc specific information is aggregated and curated for results file output
+                results_file_content = report.aggregate_local_results(scenario=self, gcID=gcID)
 
-                if options.get("save_results", False) or options.get("testing", False):
-                    if options.get("save_results", False):
-                        # save general simulation info to JSON file
-                        ext = os.path.splitext(options["save_results"])
-                        if ext[-1] != ".json":
-                            print("File extension mismatch: results file is of type .json")
-
-                    # stepwise information is aggregated and curated for results file output
-                    # aggregated info is also stored in the results dict set up above for later use
-                    results_file_content = report.get_json_results(
-                        gcID=gcID,
-                        scenario=self,
-                        results=results,
-                        n_steps=step_i,
-                        stepsPerHour=stepsPerHour,
-                        socs=socs,
-                        extLoads=extLoads,
-                        totalLoad=totalLoad,
-                        batteryLevels=batteryLevels,
-                        feedInPower=feedInPower
-                    )
-
-                    if options.get("save_results", False):
-                        # write to file
-                        if len(gc_ids) == 1:
-                            file_name = options["save_results"]
-                        else:
-                            file_name, ext = os.path.splitext(options["save_results"])
-                            file_name = f"{file_name}_{gcID}{ext}"
-                        with open(file_name, 'w') as results_file:
-                            json.dump(results_file_content, results_file, indent=2)
+                if options.get("save_results", False):
+                    # write to file
+                    if len(gc_ids) == 1:
+                        file_name = options["save_results"]
+                    else:
+                        file_name, ext = os.path.splitext(options["save_results"])
+                        file_name = f"{file_name}_{gcID}{ext}"
+                    with open(file_name, 'w') as results_file:
+                        json.dump(results_file_content, results_file, indent=2)
 
         if options.get("save_timeseries", False):
             # save power use for each timestep in file
-            report.save_timeseries(
-                scenario=self,
-                gc_ids=gc_ids,
-                output_path=options["save_timeseries"],
-                results=results,
-                gcPowerSchedule=gcPowerSchedule,
-                gcWindowSchedule=gcWindowSchedule,
-                extLoads=extLoads,
-                prices=prices,
-                feedInPower=feedInPower,
-                batteryLevels=batteryLevels,
-                connChargeByTS=connChargeByTS,
-                totalLoad=totalLoad
-            )
+            output_path, ext = os.path.splitext(options["save_timeseries"])
+            if ext != ".csv":
+                print("File extension mismatch: timeseries file is of type .csv")
 
-        if options.get("save_soc", False):
-            report.save_soc(output_path=options["save_soc"],
-                            scenario=self,
-                            results=results,
-                            socs=socs,
-                            disconnect=disconnect)
+            for gcID in gc_ids:
+                if len(gc_ids) == 1:
+                    output_path = options["save_timeseries"]
+                else:
+                    output_path = f"{file_name}_{gcID}{ext}"
+
+                report.save_gc_timeseries(self, gcID, output_path)
+
+        if options.get("save_soc", False) or options.get("attach_vehicle_soc", False):
+            self.vehicle_socs = {}
+            report.save_soc_timeseries(scenario=self,
+                                       output_path=options.get("save_soc"))
 
         # calculate results
         if options.get('visual', False) or options.get("testing", False):
-
             # sum up total load of all grid connectors
-            all_totalLoad = []
-            for gcID in gc_ids:
-                if not all_totalLoad:
-                    all_totalLoad = totalLoad[gcID]
-                else:
-                    all_totalLoad = list(map(lambda x, y: x+y, all_totalLoad, totalLoad[gcID]))
-
-            sum_cs = []
-            xlabels = []
-
-            for r in results:
-                xlabels.append(r['current_time'])
-                cur_cs = []
-                for cs_id in sorted(self.constants.charging_stations):
-                    cur_cs.append(r['commands'].get(cs_id, 0.0))
-                sum_cs.append(cur_cs)
-
-            # untangle external loads (with feed-in)
-            loads = {}
-            for gcID in gc_ids:
-                loads[gcID] = {}
-                for i, step in enumerate(extLoads[gcID]):
-                    for k, v in step.items():
-                        if k not in loads[gcID]:
-                            # new key, not present before
-                            loads[gcID][k] = [0] * i
-                        loads[gcID][k].append(v)
-                    for k in loads[gcID].keys():
-                        if k not in step:
-                            # old key not in current step
-                            loads[gcID][k].append(0)
+            report.aggregate_global_results(self)
 
             # plot!
             if options.get('visual', False):
-                import matplotlib.pyplot as plt
-
-                print('Done. Create plots...')
-
-                # batteries
-                if batteryLevels:
-                    plots_top_row = 3
-                    ax = plt.subplot(2, plots_top_row, 3)
-                    ax.set_title('Batteries')
-                    ax.set(ylabel='Stored power in kWh')
-                    for name, values in batteryLevels.items():
-                        ax.plot(xlabels, values, label=name)
-                    ax.legend()
-                else:
-                    plots_top_row = 2
-
-                # vehicles
-                ax = plt.subplot(2, plots_top_row, 1)
-                ax.set_title('Vehicles')
-                ax.set(ylabel='SoC')
-                lines = ax.step(xlabels, socs)
-                # reset color cycle, so lines have same color
-                ax.set_prop_cycle(None)
-
-                ax.plot(xlabels, disconnect, '--')
-                if len(self.constants.vehicles) <= 10:
-                    ax.legend(lines, sorted(self.constants.vehicles.keys()))
-
-                # charging stations
-                ax = plt.subplot(2, plots_top_row, 2)
-                ax.set_title('Charging Stations')
-                ax.set(ylabel='Power in kW')
-                lines = ax.step(xlabels, sum_cs)
-                if len(self.constants.charging_stations) <= 10:
-                    ax.legend(lines, sorted(self.constants.charging_stations.keys()))
-
-                # total power
-                ax = plt.subplot(2, 2, 3)
-                ax.plot(xlabels, list([sum(cs) for cs in sum_cs]), label="CS")
-                for gcID in gc_ids:
-                    for name, values in loads[gcID].items():
-                        ax.plot(xlabels, values, label=name)
-                # draw schedule
-                if strat.uses_window:
-                    for gcID, schedule in gcWindowSchedule.items():
-                        if all(s is not None for s in schedule):
-                            # schedule exists
-                            window_values = [v * int(max(totalLoad[gcID])) for v in schedule]
-                            ax.plot(xlabels, window_values, label="window {}".format(gcID),
-                                    linestyle='--')
-                if strat.uses_schedule:
-                    for gcID, schedule in gcPowerSchedule.items():
-                        if any(s is not None for s in schedule):
-                            ax.plot(xlabels, schedule, label="Schedule {}".format(gcID))
-
-                ax.plot(xlabels, all_totalLoad, label="Total")
-                ax.set_title('Power')
-                ax.set(ylabel='Power in kW')
-                ax.legend()
-                ax.xaxis_date()  # xaxis are datetime objects
-
-                # price
-                ax = plt.subplot(2, 2, 4)
-                for gcID, price in prices.items():
-                    lines = ax.step(xlabels, price)
-                ax.set_title('Price for 1 kWh')
-                ax.set(ylabel='€')
-                if len(gc_ids) <= 10:
-                    ax.legend(lines, sorted(gc_ids))
-
-                # figure title
-                fig = plt.gcf()
-                fig.suptitle('Strategy: {}'.format(type(strat).__name__), fontweight='bold')
-
-                # fig.autofmt_xdate()  # rotate xaxis labels (dates) to fit
-                # autofmt removes some axis labels, so rotate by hand:
-                for ax in fig.get_axes():
-                    plt.setp(ax.get_xticklabels(), rotation=30, ha='right')
-
-                plt.show()
+                report.plot(self)
 
         # add testing params
         if options.get("testing", False):
             self.testing = {
                 "timeseries": {
-                    "total_load": all_totalLoad,
+                    "total_load": self.all_totalLoad,
                     "prices": prices,
                     "schedule": {gcID: gcWindowSchedule[gcID] for gcID in gc_ids},
-                    "sum_cs": sum_cs,
-                    "loads": loads
+                    "sum_cs": self.sum_cs,
+                    "loads": self.loads
                 },
-                "max_total_load": max(all_totalLoad),
-                "avg_flex_per_window": {gcID: avg_flex_per_window[gcID] for gcID in gc_ids},
-                "sum_energy_per_window": {gcID: sum_energy_per_window[gcID] for gcID in gc_ids},
-                "avg_stand_time": {gcID: avg_stand_time[gcID] for gcID in gc_ids},
-                "avg_total_standing_time": {gcID: avg_total_standing_time[gcID] for gcID in gc_ids},
-                "avg_needed_energy": {gcID: avg_needed_energy[gcID] for gcID in gc_ids},
-                "avg_drawn_power": {gcID: avg_drawn[gcID] for gcID in gc_ids},
-                "sum_feed_in_per_h": {gcID: (sum(feedInPower[gcID]) / stepsPerHour) for gcID in
-                                      gc_ids},
-                "vehicle_battery_cycles": {gcID: (total_car_energy[gcID] / total_car_cap[gcID]) for
-                                           gcID in gc_ids}
+                "max_total_load": max(self.all_totalLoad),
+                "avg_flex_per_window": self.avg_flex_per_window,
+                "sum_energy_per_window": self.sum_energy_per_window,
+                "avg_stand_time": self.avg_stand_time,
+                "avg_total_standing_time": self.avg_total_standing_time,
+                "avg_needed_energy": self.avg_needed_energy,
+                "avg_drawn_power": self.avg_drawn,
+                "sum_feed_in_per_h": {gcID: (sum(feedInPower[gcID]) / stepsPerHour)
+                                      for gcID in gc_ids},
+                "vehicle_battery_cycles": {
+                    gcID: (self.total_car_energy[gcID] / self.total_car_cap[gcID])
+                    for gcID in gc_ids
+                }
             }
