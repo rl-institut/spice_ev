@@ -118,15 +118,11 @@ class Strategy():
                     # vehicle leaves: disconnect vehicle
                     vehicle.connected_charging_station = None
                     # check that vehicle has charged enough
-                    if vehicle.battery.soc < (1-self.margin)*vehicle.desired_soc - self.EPS:
-                        # not charged enough: warn or stop simulation completely
-                        msg = "{}: Vehicle {} is below desired SOC ({} < {})".format(
+                    if 0 <= vehicle.battery.soc < (1-self.margin)*vehicle.desired_soc - self.EPS:
+                        # not charged enough: stop simulation
+                        raise RuntimeError("{}: Vehicle {} is below desired SOC ({} < {})".format(
                             ev.start_time.isoformat(), ev.vehicle_id,
-                            vehicle.battery.soc, vehicle.desired_soc)
-                        if vehicle.battery.soc < 0 and self.ALLOW_NEGATIVE_SOC:
-                            warn(msg)
-                        else:
-                            raise RuntimeError(msg)
+                            vehicle.battery.soc, vehicle.desired_soc))
                 elif ev.event_type == "arrival":
                     # vehicle arrives
                     assert hasattr(vehicle, 'soc_delta')
