@@ -299,9 +299,8 @@ class Scenario:
         if options.get("save_soc", False) or options.get("attach_vehicle_soc", False):
             self.vehicle_socs = {}
             report.save_soc_timeseries(scenario=self,
-                                       output_path=options.get("save_soc"))
+                                       output_path=options.get("save_soc", None))
 
-        # calculate results
         if options.get('visual', False) or options.get("testing", False):
             # sum up total load of all grid connectors
             report.aggregate_global_results(self)
@@ -310,7 +309,6 @@ class Scenario:
             if options.get('visual', False):
                 report.plot(self)
 
-        # add testing params
         if options.get("testing", False):
             self.testing = {
                 "timeseries": {

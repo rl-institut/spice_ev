@@ -3,6 +3,15 @@ import datetime
 
 
 def aggregate_global_results(scenario):
+    """ Aggregate and reorder simulation data across grid connectors.
+        Quantities:
+        Total load per timestep across grid connectors,
+        Load per charging station and time,
+        All loads per grid connector except for charging stations
+
+    :param scenario: Scenario for which to aggregate data.
+    :type scenario: spice_ev.Scenario
+    """
     gc_ids = scenario.constants.grid_connectors.keys()
     all_totalLoad = []
     for gcID in gc_ids:
@@ -39,6 +48,27 @@ def aggregate_global_results(scenario):
 
 
 def aggregate_local_results(scenario, gcID):
+    """ Aggregate results of simulation for a single grid connector.
+        Aggregated Quantities:
+        avg flex per window,
+        sum of energy per window,
+        avg standing time,
+        standing per window,
+        avg needed energy,
+        power peaks,
+        average drawn power,
+        feed-in energy,
+        max. stored energy in batteries,
+        stationary battery cycles,
+        all vehicle battery cycles
+
+    :param scenario: Scenario for which to aggregate results.
+    :type scenario: spice_ev.Scenario
+    :param gcID: Grid connector to aggregate results for.
+    :type gcID: str
+    :return: Aggregated results
+    :rtype: dict
+    """
     json_results = {}
     steps = scenario.steps
     stepsPerHour = scenario.stepsPerHour
@@ -240,6 +270,26 @@ def aggregate_local_results(scenario, gcID):
 
 
 def save_gc_timeseries(scenario, gcID, output_path):
+    """ Compute various timeseries for a given grid connector and save the
+        result to file. The time series generated are:
+        price [EUR/kWh],
+        grid power [kW],
+        ext.load [kW],
+        feed-in [kW],
+        flex min [kW],
+        flex base [kW],
+        flex max [kW],
+        sum CS power [kW],
+        number of occupied CS,
+        power at CS (one per CS) [kW]
+
+    :param scenario: Scenario for with to generate timeseries.
+    :type scenario: spice_ev.Scenario
+    :param gcID: ID of GC for which to generate timeseries.
+    :type gcID: str
+    :param output_path: Path to output file.
+    :type output_path: str
+    """
     # check file extension
     cs_ids = sorted(item for item in scenario.constants.charging_stations.keys() if
                     scenario.constants.charging_stations[item].parent == gcID)
@@ -398,6 +448,14 @@ def save_gc_timeseries(scenario, gcID, output_path):
 
 
 def save_soc_timeseries(scenario, output_path):
+    """ Generates and optionally saves an SOC timeseries for each vehicle.
+
+    :param scenario: The scenario for which to generate SOC timeseries.
+    :type scenario: spice_ev.Scenario
+    :param output_path: Path to file in which to save the SOC timeseries.
+                        If False do not save to file.
+    :type output_path: str
+    """
     # save soc of each vehicle in one file
 
     # check file extension
@@ -440,6 +498,16 @@ def save_soc_timeseries(scenario, output_path):
 
 
 def plot(scenario):
+    """ Plot various timeseries collected over the duration of the simulation.
+        1. SOC over time per vehicle
+        2. Power over time per charging station
+        3. Power over time aggregated over all instances of various power sources
+           and sinks, namely grid connectors, charging stations, PV, batteries
+        4. Price over time per grid connector
+
+    :param scenario: The scenario for which to generate the plots.
+    :type scenario: spice_ev.Scenario
+    """
     import matplotlib.pyplot as plt
 
     print('Done. Create plots...')
