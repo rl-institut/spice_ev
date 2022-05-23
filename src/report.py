@@ -1,7 +1,5 @@
-import datetime
 import os
-
-from generate_schedule import generate_flex_band
+import datetime
 
 
 def aggregate_global_results(scenario):
@@ -46,6 +44,8 @@ def aggregate_local_results(scenario, gcID):
     stepsPerHour = scenario.stepsPerHour
 
     if gcID not in scenario.flex_bands.keys():
+        if 'generate_flex_band' not in locals().keys():
+            from generate_schedule import generate_flex_band
         scenario.flex_bands[gcID] = generate_flex_band(scenario, gcID)
 
     # gather info about standing and power in specific time windows
@@ -355,6 +355,8 @@ def save_gc_timeseries(scenario, gcID, output_path):
                 ]
             # flex
             if gcID not in scenario.flex_bands.keys():
+                if 'generate_flex_band' not in locals().keys():
+                    from generate_schedule import generate_flex_band
                 scenario.flex_bands[gcID] = generate_flex_band(scenario, gcID)
 
             row += [
