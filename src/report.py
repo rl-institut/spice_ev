@@ -70,7 +70,7 @@ def aggregate_local_results(scenario, gcID):
     :rtype: dict
     """
     json_results = {}
-    steps = scenario.steps
+    steps = scenario.step_i
     stepsPerHour = scenario.stepsPerHour
 
     if gcID not in scenario.flex_bands.keys():
@@ -87,7 +87,7 @@ def aggregate_local_results(scenario, gcID):
     # maximum power (fixed and variable loads)
     max_fixed_load = 0
     max_variable_load = 0
-    for idx in range(scenario.steps):
+    for idx in range(scenario.step_i):
         cur_time += scenario.interval
         time_since_midnight = cur_time - cur_time.replace(hour=0, minute=0)
         # four equally large timewindows: 04-10, 10-16, 16-22, 22-04

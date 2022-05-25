@@ -227,21 +227,11 @@ class Scenario:
         # adjust step_i: n_intervals or failed simulation step
         step_i += 1
 
-        self.socs = socs
-        self.strat = strat
-        self.costs = costs
-        self.steps = step_i
-        self.prices = prices
-        self.results = results
-        self.extLoads = extLoads
-        self.totalLoad = totalLoad
-        self.disconnect = disconnect
-        self.feedInPower = feedInPower
-        self.stepsPerHour = stepsPerHour
-        self.batteryLevels = batteryLevels
-        self.connChargeByTS = connChargeByTS
-        self.gcPowerSchedule = gcPowerSchedule
-        self.gcWindowSchedule = gcWindowSchedule
+        # make variable members of Scenario class to access them in report
+        for var in ["socs", "strat", "costs", "step_i", "prices", "results", "extLoads",
+                    "totalLoad", "disconnect", "feedInPower", "stepsPerHour", "batteryLevels",
+                    "connChargeByTS", "gcPowerSchedule", "gcWindowSchedule"]:
+            setattr(self, var, locals()[var])
 
         for gcID in gc_ids:
             print("Energy drawn from {}: {:.0f} kWh, Costs: {:.2f} €".format(gcID,
@@ -251,16 +241,11 @@ class Scenario:
 
         if options.get("save_results", False) or options.get("testing", False):
 
-            self.avg_drawn = {}
-            self.flex_bands = {}
-            self.total_car_cap = {}
-            self.avg_stand_time = {}
-            self.total_car_energy = {}
-            self.avg_needed_energy = {}
-            self.perc_stand_window = {}
-            self.avg_flex_per_window = {}
-            self.sum_energy_per_window = {}
-            self.avg_total_standing_time = {}
+            # initialize aggregation variables with empty dicts
+            for var in ["avg_drawn", "flex_bands", "total_car_cap", "avg_stand_time",
+                        "total_car_energy", "avg_needed_energy", "perc_stand_window",
+                        "avg_flex_per_window", "sum_energy_per_window", "avg_total_standing_time"]:
+                setattr(self, var, {})
 
             if options.get("save_results", False):
                 # save general simulation info to JSON file
