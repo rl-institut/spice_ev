@@ -55,6 +55,10 @@ class UtilTest(unittest.TestCase):
         self.assertFalse(util.dt_within_core_standing_time(dt, {"full_days": [4]}))
         self.assertFalse(util.dt_within_core_standing_time(dt, {"full_days": []}))
 
+        self.assertFalse(util.dt_within_core_standing_time(dt, {"holidays": []}))
+        self.assertFalse(util.dt_within_core_standing_time(dt, {"holidays": ["2021-01-01"]}))
+        self.assertTrue(util.dt_within_core_standing_time(dt, {"holidays": ["2020-01-01"]}))
+
         self.assertFalse(util.dt_within_core_standing_time(dt, {}))
         core = {"times": [{"start": (10, 0), "end": (12, 30)}]}
         for h, m, e in [(0, 0, False), (12, 0, True), (12, 45, False)]:

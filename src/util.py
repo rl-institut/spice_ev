@@ -73,6 +73,9 @@ def dt_within_core_standing_time(dt, core_standing_time):
             for day_off in core_standing_time.get('full_days', [])]):
         return True
 
+    if dt.date().isoformat() in core_standing_time.get('holidays', []):
+        return True
+
     current_time = dt.time()
     for time_window in core_standing_time.get('times', []):
         core_standing_time_start, core_standing_time_end = [
