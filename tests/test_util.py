@@ -49,11 +49,11 @@ class UtilTest(unittest.TestCase):
         self.assertTrue(util.dt_within_core_standing_time(dt, None))
 
         # 2020/1/1 is Wednesday (3)
-        self.assertTrue(util.dt_within_core_standing_time(dt, {"full_days": [3]}))
-        self.assertTrue(util.dt_within_core_standing_time(dt, {"full_days": [1, 3]}))
-        self.assertTrue(util.dt_within_core_standing_time(dt, {"full_days": [3, 4]}))
-        self.assertFalse(util.dt_within_core_standing_time(dt, {"full_days": [4]}))
-        self.assertFalse(util.dt_within_core_standing_time(dt, {"full_days": []}))
+        self.assertTrue(util.dt_within_core_standing_time(dt, {"no_drive_days": [2]}))
+        self.assertTrue(util.dt_within_core_standing_time(dt, {"no_drive_days": [0, 2]}))
+        self.assertTrue(util.dt_within_core_standing_time(dt, {"no_drive_days": [2, 3]}))
+        self.assertFalse(util.dt_within_core_standing_time(dt, {"no_drive_days": [3]}))
+        self.assertFalse(util.dt_within_core_standing_time(dt, {"no_drive_days": []}))
 
         self.assertFalse(util.dt_within_core_standing_time(dt, {"holidays": []}))
         self.assertFalse(util.dt_within_core_standing_time(dt, {"holidays": ["2021-01-01"]}))

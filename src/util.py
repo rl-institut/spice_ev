@@ -59,7 +59,7 @@ def dt_within_core_standing_time(dt, core_standing_time):
     :param core_standing_time: Provides time_windows to check
             Example: one core standing time each day from 22:00 to 5:00 next day
             additionally weekends:
-            {"times": [{"start": (22,0), "end":(5,0)}], "full_days": [6,7]}
+            {"times": [{"start": (22,0), "end":(5,0)}], "no_drive_days": [5,6]}
     :type core_standing_time: dict
     :return: True - if dt is inside a time_window or if core_standing_time=None.
         False - if dt is outside of time window
@@ -69,8 +69,8 @@ def dt_within_core_standing_time(dt, core_standing_time):
     if core_standing_time is None:
         return True
 
-    if any([day_off == dt.isoweekday()
-            for day_off in core_standing_time.get('full_days', [])]):
+    if any([day_off == dt.weekday()
+            for day_off in core_standing_time.get('no_drive_days', [])]):
         return True
 
     if dt.date().isoformat() in core_standing_time.get('holidays', []):

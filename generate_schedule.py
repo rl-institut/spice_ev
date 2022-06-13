@@ -21,7 +21,7 @@ def generate_flex_band(scenario, gcID, core_standing_time=None):
     :param gcID: grid connector ID for which to create this flex band
     :type gcID: string
     :param core_standing_time: core standing time during which flexibility is guaranteed e.g.
-        {"times":[{"start": [22,0], "end":[5,0]}], "full_days":[7]}
+        {"times":[{"start": [22,0], "end":[5,0]}], "full_days":[6]}
     :type core_standing_time: dict
     :return: flex band
     :rtype: dict
@@ -529,7 +529,7 @@ if __name__ == '__main__':
     parser.add_argument('--core-standing-time', default=None,
                         help='Define time frames as well as full '
                         'days during which the fleet is guaranteed to be available in a JSON '
-                        'obj like: {"times":[{"start": [22,0], "end":[1,0]}], "full_days":[7]}')
+                        'obj like: {"times":[{"start": [22,0], "end":[1,0]}], "no_drive_days":[6]}')
     parser.add_argument('--visual', '-v', action='store_true', help='Plot flexibility and schedule')
     parser.add_argument('--config', help='Use config file to set arguments')
 
