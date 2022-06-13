@@ -131,9 +131,10 @@ def generate_from_download(args):
             print("WARNING: minimum SoC too low, need at least {} (see transaction {})".format(
                 soc_delta, event["transactionId"]))
 
-        # ignore faulty events or below 1 kWh
-        if energy_used > 1 \
-                and event["reason"] == "EVDisconnected" \
+        # do not ignore any events
+        if energy_used >= 0 \
+                and event["reason"] in {"EVDisconnected", "AutoCheckStop", "PowerLoss",
+                                        "SoftReset", "Other"} \
                 and event["status"] == "completed_tx":
 
             # generate events
