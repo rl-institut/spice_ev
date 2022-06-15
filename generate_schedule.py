@@ -21,7 +21,7 @@ def generate_flex_band(scenario, gcID, core_standing_time=None):
     :param gcID: grid connector ID for which to create this flex band
     :type gcID: string
     :param core_standing_time: core standing time during which flexibility is guaranteed e.g.
-        {"times":[{"start": [22,0], "end":[5,0]}], "full_days":[6]}
+        {"times":[{"start": [22,0], "end":[5,0]}], "no_drive_days":[6], "holidays": ["2022-01-01"]}
     :type core_standing_time: dict
     :return: flex band
     :rtype: dict
