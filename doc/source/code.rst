@@ -51,8 +51,8 @@ config file see `/examples/generate_from_csv.cfg`.
     :toctree: temp/
 
     generate_from_csv
-    get_number_vehicles_per_vehicle_type
     csv_to_dict
+	assign_vehicle_id
 
 Generate_from_download
 ----------------------
