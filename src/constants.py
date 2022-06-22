@@ -163,6 +163,7 @@ class VehicleType:
             ('battery_efficiency', float, 0.95),
             ('v2g', bool, False),
             ('v2g_power_factor', float, 0.5),
+            ('discharge_curve', loading_curve.LoadingCurve, None)
         ]
         util.set_attr_from_dict(obj, self, keys, optional_keys)
 
@@ -189,7 +190,8 @@ class Vehicle:
             capacity=self.vehicle_type.capacity,
             loading_curve=self.vehicle_type.charging_curve,
             soc=self.soc,
-            efficiency=self.vehicle_type.battery_efficiency
+            efficiency=self.vehicle_type.battery_efficiency,
+            unloading_curve=self.vehicle_type.discharge_curve
         )
         del self.soc
 
@@ -225,6 +227,7 @@ class StationaryBattery(battery.Battery):
             ('min_charging_power', float, 0.0),
             ('soc', float, 0.0),
             ('efficiency', float, 0.95),
+            ('discharge_curve', loading_curve.LoadingCurve, None)
         ]
         util.set_attr_from_dict(obj, self, keys, optional_keys)
         assert self.min_charging_power <= self.charging_curve.max_power
@@ -234,5 +237,6 @@ class StationaryBattery(battery.Battery):
             self.capacity if self.capacity >= 0 else 2**64,  # may be unknown (set unlimited)
             self.charging_curve,
             self.soc,
-            self.efficiency
+            self.efficiency,
+            self.discharge_curve
         )
