@@ -1,5 +1,6 @@
 from copy import deepcopy
 from importlib import import_module
+from warnings import warn
 
 from src import events
 from src.util import get_cost, clamp_power
@@ -36,6 +37,7 @@ class Strategy():
         # relative allowed difference between battery SoC and desired SoC when leaving
         self.margin = 0.1
         self.ALLOW_NEGATIVE_SOC = False
+        self.RESET_NEGATIVE_SOC = False
         self.V2G_POWER_FACTOR = 0.5
         # check if strategy uses grid signals & enable/disable plotting of schedule or window
         self.uses_schedule = False
@@ -109,27 +111,36 @@ class Strategy():
 
             elif type(ev) == events.VehicleEvent:
                 vehicle = self.world_state.vehicles[ev.vehicle_id]
+                # update vehicle attributes
                 for k, v in ev.update.items():
                     setattr(vehicle, k, v)
                 if ev.event_type == "departure":
+                    # vehicle leaves: disconnect vehicle
                     vehicle.connected_charging_station = None
-                    assert vehicle.battery.soc >= (1-self.margin)*vehicle.desired_soc - self.EPS, (
-                        "{}: Vehicle {} is below desired SOC ({} < {})".format(
+                    # check that vehicle has charged enough
+                    if 0 <= vehicle.battery.soc < (1-self.margin)*vehicle.desired_soc - self.EPS:
+                        # not charged enough: stop simulation
+                        raise RuntimeError("{}: Vehicle {} is below desired SOC ({} < {})".format(
                             ev.start_time.isoformat(), ev.vehicle_id,
                             vehicle.battery.soc, vehicle.desired_soc))
-
                 elif ev.event_type == "arrival":
+                    # vehicle arrives
                     assert hasattr(vehicle, 'soc_delta')
+                    # soc_delta always negative
                     vehicle.battery.soc += vehicle.soc_delta
                     if vehicle.battery.soc + self.EPS < 0:
+                        # vehicle was not charged enough to make trip
                         if ev.vehicle_id not in self.negative_soc_tracker.keys():
                             self.negative_soc_tracker.update({ev.vehicle_id:
                                                               self.current_time.isoformat()})
                         if self.ALLOW_NEGATIVE_SOC:
-                            print('Warning: SOC of vehicle {} became negative at {}. SOC is {}, '
-                                  'continuing with SOC = 0'
-                                  .format(ev.vehicle_id, self.current_time, vehicle.battery.soc))
-                            vehicle.battery.soc = 0
+                            warn('SOC of vehicle {} became negative at {}. SOC is {}'
+                                 .format(ev.vehicle_id, self.current_time, vehicle.battery.soc),
+                                 # settings stack level high to avoid confusing
+                                 # info about origin of error (e.g. filename, lineno)
+                                 stacklevel=100)
+                            if self.RESET_NEGATIVE_SOC:
+                                vehicle.battery.soc = 0
                         else:
                             raise RuntimeError(
                                 'SOC of vehicle {} should not be negative. '

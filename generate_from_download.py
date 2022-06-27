@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
-import csv  # used to check if columns exists in given CSV files
+import csv
 import datetime
 import json
 from pathlib import Path  # used to check if given CSV files exist
@@ -16,13 +16,14 @@ def generate_from_download(args):
     :type args: argparse.Namespace
     :return: None
     """
-    missing = [arg for arg in ["input", "output"] if vars(args).get(arg) is None]
+    missing = [arg for arg in ["input", "output", "car_allocation"] if vars(args).get(arg) is None]
     if missing:
         raise SystemExit("The following arguments are required: {}".format(", ".join(missing)))
 
     with open(args.input, 'r') as f:
         input_json = json.load(f)
 
+    # read in vehicle types
     if args.vehicle_types is None:
         args.vehicle_types = "examples/vehicle_types.json"
         print("No definition of vehicle types found, using {}".format(args.vehicle_types))
@@ -31,25 +32,67 @@ def generate_from_download(args):
         print("File extension mismatch: vehicle type file should be .json")
     with open(args.vehicle_types) as f:
         vehicle_types = json.load(f)
-    assert "sprinter" in vehicle_types, ("Vehicle type 'sprinter' not found")
-    capacity = vehicle_types["sprinter"]["capacity"]
+    # build look-up table vehicle capacity -> vehicle type
+    v_cap_to_type = {}
+    for t, v in vehicle_types.items():
+        c = v["capacity"]
+        if c in v_cap_to_type:
+            v_cap_to_type[c].append(t)
+        else:
+            v_cap_to_type[c] = [t]
+    vehicle_types_present = {}
 
-    vehicles = {
-        "sprinter_{}".format(i+1): {
-            "soc": args.min_soc,
-            "vehicle_type": "sprinter"
-        } for i in range(args.count)
-    }
-
-    vehicle_queue = list(zip(vehicles.keys(), [None]*len(vehicles)))
-
+    # read in vehicle allocation file
+    vehicles = {}
     charging_stations = {}
+    with open(args.car_allocation, newline='') as f:
+        reader = csv.DictReader(f, fieldnames=['gate', 'cp', 'akz', 'capacity'])
+        # skip header
+        next(reader)
+        for row in reader:
+            # find suitable vehicle type
+            capacity = float(row["capacity"])
+            if capacity not in v_cap_to_type:
+                # unknown capacity
+                raise ValueError("Given capacity {} not in vehicle types {}"
+                                 .format(capacity, args.vehicle_types))
+            vtype = v_cap_to_type[capacity]
+            if len(vtype) > 1:
+                # ambiguous vehicle type
+                raise ValueError("Given capacity {} not unique in vehicle types {}, could be {}"
+                                 .format(capacity, args.vehicle_types, ' or '.join(vtype)))
+
+            # unique capacity: add type to present vehicle types, increase counter
+            vtype = vtype[0]
+            if vtype not in vehicle_types_present:
+                vehicle_types_present[vtype] = vehicle_types[vtype]
+                vehicle_types_present[vtype]["count"] = 0
+            vehicle_types_present[vtype]["count"] += 1
+            count = vehicle_types_present[vtype]["count"]
+
+            # add new vehicle of type
+            vname = f"{vtype}_{count}"
+            vehicles[vname] = {
+                "soc": args.min_soc,
+                "vehicle_type": vtype,
+                "last_departure": None,
+            }
+
+            # add charging station
+            charging_stations[f"cp{row['gate']}"] = {
+                "max_power": 11,
+                "min_power": 0.2,
+                "parent": "GC1",
+                "vehicle": vname,
+            }
+
     events = {
         "grid_operator_signals": [],
         "external_load": {},
         "energy_feed_in": {},
         "vehicle_events": []
     }
+    events_ignored = []
 
     start_time = None
     stop_time = None
@@ -57,12 +100,10 @@ def generate_from_download(args):
     for event in sorted(input_json, key=lambda e: e["meterStartDate"]):
         # charging station
         cs_id = event["evseId"]
-        if cs_id not in charging_stations:
-            charging_stations[cs_id] = {
-                "max_power": 11,
-                "min_power": 0.2,
-                "parent": "GC1"
-            }
+        try:
+            cs = charging_stations[cs_id]
+        except KeyError:
+            raise KeyError("Unknown charging station {}, check allocation file".format(cs_id))
 
         # process charge event
         arrival_time = datetime.datetime.fromtimestamp(event["meterStartDate"] / 1000)
@@ -74,13 +115,14 @@ def generate_from_download(args):
         start_time = min(start_time, arrival_time) if start_time else arrival_time
         stop_time = max(stop_time, departure_time) if stop_time else departure_time
 
-        # take next vehicle (longest driving)
-        v_id, last_departure = vehicle_queue.pop(0)
+        v_id = cs["vehicle"]
+        vehicle = vehicles[v_id]
+        last_departure = vehicle["last_departure"]
         if last_departure is not None and last_departure > arrival_time:
-            raise RuntimeError("Not enough vehicles (transaction {})".format(
-                event["transactionId"]))
+            raise RuntimeError("Vehicle {} arrives before departing (transaction ID {})"
+                               .format(v_id, event["transactionId"]))
 
-        # compute energy / SoC used
+        # compute energy and SoC used
         energy_used = event["usage"]/1000
         soc_delta = energy_used / capacity
 
@@ -88,8 +130,9 @@ def generate_from_download(args):
             # not enough minimum SoC to make the trip
             print("WARNING: minimum SoC too low, need at least {} (see transaction {})".format(
                 soc_delta, event["transactionId"]))
-        if energy_used > 1 and event["reason"] == "EVDisconnected" and event["status"] == "Beendet":
-            # less than 1 kWh used or different reason or not finished: dummy /faulty event
+
+        # ignore minimal charging (probably faulty event)
+        if energy_used >= 0.1 and event["status"] == "completed_tx":
 
             # generate events
             events["vehicle_events"].append({
@@ -113,15 +156,10 @@ def generate_from_download(args):
                     "estimated_time_of_arrival": None
                 }
             })
-
-        # insert vehicles back into vehicle queue
-        # sort by departure
-        for idx, (_, dep_time) in enumerate(vehicle_queue):
-            if dep_time is not None and departure_time < dep_time:
-                vehicle_queue.insert(idx, (v_id, departure_time))
-                break
         else:
-            vehicle_queue.append((v_id, departure_time))
+            # less than 1 kWh used or different reason or not finished: dummy /faulty event
+            events_ignored.append(event["transactionId"])
+        vehicle["last_departure"] = departure_time
 
     # set start time to midnight (most CSV start at midnight)
     start_time = start_time.replace(hour=0, minute=0, second=0, microsecond=0)
@@ -217,6 +255,12 @@ def generate_from_download(args):
             "charging_curve": [[0, max_power], [1, max_power]]
         }
 
+    # clean up dictionaries before writing
+    for v in vehicles.values():
+        del v["last_departure"]
+    # vehicle_types.count and charging_stations.vehicle are superfluous as well
+    # but might be interesting for debugging
+
     # gather all information in one dictionary
     j = {
         "scenario": {
@@ -225,7 +269,7 @@ def generate_from_download(args):
             "interval": args.interval,
         },
         "constants": {
-            "vehicle_types": vehicle_types,
+            "vehicle_types": vehicle_types_present,
             "vehicles": vehicles,
             "grid_connectors": {
                 "GC1": {
@@ -239,6 +283,9 @@ def generate_from_download(args):
         "events": events
     }
 
+    if events_ignored:
+        print(f"{len(events_ignored)} / {len(input_json)} events ignored: {events_ignored}")
+
     # Write JSON
     with open(args.output, 'w') as f:
         json.dump(j, f, indent=2)
@@ -251,7 +298,6 @@ if __name__ == '__main__':
     parser.add_argument('output', nargs='?', help='output file name (example.json)')
     parser.add_argument('--interval', metavar='MIN', type=int, default=15,
                         help='set number of minutes for each timestep (Δt)')
-    parser.add_argument('--count', '-c', type=int, default=20, help='number of vehicles')
     parser.add_argument('--min-soc', metavar='SOC', type=float, default=1,
                         help='set minimum desired SOC (0 - 1) for each charging process')
     parser.add_argument('--gc-power', metavar='P', type=float, default=530,
@@ -264,6 +310,8 @@ if __name__ == '__main__':
     # input files (CSV, JSON)
     parser.add_argument('--vehicle-types', default=None,
                         help='location of vehicle type definitions')
+    parser.add_argument('--car-allocation', '-calloc', default=None,
+                        help='location of gate to vehicle allocation file')
     parser.add_argument('--include-ext-load-csv',
                         help='include CSV for external load. \
                         You may define custom options with --include-ext-csv-option')

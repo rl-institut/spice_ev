@@ -224,6 +224,7 @@ def generate(args):
 
     # count number of trips where desired_soc is above min_soc
     trips_above_min_soc = 0
+    trips_total = 0
 
     # create vehicle and price events
     daily = datetime.timedelta(days=1)
@@ -234,6 +235,8 @@ def generate(args):
         # create vehicle events for this day
         for v_id, v in vehicles.items():
             if now.weekday() in args.no_drive_days:
+                break
+            if now.date().isoformat() in vars(args).get("holidays", []):
                 break
 
             # get vehicle infos
@@ -271,6 +274,7 @@ def generate(args):
                 continue
 
             trips_above_min_soc += desired_soc > args.min_soc
+            trips_total += 1
 
             events["vehicle_events"].append({
                 "signal_time": departure.isoformat(),
@@ -361,7 +365,8 @@ def generate(args):
     }
 
     if trips_above_min_soc:
-        print("{} trips use more than {}% capacity".format(trips_above_min_soc, args.min_soc * 100))
+        print(f"{trips_above_min_soc} of {trips_total} trips "
+              f"use more than {args.min_soc * 100}% capacity")
 
     # Write JSON
     with open(args.output, 'w') as f:
@@ -396,7 +401,7 @@ if __name__ == '__main__':
 
     parser.add_argument('--vehicle-types', default=None,
                         help='location of vehicle type definitions')
-    parser.add_argument('--discharge_limit', default=0.5,
+    parser.add_argument('--discharge-limit', default=0.5,
                         help='Minimum SoC to discharge to during v2g. [0-1]')
     parser.add_argument('--pv_power', type=int, help='set nominal power for photovoltaik power plant in kW')
     parser.add_argument('--include-ext-load-csv',

@@ -178,7 +178,7 @@ class TestScenarios(TestCaseBase):
         assert s.testing["avg_total_standing_time"]["GC1"] == 17.5
         assert s.testing["avg_stand_time"]["GC1"] == 8.75
         assert round(s.testing["avg_needed_energy"]["GC1"], 2) == 1.08
-        assert round(s.testing["avg_drawn_pwer"]["GC1"], 2) == 1.44
+        assert round(s.testing["avg_drawn_power"]["GC1"], 2) == 1.44
         assert round(s.testing["sum_feed_in_per_h"]["GC1"], 2) == 0
         assert round(s.testing["vehicle_battery_cycles"]["GC1"], 2) == 1.1
         assert round(s.testing["avg_flex_per_window"]["GC1"][0], 2) == 363.25
@@ -202,7 +202,7 @@ class TestScenarios(TestCaseBase):
 
         # check if vehicles are only loaded in window
         cs_load = [sum(item) for item in s.testing["timeseries"]["sum_cs"]]
-        indices_load_vehicle = [idx for idx, val in enumerate(cs_load) if round(val, 2) > 0]
+        indices_load_vehicle = [idx for idx, val in enumerate(cs_load) if round(val) > 0]
         for idx in indices_load_vehicle:
             assert s.testing["timeseries"]["schedule"]["GC1"][idx] is True
         # check if vehicles are only unloaded outside window
