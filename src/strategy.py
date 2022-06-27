@@ -131,8 +131,9 @@ class Strategy():
                     if vehicle.battery.soc + self.EPS < 0:
                         # vehicle was not charged enough to make trip
                         if ev.vehicle_id not in self.negative_soc_tracker.keys():
-                            self.negative_soc_tracker.update({ev.vehicle_id:
-                                                              self.current_time.isoformat()})
+                            self.negative_soc_tracker[ev.vehicle_id] = [self.current_time.isoformat()]
+                        else:
+                            self.negative_soc_tracker[ev.vehicle_id].append(self.current_time.isoformat())
                         if self.ALLOW_NEGATIVE_SOC:
                             warn('SOC of vehicle {} became negative at {}. SOC is {}'
                                  .format(ev.vehicle_id, self.current_time, vehicle.battery.soc),
