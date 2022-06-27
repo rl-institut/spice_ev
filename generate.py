@@ -352,7 +352,10 @@ def generate(args):
                 }
             },
             "charging_stations": charging_stations,
-            "batteries": batteries
+            "batteries": batteries,
+            "photovoltaics": {
+                "nominal_power": args.pv_power
+            }
         },
         "events": events
     }
@@ -395,6 +398,7 @@ if __name__ == '__main__':
                         help='location of vehicle type definitions')
     parser.add_argument('--discharge_limit', default=0.5,
                         help='Minimum SoC to discharge to during v2g. [0-1]')
+    parser.add_argument('--pv_power', type=int, help='set nominal power for photovoltaik power plant in kW')
     parser.add_argument('--include-ext-load-csv',
                         help='include CSV for external load. \
                         You may define custom options with --include-ext-csv-option')

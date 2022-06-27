@@ -23,10 +23,12 @@ class Scenario:
         self.events = events.Events(json_dict.get('events'), dir_path)
 
         scenario = json_dict.get('scenario')
+        self.constants_json = json_dict.get('constants') # is there an easier way?
 
         # compute time stuff
         self.start_time = util.datetime_from_isoformat(scenario['start_time'])
         self.interval = datetime.timedelta(minutes=scenario['interval'])
+        self.interval_min = scenario['interval']
 
         # compute n_intervals or stop_time
         assert (scenario.get('stop_time') is None) ^ (scenario.get('n_intervals') is None), (
@@ -45,6 +47,9 @@ class Scenario:
         # only relevant for schedule strategy
         self.core_standing_time = scenario.get('core_standing_time', None)
 
+        # only relevant for cost calculation
+        #self.photovoltaics = scenario.get('photovoltaics', None)
+        #self.sz = scenario
         # compute average load for each timeslot
         for ext_load_list in self.events.external_load_lists.values():
             gc_id = ext_load_list.grid_connector_id
@@ -85,6 +90,14 @@ class Scenario:
         gcPowerSchedule = {gcID: [] for gcID in gc_ids}
         gcWindowSchedule = {gcID: [] for gcID in gc_ids}
         gcWithinPowerLimit = True
+
+        #create empty lists for cost calculation (values are filled in during simulation)
+        timestamps_list = []
+        power_grid_supply_list = []
+        price_list = []
+        power_fix_load_list = []
+        power_feed_in_list = []
+        charging_signal_list = []
 
         begin = datetime.datetime.now()
         for step_i in range(self.n_intervals):
@@ -253,6 +266,26 @@ class Scenario:
                             print("File extension mismatch: results file is of type .json")
 
                     json_results = {}
+
+                    json_results["temporal parameters"] = {
+                        "interval": self.interval_min,
+                        "unit": 'min',
+                        "info": "simulation interval"
+                    }
+
+                    if self.core_standing_time:
+                        json_results["core standing time"] = {
+                            "times": self.core_standing_time['times'],
+                            "full_days": self.core_standing_time['full_days'],
+                            "unit": "h",
+                            "info": "Core standing time: start time, end time, duration"
+                        }
+
+                    json_results["photovoltaics"] = {
+                        "nominal power": self.constants_json['photovoltaics']['nominal_power'],
+                        "unit": "kW",
+                        "info": "Nominal power of PV power plant"
+                    }
 
                     # gather info about standing and power in specific time windows
                     load_count = [[0] for _ in self.constants.vehicles]
@@ -441,23 +474,6 @@ class Scenario:
                         "unit": None,
                         "info": "Number of load cycles per vehicle (averaged)"
                     }
-                    json_results["Costs"] = {
-                        "electricity price": {
-                            "total": 0,
-                            "strompreisbeschaffung": 0,
-                            "Abgabe": 0,
-                            "netzentgelte": {"arbeitspreis": 0, "leistungspreis": 0},
-                            "unit": "eur",
-                            "info": "electricity price"
-                        },
-                        "Einspeiseverguetung": {
-                            "total": 0,
-                            "feed-in": 0,
-                            "V2G": 0,
-                            "unit": "eur",
-                            "info": "electricity price"
-                        }
-                    }
 
                     if options.get("save_results", False):
                         # write to file
@@ -562,11 +578,13 @@ class Scenario:
                         # general info: timestep index and timestamp
                         # TZ removed for spreadsheet software
                         row = [idx, r['current_time'].replace(tzinfo=None)]
+
                         # price
                         if any(prices[gcID]):
                             row.append(round(prices[gcID][idx][0], round_to_places))
                         # grid power (negative since grid power is fed into system)
                         row.append(-1 * round(totalLoad[gcID][idx], round_to_places))
+
                         # external loads
                         if hasExtLoads:
                             sumExtLoads = sum([
@@ -632,6 +650,16 @@ class Scenario:
                                 cs_ids]
                         # write row to file
                         timeseries_file.write('\n' + ','.join(map(lambda x: str(x), row)))
+
+                        # add values to lists for cost calculation
+                        timestamps_list.append(r['current_time'].replace(tzinfo=None))
+                        power_grid_supply_list.append(-1 * round(totalLoad[gcID][idx], round_to_places))
+                        price_list.append(round(prices[gcID][idx][0], round_to_places))
+                        power_fix_load_list.append(round(sumExtLoads, round_to_places))
+                        if any(feedInPower):
+                            power_feed_in_list.append(-1 * round(feedInPower[gcID][idx], round_to_places))
+                        if strategy_name == 'flex_window':
+                            charging_signal_list.append(round(gcWindowSchedule[gcID][idx], round_to_places))
 
         if options.get("save_soc", False):
             # save soc of each vehicle in one file
@@ -809,3 +837,5 @@ class Scenario:
                 "vehicle_battery_cycles": {gcID: (total_car_energy[gcID] / total_car_cap[gcID]) for
                                            gcID in gc_ids}
             }
+
+        return timestamps_list, power_grid_supply_list, price_list, power_fix_load_list, power_feed_in_list, charging_signal_list

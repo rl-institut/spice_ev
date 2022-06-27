@@ -61,7 +61,9 @@ def simulate(args):
         s = Scenario(json.load(f), os.path.dirname(args["input"]))
 
     # RUN!
-    s.run(strategy_name, options)
+    timestamps_list, power_grid_supply_list, price_list, power_fix_load_list, power_feed_in_list, charging_signal_list = s.run(strategy_name, options)
+
+    return timestamps_list, power_grid_supply_list, price_list, power_fix_load_list, power_feed_in_list, charging_signal_list
 
 
 if __name__ == '__main__':
@@ -82,6 +84,7 @@ if __name__ == '__main__':
     parser.add_argument('--strategy-option', '-so', metavar=('KEY', 'VALUE'),
                         nargs=2, action='append',
                         help='Append additional options to the charging strategy.')
+    parser.add_argument('--voltage_level', '-vl', default='MV', help='Choose voltage level for cost calculation')
     parser.add_argument('--visual', '-v', action='store_true', help='Show plots of the results')
     parser.add_argument('--eta', action='store_true',
                         help='Show estimated time to finish simulation after each step, \
@@ -101,9 +104,22 @@ if __name__ == '__main__':
                       DeprecationWarning)
         args.save_timeseries = args.save_timeseries or args.output
 
-    simulate(args)
+    #Simulation
+    timestamps_list, power_grid_supply_list, price_list, power_fix_load_list, power_feed_in_list, charging_signal_list = simulate(args)
 
     #Cost calculation
-    test_list_a = [1,1,1]
-    test_list_b = [2,2,2]
-    calculate_costs(args.strategy,test_list_a,test_list_b,flag_cost_calc=True) #todo: Listen ersetzen
+
+    # set flag for cost calculation:
+    # cost_calc = True: calculate costs
+    # cost_calc = False: don't calculate costs
+    cost_calc = True
+
+    timestamps = timestamps_list
+    power_grid_supply = power_grid_supply_list
+    prices = price_list
+    power_fix_load = power_fix_load_list
+    charging_signals = charging_signal_list
+
+    if cost_calc == True:
+        total_costs_per_year, total_costs_sim = calculate_costs(args.strategy, args.voltage_level, timestamps, power_grid_supply, prices, power_fix_load, power_feed_in_list,
+                        charging_signals)

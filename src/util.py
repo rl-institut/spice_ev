@@ -65,7 +65,6 @@ def dt_within_core_standing_time(dt, core_standing_time):
         False - if dt is outside of time window
     :rtype: bool
     """
-
     if core_standing_time is None:
         return True
 
