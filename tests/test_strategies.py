@@ -181,8 +181,8 @@ class TestScenarios(TestCaseBase):
         assert round(s.testing["avg_drawn_power"]["GC1"], 2) == 1.44
         assert round(s.testing["sum_feed_in_per_h"]["GC1"], 2) == 0
         assert round(s.testing["vehicle_battery_cycles"]["GC1"], 2) == 1.1
-        assert round(s.testing["avg_flex_per_window"]["GC1"][0], 2) == 363.25
-        assert round(s.testing["avg_flex_per_window"]["GC1"][3], 2) == 367.32
+        assert round(s.testing["avg_flex_per_window"]["GC1"][0], 2) == 372
+        assert round(s.testing["avg_flex_per_window"]["GC1"][3], 2) == 375.71
         assert round(s.testing["sum_energy_per_window"]["GC1"][0], 2) == 0
         assert round(s.testing["sum_energy_per_window"]["GC1"][3], 2) == 0
         load = [0] * 96
