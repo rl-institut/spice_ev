@@ -78,6 +78,26 @@ def aggregate_local_results(scenario, gcID):
             from generate_schedule import generate_flex_band
         scenario.flex_bands[gcID] = generate_flex_band(scenario, gcID)
 
+    json_results["temporal parameters"] = {
+        "interval": scenario.interval_min,
+        "unit": 'min',
+        "info": "simulation interval"
+    }
+
+    if scenario.core_standing_time:
+        json_results["core standing time"] = {
+            "times": scenario.core_standing_time['times'],
+            "no drive days": scenario.core_standing_time['no_drive_days'],
+            "unit": "h",
+            "info": "Core standing time: start time, end time, duration"
+        }
+
+    json_results["photovoltaics"] = {
+        "nominal power": scenario.constants_json['photovoltaics']['nominal_power'],
+        "unit": "kW",
+        "info": "Nominal power of PV power plant"
+    }
+
     # gather info about standing and power in specific time windows
     load_count = [[0] for _ in scenario.constants.vehicles]
     load_window = [[] for _ in range(4)]
@@ -269,7 +289,7 @@ def aggregate_local_results(scenario, gcID):
     return json_results
 
 
-def save_gc_timeseries(scenario, gcID, output_path):
+def save_gc_timeseries(scenario, strategy_name, gcID, output_path):
     """ Compute various timeseries for a given grid connector and save the
         result to file. The time series generated are:
         price [EUR/kWh],
@@ -304,6 +324,14 @@ def save_gc_timeseries(scenario, gcID, output_path):
         "home",
         "hub"
     ]
+
+    # create empty lists for cost calculation (values are filled in during simulation)
+    timestamps_list = []
+    power_grid_supply_list = []
+    price_list = []
+    power_fix_load_list = []
+    power_feed_in_list = []
+    charging_signal_list = []
 
     round_to_places = 2
 
@@ -446,6 +474,17 @@ def save_gc_timeseries(scenario, gcID, output_path):
             # write row to file
             timeseries_file.write('\n' + ','.join(map(lambda x: str(x), row)))
 
+            # add values to lists for cost calculation
+            timestamps_list.append(r['current_time'].replace(tzinfo=None))
+            power_grid_supply_list.append(-1 * round(scenario.totalLoad[gcID][idx], round_to_places))
+            price_list.append(round(scenario.prices[gcID][idx][0], round_to_places))
+            power_fix_load_list.append(round(sumExtLoads, round_to_places))
+            if any(scenario.feedInPower):
+                power_feed_in_list.append(-1 * round(scenario.feedInPower[gcID][idx], round_to_places))
+            if strategy_name == 'flex_window':
+                charging_signal_list.append(round(scenario.gcWindowSchedule[gcID][idx], round_to_places))
+
+    return timestamps_list, power_grid_supply_list, price_list, power_fix_load_list, power_feed_in_list, charging_signal_list
 
 def save_soc_timeseries(scenario, output_path):
     """ Generates and optionally saves an SOC timeseries for each vehicle.
