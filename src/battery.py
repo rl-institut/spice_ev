@@ -18,6 +18,8 @@ class Battery:
         :param efficiency: efficiency of the battery
         :type efficiency: float
         """
+        # epsilon for floating point comparison
+        self.EPS = 1e-5
         self.capacity = capacity
         self.loading_curve = copy.deepcopy(loading_curve)
         self.soc = soc
@@ -42,9 +44,6 @@ class Battery:
         :rtype: dict
         """
 
-        # epsilon for floating point comparison
-        EPS = 1e-5
-
         # get interval in hours
         total_time = timedelta.total_seconds() / 3600.0
         # hours: available time for charging, initially complete timedelta
@@ -53,14 +52,13 @@ class Battery:
         # get loading curve clamped to maximum value
         # adjust charging curve to reflect power that reaches the battery
         # after losses due to efficieny
-        clamped = self.loading_curve.clamped(max_charging_power).multiply(self.efficiency)
+        clamped = self.loading_curve.scale(self.efficiency).clamped(max_charging_power)
 
         avg_power = 0
         old_soc = self.soc
 
         # find current region in loading curve
-        idx_1, idx_2 = clamped.get_linear_section(self.soc)
-        x1 = self.soc
+        _, idx_2 = clamped.get_linear_section(self.soc)
         x2 = min(target_soc, clamped.points[idx_2][0])
 
         energies = []
@@ -68,24 +66,23 @@ class Battery:
         # compute average power for each linear section
         # update SOC
         # computes for whole time or until target is reached
-        while remaining_hours > EPS and target_soc - self.soc > EPS:  # self.soc < target:
-            while x2 - self.soc < EPS:  # self.soc >= x2:
+        # TODO: move loops to other function
+        while remaining_hours > self.EPS and target_soc - self.soc > self.EPS:  # self.soc < target:
+            while x2 - self.soc < self.EPS:  # self.soc >= x2:
                 # get next section
-                idx_1 += 1
                 idx_2 += 1
-                x1 = clamped.points[idx_1][0]
                 x2 = min(target_soc, clamped.points[idx_2][0])
 
             energy_delta, remaining_hours = self._adjust_soc(charging_curve=clamped,
-                                                             initial_soc=x1,
                                                              target_soc=x2,
                                                              time_limit=remaining_hours)
-            # remember amount of energy consumed
-            energies.append(energy_delta / self.efficiency)
+            # remember amount of energy loaded into battery
+            energies.append(energy_delta)
 
         # get average power (energy over complete timedelta)
+        # supplied to the battery before loss due to efficieny
         try:
-            avg_power = sum(energies) / total_time
+            avg_power = (sum(energies) / self.efficiency) / total_time
         except ZeroDivisionError:
             avg_power = 0
 
@@ -108,8 +105,9 @@ class Battery:
         * can use specific power - default: loading curve max power
         * can set target SOC (don't discharge below this threshold)
         """
-        # epsilon for floating point comparison
-        EPS = 1e-5
+
+        if max_power is None:
+            max_power = self.unloading_curve.max_power
 
         # get interval in hours
         total_time = timedelta.total_seconds() / 3600.0
@@ -119,39 +117,36 @@ class Battery:
         # get loading curve clamped to maximum value
         # adjust loading curve by efficiency factor to reflect power
         # flowing out of the battery as opposed to power provided by the battery to user
-        clamped = self.unloading_curve.clamped(max_power).multiply(1/self.efficiency)
+        clamped = self.unloading_curve.scale(1/self.efficiency).clamped(max_power)
 
         avg_power = 0
         old_soc = self.soc
 
         # find initial linear section
-        idx_2, idx_1 = clamped.get_linear_section(self.soc)
-        x1 = self.soc
-        x2 = min(target_soc, clamped.points[idx_2][0])
+        idx_2, _ = clamped.get_linear_section(self.soc)
+        x2 = max(target_soc, clamped.points[idx_2][0])
 
         energies = []
 
         # compute average power for each linear section
         # update SOC
         # computes for whole time or until target is reached
-        while remaining_hours > EPS and self.soc - target_soc > EPS:  # self.soc > target:
-            while self.soc - x2 < EPS:  # self.soc <= x2:
+        while remaining_hours > self.EPS and self.soc - target_soc > self.EPS:  # self.soc > target:
+            while self.soc - x2 < self.EPS:  # self.soc <= x2:
                 # get next section
-                idx_1 -= 1
                 idx_2 -= 1
-                x1 = clamped.points[idx_1][0]
                 x2 = max(target_soc, clamped.points[idx_2][0])
 
             energy_delta, remaining_hours = self._adjust_soc(charging_curve=clamped,
-                                                             initial_soc=x1,
                                                              target_soc=x2,
                                                              time_limit=remaining_hours)
             # remember amount of energy provided
-            energies.append(energy_delta * self.efficiency)
+            energies.append(energy_delta)
 
         # get average power (energy over complete timedelta)
+        # supplied by the system to the connected device/vehicle after loss due to efficiency
         try:
-            avg_power = sum(energies) / total_time
+            avg_power = (sum(energies) * self.efficiency) / total_time
         except ZeroDivisionError:
             avg_power = 0
 
@@ -207,8 +202,8 @@ class Battery:
         self.soc = old_soc
         return power
 
-    def _adjust_soc(self, charging_curve, initial_soc, target_soc, time_limit):
-        """ Helper function that adjusts SOC to a given target keeping track of
+    def _adjust_soc(self, charging_curve, target_soc, time_limit):
+        """ Helper function that loads or unloads battery to a given target SOC keeping track of
             the duration and stopping the process early if a time limit is reached.
 
         :param charging_curve: _description_
@@ -222,7 +217,13 @@ class Battery:
         :return: _description_
         :rtype: _type_
         """        # compute gradient and offset of linear equation
-        x1 = initial_soc
+
+        if abs(self.soc - target_soc) < self.EPS:
+            # if target soc has already been reached, do not (dis)charge
+            energy_delta = 0
+            return energy_delta, time_limit
+
+        x1 = self.soc
         x2 = target_soc
         hours = time_limit
 
@@ -247,7 +248,8 @@ class Battery:
             t = hours
 
         # what is earlier, breakpoint or interval end?
-        t = t/abs(t) * min(abs(t), hours)
+        # keep track of sign(t) as it encodes whether we charge or discharge
+        t = ((t >= 0) - (t < 0)) * min(abs(t), hours)
 
         if m == 0:
             # simple case: charging with constant power, regardless of SOC
