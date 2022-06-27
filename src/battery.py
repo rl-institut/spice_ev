@@ -52,7 +52,7 @@ class Battery:
         # get loading curve clamped to maximum value
         # adjust charging curve to reflect power that reaches the battery
         # after losses due to efficieny
-        clamped = self.loading_curve.scale(self.efficiency).clamped(max_charging_power)
+        clamped = self.loading_curve.clamped(max_charging_power).scale(self.efficiency)
 
         avg_power = 0
         old_soc = self.soc
@@ -117,7 +117,7 @@ class Battery:
         # get loading curve clamped to maximum value
         # adjust loading curve by efficiency factor to reflect power
         # flowing out of the battery as opposed to power provided by the battery to user
-        clamped = self.unloading_curve.scale(1/self.efficiency).clamped(max_power)
+        clamped = self.unloading_curve.clamped(max_power).scale(1/self.efficiency)
 
         avg_power = 0
         old_soc = self.soc
@@ -238,7 +238,7 @@ class Battery:
 
         # find time to breakpoint
         try:
-            if m == 0:
+            if abs(m) < self.EPS:
                 # simple constant charging
                 t = (x2 - self.soc) * c / n
             else:
@@ -251,7 +251,7 @@ class Battery:
         # keep track of sign(t) as it encodes whether we charge or discharge
         t = ((t >= 0) - (t < 0)) * min(abs(t), hours)
 
-        if m == 0:
+        if abs(m) < self.EPS:
             # simple case: charging with constant power, regardless of SOC
             new_soc = self.soc + (n/c * t)
         else:
