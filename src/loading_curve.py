@@ -85,5 +85,32 @@ class LoadingCurve:
 
         return LoadingCurve(new_points)
 
+    def scale(self, factor):
+        new_points = []
+        for point in self.points:
+            new_points.append((point[0], point[1] * factor))
+
+        return LoadingCurve(new_points)
+
+    def get_linear_section(self, soc):
+        """ Find linear section on loading curve.
+
+        :param soc: Find the section that contains this state of charge.
+        :type soc: numeric
+        :return: Indicies of start and end points.
+        :rtype: (int, int)
+        """
+        # find current region in loading curve
+        idx_1 = 0
+        while idx_1 < len(self.points) - 1:
+            idx_2 = idx_1 + 1
+            x2 = self.points[idx_2][0]
+            if soc >= x2:
+                idx_1 += 1
+            else:
+                break
+
+        return idx_1, idx_2
+
     def __str__(self):
         return 'LoadingCurve {}'.format(vars(self))
