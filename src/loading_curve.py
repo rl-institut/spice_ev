@@ -45,18 +45,24 @@ class LoadingCurve:
                     power = pow_a + (pow_b - pow_a) * t
                     return power
 
-    def clamped(self, max_power):
+    def clamped(self, max_power, pre_scale=1, post_scale=1):
         """ Return a new instance with clamped power.
 
         :param max_power: power
         :type max_power: numeric
+        :param pre_scale: scaling factor applied to all points before clamping
+        :type pre_scale: numeric
+        :param post_scale: scaling factor applied to all points after clamping
+        :type post_scale: numeric
         :return: loating curve
         :rtype: object
         """
 
+        pre_scaled_points = [(p[0], pre_scale*p[1]) for p in self.points]
+
         new_points = []
-        for i, p in enumerate(self.points):
-            if i + 1 >= len(self.points):
+        for i, p in enumerate(pre_scaled_points):
+            if i + 1 >= len(pre_scaled_points):
                 new_points.append((p[0], min(max_power, p[1])))
                 break
             next_point = self.points[i + 1]
@@ -83,24 +89,33 @@ class LoadingCurve:
                 soc = soc_a + (soc_b - soc_a) * t
                 new_points.append((soc, max_power))
 
-        return LoadingCurve(new_points)
+        post_scaled = [(p[0], post_scale*p[1]) for p in new_points]
+
+        return LoadingCurve(post_scaled)
 
     def scale(self, factor):
+        """ Returns a scaled copy of this loading curve.
+
+        :param factor: The scaling factor
+        :type factor: float
+        :return: Scaled copy of this loading curve
+        :rtype: LoadingCurve
+        """
         new_points = []
         for point in self.points:
             new_points.append((point[0], point[1] * factor))
 
         return LoadingCurve(new_points)
 
-    def get_linear_section(self, soc):
-        """ Find linear section on loading curve.
+    def get_section_boundary(self, soc):
+        """ Find linear section where given SOC value is located.
 
-        :param soc: Find the section that contains this state of charge.
+        :param soc: Find the section that contains this SOC.
         :type soc: numeric
-        :return: Indicies of start and end points.
+        :return: Indicies of start and end points of linear section containing abovementioned SOC.
+                 First section if soc < 0, last section if soc > 1.
         :rtype: (int, int)
         """
-        # find current region in loading curve
         idx_1 = 0
         while idx_1 < len(self.points) - 1:
             idx_2 = idx_1 + 1

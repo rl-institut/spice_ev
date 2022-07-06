@@ -46,7 +46,7 @@ class Battery():
         # get loading curve clamped to maximum value
         # adjust charging curve to reflect power that reaches the battery
         # after losses due to efficieny
-        clamped = self.loading_curve.clamped(max_charging_power).scale(self.efficiency)
+        clamped = self.loading_curve.clamped(max_charging_power, post_scale=self.efficiency)
 
         old_soc = self.soc
 
@@ -55,7 +55,7 @@ class Battery():
                                      timedelta=timedelta)
 
         # get average power (energy over complete timedelta)
-        # supplied by the system to the connected device/vehicle after loss due to efficiency
+        # that needs to be supplied to the battery by the user
         avg_power /= self.efficiency
 
         return {'avg_power': avg_power, 'soc_delta': self.soc - old_soc}
@@ -84,7 +84,7 @@ class Battery():
         # get loading curve clamped to maximum value
         # adjust loading curve by efficiency factor to reflect power
         # flowing out of the battery as opposed to power provided by the battery to user
-        clamped = self.unloading_curve.clamped(max_power).scale(1/self.efficiency)
+        clamped = self.unloading_curve.clamped(max_power, post_scale=1/self.efficiency)
 
         old_soc = self.soc
 
@@ -178,7 +178,7 @@ class Battery():
         discharge = target_soc < self.soc
 
         # find current region in loading curve
-        idx_1, idx_2 = charging_curve.get_linear_section(self.soc)
+        idx_1, idx_2 = charging_curve.get_section_boundary(self.soc)
         if discharge:
             boundary_idx = idx_1
             boundary_soc = max(target_soc, charging_curve.points[idx_1][0])
