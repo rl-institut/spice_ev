@@ -11,11 +11,15 @@ class Battery():
         :param capacity: capacity of the battery
         :type capacity: int/float
         :param loading_curve: loading curve of the battery
-        :type loading_curve: dict
+        :type loading_curve: src.loading_curve.LoadingCurve
         :param soc: soc of the battery
         :type soc: float
         :param efficiency: efficiency of the battery
         :type efficiency: float
+        :param unloading_curve: unloading curve of the battery
+            defaults to None for backwards-compatability, discharge with maximum
+            power of loading curve in case no unloading curve specified
+        :type unloading_curve: src.loading_curve.LoadingCurve
         """
         # epsilon for floating point comparison
         self.EPS = 1e-5
@@ -42,20 +46,19 @@ class Battery():
         :return: average power and soc_delta
         :rtype: dict
         """
+        if self.soc - target_soc > self.EPS:  # self.soc >= target_soc
+            return {'avg_power': 0, 'soc_delta':  0}
 
+        old_soc = self.soc
         # get loading curve clamped to maximum value
         # adjust charging curve to reflect power that reaches the battery
         # after losses due to efficieny
         clamped = self.loading_curve.clamped(max_charging_power, post_scale=self.efficiency)
-
-        old_soc = self.soc
-
+        # get average power (energy over complete timedelta)
         avg_power = self._adjust_soc(charging_curve=clamped,
                                      target_soc=target_soc,
                                      timedelta=timedelta)
-
-        # get average power (energy over complete timedelta)
-        # that needs to be supplied to the battery by the user
+        # get power that needs to be supplied to the battery by the charging device
         avg_power /= self.efficiency
 
         return {'avg_power': avg_power, 'soc_delta': self.soc - old_soc}
@@ -74,26 +77,23 @@ class Battery():
         :rtype: dict
 
         notes:
-        * can use specific power - default: loading curve max power
         * can set target SOC (don't discharge below this threshold)
         """
-
+        if target_soc - self.soc > self.EPS:  # target_soc >= self.soc
+            return {'avg_power': 0, 'soc_delta':  0}
         if max_power is None:
             max_power = self.unloading_curve.max_power
 
+        old_soc = self.soc
         # get loading curve clamped to maximum value
         # adjust loading curve by efficiency factor to reflect power
-        # flowing out of the battery as opposed to power provided by the battery to user
+        # released by the battery as opposed to power provided to user
         clamped = self.unloading_curve.clamped(max_power, post_scale=1/self.efficiency)
-
-        old_soc = self.soc
-
+        # get average power (energy over complete timedelta)
         avg_power = self._adjust_soc(charging_curve=clamped,
                                      target_soc=target_soc,
                                      timedelta=timedelta)
-
-        # get average power (energy over complete timedelta)
-        # supplied by the system to the connected device/vehicle after loss due to efficiency
+        # get power supplied to the connected device/vehicle after loss due to efficiency
         avg_power *= self.efficiency
 
         return {'avg_power': avg_power, 'soc_delta':  old_soc - self.soc}
@@ -149,25 +149,21 @@ class Battery():
         return power
 
     def _adjust_soc(self, timedelta, charging_curve, target_soc):
-        """ Helper function that loads or unloads battery to a given target SOC keeping track of
-            the duration and stopping the process early if a time limit is reached.
+        """ Helper function that loads or unloads battery to a given target SOC
+            keeping track of the duration and stopping the process early if a time limit is reached.
 
-        :param charging_curve: _description_
-        :type charging_curve: _type_
-        :param initial_soc: _description_
-        :type initial_soc: _type_
-        :param target_soc: _description_
-        :type target_soc: _type_
-        :param time_limit: _description_
-        :type time_limit: _type_
-        :return: _description_
-        :rtype: _type_
+        :param timedelta: Maximum amount of time available for (dis)charge process.
+        :type timedelta: datetime.timedelta
+        :param charging_curve: The charging curve that relates the SOC to (dis)charge power.
+            This charging curve reflects the exact amount of power the battery releases/receives.
+            The curve must already be clamped and scaled to account for losses due to efficiency and
+            limitations of connected devices.
+        :type charging_curve: src.loading_curve.LoadingCurve
+        :param target_soc: SOC to (dis)charge to.
+        :type target_soc: numeric
+        :return: Average power released/received across entire timedelta.
+        :rtype: numeric
         """
-        # compute gradient and offset of linear equation
-        if abs(self.soc - target_soc) < self.EPS:
-            # if target soc has already been reached, do not (dis)charge
-            return 0
-
         # get interval in hours
         total_time = timedelta.total_seconds() / 3600.0
         # hours: available time for charging, initially complete timedelta
@@ -178,6 +174,11 @@ class Battery():
         discharge = target_soc < self.soc
 
         # find current region in loading curve
+        # the boundary soc is either the target soc or the soc at which the current
+        # linear section of the (dis)charging curve ends either of which is closer to current soc.
+        # (Note: Ending is a relative concent depending on whether we charge or discharge. During
+        # charging we are looking for the section boundary larger than the current soc, while
+        # for discharging we look for the smaller counterpart)
         idx_1, idx_2 = charging_curve.get_section_boundary(self.soc)
         if discharge:
             boundary_idx = idx_1
@@ -189,15 +190,15 @@ class Battery():
         # collect energy flowing in or out of battery
         energies = []
 
-        sign = (-1)**discharge
+        sign = (-discharge << 1) + 1
+
         # compute average power for each linear section
         # update SOC
         # computes for whole time or until target is reached
-
-        # self.soc < target if charging else self.soc > target
         while remaining_hours > self.EPS and sign * (target_soc - self.soc) > self.EPS:
-            # self.soc >= boundary_soc if charging else self.soc <= boudary_soc
+            # charing: self.soc < target; discharing: self.soc > target
             while sign * (boundary_soc - self.soc) < self.EPS:
+                # charing: self.soc >= boundary_soc; discharing: self.soc <= boudary_soc
                 # get next section
                 boundary_idx += sign
                 if discharge:
@@ -230,7 +231,7 @@ class Battery():
 
             # what is earlier, breakpoint or interval end?
             # keep track of sign(t) as it encodes whether we charge or discharge
-            t = ((t >= 0) - (t < 0)) * min(abs(t), remaining_hours)
+            t = ((t > 0) - (t < 0)) * min(abs(t), remaining_hours)
 
             if abs(m) < self.EPS:
                 # simple case: charging with constant power, regardless of SOC
