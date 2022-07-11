@@ -46,7 +46,8 @@ class Battery():
         :return: average power and soc_delta
         :rtype: dict
         """
-        if self.soc - target_soc > self.EPS:  # self.soc >= target_soc
+        if self.soc - target_soc > self.EPS:
+            # target SoC already reached: skip loading
             return {'avg_power': 0, 'soc_delta':  0}
 
         old_soc = self.soc
@@ -79,7 +80,8 @@ class Battery():
         notes:
         * can set target SOC (don't discharge below this threshold)
         """
-        if target_soc - self.soc > self.EPS:  # target_soc >= self.soc
+        if target_soc - self.soc > self.EPS:
+            # target SoC already reached: skip unloading
             return {'avg_power': 0, 'soc_delta':  0}
         if max_power is None:
             max_power = self.unloading_curve.max_power
@@ -190,16 +192,18 @@ class Battery():
         # collect energy flowing in or out of battery
         energies = []
 
+        # sign is -1 when discharging, +1 when charging
         sign = (-discharge << 1) + 1
 
         # compute average power for each linear section
         # update SOC
         # computes for whole time or until target is reached
         while remaining_hours > self.EPS and sign * (target_soc - self.soc) > self.EPS:
-            # charing: self.soc < target; discharing: self.soc > target
+            # target soc not yet reached
+            # charging: self.soc < target; discharging: self.soc > target
             while sign * (boundary_soc - self.soc) < self.EPS:
-                # charing: self.soc >= boundary_soc; discharing: self.soc <= boudary_soc
-                # get next section
+                # soc outside current boundary, get next section
+                # charging: self.soc >= boundary_soc; discharging: self.soc <= boudary_soc
                 boundary_idx += sign
                 if discharge:
                     boundary_soc = max(target_soc, charging_curve.points[boundary_idx][0])
