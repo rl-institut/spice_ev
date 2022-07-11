@@ -206,7 +206,12 @@ class Battery():
                 # charging: self.soc >= boundary_soc; discharging: self.soc <= boudary_soc
                 boundary_idx += sign
                 if discharge:
-                    boundary_soc = max(target_soc, charging_curve.points[boundary_idx][0])
+                    if boundary_idx >= 0:
+                        # current soc in domain of charging curve
+                        boundary_soc = max(target_soc, charging_curve.points[boundary_idx][0])
+                    else:
+                        # current soc < 0 and target soc < current soc
+                        boundary_soc = target_soc
                 else:
                     boundary_soc = min(target_soc, charging_curve.points[boundary_idx][0])
 
