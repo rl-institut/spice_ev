@@ -26,7 +26,8 @@ class LoadingCurve:
         :return: power
         :rtype: numeric
         """
-        assert 0 <= soc <= 1
+        # allow soc < 0 for ALLOW_NEGATIVE_SOC option
+        assert soc <= 1
 
         for i, p in enumerate(self.points):
             if p[0] >= soc:
