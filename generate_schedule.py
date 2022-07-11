@@ -106,7 +106,7 @@ def generate_flex_band(scenario, gcID, core_standing_time=None):
             util.dt_within_core_standing_time(current_datetime, core_standing_time)
 
         # basic value: external load, feed-in power
-        base_flex = sum([gc.get_current_load() for gc in s.world_state.grid_connectors.values()])
+        base_flex = gc.get_current_load()
 
         num_cars_present = 0
 
