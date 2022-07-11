@@ -93,20 +93,6 @@ class LoadingCurve:
 
         return LoadingCurve(post_scaled)
 
-    def scale(self, factor):
-        """ Returns a scaled copy of this loading curve.
-
-        :param factor: The scaling factor
-        :type factor: float
-        :return: Scaled copy of this loading curve
-        :rtype: LoadingCurve
-        """
-        new_points = []
-        for point in self.points:
-            new_points.append((point[0], point[1] * factor))
-
-        return LoadingCurve(new_points)
-
     def get_section_boundary(self, soc):
         """ Find linear section where given SOC value is located.
 
