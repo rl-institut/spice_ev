@@ -80,8 +80,9 @@ class TestBattery(unittest.TestCase):
     def test_charging(self):
         # charge one battery with 10 kW for one hour and another battery with 1 kW for 10 hours
         # SoC and used energy must be the same
-        points = [(0, 42), (0.5, 42), (1, 0)]
+        points = [(0, 42), (0.5, 42), (1, 1)]
         lc = loading_curve.LoadingCurve(points)
+        # charge from soc=0
         b1 = battery.Battery(100, lc, 0)
         b2 = battery.Battery(100, lc, 0)
         td = datetime.timedelta(hours=1)
@@ -91,8 +92,49 @@ class TestBattery(unittest.TestCase):
             p2 += b2.load(td, 1)["avg_power"]
         assert approx_eq(b1.soc, b2.soc), "SoC different: {} vs {}".format(b1.soc, b2.soc)
         assert approx_eq(p1, p2), "Used power different: {} vs {}".format(p1, p2)
+        # discharge from soc=0
+        b1 = battery.Battery(100, lc, 0, unloading_curve=lc)
+        b2 = battery.Battery(100, lc, 0, unloading_curve=lc)
+        td = datetime.timedelta(hours=1)
+        p1 = b1.unload(td)["avg_power"]
+        p2 = 0
+        for _ in range(10):
+            p2 += b2.unload(td, p1/10)["avg_power"]
+        assert approx_eq(b1.soc, b2.soc), "SoC different: {} vs {}".format(b1.soc, b2.soc)
+        assert approx_eq(p1, p2), "Used power different: {} vs {}".format(p1, p2)
+
+        # make sure battery does not charge over soc=1
+        b1 = battery.Battery(100, lc, 0.9)
+        b2 = battery.Battery(100, lc, 0.9)
+        td = datetime.timedelta(hours=1)
+        p1 = b1.load(td*10, 42)["avg_power"]
+        p2 = 0
+        for _ in range(10):
+            p2 += b2.load(td, 42)["avg_power"]
+        p2 /= 10
+        assert approx_eq(b1.soc, 1), "SoC should be 1 but is: {}".format(b1.soc)
+        assert approx_eq(b2.soc, 1), "SoC should be 1 but is: {}".format(b2.soc)
+        assert approx_eq(p1, p2), "Used power different: {} vs {}".format(p1, p2)
+
+        # check that loading and unloading behave the same given same charging curve
+        b1 = battery.Battery(100, lc, 0, efficiency=1)
+        b2 = battery.Battery(100, lc, 1, efficiency=1, unloading_curve=lc)
+        td = datetime.timedelta(minutes=15)
+        t1 = t2 = 0
+        while not approx_eq(b1.soc, 1):
+            b1.load(td, 42)["avg_power"]
+            t1 += 1
+        while not approx_eq(b2.soc, 0):
+            b2.unload(td, target_soc=0)["avg_power"]
+            t2 += 1
+        assert t1 == t2, "Loading(0-100) and unloading(100-0) processes vary in duration"
 
     def test_initial_soc_negative(self):
+        # tests for charging and discharging if initial soc < 0
+        # for soc < 0 the virtual charging curve is constant
+        # tests confirm two things:
+        # 1. The amount of energy (un)loaded within an hour is correct
+        # 2. With sufficient time to charge, the battery reaches target soc
         points = [(0, 42), (0.5, 42), (1, 0)]
         lc = loading_curve.LoadingCurve(points)
         capacity = 100
@@ -119,7 +161,8 @@ class TestBattery(unittest.TestCase):
         target_socs = [-0.3, -0.5, -0.8]
         for target_soc in target_socs:
             # discharge for 1 hour with power capped at 10 kW
-            b = battery.Battery(capacity, lc, initial_soc, efficiency=efficiency)
+            b = battery.Battery(
+                capacity, lc, initial_soc, efficiency=efficiency, unloading_curve=lc)
             avg_power = b.unload(td_short, 10, target_soc=target_soc)["avg_power"]
             if target_soc < initial_soc:
                 assert approx_eq(avg_power, 10)
@@ -128,6 +171,7 @@ class TestBattery(unittest.TestCase):
             b.unload(td_long, 50, target_soc=target_soc)
             assert approx_eq(b.soc, min(initial_soc, target_soc)),\
                 "Battery did not reach desired SoC"
+
 
 if __name__ == '__main__':
     unittest.main()
