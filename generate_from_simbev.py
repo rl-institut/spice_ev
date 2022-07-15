@@ -13,6 +13,12 @@ from src.loading_curve import LoadingCurve
 
 
 def parse_vehicle_types(tech_data):
+    """Get vehicle data from SimBEV metadata
+
+    :param tech_data: dictionary which containts the tech data part of a SimBEV metadata json
+    :type args: dict
+    :return: dict
+    """
     vehicle_types = {}
     for name, data in tech_data.items():
         max_charge = max(data["max_charging_capacity_slow"], data["max_charging_capacity_fast"])
@@ -20,7 +26,7 @@ def parse_vehicle_types(tech_data):
             "name": name,
             "capacity": data["battery_capacity"],
             "mileage": round(data["energy_consumption"] * 100, 2),
-            "charging_curve": [[0, max_charge], [0.8, max_charge], [1, max_charge]],
+            "charging_curve": [[0, max_charge], [1, max_charge]],
             "min_charging_power": 0.1,
         }
     return vehicle_types
@@ -196,7 +202,8 @@ def generate_from_simbev(args):
             # set vehicle info from first data row
             # update in vehicles, regardless if known before or not
             v_info = vehicle_name.split("_")
-            v_type = f"{v_info[0]}_{v_info[1]}"
+            # get vehicle type from the first two parts of the csv name
+            v_type = '_'.join(v_info[:2])
 
             # vehicle type must be known
             assert v_type in vehicle_types, "Unknown type for {}: {}".format(vehicle_name, v_type)
@@ -210,10 +217,11 @@ def generate_from_simbev(args):
 
             # check that capacities match
             vehicle_capacity = vehicle_types[v_type]["capacity"]
+            # take capacity from vehicle file name
             file_capacity = int(v_info[-1][:-3])
             if vehicle_capacity != file_capacity:
                 print("WARNING: capacities of car type {} don't match "
-                      "(in file: {}, in script: {}). Using value from file.".
+                      "(in file name: {}, in script: {}). Using value from file.".
                       format(v_type, file_capacity, vehicle_capacity))
                 vehicle_capacity = file_capacity
                 vehicle_types[v_type]["capacity"] = file_capacity
@@ -244,7 +252,7 @@ def generate_from_simbev(args):
                 # read info from row
                 location = row["location"]
                 capacity = float(row["station_charging_capacity"])
-                consumption = min(float(row["energy"]), 0)
+                consumption = abs(min(float(row["energy"]), 0))
 
                 # general sanity checks
                 simbev_soc_start = float(row["soc_start"])
@@ -282,7 +290,7 @@ def generate_from_simbev(args):
                         # check if feasible: simulate with battery
                         # set battery SoC to level when arriving
                         battery.soc = float(row["soc_start"])
-                        charge_duration = row["event_time"] * interval
+                        charge_duration = int(row["event_time"]) * interval
                         battery.load(charge_duration, capacity)
                         if battery.soc < float(row["soc_end"]) and args.verbose > 0:
                             print("WARNING: Can't fulfill charging request for {} in ts {:.0f}. "
@@ -300,7 +308,7 @@ def generate_from_simbev(args):
                         soc_needed += consumption / vehicle_capacity
                         assert soc_needed <= 1 + vehicle_soc + args.eps, (
                             "Consumption too high for {} in row {}: "
-                            "vehicle charged to {}, needs SoC of {} ({} kW). "
+                            "vehicle charged to {}, needs SoC of {} ({} kWh). "
                             "This might be caused by rounding differences, "
                             "consider to increase the arg '--eps'.".format(
                                 vehicle_name, idx + 3, vehicle_soc,
