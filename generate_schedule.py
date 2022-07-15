@@ -467,7 +467,9 @@ def generate_schedule(args):
         for t in range(s.n_intervals):
             cur_time += s.interval
             f.write("{}, {}, {}\n".format(
-                cur_time.isoformat(), schedule[t], int(priorities[t] <= 2)))
+                cur_time.isoformat(),      # timestamp
+                round(schedule[t], 3),     # round to Watts
+                int(priorities[t] <= 2)))  # charging window?
 
     # add schedule file info to scenario JSON
     scenario_json['events']['schedule_from_csv'] = {
