@@ -67,7 +67,11 @@ def generate_from_simbev(args):
         return start + (interval * timestep)
 
     # vehicle CSV files
-    pathlist = list(simbev_path.rglob('*_events.csv'))
+    if not args.region:
+        pathlist = list(simbev_path.rglob('*_events.csv'))
+    else:
+        region_path = Path(simbev_path, args.region)
+        pathlist = list(region_path.rglob('*_events.csv'))
     pathlist.sort()
 
     vehicles = {}
@@ -484,6 +488,7 @@ if __name__ == '__main__':
         from vehicle timeseries (e.g. SimBEV output).')
     parser.add_argument('output', nargs='?', help='output file name (example.json)')
     parser.add_argument('--simbev', metavar='DIR', type=str, help='set directory with SimBEV files')
+    parser.add_argument('--region', type=str, help='set name of region')
     parser.add_argument('--interval', metavar='MIN', type=int, default=15,
                         help='set number of minutes for each timestep (Δt)')
     parser.add_argument('--price-seed', metavar='X', type=int, default=0,
