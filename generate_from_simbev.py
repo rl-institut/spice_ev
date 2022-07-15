@@ -42,7 +42,7 @@ def generate_from_simbev(args):
     simbev_path = Path(args.simbev)
     assert simbev_path.exists(), "SimBEV directory {} does not exist".format(args.simbev)
     metadata_path = Path(simbev_path, "metadata_simbev_run.json")
-    assert metadata_path.exists(), "Metadata file does not exist in SimBEV directory".format(args.simbev)
+    assert metadata_path.exists(), "Metadata file does not exist in SimBEV directory"
     with open(metadata_path) as f:
         metadata = json.load(f)
 
@@ -218,7 +218,7 @@ def generate_from_simbev(args):
             last_cs_event = None
             soc_needed = 0.0
             event_start_ts = None
-            event_end_ts = datetime_from_timestep(-1)
+            event_end_ts = datetime_from_timestep(0)
 
             # iterate next timesteps
             for idx, row in enumerate(reader):
