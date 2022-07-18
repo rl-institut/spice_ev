@@ -135,42 +135,45 @@ class TestBattery(unittest.TestCase):
         # tests confirm two things:
         # 1. The amount of energy (un)loaded within an hour is correct
         # 2. With sufficient time to charge, the battery reaches target soc
-        points = [(0, 42), (0.5, 42), (1, 0)]
-        lc = loading_curve.LoadingCurve(points)
-        capacity = 100
-        efficiency = .95
-        initial_soc = -0.5
-
         td_short = datetime.timedelta(hours=1)
         td_long = datetime.timedelta(hours=100)
 
-        # charging
-        target_socs = [-0.6, -0.2, 0, 0.5]
-        for target_soc in target_socs:
-            # charge for 1 hour at 10 kW
-            b = battery.Battery(capacity, lc, initial_soc, efficiency=efficiency)
-            avg_power = b.load(td_short, 10, target_soc=target_soc)["avg_power"]
-            if target_soc > initial_soc:
-                assert approx_eq(avg_power, 10)
-                assert approx_eq(b.soc, initial_soc + ((10 * efficiency) / capacity))
-            # charge to target soc
-            b.load(td_long, 50, target_soc=target_soc)
-            assert approx_eq(b.soc, max(initial_soc, target_soc)),\
-                "Battery did not reach desired SoC"
-        # discharging
-        target_socs = [-0.3, -0.5, -0.8]
-        for target_soc in target_socs:
-            # discharge for 1 hour with power capped at 10 kW
-            b = battery.Battery(
-                capacity, lc, initial_soc, efficiency=efficiency, unloading_curve=lc)
-            avg_power = b.unload(td_short, 10, target_soc=target_soc)["avg_power"]
-            if target_soc < initial_soc:
-                assert approx_eq(avg_power, 10)
-                assert approx_eq(b.soc, initial_soc - (10 / (efficiency * capacity)))
-            # discharge to target soc
-            b.unload(td_long, 50, target_soc=target_soc)
-            assert approx_eq(b.soc, min(initial_soc, target_soc)),\
-                "Battery did not reach desired SoC"
+        points = [(0, 42), (0.5, 42), (1, 0)]
+        lc = loading_curve.LoadingCurve(points)
+        capacity = 100
+        efficiency = .5
+        initial_soc = -0.5
+        b = battery.Battery(capacity, lc, 0, efficiency, lc)
+
+        # test charging
+        target = [
+            (-0.6, 0, -0.5),
+            (-0.2, 10, -0.45),
+            (0, 10, -0.45),
+            (0.5, 10, -0.45),
+        ]
+        for t in target:
+            b.soc = initial_soc
+            p = b.load(td_short, 10, target_soc=t[0])["avg_power"]
+            assert approx_eq(p, t[1])
+            assert approx_eq(b.soc, t[2])
+            p = b.load(td_long, 50, target_soc=t[0])["avg_power"]
+            assert approx_eq(b.soc, max(initial_soc, t[0]))
+
+        # test discharging
+        target = [
+            (-1, 10, -0.7),
+            (-0.5, 0, -0.5),
+            (0, 0, -0.5),
+            (0.5, 0, -0.5),
+        ]
+        for t in target:
+            b.soc = initial_soc
+            p = b.unload(td_short, 10, target_soc=t[0])["avg_power"]
+            assert approx_eq(p, t[1])
+            assert approx_eq(b.soc, t[2])
+            p = b.unload(td_long, 50, target_soc=t[0])["avg_power"]
+            assert approx_eq(b.soc, min(initial_soc, t[0]))
 
 
 if __name__ == '__main__':
