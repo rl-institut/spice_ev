@@ -191,7 +191,7 @@ class Vehicle:
             loading_curve=self.vehicle_type.charging_curve,
             soc=self.soc,
             efficiency=self.vehicle_type.battery_efficiency,
-            unloading_curve=self.vehicle_type.discharge_curve
+            unloading_curve=self.vehicle_type.discharge_curve,
         )
         del self.soc
 
@@ -238,5 +238,5 @@ class StationaryBattery(battery.Battery):
             self.charging_curve,
             self.soc,
             self.efficiency,
-            self.discharge_curve
+            self.discharge_curve,
         )

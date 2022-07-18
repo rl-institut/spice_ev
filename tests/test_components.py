@@ -93,6 +93,7 @@ class TestBattery(unittest.TestCase):
         assert approx_eq(b1.soc, b2.soc), "SoC different: {} vs {}".format(b1.soc, b2.soc)
         assert approx_eq(p1, p2), "Used power different: {} vs {}".format(p1, p2)
         # discharge from soc=0, allow discharge below soc=0
+        # make sure loading piecewise gives same result as loading once for same duration
         b1 = battery.Battery(100, lc, 0, unloading_curve=lc)
         b2 = battery.Battery(100, lc, 0, unloading_curve=lc)
         td = datetime.timedelta(hours=1)
@@ -146,6 +147,7 @@ class TestBattery(unittest.TestCase):
         b = battery.Battery(capacity, lc, 0, efficiency, lc)
 
         # test charging
+        # target = (target_soc, expected power after 1 hour, expected SoC afer 1 hour)
         target = [
             (-0.6, 0, -0.5),
             (-0.2, 10, -0.45),
@@ -161,6 +163,7 @@ class TestBattery(unittest.TestCase):
             assert approx_eq(b.soc, max(initial_soc, t[0]))
 
         # test discharging
+        # target = (target_soc, expected power after 1 hour, expected SoC afer 1 hour)
         target = [
             (-1, 10, -0.7),
             (-0.5, 0, -0.5),
