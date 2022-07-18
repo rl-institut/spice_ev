@@ -236,6 +236,8 @@ def generate(args):
         for v_id, v in vehicles.items():
             if now.weekday() in args.no_drive_days:
                 break
+            if now.date().isoformat() in vars(args).get("holidays", []):
+                break
 
             # get vehicle infos
             capacity = vehicle_types[v["vehicle_type"]]["capacity"]

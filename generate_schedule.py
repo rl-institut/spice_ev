@@ -21,7 +21,7 @@ def generate_flex_band(scenario, gcID, core_standing_time=None):
     :param gcID: grid connector ID for which to create this flex band
     :type gcID: string
     :param core_standing_time: core standing time during which flexibility is guaranteed e.g.
-        {"times":[{"start": [22,0], "end":[5,0]}], "full_days":[7]}
+        {"times":[{"start": [22,0], "end":[5,0]}], "no_drive_days":[6], "holidays": ["2022-01-01"]}
     :type core_standing_time: dict
     :return: flex band
     :rtype: dict
@@ -467,7 +467,9 @@ def generate_schedule(args):
         for t in range(s.n_intervals):
             cur_time += s.interval
             f.write("{}, {}, {}\n".format(
-                cur_time.isoformat(), schedule[t], int(priorities[t] <= 2)))
+                cur_time.isoformat(),      # timestamp
+                round(schedule[t], 3),     # round to Watts
+                int(priorities[t] <= 2)))  # charging window?
 
     # add schedule file info to scenario JSON
     scenario_json['events']['schedule_from_csv'] = {
@@ -529,7 +531,7 @@ if __name__ == '__main__':
     parser.add_argument('--core-standing-time', default=None,
                         help='Define time frames as well as full '
                         'days during which the fleet is guaranteed to be available in a JSON '
-                        'obj like: {"times":[{"start": [22,0], "end":[1,0]}], "full_days":[7]}')
+                        'obj like: {"times":[{"start": [22,0], "end":[1,0]}], "no_drive_days":[6]}')
     parser.add_argument('--visual', '-v', action='store_true', help='Plot flexibility and schedule')
     parser.add_argument('--config', help='Use config file to set arguments')
 

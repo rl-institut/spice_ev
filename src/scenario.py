@@ -277,6 +277,7 @@ class Scenario:
                 if len(gc_ids) == 1:
                     output_path = options["save_timeseries"]
                 else:
+                    file_name, ext = os.path.splitext(options["save_timeseries"])
                     output_path = f"{file_name}_{gcID}{ext}"
 
                 report.save_gc_timeseries(self, gcID, output_path)

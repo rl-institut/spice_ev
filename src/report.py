@@ -404,6 +404,8 @@ def save_gc_timeseries(scenario, gcID, output_path):
                     )
                 ]
             # flex
+            if not hasattr(scenario, "flex_bands"):
+                setattr(scenario, "flex_bands", {})
             if gcID not in scenario.flex_bands.keys():
                 if 'generate_flex_band' not in locals().keys():
                     from generate_schedule import generate_flex_band
