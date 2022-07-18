@@ -26,7 +26,8 @@ class LoadingCurve:
         :return: power
         :rtype: numeric
         """
-        assert 0 <= soc <= 1
+        # allow soc < 0 for ALLOW_NEGATIVE_SOC option
+        assert soc <= 1
 
         for i, p in enumerate(self.points):
             if p[0] >= soc:
@@ -45,18 +46,24 @@ class LoadingCurve:
                     power = pow_a + (pow_b - pow_a) * t
                     return power
 
-    def clamped(self, max_power):
+    def clamped(self, max_power, pre_scale=1, post_scale=1):
         """ Return a new instance with clamped power.
 
         :param max_power: power
         :type max_power: numeric
+        :param pre_scale: scaling factor applied to all points before clamping
+        :type pre_scale: numeric
+        :param post_scale: scaling factor applied to all points after clamping
+        :type post_scale: numeric
         :return: loating curve
         :rtype: object
         """
 
+        pre_scaled_points = [(p[0], pre_scale*p[1]) for p in self.points]
+
         new_points = []
-        for i, p in enumerate(self.points):
-            if i + 1 >= len(self.points):
+        for i, p in enumerate(pre_scaled_points):
+            if i + 1 >= len(pre_scaled_points):
                 new_points.append((p[0], min(max_power, p[1])))
                 break
             next_point = self.points[i + 1]
@@ -83,7 +90,29 @@ class LoadingCurve:
                 soc = soc_a + (soc_b - soc_a) * t
                 new_points.append((soc, max_power))
 
-        return LoadingCurve(new_points)
+        post_scaled = [(p[0], post_scale*p[1]) for p in new_points]
+
+        return LoadingCurve(post_scaled)
+
+    def get_section_boundary(self, soc):
+        """ Find linear section where given SOC value is located.
+
+        :param soc: Find the section that contains this SOC.
+        :type soc: numeric
+        :return: Indicies of start and end points of linear section containing abovementioned SOC.
+                 First section if soc < 0, last section if soc > 1.
+        :rtype: (int, int)
+        """
+        idx_1 = 0
+        while idx_1 < len(self.points) - 1:
+            idx_2 = idx_1 + 1
+            x2 = self.points[idx_2][0]
+            if soc >= x2:
+                idx_1 += 1
+            else:
+                break
+
+        return idx_1, idx_2
 
     def __str__(self):
         return 'LoadingCurve {}'.format(vars(self))
