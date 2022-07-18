@@ -64,7 +64,7 @@ class Battery():
 
         return {'avg_power': avg_power, 'soc_delta': self.soc - old_soc}
 
-    def unload(self, timedelta, max_power=None, target_soc=None):
+    def unload(self, timedelta, max_power=None, target_soc=0):
         """ Adjust SOC and return average power provided for a given timedelta and
         a maximum of power that can be handled by connected device.
 
@@ -80,10 +80,6 @@ class Battery():
         notes:
         * can set target SOC (don't discharge below this threshold)
         """
-        # if target soc is not provided, discharge for entire timedelta
-        if target_soc is None:
-            target_soc = -float('inf')
-
         if target_soc - self.soc > self.EPS:
             # target SoC already reached: skip unloading
             return {'avg_power': 0, 'soc_delta':  0}

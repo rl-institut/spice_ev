@@ -92,14 +92,14 @@ class TestBattery(unittest.TestCase):
             p2 += b2.load(td, 1)["avg_power"]
         assert approx_eq(b1.soc, b2.soc), "SoC different: {} vs {}".format(b1.soc, b2.soc)
         assert approx_eq(p1, p2), "Used power different: {} vs {}".format(p1, p2)
-        # discharge from soc=0
+        # discharge from soc=0, allow discharge below soc=0
         b1 = battery.Battery(100, lc, 0, unloading_curve=lc)
         b2 = battery.Battery(100, lc, 0, unloading_curve=lc)
         td = datetime.timedelta(hours=1)
-        p1 = b1.unload(td)["avg_power"]
+        p1 = b1.unload(td, target_soc=-float('inf'))["avg_power"]
         p2 = 0
         for _ in range(10):
-            p2 += b2.unload(td, p1/10)["avg_power"]
+            p2 += b2.unload(td, p1/10, target_soc=-float('inf'))["avg_power"]
         assert approx_eq(b1.soc, b2.soc), "SoC different: {} vs {}".format(b1.soc, b2.soc)
         assert approx_eq(p1, p2), "Used power different: {} vs {}".format(p1, p2)
 
