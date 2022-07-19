@@ -592,6 +592,7 @@ def plot(scenario):
     # fig.autofmt_xdate()  # rotate xaxis labels (dates) to fit
     # autofmt removes some axis labels, so rotate by hand:
     for ax in fig.get_axes():
+        ax.set_xlim(scenario.start_time, scenario.stop_time)
         plt.setp(ax.get_xticklabels(), rotation=30, ha='right')
 
     plt.show()
