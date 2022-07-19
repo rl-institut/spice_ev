@@ -16,7 +16,7 @@ def parse_vehicle_types(tech_data):
     """Get vehicle data from SimBEV metadata
 
     :param tech_data: dictionary which containts the tech data part of a SimBEV metadata json
-    :type args: dict
+    :type tech_data: dict
     :return: dict
     """
     vehicle_types = {}
@@ -33,7 +33,7 @@ def parse_vehicle_types(tech_data):
 
 
 def generate_from_simbev(args):
-    """Generate a scenario JSON from simBEV results.
+    """Generate a scenario JSON from SimBEV results.
 
     :param args: input arguments
     :type args: argparse.Namespace
