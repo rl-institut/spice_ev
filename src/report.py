@@ -432,6 +432,8 @@ def save_gc_timeseries(scenario, strategy_name, gcID, output_path):
                     )
                 ]
             # flex
+            if not hasattr(scenario, "flex_bands"):
+                setattr(scenario, "flex_bands", {})
             if gcID not in scenario.flex_bands.keys():
                 if 'generate_flex_band' not in locals().keys():
                     from generate_schedule import generate_flex_band
@@ -629,6 +631,7 @@ def plot(scenario):
     # fig.autofmt_xdate()  # rotate xaxis labels (dates) to fit
     # autofmt removes some axis labels, so rotate by hand:
     for ax in fig.get_axes():
+        ax.set_xlim(scenario.start_time, scenario.stop_time)
         plt.setp(ax.get_xticklabels(), rotation=30, ha='right')
 
     plt.show()
