@@ -1,22 +1,22 @@
 {
-    "grid fee":{
+    "grid_fee":{
         "slp": {
-            "basic charge EUR/a": {
-                "net price": 65.7,
-                "gross price": 78.18,
+            "basic_charge_EUR/a": {
+                "net_price": 65.7,
+                "gross_price": 78.18,
                 "unit": "EUR/a",
                 "info": "bacis charge for slp customers. Wording 'capacity charge' only used for SpiceEV"
             },
-            "commodity charge ct/kWh": {
-                "net price": 7.48,
-                "gross price": 8.9,
+            "commodity_charge_ct/kWh": {
+                "net_price": 7.48,
+                "gross_price": 8.9,
                 "unit": "ct/kWh",
                 "info": "commodity costs for slp customers"
             }
         },
         "jlp": {
-            "<2500 h/a": {
-                "capacity charge EUR/kW*a": {
+            "<2500_h/a": {
+                "capacity_charge_EUR/kW*a": {
                     "HV": 19.13,
                     "HV/MV": 25.25,
                     "MV": 41.06,
@@ -25,7 +25,7 @@
                     "unit": "EUR/(kW*a)",
                     "info": "capacity charge for jlp customers with annual utilization time < 2500 h/a"
                 },
-                "commodity charge ct/kWh": {
+                "commodity_charge_ct/kWh": {
                     "HV": 2.3,
                     "HV/MV": 3.81,
                     "MV": 3.49,
@@ -35,8 +35,8 @@
                     "info": "commodity charge for jlp customers with annual utilization time < 2500 h/a"
                 }
             },
-            ">=2500 h/a": {
-                "capacity charge EUR/kW*a": {
+            ">=2500_h/a": {
+                "capacity_charge_EUR/kW*a": {
                     "HV": 56.33,
                     "HV/MV": 101.52,
                     "MV": 70.14,
@@ -45,7 +45,7 @@
                     "unit": "EUR/(kW*a)",
                     "info": "capacity charge for jlp customers with annual utilization time >= 2500 h/a"
                 },
-                "commodity charge ct/kWh": {
+                "commodity_charge_ct/kWh": {
                     "HV": 0.81,
                     "HV/MV": 0.76,
                     "MV": 2.32,
@@ -55,39 +55,40 @@
                     "info": "commodity charge for jlp customers with annual utilization time >= 2500 h/a"
                 }
             },
-            "additional costs": {
+            "additional_costs": {
                 "costs": 0,
                 "unit": "EUR",
                 "info": "additional costs for jlp customers (f.i. costs for metering point operation)"
             }
         }
     },
-    "power procurement": {
+    "power_procurement": {
         "charge": 7.7,
         "unit": "ct/kWh",
         "info": "charge for power generation, power procurement and sales"
     },
     "levies": {
         "EEG-levy": 0,
-        "chp levy (art. 26 und 26a KWKG 2020)": 0.378,
-        "individual charge levy (art. 19 Abs. 2 StromNEV)": 0.437,
-        "Offshore levy (art. 17f Absatz 7 EnWG)": 0.419,
-        "interruptible loads levy (art. 18 AbLaV)": 0.003,
+        "chp_levy": 0.378,
+        "individual_charge_levy": 0.437,
+        "offshore_levy": 0.419,
+        "interruptible_loads_levy": 0.003,
         "unit": "ct/kWh",
-        "info": "levies on energy supplied from the power grid"
+        "info": ["levies on energy supplied from the power grid according to art. 26 und 26a KWKG 2020",
+            "art. 19 Abs. 2 StromNEV, art. 17f Absatz 7 EnWG and art. 18 AbLaV"]
     },
-    "concession fee": {
+    "concession_fee": {
         "charge": 1.32,
         "unit": "ct/kWh",
         "info": "concession fee depending on the tariff and the size of the municipality"
     },
     "taxes": {
-        "value added tax": 19,
-        "tax on electricity": 2.05,
+        "value_added_tax": 19,
+        "tax_on_electricity": 2.05,
         "unit": "value added tax: %, tax on electricity: ct/kWh",
         "info": "taxes on energy supplied from the power grid"
     },
-    "feed-in remuneration": {
+    "feed-in_remuneration": {
         "PV": {
             "kWp": [10, 40, 100],
             "remuneration": [6.24, 6.06, 4.74]
@@ -96,9 +97,9 @@
         "unit": "ct/kWh",
         "info": "remuneration for power fed into the grid by PV-power plants and electric vehicles"
     },
-    "strategy related cost parameters": {
+    "strategy_related_cost_parameters": {
         "schedule": {
-            "reduction of commodity charge": 0,
+            "reduction_of_commodity_charge": 0,
             "unit": "ct/kWh",
             "info": "'reduction of commodity charge' can be subtracted from commodity charge (reimburse flexibility)"
         }

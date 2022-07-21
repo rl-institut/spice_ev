@@ -78,22 +78,22 @@ def aggregate_local_results(scenario, gcID):
             from generate_schedule import generate_flex_band
         scenario.flex_bands[gcID] = generate_flex_band(scenario, gcID)
 
-    json_results["temporal parameters"] = {
+    json_results["temporal_parameters"] = {
         "interval": scenario.interval_min,
         "unit": 'min',
         "info": "simulation interval"
     }
 
     if scenario.core_standing_time:
-        json_results["core standing time"] = {
+        json_results["core_standing_time"] = {
             "times": scenario.core_standing_time['times'],
-            "no drive days": scenario.core_standing_time['no_drive_days'],
+            "no_drive_days": scenario.core_standing_time['no_drive_days'],
             "unit": "h",
             "info": "Core standing time: start time, end time, duration"
         }
 
     json_results["photovoltaics"] = {
-        "nominal power": scenario.constants_json['photovoltaics']['nominal_power'],
+        "nominal_power": scenario.constants_json['photovoltaics']['nominal_power'],
         "unit": "kW",
         "info": "Nominal power of PV power plant"
     }
