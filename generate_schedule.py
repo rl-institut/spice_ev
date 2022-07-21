@@ -106,7 +106,7 @@ def generate_flex_band(scenario, gcID, core_standing_time=None):
             util.dt_within_core_standing_time(current_datetime, core_standing_time)
 
         # basic value: external load, feed-in power
-        base_flex = sum([gc.get_current_load() for gc in s.world_state.grid_connectors.values()])
+        base_flex = gc.get_current_load()
 
         num_cars_present = 0
 
@@ -467,7 +467,9 @@ def generate_schedule(args):
         for t in range(s.n_intervals):
             cur_time += s.interval
             f.write("{}, {}, {}\n".format(
-                cur_time.isoformat(), schedule[t], int(priorities[t] <= 2)))
+                cur_time.isoformat(),      # timestamp
+                round(schedule[t], 3),     # round to Watts
+                int(priorities[t] <= 2)))  # charging window?
 
     # add schedule file info to scenario JSON
     scenario_json['events']['schedule_from_csv'] = {

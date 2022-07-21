@@ -1,0 +1,163 @@
+{
+    "simBEV_version": "0.1.3",
+    "scenario": "small_test",
+    "timestamp_start": "2022-07-18_133345",
+    "timestamp_end": "2022-07-18_133346",
+    "config": {
+        "basic": {
+            "eta_cp": "1",
+            "stepsize": "15",
+            "start_date": "2021-09-17",
+            "end_date": "2021-09-30",
+            "soc_min": "0.2",
+            "charging_threshold": "0.8"
+        },
+        "output": {
+            "vehicle_csv": "true",
+            "grid_time_series_csv": "true",
+            "plot_grid_time_series_split": "false",
+            "plot_grid_time_series_collective": "false"
+        },
+        "rampup_ev": {
+            "rampup": "regions.csv"
+        },
+        "tech_data": {
+            "tech_data": "tech_data.csv"
+        },
+        "charging_probabilities": {
+            "slow": "charging_point_probability.csv",
+            "fast": "fast_charging_probability.csv",
+            "home_work_private": "home_work_private.csv",
+            "energy_min": "energy_min.csv"
+        },
+        "sim_params": {
+            "num_threads": "4",
+            "seed": "3"
+        }
+    },
+    "tech_data": {
+        "bev_mini": {
+            "max_charging_capacity_slow": 11.0,
+            "max_charging_capacity_fast": 50,
+            "battery_capacity": 60,
+            "energy_consumption": 0.1397
+        },
+        "bev_medium": {
+            "max_charging_capacity_slow": 22.0,
+            "max_charging_capacity_fast": 50,
+            "battery_capacity": 90,
+            "energy_consumption": 0.1746
+        },
+        "bev_luxury": {
+            "max_charging_capacity_slow": 50.0,
+            "max_charging_capacity_fast": 150,
+            "battery_capacity": 110,
+            "energy_consumption": 0.2096
+        },
+        "phev_mini": {
+            "max_charging_capacity_slow": 3.7,
+            "max_charging_capacity_fast": 0,
+            "battery_capacity": 14,
+            "energy_consumption": 0.1425
+        },
+        "phev_medium": {
+            "max_charging_capacity_slow": 11.0,
+            "max_charging_capacity_fast": 0,
+            "battery_capacity": 20,
+            "energy_consumption": 0.1782
+        },
+        "phev_luxury": {
+            "max_charging_capacity_slow": 11.0,
+            "max_charging_capacity_fast": 0,
+            "battery_capacity": 30,
+            "energy_consumption": 0.2138
+        }
+    },
+    "charge_prob_slow": {
+        "work": {
+            "0": 0.5887,
+            "3.7": 0.0411,
+            "11.0": 0.1645,
+            "22.0": 0.1645,
+            "50.0": 0.0411
+        },
+        "business": {
+            "0": 0.64,
+            "3.7": 0.033,
+            "11.0": 0.135,
+            "22.0": 0.15,
+            "50.0": 0.042
+        },
+        "school": {
+            "0": 0.5887,
+            "3.7": 0.0411,
+            "11.0": 0.1645,
+            "22.0": 0.1645,
+            "50.0": 0.0411
+        },
+        "shopping": {
+            "0": 0.5588,
+            "3.7": 0.0059,
+            "11.0": 0.0618,
+            "22.0": 0.253,
+            "50.0": 0.1206
+        },
+        "private/ridesharing": {
+            "0": 0.655,
+            "3.7": 0.0155,
+            "11.0": 0.081,
+            "22.0": 0.176,
+            "50.0": 0.0725
+        },
+        "leisure": {
+            "0": 0.6538,
+            "3.7": 0.0154,
+            "11.0": 0.0808,
+            "22.0": 0.177,
+            "50.0": 0.0731
+        },
+        "home": {
+            "0": 0.4894,
+            "3.7": 0.0911,
+            "11.0": 0.3402,
+            "22.0": 0.0715,
+            "50.0": 0.0079
+        }
+    },
+    "charge_prob_fast": {
+        "urban": {
+            "150.0": 0.8,
+            "350.0": 0.2
+        },
+        "ex-urban": {
+            "150.0": 0.2,
+            "350.0": 0.8
+        }
+    },
+    "car_sum": {
+        "bev_mini": 1,
+        "bev_medium": 2,
+        "bev_luxury": 2,
+        "phev_mini": 1,
+        "phev_medium": 0,
+        "phev_luxury": 1
+    },
+    "car_amounts": {
+        "region_1": {
+            "bev_mini": 1,
+            "bev_medium": 1,
+            "bev_luxury": 1,
+            "phev_mini": 0,
+            "phev_medium": 0,
+            "phev_luxury": 0
+        },
+        "region_2": {
+            "bev_mini": 0,
+            "bev_medium": 1,
+            "bev_luxury": 1,
+            "phev_mini": 1,
+            "phev_medium": 0,
+            "phev_luxury": 1
+        }
+    }
+}
