@@ -712,7 +712,7 @@ class Schedule(Strategy):
             event_idx = 0
             cur_time = self.current_time
             charging = True
-            while charging and cur_time  < vehicle.estimated_time_of_departure:
+            while charging and cur_time < vehicle.estimated_time_of_departure:
 
                 # peek into future events for schedule changes or departure
                 while True:
@@ -760,7 +760,6 @@ class Schedule(Strategy):
                         max_power = add_power
                     else:
                         min_power = add_power
-
 
             vehicle.battery.soc = old_soc
             # charge for real

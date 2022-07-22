@@ -191,7 +191,7 @@ def generate_flex_band(scenario, gcID, core_standing_time=None):
     return flex
 
 
-def generate_individual_flex_band(scenario, gcID, core_standing_time=None):
+def generate_individual_flex_band(scenario, gcID):
     """Generate flexibility potential for inidvidual vehicles with perfect foresight
 
     :param scenario: input scenario
@@ -242,7 +242,10 @@ def generate_individual_flex_band(scenario, gcID, core_standing_time=None):
     vehicles = deepcopy(scenario.constants.vehicles)
 
     def get_v2g_energy(vehicle):
-        return (vehicle.battery.get_available_power(interval) * vehicle.vehicle_type.v2g_power_factor) if vehicle.vehicle_type.v2g else 0
+        if vehicle.vehicle_type.v2g:
+            power_per_interval = vehicle.battery.get_available_power(interval)
+            return power_per_interval * vehicle.vehicle_type.v2g_power_factor
+        return 0
 
     # get initially connected vehicles
     for vid, v in vehicles.items():
@@ -321,6 +324,7 @@ def generate_individual_flex_band(scenario, gcID, core_standing_time=None):
                         "init_soc": vehicle.battery.soc,
                         "energy": energy,
                         "desired_soc": event.update["desired_soc"],
+                        "efficiency": v.battery.efficiency,
                         "p_min": cs.min_power,
                         "p_max": cs.max_power,
                     })
@@ -367,8 +371,10 @@ def generate_schedule(args):
     # compute flexibility potential (min/max) of single grid connector for each timestep
     gcID = list(s.constants.grid_connectors.keys())[0]
     # use different function depending on "inidivual" argument
-    flex_fct = generate_individual_flex_band if args.individual else generate_flex_band
-    flex = flex_fct(s, gcID=gcID, core_standing_time=args.core_standing_time)
+    if args.individual:
+        flex = generate_individual_flex_band(s, gcID)
+    else:
+        flex = generate_flex_band(s, gcID=gcID, core_standing_time=args.core_standing_time)
 
     netto = []
     curtailment = []
@@ -523,7 +529,8 @@ def generate_schedule(args):
             # sort arrivals by energy needed and standing time
             # prioritize higher power needed
             vehicles_arriving = sorted(flex["vehicles"][i],
-                    key = lambda v: -v["energy"] / (v["t_end"] - v["t_start"]).total_seconds())
+                                       key=lambda v: -v["energy"] /
+                                       (v["t_end"] - v["t_start"]).total_seconds())
             for vinfo in vehicles_arriving:
                 if vinfo["idx_start"] >= vinfo["idx_end"]:
                     # arrival/departure same interval: ignore
@@ -532,10 +539,12 @@ def generate_schedule(args):
                 standing_range = range(vinfo["idx_start"], vinfo["idx_end"])
                 # distribute energy
                 energy_needed = vinfo["energy"] / vinfo["efficiency"]
-                for prio in [1,2,3,4]:
+                for prio in [1, 2, 3, 4]:
                     if energy_needed < EPS:
                         break
-                    energy_prio_avail = sum([flex["max"][j] if priorities[j] == prio else 0 for j in standing_range]) / ts_per_hour
+                    energy_prio_avail = sum(
+                        [flex["max"][j] if priorities[j] == prio else 0 for j in standing_range]
+                    ) / ts_per_hour
                     if energy_prio_avail > EPS:
                         # energy available in priority interval: distribute balanced
                         # naive: balance vehicle only
@@ -546,7 +555,8 @@ def generate_schedule(args):
                                 break
                             if priorities[j] != prio:
                                 continue
-                            power = min(max(flex["max"][j] * factor, vinfo["p_min"]), vinfo["p_max"])
+                            power = min(max(
+                                flex["max"][j] * factor, vinfo["p_min"]), vinfo["p_max"])
                             schedule[j] += power
                             energy_needed -= power / ts_per_hour
                             flex["max"][j] -= power
@@ -562,7 +572,8 @@ def generate_schedule(args):
                 min_flex[i] -= flex["batteries"]["init_discharge"]
             else:
                 min_flex[i] -= flex["batteries"]["full_discharge"]
-            max_flex[i] += flex["batteries"]["power"] * flex["batteries"]["efficiency"] / ts_per_hour
+            bat_flex = flex["batteries"]["power"] * flex["batteries"]["efficiency"] / ts_per_hour
+            max_flex[i] += bat_flex
 
             # clamp to GC power
             for band in [min_flex, flex["base"], max_flex]:
@@ -616,7 +627,8 @@ def generate_schedule(args):
                 if not charge_period:
                     energy_needed *= -1
 
-                energy_stored += distribute_energy_balanced(period, charge_period, energy_needed, priority_selection)
+                energy_stored += distribute_energy_balanced(
+                    period, charge_period, energy_needed, priority_selection)
 
             # if at the end of the charging interval vehicles are not charged to desired SOC
             # go through all periods again, this time from latest to earliest and raise the schedule
@@ -627,7 +639,8 @@ def generate_schedule(args):
                 if energy_stored >= desired_energy_stored:
                     break
                 energy_needed = desired_energy_stored - energy_stored
-                energy_stored += distribute_energy_balanced(period, charge_period, energy_needed, priority_selection)
+                energy_stored += distribute_energy_balanced(
+                    period, charge_period, energy_needed, priority_selection)
 
     # create schedule for batteries
     batteries = flex["batteries"]  # members: stored, power, free
