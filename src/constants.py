@@ -182,6 +182,7 @@ class Vehicle:
             ('estimated_time_of_departure', util.datetime_from_isoformat, None),
             ('desired_soc', float, 0.),
             ('soc', float, 0.),
+            ('schedule', float, None),
         ]
         util.set_attr_from_dict(obj, self, keys, optional_keys)
 
