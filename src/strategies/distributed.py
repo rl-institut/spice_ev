@@ -141,14 +141,27 @@ class Distributed(Strategy):
                     charging_stations, avail_bat_power[gcID] = \
                         balanced.load_vehicle(self, cs, gc, v, cs_id, charging_stations,
                                               avail_bat_power[gcID])
-
                 else:
                     print(f"The station {cs.parent} has no declaration such as 'opps' or 'deps'"
                           f"attached. Please make sure the ending of the station name is one of the"
                           f"mentioned.")
+            # charge batteries at this gc if no vehicles are available
+            for b_id, battery in self.world_state.batteries.items():
+                if battery.parent != gcID:
+                    continue
+                gc_current_load = gc.get_current_load()
+                if gc_current_load < self.EPS:
+                    # charge
+                    power = gc.cur_max_power - gc_current_load
+                    power = 0 if power < battery.min_charging_power else power
+                    avg_power = battery.load(self.interval, power)['avg_power']
+                    gc.add_load(b_id, avg_power)
+                else:
+                    # support gc
+                    bat_power = battery.unload(self.interval, gc_current_load)['avg_power']
+                    gc.add_load(b_id, -bat_power)
 
         # all vehicles loaded
         charging_stations.update(self.distribute_surplus_power())
-        self.update_batteries()
 
         return {'current_time': self.current_time, 'commands': charging_stations}
