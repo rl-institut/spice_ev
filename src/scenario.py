@@ -94,7 +94,7 @@ class Scenario:
                 # get time since start
                 dt = datetime.datetime.now() - begin
                 # compute fraction of work finished
-                f = (step_i + 1) / self.n_intervals
+                f = (step_i + 1) / (self.n_intervals + 1)
                 # how much time total?
                 total_time = dt / f
                 # how much time left?
