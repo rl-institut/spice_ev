@@ -117,6 +117,9 @@ class Strategy():
                 if ev.event_type == "departure":
                     # vehicle leaves: disconnect vehicle
                     vehicle.connected_charging_station = None
+                    if ev.start_time < self.current_time - self.interval:
+                        # event from the past: simulate optimal charging
+                        vehicle.battery.soc = vehicle.desired_soc
                     # check that vehicle has charged enough
                     if 0 <= vehicle.battery.soc < (1-self.margin)*vehicle.desired_soc - self.EPS:
                         # not charged enough: stop simulation
