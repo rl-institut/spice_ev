@@ -94,7 +94,7 @@ class Scenario:
                 # get time since start
                 dt = datetime.datetime.now() - begin
                 # compute fraction of work finished
-                f = (step_i + 1) / self.n_intervals
+                f = (step_i + 1) / (self.n_intervals + 1)
                 # how much time total?
                 total_time = dt / f
                 # how much time left?
@@ -186,7 +186,7 @@ class Scenario:
                 gcWithinPowerLimit &= -gc.max_power-strat.EPS <= gc_load <= gc.max_power+strat.EPS
                 if not gcWithinPowerLimit:
                     print('\n', '*'*42)
-                    print("GC load exceeded: {} / {}".format(gc_load, gc.max_power))
+                    print("{} maximum load exceeded: {} / {}".format(gcID, gc_load, gc.max_power))
                     strat.description = "*** {} (ABORTED) ***".format(strat.description)
 
                 # compute cost: price in ct/kWh -> get price in EUR
@@ -221,6 +221,10 @@ class Scenario:
             # get battery levels
             for batName, bat in strat.world_state.batteries.items():
                 batteryLevels[batName].append(bat.soc * bat.capacity)
+
+            # abort if GC power limit exceeded
+            if not gcWithinPowerLimit:
+                break
 
         # next simulation timestep
 

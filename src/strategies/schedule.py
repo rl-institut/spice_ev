@@ -48,7 +48,7 @@ class Schedule(Strategy):
             "Unknown charging strategy: {}".format(self.LOAD_STRAT)
 
     def dt_to_end_of_time_window(self):
-        """Returns timedelta between now and end of core standing time with a precision of one minute
+        """Returns timedelta between now and end of core standing time (resolution: one minute)
 
         :return: duration
         :rtype: timedelta
