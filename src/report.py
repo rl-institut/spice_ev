@@ -595,7 +595,7 @@ def plot(scenario):
 
     # figure title
     fig = plt.gcf()
-    fig.suptitle('Strategy: {}'.format(type(scenario.strat).__name__), fontweight='bold')
+    fig.suptitle('Strategy: {}'.format(scenario.strat.description), fontweight='bold')
 
     # fig.autofmt_xdate()  # rotate xaxis labels (dates) to fit
     # autofmt removes some axis labels, so rotate by hand:
