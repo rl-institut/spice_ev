@@ -141,7 +141,7 @@ if __name__ == "__main__":
     power_fix_load = power_fix_load_list
     charging_signals = charging_signal_list
 
-    if cost_calc == True:
+    if cost_calc is True:
         total_costs_per_year, total_costs_sim = calculate_costs(
             args.strategy,
             args.voltage_level,
