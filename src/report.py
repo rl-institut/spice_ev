@@ -51,6 +51,7 @@ def aggregate_local_results(scenario, gcID):
     """ Aggregate results of simulation for a single grid connector.
         Aggregated Quantities:
         avg flex per window,
+        sum of energy
         sum of energy per window,
         avg standing time,
         standing per window,
@@ -116,7 +117,7 @@ def aggregate_local_results(scenario, gcID):
     for idx in range(scenario.step_i):
         cur_time += scenario.interval
         time_since_midnight = cur_time - cur_time.replace(hour=0, minute=0)
-        # four equally large timewindows: 04-10, 10-16, 16-22, 22-04
+        # four equally large time_windows: 04-10, 10-16, 16-22, 22-04
         # shift time by four hours
         shifted_time = time_since_midnight - datetime.timedelta(hours=4)
         # compute window index
@@ -152,6 +153,13 @@ def aggregate_local_results(scenario, gcID):
         "22-04": scenario.avg_flex_per_window[gcID][3],
         "unit": "kW",
         "info": "Average flexible power range per time window"
+    }
+
+    # sum of used energy during simulation
+    json_results["sum of energy"] = {
+        "value": sum(scenario.totalLoad[gcID]) / stepsPerHour,
+        "unit": "kWh",
+        "info": "Total drawn energy from grid connection point during simulation"
     }
 
     # sum of used energy per window
@@ -637,7 +645,7 @@ def plot(scenario):
 
     # figure title
     fig = plt.gcf()
-    fig.suptitle('Strategy: {}'.format(type(scenario.strat).__name__), fontweight='bold')
+    fig.suptitle('Strategy: {}'.format(scenario.strat.description), fontweight='bold')
 
     # fig.autofmt_xdate()  # rotate xaxis labels (dates) to fit
     # autofmt removes some axis labels, so rotate by hand:
