@@ -19,8 +19,8 @@ DURATION_YEAR_S = 365 * 24 * 60 * 60  # [s]
 
 
 def read_simulation_csv(csv_file, strategy):
-    """Reads prices, power values and charging signals for each timestamp from csv file that contains
-    simulation results
+    """Reads prices, power values and charging signals for each timestamp from csv file that
+    contains simulation results
     :param csv_file: csv file with simulation results
     :type csv_file: str
     :param strategy: charging strategy for electric vehicles

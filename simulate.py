@@ -39,7 +39,7 @@ def simulate(args):
         'save_timeseries': args.get("save_timeseries"),
         'save_soc': args.get("save_soc"),
         'save_results': args.get("save_results"),
-        'testing': args.get("testing"),
+        'testing': args.get("testing")
     }
 
     # parse strategy options
@@ -85,8 +85,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description='SpiceEV - \
         Simulation Program for Individual Charging Events of Electric Vehicles. \
-        Simulate different charging strategies for a given scenario.'
-    )
+        Simulate different charging strategies for a given scenario.')
     parser.add_argument('input', nargs='?', help='Set the scenario JSON file')
     parser.add_argument('--strategy', '-s', default='greedy',
                         help='Specify the charging strategy. One of {}. You may define \
@@ -102,7 +101,7 @@ if __name__ == "__main__":
     parser.add_argument('--voltage_level', '-vl', default='MV',
                         help='Choose voltage level for cost calculation')
     parser.add_argument('--visual', '-v', action='store_true', help='Show plots of the results')
-    parser.add_argument("--eta", action="store_true",
+    parser.add_argument('--eta', action='store_true',
                         help='Show estimated time to finish simulation after each step, \
                         instead of progress bar. Not recommended for fast computations.')
     parser.add_argument('--output', '-o', help='Deprecated, use save-timeseries instead')

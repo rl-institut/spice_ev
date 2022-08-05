@@ -105,7 +105,7 @@ class Scenario:
                 # how much time left?
                 eta = total_time - dt
                 # remove sub-second resolution from time left
-                eta_str = str(eta).split(".")[0]
+                eta_str = str(eta).split('.')[0]
                 print("{} / {}, ETA {}\r".format(
                     step_i, self.n_intervals, eta_str), end="", flush=True)
             else:
@@ -188,8 +188,7 @@ class Scenario:
                 gc_load = max(-gc.max_power, gc_load - curFeedIn)
 
                 # safety check: GC load within bounds?
-                gcWithinPowerLimit &= \
-                    -gc.max_power - strat.EPS <= gc_load <= gc.max_power + strat.EPS
+                gcWithinPowerLimit &= -gc.max_power-strat.EPS <= gc_load <= gc.max_power+strat.EPS
                 if not gcWithinPowerLimit:
                     print('\n', '*'*42)
                     print("{} maximum load exceeded: {} / {}".format(gcID, gc_load, gc.max_power))
@@ -303,7 +302,7 @@ class Scenario:
             report.save_soc_timeseries(scenario=self,
                                        output_path=options.get("save_soc", None))
 
-        if options.get("visual", False) or options.get("testing", False):
+        if options.get('visual', False) or options.get("testing", False):
             # sum up total load of all grid connectors
             report.aggregate_global_results(self)
 
