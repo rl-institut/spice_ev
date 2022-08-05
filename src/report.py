@@ -92,8 +92,14 @@ def aggregate_local_results(scenario, gcID):
             "info": "Core standing time: start time, end time, duration"
         }
 
+    try:
+        nominal_pv_power = scenario.constants_json['photovoltaics']['nominal_power']
+    except KeyError:
+        print('nominal_power of PV power plant is not defined.')
+        nominal_pv_power = 0
+
     json_results["photovoltaics"] = {
-        "nominal_power": scenario.constants_json['photovoltaics']['nominal_power'],
+        "nominal_power": nominal_pv_power,
         "unit": "kW",
         "info": "Nominal power of PV power plant"
     }
@@ -478,15 +484,20 @@ def save_gc_timeseries(scenario, strategy_name, gcID, output_path):
 
             # add values to lists for cost calculation
             timestamps_list.append(r['current_time'].replace(tzinfo=None))
-            power_grid_supply_list.append(-1 * round(scenario.totalLoad[gcID][idx], round_to_places))
+            power_grid_supply_list.append(
+                -1 * round(scenario.totalLoad[gcID][idx], round_to_places))
             price_list.append(round(scenario.prices[gcID][idx][0], round_to_places))
             power_fix_load_list.append(round(sumExtLoads, round_to_places))
             if any(scenario.feedInPower):
-                power_feed_in_list.append(-1 * round(scenario.feedInPower[gcID][idx], round_to_places))
+                power_feed_in_list.append(
+                    -1 * round(scenario.feedInPower[gcID][idx], round_to_places))
             if strategy_name == 'flex_window':
-                charging_signal_list.append(round(scenario.gcWindowSchedule[gcID][idx], round_to_places))
+                charging_signal_list.append(
+                    round(scenario.gcWindowSchedule[gcID][idx], round_to_places))
 
-    return timestamps_list, power_grid_supply_list, price_list, power_fix_load_list, power_feed_in_list, charging_signal_list
+    return (timestamps_list, power_grid_supply_list, price_list, power_fix_load_list,
+            power_feed_in_list, charging_signal_list)
+
 
 def save_soc_timeseries(scenario, output_path):
     """ Generates and optionally saves an SOC timeseries for each vehicle.
