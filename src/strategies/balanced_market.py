@@ -344,8 +344,8 @@ class BalancedMarket(Strategy):
             cs_id = vehicle.connected_charging_station
             cs = self.world_state.charging_stations[cs_id]
             avail_power = gc.get_current_load(exclude=discharging_stations)
-            if avail_power < 0:
-                # surplus power
+            if avail_power < -self.EPS and cs_id not in discharging_stations:
+                # vehicle is not discharging: load greedy with surplus power
                 power = util.clamp_power(-avail_power, vehicle, cs)
                 avg_power = vehicle.battery.load(self.interval, power)['avg_power']
                 charging_stations[cs_id] = gc.add_load(cs_id, avg_power)
