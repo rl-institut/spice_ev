@@ -98,14 +98,14 @@ def get_strategy_and_voltage_level(cfg_path):
 
 
 def get_duration_of_simulation_period(simulation_data_list, timestep_s):
-    '''Determines duration of simulated period
-    :param simulation_data_list: any complete list with simulation data (f.i. timestamps_list)
+    """Determines duration of simulated period
+    :param simulation_data_list: any complete list with simulation data (e.g. timestamps_list)
     :type simulation_data_list: list
     :param timestep_s: duration of simulation interval in seconds
     :type timestep_s: int
     :return: duration of simulation period in seconds
     :rtype: int
-    '''
+    """
     number_timestamps = len(simulation_data_list)
     duration_sim_s = (number_timestamps - 1) * timestep_s
 
@@ -151,13 +151,13 @@ def find_prices(strategy, voltage_level, utilization_time_per_year, energy_suppl
 
     with open(PRICE_SHEET_PATH, "r", newline="") as ps:
         price_sheet = json.load(ps)
-    # customer type 'slp':
     if (strategy == "greedy" or strategy == "balanced") and abs(energy_supply_per_year) <= 100000:
+        # customer type 'slp'
         fee_type = "slp"
         commodity_charge = price_sheet["grid_fee"]["slp"]["commodity_charge_ct/kWh"]["net_price"]
         capacity_charge = price_sheet["grid_fee"]["slp"]["basic_charge_EUR/a"]["net_price"]
-    # customer type 'jlp':
     elif utilization_time_per_year < utilization_time_per_year_ec:
+        # customer type 'jlp'
         fee_type = "jlp"
         commodity_charge = price_sheet["grid_fee"]["jlp"][
             "<" + str(utilization_time_per_year_ec) + "_h/a"][
@@ -165,8 +165,8 @@ def find_prices(strategy, voltage_level, utilization_time_per_year, energy_suppl
         capacity_charge = price_sheet["grid_fee"]["jlp"][
             "<" + str(utilization_time_per_year_ec) + "_h/a"][
             "capacity_charge_EUR/kW*a"][voltage_level]
-    # customer type 'jlp' with utilization_time_per_year >= utilization_time_per_year_ec:
     else:
+        # customer type 'jlp' with utilization_time_per_year >= utilization_time_per_year_ec
         fee_type = "jlp"
         commodity_charge = price_sheet["grid_fee"]["jlp"][
             ">=" + str(utilization_time_per_year_ec) + "_h/a"][
@@ -189,7 +189,7 @@ def calculate_commodity_costs(price_list, power_grid_supply_list, timestep_s,
     :type timestep_s: int
     :param duration_year_s: duration of one year in seconds
     :type duration_year_s: int
-    :return: commodity costs per year and simulation period in eur
+    :return: commodity costs per year and simulation period in Euro
     :rtype: float
     """
 
@@ -669,7 +669,7 @@ def calculate_costs(strategy, voltage_level, timestamps_list, power_grid_supply_
     # COSTS FROM FEED-IN REMUNERATION:
 
     # get nominal power of pv power plant:
-    power_pv_nominal = simulation_json["photovoltaics"]["nominal_power"]  # ['duration'][0]#['Nettopreis'] # noqa
+    power_pv_nominal = simulation_json["photovoltaics"]["nominal_power"]
     # PV power plant existing:
     if power_pv_nominal is not None:
         # find charge for PV remuneration depending on nominal power pf PV plant:
@@ -866,6 +866,5 @@ if __name__ == "__main__":
         price_list,
         power_fix_load_list,
         power_feed_in_list,
-        charging_signal_list,
-        DURATION_YEAR_S
+        charging_signal_list
     )
