@@ -206,8 +206,16 @@ def generate_individual_flex_band(scenario, gcID):
     gc = deepcopy(scenario.constants.grid_connectors[gcID])
     interval = scenario.interval
 
-    event_steps = scenario.events.get_event_steps(
+    event_signal_steps = scenario.events.get_event_steps(
         scenario.start_time, scenario.n_intervals, interval)
+    # change ordering and corresponding interval from signal_time to start_time
+    event_steps = [[] for _ in range(scenario.n_intervals)]
+    for cur_events in event_signal_steps:
+        for event in cur_events:
+            # get start interval (ceil), must be within scenario time
+            start_interval = -((scenario.start_time - event.start_time) // interval)
+            if 0 <= start_interval <= scenario.n_intervals:
+                event_steps[start_interval].append(event)
 
     flex = {
         "vehicles": [[]],
