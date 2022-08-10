@@ -274,6 +274,11 @@ def aggregate_local_results(scenario, gcID):
         "info": "Number of load cycles per vehicle (averaged)"
     }
 
+    json_results["times below desired soc"] = {
+        "value": scenario.strat.margin_counter,
+        "info": "Number of times vehicle SoC was below desired SoC on departure (without margin)"
+    }
+
     return json_results
 
 
