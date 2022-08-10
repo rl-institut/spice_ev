@@ -537,6 +537,7 @@ def generate_schedule(args):
                     continue
 
                 standing_range = range(vinfo["idx_start"], vinfo["idx_end"])
+
                 # distribute energy
                 energy_needed = vinfo["energy"] / vinfo["efficiency"]
                 for prio in [1, 2, 3, 4]:
@@ -560,6 +561,8 @@ def generate_schedule(args):
                             schedule[j] += power
                             energy_needed -= power / ts_per_hour
                             flex["max"][j] -= power
+                            # only one schedule per timestep
+                            assert vehicle_schedule[vinfo["vid"]][j] == 0
                             vehicle_schedule[vinfo["vid"]][j] = power
 
                 # add to flex
@@ -575,12 +578,9 @@ def generate_schedule(args):
             bat_flex = flex["batteries"]["power"] * flex["batteries"]["efficiency"] / ts_per_hour
             max_flex[i] += bat_flex
 
-            # clamp to GC power
-            for band in [min_flex, flex["base"], max_flex]:
-                band[i] = min(max(band[i], flex["min"][i]), flex["max"][i])
-
         flex["min"] = min_flex
         flex["max"] = max_flex
+
     else:
         # generate schedule for whole car park
         for interval in flex["intervals"]:
@@ -662,20 +662,24 @@ def generate_schedule(args):
             # distribute energy over period of same priority
             for t in range(t_start, t_end):
                 t_left = duration - (t - t_start)
-                if energy > 0:
+                if energy > EPS:
                     # charge
                     e = min(
                         batteries["power"] / ts_per_hour,
                         energy / t_left,
                         (flex["max"][t] - schedule[t]) / ts_per_hour)
                     e_bat_change = e * batteries["efficiency"]
-                else:
+                elif energy < -EPS:
                     # discharge
                     e = -min(
                         (batteries["power"] * batteries["efficiency"]) / ts_per_hour,
                         -energy / t_left,
                         (schedule[t] - flex["min"][t]) / ts_per_hour)
                     e_bat_change = e / batteries["efficiency"]
+                else:
+                    e = 0
+                    e_bat_change = 0
+
                 batteries["stored"] += e_bat_change
                 batteries["free"] -= e_bat_change
                 schedule[t] += e * ts_per_hour
