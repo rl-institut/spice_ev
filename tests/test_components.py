@@ -178,6 +178,16 @@ class TestBattery(unittest.TestCase):
             p = b.unload(td_long, 50, target_soc=t[0])["avg_power"]
             assert approx_eq(b.soc, min(initial_soc, t[0]))
 
+    def test_differential(self):
+        # test non-constant (dis)charging curve
+        points = [(0, 0), (1, 1)]
+        lc = loading_curve.LoadingCurve(points)
+        capacity = 1
+        efficiency = 1
+        initial_soc = 0.1
+        b = battery.Battery(capacity, lc, initial_soc, efficiency, lc)
+        b.unload(datetime.timedelta(hours=1))
+
 
 if __name__ == '__main__':
     unittest.main()
