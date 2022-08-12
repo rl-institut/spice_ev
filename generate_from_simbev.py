@@ -96,7 +96,7 @@ def generate_from_simbev(args):
     # external load CSV
     if args.include_ext_load_csv:
         filename = args.include_ext_load_csv
-        basename = filename.split('.')[0]
+        basename = Path(filename).stem
         options = {
             "csv_file": filename,
             "start_time": start.isoformat(),
@@ -121,7 +121,7 @@ def generate_from_simbev(args):
     # energy feed-in CSV (e.g. from PV)
     if args.include_feed_in_csv:
         filename = args.include_feed_in_csv
-        basename = filename.split('.')[0]
+        basename = Path(filename).stem
         options = {
             "csv_file": filename,
             "start_time": start.isoformat(),
@@ -145,6 +145,7 @@ def generate_from_simbev(args):
     # energy price CSV
     if args.include_price_csv:
         filename = args.include_price_csv
+        # basename = Path(filename).stem
         options = {
             "csv_file": filename,
             "start_time": start.isoformat(),
