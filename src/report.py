@@ -329,13 +329,11 @@ def save_gc_timeseries(scenario, gcID, output_path):
 
     uc_keys_present = cs_by_uc.keys()
 
-    scheduleKeys = []
-    for gcID in sorted(scenario.gcPowerSchedule.keys()):
-        if any(s is not None for s in scenario.gcPowerSchedule[gcID]):
-            scheduleKeys.append(gcID)
+    hasExtLoads = any(scenario.extLoads)
+    hasSchedule = any(s is not None for s in scenario.gcPowerSchedule[gcID])
+    hasBatteries = sum([b.parent == gcID for b in scenario.constants.batteries.values()])
 
     # any loads except CS present?
-    hasExtLoads = any(scenario.extLoads)
 
     with open(output_path, 'w') as timeseries_file:
         # write header
@@ -355,12 +353,12 @@ def save_gc_timeseries(scenario, gcID, output_path):
         if any(scenario.feedInPower):
             header.append("feed-in [kW]")
         # batteries
-        if scenario.constants.batteries:
+        if hasBatteries:
             header += ["battery power [kW]", "bat. stored energy [kWh]"]
         # flex + schedule
         header += ["flex min [kW]", "flex base [kW]", "flex max [kW]"]
-        header += ["schedule {} [kW]".format(gcID) for gcID in scheduleKeys]
-        header += ["window {}".format(gcID) for gcID in scheduleKeys]
+        if hasSchedule:
+            header += ["schedule [kW]", "window"]
         # sum of charging power
         header.append("sum CS power")
         # charging power per use case
@@ -393,7 +391,7 @@ def save_gc_timeseries(scenario, gcID, output_path):
             if any(scenario.feedInPower):
                 row.append(-1 * round(scenario.feedInPower[gcID][idx], round_to_places))
             # batteries
-            if scenario.constants.batteries:
+            if hasBatteries:
                 current_battery = {}
                 for batID in scenario.batteryLevels:
                     if scenario.constants.batteries[batID].parent == gcID:
@@ -422,15 +420,16 @@ def save_gc_timeseries(scenario, gcID, output_path):
             row += [
                 round(scenario.flex_bands[gcID]["min"][idx], round_to_places),
                 round(scenario.flex_bands[gcID]["base"][idx], round_to_places),
-                round(scenario.flex_bands[gcID]["max"][idx], round_to_places)
+                round(scenario.flex_bands[gcID]["max"][idx], round_to_places),
             ]
+
             # schedule + window schedule
-            row += [
-                round(scenario.gcPowerSchedule[gcID][idx], round_to_places)
-                for gcID in scheduleKeys]
-            row += [
-                round(scenario.gcWindowSchedule[gcID][idx], round_to_places)
-                for gcID in scheduleKeys]
+            if hasSchedule:
+                row += [
+                    round(scenario.gcPowerSchedule[gcID][idx], round_to_places),
+                    round(scenario.gcWindowSchedule[gcID][idx], round_to_places),
+                ]
+
             # charging power
             # get sum of all current CS power that are connected to gc
             gc_commands = {}
