@@ -164,7 +164,7 @@ class Scenario:
 
                 # get current loads
                 cost = 0
-                price = []
+                price = 0
                 curLoad = 0
                 curFeedIn = 0
 
@@ -194,9 +194,8 @@ class Scenario:
                     power = max(gc_load, 0)
                     energy = power / stepsPerHour
                     cost += util.get_cost(energy, gc.cost) / 100
-                    price.append(util.get_cost(1, gc.cost))
-                else:
-                    price.append(0)
+                    price = util.get_cost(1, gc.cost)
+
                 curLoad += gc_load
 
                 gcPowerSchedule[gcID].append(gc.target)

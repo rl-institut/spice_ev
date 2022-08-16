@@ -13,12 +13,7 @@ def aggregate_global_results(scenario):
     :type scenario: spice_ev.Scenario
     """
     gc_ids = scenario.constants.grid_connectors.keys()
-    all_totalLoad = []
-    for gcID in gc_ids:
-        if not all_totalLoad:
-            all_totalLoad = scenario.totalLoad[gcID]
-        else:
-            all_totalLoad = list(map(lambda x, y: x+y, all_totalLoad, scenario.totalLoad[gcID]))
+    all_totalLoad = [sum(x) for x in zip(*scenario.totalLoad.values())]
 
     sum_cs = []
     for r in scenario.results:
@@ -378,7 +373,7 @@ def save_gc_timeseries(scenario, gcID, output_path):
             row = [idx, r['current_time'].replace(tzinfo=None)]
             # price
             if any(scenario.prices[gcID]):
-                row.append(round(scenario.prices[gcID][idx][0], round_to_places))
+                row.append(round(scenario.prices[gcID][idx], round_to_places))
             # grid power (negative since grid power is fed into system)
             row.append(-1 * round(scenario.totalLoad[gcID][idx], round_to_places))
             # external loads
@@ -585,8 +580,8 @@ def plot(scenario):
 
     # price
     ax = plt.subplot(2, 2, 4)
-    for gcID, price in scenario.prices.items():
-        lines = ax.step(xlabels, price)
+    prices = list(zip(*scenario.prices.values()))
+    lines = ax.step(xlabels, prices)
     ax.set_title('Price for 1 kWh')
     ax.set(ylabel='€')
     if len(gc_ids) <= 10:
