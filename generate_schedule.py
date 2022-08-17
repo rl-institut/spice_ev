@@ -214,7 +214,7 @@ def generate_individual_flex_band(scenario, gcID):
         for event in cur_events:
             # get start interval (ceil), must be within scenario time
             start_interval = -((scenario.start_time - event.start_time) // interval)
-            if 0 <= start_interval <= scenario.n_intervals:
+            if 0 <= start_interval < scenario.n_intervals:
                 event_steps[start_interval].append(event)
 
     flex = {
