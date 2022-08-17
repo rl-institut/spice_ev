@@ -547,7 +547,7 @@ def generate_schedule(args):
                 standing_range = range(vinfo["idx_start"], vinfo["idx_end"])
 
                 # distribute energy
-                energy_needed = vinfo["energy"] / vinfo["efficiency"]
+                energy_needed = vinfo["energy"]
                 for prio in [1, 2, 3, 4]:
                     if energy_needed < EPS:
                         break
