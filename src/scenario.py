@@ -4,6 +4,7 @@ import datetime
 import json
 import traceback
 import os
+from warnings import warn
 
 from src import constants, events, strategy, util, report
 
@@ -236,6 +237,11 @@ class Scenario:
                     "totalLoad", "disconnect", "feedInPower", "stepsPerHour", "batteryLevels",
                     "connChargeByTS", "gcPowerSchedule", "gcWindowSchedule"]:
             setattr(self, var, locals()[var])
+
+        # summary if desired SoC was not reached anytime
+        if strat.desired_counter:
+            warn(f"Desired SoC not reached in {strat.desired_counter} cases "
+                 f"(with margin of {strat.margin * 100}%: {strat.margin_counter} cases)")
 
         for gcID in gc_ids:
             print("Energy drawn from {}: {:.0f} kWh, Costs: {:.2f} €".format(gcID,

@@ -275,8 +275,11 @@ def aggregate_local_results(scenario, gcID):
     }
 
     json_results["times below desired soc"] = {
-        "value": scenario.strat.margin_counter,
-        "info": "Number of times vehicle SoC was below desired SoC on departure (without margin)"
+        "without margin": scenario.strat.desired_counter,
+        "with margin": scenario.strat.margin_counter,
+        "margin": scenario.strat.margin,
+        "info": "Number of times vehicle SoC was below desired SoC on departure "
+                "(with and without margin of {}%)".format(scenario.strat.margin * 100)
     }
 
     return json_results

@@ -54,6 +54,8 @@ class Strategy():
         # for each vehicle, save timestamps when SoC becomes negative
         self.negative_soc_tracker = {}
         # count number of times SoC is below desired SoC on departure (used in report)
+        self.desired_counter = 0
+        # count number of times SoC is below desired SoC (with margin) on departure
         self.margin_counter = 0
 
     def step(self, event_list=[]):
@@ -126,10 +128,11 @@ class Strategy():
                         # event from the past: simulate optimal charging
                         vehicle.battery.soc = vehicle.desired_soc
                     # check that vehicle has charged enough
-                    self.margin_counter += vehicle.battery.soc < vehicle.desired_soc - self.EPS
+                    self.desired_counter += vehicle.battery.soc < vehicle.desired_soc - self.EPS
                     if 0 <= vehicle.battery.soc < (1-self.margin)*vehicle.desired_soc - self.EPS:
-                        # not charged enough: stop simulation
-                        raise RuntimeError("{}: Vehicle {} is below desired SOC ({} < {})".format(
+                        # not charged enough: write warning
+                        self.margin_counter += 1
+                        warn("{}: Vehicle {} is below desired SOC ({} < {})".format(
                             ev.start_time.isoformat(), ev.vehicle_id,
                             vehicle.battery.soc, vehicle.desired_soc))
                 elif ev.event_type == "arrival":
