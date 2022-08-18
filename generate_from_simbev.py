@@ -294,10 +294,10 @@ def generate_from_simbev(args):
                         charge_duration = int(row["event_time"]) * interval
                         battery.load(charge_duration, capacity)
                         if battery.soc < float(row["soc_end"]) and args.verbose > 0:
-                            print("WARNING: Can't fulfill charging request for {} in ts {:.0f}. "
+                            print("WARNING: Can't fulfill charging request for {} in ts {}. "
                                   "Desired SoC is set to {:.3f}, possible: {:.3f}"
                                   .format(
-                                    vehicle_name, int(row["event_end"]),
+                                    vehicle_name, row["timestamp"],
                                     desired_soc, battery.soc
                                   ))
                         vehicle_soc = desired_soc
@@ -392,15 +392,16 @@ def generate_from_simbev(args):
                     assert event_start_ts >= event_end_ts, (
                         "Order of vehicle {} wrong in timestep {}, has been standing already"
                     ).format(vehicle_name, event_start_idx)
-                    events["vehicle_events"].append({
-                        "signal_time": event_end_ts.isoformat(),
-                        "start_time": event_end_ts.isoformat(),
-                        "vehicle_id": vehicle_name,
-                        "event_type": "departure",
-                        "update": {
-                            "estimated_time_of_arrival": event_start_ts.isoformat()
-                        }
-                    })
+                    if event_start_idx > 0:
+                        events["vehicle_events"].append({
+                            "signal_time": event_end_ts.isoformat(),
+                            "start_time": event_end_ts.isoformat(),
+                            "vehicle_id": vehicle_name,
+                            "event_type": "departure",
+                            "update": {
+                                "estimated_time_of_arrival": event_start_ts.isoformat()
+                            }
+                        })
 
                     # arrival at new CS
                     event_end_idx = int(row["event_start"]) + int(row["event_time"]) + 1
