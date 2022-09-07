@@ -278,7 +278,7 @@ def generate_individual_flex_band(scenario, gcID):
             "energy": energy,
             "desired_soc": v.desired_soc,
             "efficiency": v.battery.efficiency,
-            "p_min": cs.min_power,
+            "p_min": max(cs.min_power, v.vehicle_type.min_charging_power),
             "p_max": cs.max_power,
         })
 
@@ -311,13 +311,18 @@ def generate_individual_flex_band(scenario, gcID):
                 if event.event_type == 'arrival':
                     cs_id = event.update["connected_charging_station"]
                     vehicle.connected_charging_station = cs_id
+                    vehicle.battery.soc += event.update["soc_delta"]
                     if cs_id is None:
                         continue
+                    if cs is None:
+                        # CS not found? Can't charge
+                        continue
                     cs = scenario.constants.charging_stations.get(cs_id)
-                    if cs is None or cs.parent != gcID:
+                    if cs.parent != gcID:
+                        # fake perfect charging
+                        vehicle.battery.soc = event.update["desired_soc"]
                         continue
                     # arrived at this GC: add to list
-                    vehicle.battery.soc += event.update["soc_delta"]
                     vehicle.last_arrival_idx = (len(flex["vehicles"])-1, len(flex["vehicles"][-1]))
                     delta_soc = event.update["desired_soc"] - vehicle.battery.soc
                     delta_soc = max(delta_soc, 0)
@@ -333,7 +338,7 @@ def generate_individual_flex_band(scenario, gcID):
                         "energy": energy,
                         "desired_soc": event.update["desired_soc"],
                         "efficiency": v.battery.efficiency,
-                        "p_min": cs.min_power,
+                        "p_min": max(cs.min_power, v.vehicle_type.min_charging_power),
                         "p_max": cs.max_power,
                     })
                     vehicle.battery.soc = event.update["desired_soc"]

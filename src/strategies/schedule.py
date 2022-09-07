@@ -45,7 +45,7 @@ class Schedule(Strategy):
         elif self.LOAD_STRAT == "individual":
             self.sort_key = lambda v: v[0].get_delta_soc() * v[0].battery.capacity
         else:
-            "Unknown charging strategy: {}".format(self.LOAD_STRAT)
+            warnings.warn("Unknown charging strategy: {}".format(self.LOAD_STRAT))
 
     def dt_to_end_of_time_window(self):
         """Returns timedelta between now and end of core standing time (resolution: one minute)
@@ -713,7 +713,6 @@ class Schedule(Strategy):
             cur_time = self.current_time
             charging = True
             while charging and cur_time < vehicle.estimated_time_of_departure:
-
                 # peek into future events for schedule changes or departure
                 while True:
                     try:
@@ -738,12 +737,18 @@ class Schedule(Strategy):
                 cur_time += self.interval
                 schedule.append(cur_schedule)
 
+            # compute number of remaining charging intervals (off by one)
+            standing = (vehicle.estimated_time_of_departure - self.current_time) // self.interval
             # charge according to schedule, see if target_soc can be reached
             old_soc = vehicle.battery.soc
             for s in schedule:
                 power = clamp_power(s, vehicle, cs)
                 vehicle.battery.load(self.interval, power)
-            if vehicle.get_delta_soc() < self.EPS:
+            if standing > len(schedule):
+                # not entire schedule known / standing longer than current schedule:
+                # don't allocate additional power (avoid power creep)
+                add_power = 0
+            elif vehicle.get_delta_soc() < self.EPS:
                 # schedule is sufficient to reach desired soc: no additional power needed
                 add_power = 0
             else:
