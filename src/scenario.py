@@ -4,6 +4,7 @@ import datetime
 import json
 import traceback
 import os
+from warnings import warn
 
 from src import constants, events, strategy, util, report
 
@@ -94,7 +95,7 @@ class Scenario:
                 # get time since start
                 dt = datetime.datetime.now() - begin
                 # compute fraction of work finished
-                f = (step_i + 1) / self.n_intervals
+                f = (step_i + 1) / (self.n_intervals + 1)
                 # how much time total?
                 total_time = dt / f
                 # how much time left?
@@ -164,7 +165,7 @@ class Scenario:
 
                 # get current loads
                 cost = 0
-                price = []
+                price = 0
                 curLoad = 0
                 curFeedIn = 0
 
@@ -186,7 +187,7 @@ class Scenario:
                 gcWithinPowerLimit &= -gc.max_power-strat.EPS <= gc_load <= gc.max_power+strat.EPS
                 if not gcWithinPowerLimit:
                     print('\n', '*'*42)
-                    print("GC load exceeded: {} / {}".format(gc_load, gc.max_power))
+                    print("{} maximum load exceeded: {} / {}".format(gcID, gc_load, gc.max_power))
                     strat.description = "*** {} (ABORTED) ***".format(strat.description)
 
                 # compute cost: price in ct/kWh -> get price in EUR
@@ -194,9 +195,8 @@ class Scenario:
                     power = max(gc_load, 0)
                     energy = power / stepsPerHour
                     cost += util.get_cost(energy, gc.cost) / 100
-                    price.append(util.get_cost(1, gc.cost))
-                else:
-                    price.append(0)
+                    price = util.get_cost(1, gc.cost)
+
                 curLoad += gc_load
 
                 gcPowerSchedule[gcID].append(gc.target)
@@ -222,6 +222,10 @@ class Scenario:
             for batName, bat in strat.world_state.batteries.items():
                 batteryLevels[batName].append(bat.soc * bat.capacity)
 
+            # abort if GC power limit exceeded
+            if not gcWithinPowerLimit:
+                break
+
         # next simulation timestep
 
         # adjust step_i: n_intervals or failed simulation step
@@ -232,6 +236,11 @@ class Scenario:
                     "totalLoad", "disconnect", "feedInPower", "stepsPerHour", "batteryLevels",
                     "connChargeByTS", "gcPowerSchedule", "gcWindowSchedule"]:
             setattr(self, var, locals()[var])
+
+        # summary if desired SoC was not reached anytime
+        if strat.desired_counter:
+            warn(f"Desired SoC not reached in {strat.desired_counter} cases "
+                 f"(with margin of {strat.margin * 100}%: {strat.margin_counter} cases)")
 
         for gcID in gc_ids:
             print("Energy drawn from {}: {:.0f} kWh, Costs: {:.2f} €".format(gcID,

@@ -13,12 +13,7 @@ def aggregate_global_results(scenario):
     :type scenario: spice_ev.Scenario
     """
     gc_ids = scenario.constants.grid_connectors.keys()
-    all_totalLoad = []
-    for gcID in gc_ids:
-        if not all_totalLoad:
-            all_totalLoad = scenario.totalLoad[gcID]
-        else:
-            all_totalLoad = list(map(lambda x, y: x+y, all_totalLoad, scenario.totalLoad[gcID]))
+    all_totalLoad = [sum(x) for x in zip(*scenario.totalLoad.values())]
 
     sum_cs = []
     for r in scenario.results:
@@ -274,6 +269,14 @@ def aggregate_local_results(scenario, gcID):
         "info": "Number of load cycles per vehicle (averaged)"
     }
 
+    json_results["times below desired soc"] = {
+        "without margin": scenario.strat.desired_counter,
+        "with margin": scenario.strat.margin_counter,
+        "margin": scenario.strat.margin,
+        "info": "Number of times vehicle SoC was below desired SoC on departure "
+                "(with and without margin of {}%)".format(scenario.strat.margin * 100)
+    }
+
     return json_results
 
 
@@ -329,13 +332,11 @@ def save_gc_timeseries(scenario, gcID, output_path):
 
     uc_keys_present = cs_by_uc.keys()
 
-    scheduleKeys = []
-    for gcID in sorted(scenario.gcPowerSchedule.keys()):
-        if any(s is not None for s in scenario.gcPowerSchedule[gcID]):
-            scheduleKeys.append(gcID)
+    hasExtLoads = any(scenario.extLoads)
+    hasSchedule = any(s is not None for s in scenario.gcPowerSchedule[gcID])
+    hasBatteries = sum([b.parent == gcID for b in scenario.constants.batteries.values()])
 
     # any loads except CS present?
-    hasExtLoads = any(scenario.extLoads)
 
     with open(output_path, 'w') as timeseries_file:
         # write header
@@ -355,12 +356,12 @@ def save_gc_timeseries(scenario, gcID, output_path):
         if any(scenario.feedInPower):
             header.append("feed-in [kW]")
         # batteries
-        if scenario.constants.batteries:
+        if hasBatteries:
             header += ["battery power [kW]", "bat. stored energy [kWh]"]
         # flex + schedule
         header += ["flex min [kW]", "flex base [kW]", "flex max [kW]"]
-        header += ["schedule {} [kW]".format(gcID) for gcID in scheduleKeys]
-        header += ["window {}".format(gcID) for gcID in scheduleKeys]
+        if hasSchedule:
+            header += ["schedule [kW]", "window"]
         # sum of charging power
         header.append("sum CS power")
         # charging power per use case
@@ -380,7 +381,7 @@ def save_gc_timeseries(scenario, gcID, output_path):
             row = [idx, r['current_time'].replace(tzinfo=None)]
             # price
             if any(scenario.prices[gcID]):
-                row.append(round(scenario.prices[gcID][idx][0], round_to_places))
+                row.append(round(scenario.prices[gcID][idx], round_to_places))
             # grid power (negative since grid power is fed into system)
             row.append(-1 * round(scenario.totalLoad[gcID][idx], round_to_places))
             # external loads
@@ -393,7 +394,7 @@ def save_gc_timeseries(scenario, gcID, output_path):
             if any(scenario.feedInPower):
                 row.append(-1 * round(scenario.feedInPower[gcID][idx], round_to_places))
             # batteries
-            if scenario.constants.batteries:
+            if hasBatteries:
                 current_battery = {}
                 for batID in scenario.batteryLevels:
                     if scenario.constants.batteries[batID].parent == gcID:
@@ -422,15 +423,16 @@ def save_gc_timeseries(scenario, gcID, output_path):
             row += [
                 round(scenario.flex_bands[gcID]["min"][idx], round_to_places),
                 round(scenario.flex_bands[gcID]["base"][idx], round_to_places),
-                round(scenario.flex_bands[gcID]["max"][idx], round_to_places)
+                round(scenario.flex_bands[gcID]["max"][idx], round_to_places),
             ]
+
             # schedule + window schedule
-            row += [
-                round(scenario.gcPowerSchedule[gcID][idx], round_to_places)
-                for gcID in scheduleKeys]
-            row += [
-                round(scenario.gcWindowSchedule[gcID][idx], round_to_places)
-                for gcID in scheduleKeys]
+            if hasSchedule:
+                row += [
+                    round(scenario.gcPowerSchedule[gcID][idx], round_to_places),
+                    round(scenario.gcWindowSchedule[gcID][idx], round_to_places),
+                ]
+
             # charging power
             # get sum of all current CS power that are connected to gc
             gc_commands = {}
@@ -586,8 +588,8 @@ def plot(scenario):
 
     # price
     ax = plt.subplot(2, 2, 4)
-    for gcID, price in scenario.prices.items():
-        lines = ax.step(xlabels, price)
+    prices = list(zip(*scenario.prices.values()))
+    lines = ax.step(xlabels, prices)
     ax.set_title('Price for 1 kWh')
     ax.set(ylabel='€')
     if len(gc_ids) <= 10:
@@ -595,7 +597,7 @@ def plot(scenario):
 
     # figure title
     fig = plt.gcf()
-    fig.suptitle('Strategy: {}'.format(type(scenario.strat).__name__), fontweight='bold')
+    fig.suptitle('Strategy: {}'.format(scenario.strat.description), fontweight='bold')
 
     # fig.autofmt_xdate()  # rotate xaxis labels (dates) to fit
     # autofmt removes some axis labels, so rotate by hand:

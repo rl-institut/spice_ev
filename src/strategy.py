@@ -32,8 +32,6 @@ class Strategy():
         self.world_state.future_events = []
         self.interval = kwargs.get('interval')  # required
         self.current_time = start_time - self.interval
-        # for each vehicle, save timestamps when SoC becomes negative
-        self.negative_soc_tracker = {}
         # relative allowed difference between battery SoC and desired SoC when leaving
         self.margin = 0.1
         self.ALLOW_NEGATIVE_SOC = False
@@ -47,9 +45,18 @@ class Strategy():
         # Reduce available power at each charging station to given fraction (0 - 1)
         for cs in self.world_state.charging_stations.values():
             cs.max_power = kwargs.get('CONCURRENCY', 1.0) * cs.max_power
+        # dummy description (should be set in actual strategies)
+        self.description = None
         # update optional
         for k, v in kwargs.items():
             setattr(self, k, v)
+        # everything below can not be set by user
+        # for each vehicle, save timestamps when SoC becomes negative
+        self.negative_soc_tracker = {}
+        # count number of times SoC is below desired SoC on departure (used in report)
+        self.desired_counter = 0
+        # count number of times SoC is below desired SoC (with margin) on departure
+        self.margin_counter = 0
 
     def step(self, event_list=[]):
         """
@@ -117,10 +124,15 @@ class Strategy():
                 if ev.event_type == "departure":
                     # vehicle leaves: disconnect vehicle
                     vehicle.connected_charging_station = None
+                    if ev.start_time < self.current_time - self.interval:
+                        # event from the past: simulate optimal charging
+                        vehicle.battery.soc = vehicle.desired_soc
                     # check that vehicle has charged enough
+                    self.desired_counter += vehicle.battery.soc < vehicle.desired_soc - self.EPS
                     if 0 <= vehicle.battery.soc < (1-self.margin)*vehicle.desired_soc - self.EPS:
-                        # not charged enough: stop simulation
-                        raise RuntimeError("{}: Vehicle {} is below desired SOC ({} < {})".format(
+                        # not charged enough: write warning
+                        self.margin_counter += 1
+                        warn("{}: Vehicle {} is below desired SOC ({} < {})".format(
                             ev.start_time.isoformat(), ev.vehicle_id,
                             vehicle.battery.soc, vehicle.desired_soc))
                 elif ev.event_type == "arrival":

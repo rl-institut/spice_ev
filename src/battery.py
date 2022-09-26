@@ -53,7 +53,7 @@ class Battery():
         old_soc = self.soc
         # get loading curve clamped to maximum value
         # adjust charging curve to reflect power that reaches the battery
-        # after losses due to efficieny
+        # after losses due to efficiency
         clamped = self.loading_curve.clamped(max_charging_power, post_scale=self.efficiency)
         # get average power (energy over complete timedelta)
         avg_power = self._adjust_soc(charging_curve=clamped,
@@ -95,6 +95,7 @@ class Battery():
         avg_power = self._adjust_soc(charging_curve=clamped,
                                      target_soc=target_soc,
                                      timedelta=timedelta)
+
         # get power supplied to the connected device/vehicle after loss due to efficiency
         avg_power *= self.efficiency
 
@@ -236,7 +237,7 @@ class Battery():
                     # inverse of exponential function
                     t = log((x2 + n/m) / (self.soc + n/m)) * c/m
             except (ValueError, ZeroDivisionError):
-                t = remaining_hours
+                t = sign * remaining_hours
 
             # what is earlier, breakpoint or interval end?
             # keep track of sign(t) as it encodes whether we charge or discharge
@@ -249,6 +250,11 @@ class Battery():
                 # charge power dependent on SOC
                 # inhomogenous differential equation -> exponential function
                 new_soc = -n/m + (n/m + self.soc) * exp(m/c * t)
+
+            if discharge:
+                assert new_soc <= self.soc, f"Discharge: {new_soc} should be less than {self.soc}"
+            else:
+                assert new_soc >= self.soc, f"Charge: {new_soc} should be greater than {self.soc}"
 
             energy_delta = abs(new_soc - self.soc) * c
             self.soc = new_soc

@@ -18,7 +18,7 @@ class Distributed(Strategy):
         # minimum charging time at depot; time to look into the future for prioritization
         self.C_HORIZON = 3  # min
         # dict that holds the current vehicles connected to a grid connector for each gc
-        self.v_connect = {}
+        self.v_connect = {gcID: [] for gcID in self.world_state.grid_connectors.keys()}
 
     def step(self, event_list=[]):
         super().step(event_list)
@@ -45,15 +45,15 @@ class Distributed(Strategy):
                 continue
             else:
                 skip_priorization[gcID] = False
-            if gcID not in self.v_connect.keys():
-                self.v_connect[gcID] = []
-            # remove vehicle from v_connect if it left already or their desired_soc is reached
-            if self.v_connect[gcID]:
-                for v_id in self.v_connect[gcID]:
-                    v = self.world_state.vehicles[v_id]
-                    if v.connected_charging_station is None or \
-                            v.battery.soc >= v.desired_soc - self.EPS:
-                        self.v_connect[gcID].remove(v_id)
+            # update v_connect: only vehicles that are connected and below desired SoC remain
+            still_connected = []
+            for v_id in self.v_connect[gcID]:
+                v = self.world_state.vehicles[v_id]
+                if v.connected_charging_station is not None:
+                    cs = self.world_state.charging_stations[v.connected_charging_station]
+                    if cs.parent == gcID and v.get_delta_soc() > self.EPS:
+                        still_connected.append(v_id)
+            self.v_connect[gcID] = still_connected
             # number of charging vehicles must not exceed maximum allowed for this GC
             assert len(self.v_connect[gcID]) <= self.world_state.grid_connectors[gcID].number_cs
 
@@ -86,10 +86,10 @@ class Distributed(Strategy):
                         current_vehicle_id = event.vehicle_id
                         if (event.event_type == "arrival") and \
                                 event.update["connected_charging_station"] is not None:
-                            current_cs = event.update["connected_charging_station"]
-                            current_gc = self.world_state.charging_stations[
-                                current_cs].parent
-                            if current_gc == cs.parent:
+                            event_cs = event.update["connected_charging_station"]
+                            event_gc = self.world_state.charging_stations[
+                                event_cs].parent
+                            if event_gc == gcID:
                                 current_soc_delta = event.update["soc_delta"]
                                 current_soc = self.world_state.vehicles[current_vehicle_id] \
                                                   .battery.soc - current_soc_delta
@@ -128,9 +128,12 @@ class Distributed(Strategy):
                 v = self.world_state.vehicles[v_id]
                 # get connected charging station
                 cs_id = v.connected_charging_station
-                if not cs_id:
+                if cs_id is None:
                     continue
                 cs = self.world_state.charging_stations[cs_id]
+                if cs.parent != gcID:
+                    # vehicle may still be at prior stop
+                    continue
                 # get station type
                 station_type = cs_id.split("_")[-1]
                 if station_type == "opps":
