@@ -148,23 +148,25 @@ class Distributed(Strategy):
                     print(f"The station {cs.parent} has no declaration such as 'opps' or 'deps'"
                           f"attached. Please make sure the ending of the station name is one of the"
                           f"mentioned.")
-            # charge batteries at this gc if no vehicles are available
-            for b_id, battery in self.world_state.batteries.items():
-                if battery.parent != gcID:
-                    continue
-                gc_current_load = gc.get_current_load()
-                if gc_current_load < self.EPS:
-                    # charge
-                    power = gc.cur_max_power - gc_current_load
-                    power = 0 if power < battery.min_charging_power else power
-                    avg_power = battery.load(self.interval, power)['avg_power']
-                    gc.add_load(b_id, avg_power)
-                else:
-                    # support gc
-                    bat_power = battery.unload(self.interval, gc_current_load)['avg_power']
-                    gc.add_load(b_id, -bat_power)
 
         # all vehicles loaded
         charging_stations.update(self.distribute_surplus_power())
+        # use bus specific strategy for charging stationary batteries
+        # always charge battery if power is available on gc
+        # since priority is to keep busses fully charged instead of
+        # reducing peak load to a minimum
+        for b_id, battery in self.world_state.batteries.items():
+            gc = self.world_state.grid_connectors[battery.parent]
+            gc_current_load = gc.get_current_load()
+            if gc_current_load <= gc.cur_max_power:
+                # surplus energy: charge
+                power = gc.cur_max_power - gc_current_load
+                power = 0 if power < battery.min_charging_power else power
+                avg_power = battery.load(self.interval, power)['avg_power']
+                gc.add_load(b_id, avg_power)
+            else:
+                # GC draws power: use stored energy to support GC
+                bat_power = battery.unload(self.interval, gc_current_load)['avg_power']
+                gc.add_load(b_id, -bat_power)
 
         return {'current_time': self.current_time, 'commands': charging_stations}
