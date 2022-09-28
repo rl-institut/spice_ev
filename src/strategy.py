@@ -122,19 +122,20 @@ class Strategy():
                 for k, v in ev.update.items():
                     setattr(vehicle, k, v)
                 if ev.event_type == "departure":
-                    # vehicle leaves: disconnect vehicle
-                    vehicle.connected_charging_station = None
                     if ev.start_time < self.current_time - self.interval:
                         # event from the past: simulate optimal charging
                         vehicle.battery.soc = vehicle.desired_soc
-                    # check that vehicle has charged enough
-                    self.desired_counter += vehicle.battery.soc < vehicle.desired_soc - self.EPS
-                    if 0 <= vehicle.battery.soc < (1-self.margin)*vehicle.desired_soc - self.EPS:
-                        # not charged enough: write warning
-                        self.margin_counter += 1
-                        warn("{}: Vehicle {} is below desired SOC ({} < {})".format(
-                            ev.start_time.isoformat(), ev.vehicle_id,
-                            vehicle.battery.soc, vehicle.desired_soc))
+                    if vehicle.connected_charging_station is not None:
+                        # if connected, check that vehicle has charged enough
+                        self.desired_counter += vehicle.battery.soc < vehicle.desired_soc - self.EPS
+                        if 0 <= vehicle.battery.soc < (1-self.margin)*vehicle.desired_soc-self.EPS:
+                            # not charged enough: write warning
+                            self.margin_counter += 1
+                            warn("{}: Vehicle {} is below desired SOC ({} < {})".format(
+                                ev.start_time.isoformat(), ev.vehicle_id,
+                                vehicle.battery.soc, vehicle.desired_soc))
+                        # vehicle leaves: disconnect vehicle
+                        vehicle.connected_charging_station = None
                 elif ev.event_type == "arrival":
                     # vehicle arrives
                     assert hasattr(vehicle, 'soc_delta')
