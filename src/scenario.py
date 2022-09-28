@@ -135,38 +135,28 @@ class Scenario:
             cur_socs = []
             for vidx, vid in enumerate(sorted(strat.world_state.vehicles.keys())):
                 vehicle = strat.world_state.vehicles[vid]
-                cur_socs.append(None)
-                cur_dis.append(None)
-                connected = vehicle.connected_charging_station is not None
-                departing = (vehicle.estimated_time_of_departure is not None
-                             and vehicle.estimated_time_of_departure > strat.current_time)
-                if connected or departing:
-                    # not driving
-                    if connected:
-                        # connected: save soc
-                        cur_socs[-1] = vehicle.battery.soc
-                    else:
-                        # not connected, just standing
-                        cur_dis[-1] = vehicle.battery.soc
-                    if step_i > 0 and socs[-1][vidx] is None and disconnect[-1][vidx] is None:
+                if vehicle.connected_charging_station:
+                    cur_dis.append(None)
+                    cur_socs.append(vehicle.battery.soc)
+                    if len(socs) > 0 and socs[-1][vidx] is None:
                         # just arrived -> update disconnect
-                        # find last known soc
+                        # find departure
                         start_idx = step_i-1
-                        while (
-                                start_idx >= 0 and
-                                socs[start_idx][vidx] is None and
-                                disconnect[start_idx][vidx] is None):
+                        while start_idx >= 0 and socs[start_idx][vidx] is None:
                             start_idx -= 1
                         if start_idx < 0:
                             # first charge, no info about old soc
                             continue
                         # get start soc
-                        start_soc = socs[start_idx][vidx] or disconnect[start_idx][vidx] or 0
+                        start_soc = socs[start_idx][vidx]
                         # compute linear equation
                         m = (vehicle.battery.soc - start_soc) / (step_i - start_idx - 1)
                         # update timesteps between start and now
                         for idx in range(start_idx+1, step_i):
                             disconnect[idx][vidx] = m * (idx - start_idx) + start_soc
+                else:
+                    cur_socs.append(None)
+                    cur_dis.append(None)  # placeholder
 
             socs.append(cur_socs)
             disconnect.append(cur_dis)
