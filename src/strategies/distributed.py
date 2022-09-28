@@ -159,13 +159,14 @@ class Distributed(Strategy):
             gc = self.world_state.grid_connectors[battery.parent]
             gc_current_load = gc.get_current_load()
             if gc_current_load <= gc.cur_max_power:
-                # surplus energy: charge
+                # GC suffices to meet busses needs
                 power = gc.cur_max_power - gc_current_load
                 power = 0 if power < battery.min_charging_power else power
                 avg_power = battery.load(self.interval, power)['avg_power']
                 gc.add_load(b_id, avg_power)
             else:
-                # GC draws power: use stored energy to support GC
+                # current load > max load, use battery to support GC
+                # current load never rises above sum of max load of GC and available battery power
                 bat_power = battery.unload(self.interval, gc_current_load)['avg_power']
                 gc.add_load(b_id, -bat_power)
 
