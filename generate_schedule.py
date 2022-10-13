@@ -314,10 +314,10 @@ def generate_individual_flex_band(scenario, gcID):
                     vehicle.battery.soc += event.update["soc_delta"]
                     if cs_id is None:
                         continue
+                    cs = scenario.constants.charging_stations.get(cs_id)
                     if cs is None:
                         # CS not found? Can't charge
                         continue
-                    cs = scenario.constants.charging_stations.get(cs_id)
                     if cs.parent != gcID:
                         # fake perfect charging
                         vehicle.battery.soc = event.update["desired_soc"]
