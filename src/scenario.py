@@ -163,10 +163,15 @@ class Scenario:
                         # get start soc
                         start_soc = socs[start_idx][vidx] or disconnect[start_idx][vidx] or 0
                         # compute linear equation
-                        m = (vehicle.battery.soc - start_soc) / (step_i - start_idx)
+                        m = (vehicle.battery.soc - start_soc) / (step_i - start_idx - 1)
+                        # update start
+                        socs[start_idx+1][vidx] = start_soc
                         # update timesteps between start and now
-                        for idx in range(start_idx, step_i):
-                            disconnect[idx][vidx] = m * (idx - start_idx) + start_soc
+                        for idx in range(start_idx, step_i-1):
+                            disconnect[idx+1][vidx] = m * (idx - start_idx) + start_soc
+                        # update current (arrival) timestep, for visualization only
+                        cur_dis[-1] = vehicle.battery.soc
+                        cur_socs[-1] = None
 
             socs.append(cur_socs)
             disconnect.append(cur_dis)
