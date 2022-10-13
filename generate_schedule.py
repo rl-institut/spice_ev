@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+from copy import deepcopy
 import csv
 import datetime
 import json
@@ -8,16 +9,16 @@ from json.decoder import JSONDecodeError
 import os
 import warnings
 
-from src import scenario, strategy, util
+from src import events, scenario, strategy, util
 
 EPS = 1e-8
 
 
 def generate_flex_band(scenario, gcID, core_standing_time=None):
-    """Generate flexibility potential with perfect foresight
+    """Generate flexibility potential for vehicle fleet with perfect foresight
 
-    :param scenario: dictionary from scenario json
-    :type scenario: dict
+    :param scenario: input scenario
+    :type scenario: Scenario
     :param gcID: grid connector ID for which to create this flex band
     :type gcID: string
     :param core_standing_time: core standing time during which flexibility is guaranteed e.g.
@@ -27,7 +28,6 @@ def generate_flex_band(scenario, gcID, core_standing_time=None):
     :rtype: dict
     """
     gc = scenario.constants.grid_connectors[gcID]
-    # generate basic strategy
     s = strategy.Strategy(
         scenario.constants, scenario.start_time, **{
             "interval": scenario.interval,
@@ -191,8 +191,180 @@ def generate_flex_band(scenario, gcID, core_standing_time=None):
     return flex
 
 
+def generate_individual_flex_band(scenario, gcID):
+    """Generate flexibility potential for inidvidual vehicles with perfect foresight
+
+    :param scenario: input scenario
+    :type scenario: Scenario
+    :param gcID: grid connector ID for which to create this flex band
+    :type gcID: string
+    :param core_standing_time: core standing time during which flexibility is guaranteed
+    :type core_standing_time: dict
+    :return: flex band
+    :rtype: dict
+    """
+    gc = deepcopy(scenario.constants.grid_connectors[gcID])
+    interval = scenario.interval
+
+    event_signal_steps = scenario.events.get_event_steps(
+        scenario.start_time, scenario.n_intervals, interval)
+    # change ordering and corresponding interval from signal_time to start_time
+    event_steps = [[] for _ in range(scenario.n_intervals)]
+    for cur_events in event_signal_steps:
+        for event in cur_events:
+            # get start interval (ceil), must be within scenario time
+            start_interval = -((scenario.start_time - event.start_time) // interval)
+            if 0 <= start_interval < scenario.n_intervals:
+                event_steps[start_interval].append(event)
+
+    flex = {
+        "vehicles": [[]],
+        "batteries": {
+            "stored": 0,
+            "power": 0,
+            "free": 0,  # how much energy can still be stored in batteries?
+            "efficiency": 0,  # average efficiency across all batteries
+            "init_discharge": 0,  # discharging power in beginning
+            "full_discharge": 0,  # discharging power when fully charged
+        },
+        "base": [],
+        "min": [],
+        "max": [],
+    }
+
+    # aggregate battery info
+    batteries = [deepcopy(b) for b in scenario.constants.batteries.values() if b.parent == gcID]
+    flex["batteries"]["init_discharge"] = sum([b.get_available_power(interval) for b in batteries])
+    for b in batteries:
+        if b.capacity > 2**50:
+            print("WARNING: battery without capacity detected")
+        flex["batteries"]["stored"] += b.soc * b.capacity
+        flex["batteries"]["power"] += b.loading_curve.max_power
+        flex["batteries"]["free"] += (1 - b.soc) * b.capacity
+        flex["batteries"]["efficiency"] += b.efficiency
+        b.soc = 1
+    flex["batteries"]["full_discharge"] = sum([b.get_available_power(interval) for b in batteries])
+    flex["batteries"]["efficiency"] = \
+        flex["batteries"]["efficiency"] / len(batteries) if len(batteries) else 1
+
+    vehicles = deepcopy(scenario.constants.vehicles)
+
+    def get_v2g_energy(vehicle):
+        if vehicle.vehicle_type.v2g:
+            power_per_interval = vehicle.battery.get_available_power(interval)
+            return power_per_interval * vehicle.vehicle_type.v2g_power_factor
+        return 0
+
+    # get initially connected vehicles
+    for vid, v in vehicles.items():
+        cs_id = v.connected_charging_station
+        if cs_id is None:
+            continue
+        cs = scenario.constants.charging_stations.get(cs_id)
+        if cs is None or cs.parent != gcID:
+            continue
+        # connected
+        v.last_arrival_idx = (0, len(flex["vehicles"][0]))
+        delta_soc = max(v.desired_soc - v.battery.soc, 0)
+        energy = delta_soc * v.battery.capacity / v.battery.efficiency
+        flex["vehicles"][0].append({
+            "vid": vid,
+            "v2g": get_v2g_energy(v),
+            "t_start": scenario.start_time,
+            "t_end": scenario.stop_time,
+            "idx_start": 0,
+            "idx_end": scenario.n_intervals - 1,
+            "init_soc": v.battery.soc,
+            "energy": energy,
+            "desired_soc": v.desired_soc,
+            "efficiency": v.battery.efficiency,
+            "p_min": max(cs.min_power, v.vehicle_type.min_charging_power),
+            "p_max": cs.max_power,
+        })
+
+    # update flex based on events
+    for idx, timestep in enumerate(event_steps):
+        if idx != 0:
+            flex["vehicles"].append([])
+        for event in timestep:
+            if type(event) == events.ExternalLoad and event.grid_connector_id == gcID:
+                # external load event at this GC
+                gc.current_loads[event.name] = event.value
+            elif type(event) == events.EnergyFeedIn and event.grid_connector_id == gcID:
+                # feed-in event at this GC
+                gc.current_loads[event.name] = -event.value
+            elif type(event) == events.GridOperatorSignal and event.grid_connector_id == gcID:
+                # grid op event at this GC
+                if gc.max_power:
+                    if event.max_power is None:
+                        # event max power not set: reset to connector power
+                        gc.cur_max_power = gc.max_power
+                    else:
+                        gc.cur_max_power = min(gc.max_power, event.max_power)
+                else:
+                    # connector max power not set
+                    gc.cur_max_power = event.max_power
+            elif type(event) == events.VehicleEvent:
+                # vehicle event: check if this GC
+                vid = event.vehicle_id
+                vehicle = vehicles[vid]
+                if event.event_type == 'arrival':
+                    cs_id = event.update["connected_charging_station"]
+                    vehicle.connected_charging_station = cs_id
+                    vehicle.battery.soc += event.update["soc_delta"]
+                    if cs_id is None:
+                        continue
+                    cs = scenario.constants.charging_stations.get(cs_id)
+                    if cs is None:
+                        # CS not found? Can't charge
+                        continue
+                    if cs.parent != gcID:
+                        # fake perfect charging
+                        vehicle.battery.soc = event.update["desired_soc"]
+                        continue
+                    # arrived at this GC: add to list
+                    vehicle.last_arrival_idx = (len(flex["vehicles"])-1, len(flex["vehicles"][-1]))
+                    delta_soc = event.update["desired_soc"] - vehicle.battery.soc
+                    delta_soc = max(delta_soc, 0)
+                    energy = delta_soc * vehicle.battery.capacity / vehicle.battery.efficiency
+                    flex["vehicles"][-1].append({
+                        "vid": vid,
+                        "v2g": get_v2g_energy(v),
+                        "t_start": event.start_time,
+                        "t_end": scenario.stop_time,
+                        "idx_start": idx,
+                        "idx_end": scenario.n_intervals - 1,
+                        "init_soc": vehicle.battery.soc,
+                        "energy": energy,
+                        "desired_soc": event.update["desired_soc"],
+                        "efficiency": v.battery.efficiency,
+                        "p_min": max(cs.min_power, v.vehicle_type.min_charging_power),
+                        "p_max": cs.max_power,
+                    })
+                    vehicle.battery.soc = event.update["desired_soc"]
+                else:
+                    # departure
+                    cs_id = vehicle.connected_charging_station
+                    if cs_id is None:
+                        continue
+                    cs = scenario.constants.charging_stations.get(cs_id)
+                    if cs is None or cs.parent != gcID:
+                        continue
+                    # departed from this GC: update departure time
+                    v_idx = vehicle.last_arrival_idx
+                    flex["vehicles"][v_idx[0]][v_idx[1]]["t_end"] = event.start_time
+                    flex["vehicles"][v_idx[0]][v_idx[1]]["idx_end"] = idx
+            # other event types ignored
+        # end of current events: get current GC loads
+        flex["base"].append(gc.get_current_load())
+        flex["min"].append(-gc.max_power)
+        flex["max"].append(gc.max_power)
+    # end of timesteps
+    return flex
+
+
 def generate_schedule(args):
-    """Generate schedule for grid signals
+    """Generate schedule for grid signals based on whole car park
 
     :param args: input arguments
     :type args: argparse.Namespace
@@ -211,7 +383,11 @@ def generate_schedule(args):
 
     # compute flexibility potential (min/max) of single grid connector for each timestep
     gcID = list(s.constants.grid_connectors.keys())[0]
-    flex = generate_flex_band(s, gcID=gcID, core_standing_time=args.core_standing_time)
+    # use different function depending on "inidivual" argument
+    if args.individual:
+        flex = generate_individual_flex_band(s, gcID)
+    else:
+        flex = generate_flex_band(s, gcID=gcID, core_standing_time=args.core_standing_time)
 
     netto = []
     curtailment = []
@@ -244,8 +420,11 @@ def generate_schedule(args):
                 replace_unknown = curtailment[-1] if row_idx > 0 else 0
                 curtailment.append(replace_unknown)
 
-    # priorities: times of curtailment + percentile with lowest load (1),
-    #             negative loads (2), positive loads (3), percentile with highest load (4)
+    # priorities:
+    # (1) times of curtailment + percentile with lowest load => charge
+    # (2) negative loads => charge
+    # (3) positive loads => discharge
+    # (4) percentile with highest load => discharge
     # Note: The procedure to determine priorities for every timestep assumes that
     # time intervals of simulation are equal to time intervals in NSM time series.
 
@@ -287,8 +466,10 @@ def generate_schedule(args):
 
     # default schedule: just basic power needs
     schedule = [v for v in flex["base"]]
+    vehicle_ids = sorted(s.constants.vehicles.keys())
+    vehicle_schedule = {vid: [0]*s.n_intervals for vid in vehicle_ids}
 
-    def distribute_energy_balanced(period, energy_needed, priority_selection):
+    def distribute_energy_balanced(period, is_charge_period, energy_needed, priority_selection):
         """Distributes energy across a time period, prefering certain priorities over others.
         The algorithm tries to distribute needed energy across preferred priority timesteps
         and only if that is insufficient the time steps of the second most preferred priority
@@ -298,8 +479,8 @@ def generate_schedule(args):
 
         :param period: List of timestep indicies of the period the energy is distributed to
         :type period: list
-        :param charge_period: Determines whether schedule should be raised or lowered.
-        :type charge_period: bool
+        :param is_charge_period: Determines whether schedule should be raised or lowered.
+        :type is_charge_period: bool
         :param energy_needed: Amount of energy to be distributed.
         :type energy_needed: float
         :param priority_selection: List of priorities ordered by preference starting with most
@@ -307,7 +488,6 @@ def generate_schedule(args):
         :type priority_selection: list
         :return: total change in stored energy after distribution completes
         """
-
         power_needed = energy_needed * ts_per_hour
         energy_distributed = 0
         for priority in priority_selection:
@@ -330,7 +510,7 @@ def generate_schedule(args):
                 for time in period:
                     if priorities[time] == priority:
                         # calculate amount of power that can still be (dis-)charged
-                        if charge_period:
+                        if is_charge_period:
                             flexibility = flex["max"][time] - schedule[time]
                         else:
                             flexibility = schedule[time] - flex["min"][time]
@@ -340,7 +520,7 @@ def generate_schedule(args):
                             saturated += 1
                         else:
                             # power fits here
-                            if charge_period:
+                            if is_charge_period:
                                 # increase schedule if we want to charge cars
                                 schedule[time] += power
                                 energy_distributed += \
@@ -353,62 +533,127 @@ def generate_schedule(args):
 
         return energy_distributed
 
-    for interval in flex["intervals"]:
-        capacity = flex["vehicles"]["capacity"]
-        energy_stored = flex["vehicles"]["desired_energy"] - interval["needed"]
+    if args.individual:
+        # generate schedule for each individual vehicle
+        min_flex = deepcopy(flex["base"])
+        max_flex = deepcopy(flex["base"])
 
-        # brake up interval into charging (prio 1,2) and discharging (prio 3,4) periods
-        periods = [[]]
-        if flex["vehicles"]["v2g"]:
-            prev_prio = priorities[interval["time"][0]]
-            for time in interval["time"]:
-                priority = priorities[time]
-                if (all([p <= 2 for p in [prev_prio, priority]]) or
-                        all([p > 2 for p in [prev_prio, priority]])):
-                    periods[-1].append(time)
-                else:
-                    periods.append([time])
-                prev_prio = priority
-        else:
-            periods = [interval["time"]]
+        for i in range(s.n_intervals):
+            # sort arrivals by energy needed and standing time
+            # prioritize higher power needed
+            vehicles_arriving = sorted(flex["vehicles"][i],
+                                       key=lambda v: -v["energy"] /
+                                       (v["t_end"] - v["t_start"]).total_seconds())
+            for vinfo in vehicles_arriving:
+                if vinfo["idx_start"] >= vinfo["idx_end"]:
+                    # arrival/departure same interval: ignore
+                    continue
 
-        # go through periods chronologically
-        # FIRST determine energy goal of each period based on priority
-        # Then raise/lower schedule in a balanced manner across period to reach that goal
-        for i, period in enumerate(periods, start=1):
-            desired_energy_stored = flex["vehicles"]["desired_energy"]
-            if flex["vehicles"]["v2g"]:
-                charge_period = priorities[period[0]] <= 2
-                last_period = (i == len(periods))
-                if charge_period:
-                    priority_selection = [1, 2]
-                    if not last_period:
-                        desired_energy_stored = capacity
-                else:
-                    priority_selection = [4, 3]
-                    if not last_period:
-                        desired_energy_stored = flex["vehicles"]["discharge_limit"] * capacity
+                standing_range = range(vinfo["idx_start"], vinfo["idx_end"])
+
+                # distribute energy
+                energy_needed = vinfo["energy"]
+                for prio in [1, 2, 3, 4]:
+                    if energy_needed < EPS:
+                        break
+                    energy_prio_avail = sum(
+                        [flex["max"][j] if priorities[j] == prio else 0 for j in standing_range]
+                    ) / ts_per_hour
+                    if energy_prio_avail > EPS:
+                        # energy available in priority interval: distribute balanced
+                        # naive: balance vehicle only
+                        # advanced: balance GC power
+                        factor = min(energy_needed / energy_prio_avail, 1)
+                        for j in standing_range:
+                            if energy_needed < EPS:
+                                break
+                            if priorities[j] != prio:
+                                continue
+                            power = min(max(
+                                flex["max"][j] * factor, vinfo["p_min"]), vinfo["p_max"])
+                            schedule[j] += power
+                            energy_needed -= power / ts_per_hour
+                            flex["max"][j] -= power
+                            # only one schedule per timestep
+                            assert vehicle_schedule[vinfo["vid"]][j] == 0
+                            vehicle_schedule[vinfo["vid"]][j] = power
+
+                # add to flex
+                for j in standing_range:
+                    min_flex[j] -= vinfo["v2g"]
+                    max_flex[j] += vinfo["p_max"]
+
+            # add battery flex
+            if i == 0:
+                min_flex[i] -= flex["batteries"]["init_discharge"]
             else:
-                charge_period = True
-                priority_selection = [1, 2, 3, 4]
+                min_flex[i] -= flex["batteries"]["full_discharge"]
+            bat_flex = flex["batteries"]["power"] * flex["batteries"]["efficiency"] / ts_per_hour
+            max_flex[i] += bat_flex
 
-            energy_needed = desired_energy_stored - energy_stored
+        flex["min"] = min_flex
+        flex["max"] = max_flex
 
-            if not charge_period:
-                energy_needed *= -1
+    else:
+        # generate schedule for whole car park
+        for interval in flex["intervals"]:
+            capacity = flex["vehicles"]["capacity"]
+            energy_stored = flex["vehicles"]["desired_energy"] - interval["needed"]
 
-            energy_stored += distribute_energy_balanced(period, energy_needed, priority_selection)
+            # brake up interval into charging (prio 1,2) and discharging (prio 3,4) periods
+            periods = [[]]
+            if flex["vehicles"]["v2g"]:
+                prev_prio = priorities[interval["time"][0]]
+                for time in interval["time"]:
+                    priority = priorities[time]
+                    if (all([p <= 2 for p in [prev_prio, priority]]) or
+                            all([p > 2 for p in [prev_prio, priority]])):
+                        periods[-1].append(time)
+                    else:
+                        periods.append([time])
+                    prev_prio = priority
+            else:
+                periods = [interval["time"]]
 
-        # if at the end of the charging interval vehicles are not charged to desired SOC
-        # go through all periods again, this time from latest to earliest and raise the schedule
-        # as much as possible until enough energy is allocated to charge vehicles to desired SOC
-        charge_period = True
-        priority_selection = [1, 2, 3, 4]
-        for period in reversed(periods):
-            if energy_stored >= desired_energy_stored:
-                break
-            energy_needed = desired_energy_stored - energy_stored
-            energy_stored += distribute_energy_balanced(period, energy_needed, priority_selection)
+            # go through periods chronologically
+            # FIRST determine energy goal of each period based on priority
+            # Then raise/lower schedule in a balanced manner across period to reach that goal
+            for i, period in enumerate(periods, start=1):
+                desired_energy_stored = flex["vehicles"]["desired_energy"]
+                if flex["vehicles"]["v2g"]:
+                    charge_period = priorities[period[0]] <= 2
+                    last_period = (i == len(periods))
+                    if charge_period:
+                        priority_selection = [1, 2]
+                        if not last_period:
+                            desired_energy_stored = capacity
+                    else:
+                        priority_selection = [4, 3]
+                        if not last_period:
+                            desired_energy_stored = flex["vehicles"]["discharge_limit"] * capacity
+                else:
+                    charge_period = True
+                    priority_selection = [1, 2, 3, 4]
+
+                energy_needed = desired_energy_stored - energy_stored
+
+                if not charge_period:
+                    energy_needed *= -1
+
+                energy_stored += distribute_energy_balanced(
+                    period, charge_period, energy_needed, priority_selection)
+
+            # if at the end of the charging interval vehicles are not charged to desired SOC
+            # go through all periods again, this time from latest to earliest and raise the schedule
+            # as much as possible until enough energy is allocated to charge vehicles to desired SOC
+            charge_period = True
+            priority_selection = [1, 2, 3, 4]
+            for period in reversed(periods):
+                if energy_stored >= desired_energy_stored:
+                    break
+                energy_needed = desired_energy_stored - energy_stored
+                energy_stored += distribute_energy_balanced(
+                    period, charge_period, energy_needed, priority_selection)
 
     # create schedule for batteries
     batteries = flex["batteries"]  # members: stored, power, free
@@ -430,20 +675,24 @@ def generate_schedule(args):
             # distribute energy over period of same priority
             for t in range(t_start, t_end):
                 t_left = duration - (t - t_start)
-                if energy > 0:
+                if energy > EPS:
                     # charge
                     e = min(
                         batteries["power"] / ts_per_hour,
                         energy / t_left,
                         (flex["max"][t] - schedule[t]) / ts_per_hour)
                     e_bat_change = e * batteries["efficiency"]
-                else:
+                elif energy < -EPS:
                     # discharge
                     e = -min(
                         (batteries["power"] * batteries["efficiency"]) / ts_per_hour,
                         -energy / t_left,
                         (schedule[t] - flex["min"][t]) / ts_per_hour)
                     e_bat_change = e / batteries["efficiency"]
+                else:
+                    e = 0
+                    e_bat_change = 0
+
                 batteries["stored"] += e_bat_change
                 batteries["free"] -= e_bat_change
                 schedule[t] += e * ts_per_hour
@@ -462,14 +711,22 @@ def generate_schedule(args):
     # write schedule to file
     with open(args.output, 'w') as f:
         # header
-        f.write("timestamp, schedule [kW], charge\n")
+        header = ["timestamp", "schedule [kW]", "charge"]
+        if args.individual:
+            header += vehicle_ids
+        f.write(', '.join(header) + '\n')
         cur_time = s.start_time - s.interval
         for t in range(s.n_intervals):
             cur_time += s.interval
-            f.write("{}, {}, {}\n".format(
+            values = [
                 cur_time.isoformat(),      # timestamp
-                round(schedule[t], 3),     # round to Watts
-                int(priorities[t] <= 2)))  # charging window?
+                round(schedule[t], 3),     # schedule rounded to Watts
+                int(priorities[t] <= 2),   # charging window?
+            ]
+            if args.individual:
+                # create column for every vehicle schedule
+                values += [round(vehicle_schedule[vid][t], 3) for vid in vehicle_ids]
+            f.write(', '.join([str(v) for v in values]) + '\n')
 
     # add schedule file info to scenario JSON
     scenario_json['events']['schedule_from_csv'] = {
@@ -477,7 +734,8 @@ def generate_schedule(args):
         'start_time': s.start_time.isoformat(),
         'step_duration_s': s.interval.seconds,
         'csv_file': os.path.relpath(args.output, os.path.dirname(args.scenario)),
-        'grid_connector_id': list(s.constants.grid_connectors.keys())[0]
+        'grid_connector_id': list(s.constants.grid_connectors.keys())[0],
+        'individual': args.individual,
     }
     scenario_json['scenario']['core_standing_time'] = args.core_standing_time
     with open(args.scenario, 'w') as f:
@@ -526,6 +784,8 @@ if __name__ == '__main__':
     parser.add_argument('--output', '-o',
                         help='Specify schedule file name, '
                         'defaults to <scenario>_schedule.csv')
+    parser.add_argument('--individual', '-i', action='store_true',
+                        help='generate schedule based on individual vehicles instead of car park')
     parser.add_argument('--priority-percentile', default=0.25, type=float,
                         help='Percentiles for priority determination')
     parser.add_argument('--core-standing-time', default=None,

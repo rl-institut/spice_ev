@@ -165,7 +165,8 @@ class TestGenerate(TestCaseBase):
             "output": output_file,
             "priority_percentile": 0.25,
             "visual": False,
-            "core_standing_time": {"times": [{"start": [22, 0], "end": [5, 0]}], "full_days": [7]}
+            "core_standing_time": {"times": [{"start": [22, 0], "end": [5, 0]}], "full_days": [7]},
+            "individual": False,
         }
         generate_schedule.generate_schedule(Namespace(**current_arg_values))
         self.assertIsFile(output_file)

@@ -42,8 +42,10 @@ class Schedule(Strategy):
                 "Provide core standing times in the generate_schedule.cfg "
                 "to use sub-strategy balanced_vehicle.")
             self.sort_key = lambda v: v[0].get_delta_soc() * v[0].battery.capacity
+        elif self.LOAD_STRAT == "individual":
+            self.sort_key = lambda v: v[0].get_delta_soc() * v[0].battery.capacity
         else:
-            "Unknown charging strategy: {}".format(self.LOAD_STRAT)
+            warnings.warn("Unknown charging strategy: {}".format(self.LOAD_STRAT))
 
     def dt_to_end_of_time_window(self):
         """Returns timedelta between now and end of core standing time (resolution: one minute)
@@ -691,6 +693,86 @@ class Schedule(Strategy):
 
         return charging_stations
 
+    def charge_individually(self):
+        charging_stations = {}
+        for vid, vehicle in self.world_state.vehicles.items():
+            cs_id = vehicle.connected_charging_station
+            if cs_id is None:
+                # vehicle is not charging: skip
+                continue
+            cs = self.world_state.charging_stations[cs_id]
+            gc_id = cs.parent
+            gc = self.world_state.grid_connectors[gc_id]
+            if vehicle.schedule is None:
+                raise RuntimeError("Vehicle without schedule encountered")
+
+            # look into future events for schedule changes
+            cur_schedule = vehicle.schedule
+            schedule = []
+            event_idx = 0
+            cur_time = self.current_time
+            charging = True
+            while charging and cur_time < vehicle.estimated_time_of_departure:
+                # peek into future events for schedule changes or departure
+                while True:
+                    try:
+                        event = self.world_state.future_events[event_idx]
+                    except IndexError:
+                        # no more events
+                        charging = False
+                        break
+                    if event.start_time > cur_time:
+                        # not this timestep
+                        break
+                    # event handled: don't handle again, so increase index
+                    event_idx += 1
+                    if type(event) == events.VehicleEvent and event.vehicle_id == vid:
+                        if event.event_type == 'schedule':
+                            cur_schedule = event.update["schedule"]
+                        elif event.event_type == 'departure':
+                            # usually, for this type signal_time = start_time,
+                            # so can't detect it in advance
+                            charging = False
+                            break
+                cur_time += self.interval
+                schedule.append(cur_schedule)
+
+            # compute number of remaining charging intervals (off by one)
+            standing = (vehicle.estimated_time_of_departure - self.current_time) // self.interval
+            # charge according to schedule, see if target_soc can be reached
+            old_soc = vehicle.battery.soc
+            for s in schedule:
+                power = clamp_power(s, vehicle, cs)
+                vehicle.battery.load(self.interval, power)
+            if standing > len(schedule):
+                # not entire schedule known / standing longer than current schedule:
+                # don't allocate additional power (avoid power creep)
+                add_power = 0
+            elif vehicle.get_delta_soc() < self.EPS:
+                # schedule is sufficient to reach desired soc: no additional power needed
+                add_power = 0
+            else:
+                # schedule not sufficient: add same amount of power to every timestep
+                min_power = 0
+                max_power = cs.max_power
+                while max_power-min_power > self.EPS:
+                    add_power = (max_power + min_power) / 2
+                    vehicle.battery.soc = old_soc
+                    for s in schedule:
+                        power = clamp_power(s + add_power, vehicle, cs)
+                        vehicle.battery.load(self.interval, power)
+                    if vehicle.get_delta_soc() < self.EPS:
+                        max_power = add_power
+                    else:
+                        min_power = add_power
+
+            vehicle.battery.soc = old_soc
+            # charge for real
+            power = clamp_power(vehicle.schedule + add_power, vehicle, cs)
+            avg_power = vehicle.battery.load(self.interval, power)["avg_power"]
+            charging_stations[cs_id] = cs.current_power = gc.add_load(cs_id, avg_power)
+        return charging_stations
+
     def utilize_stationary_batteries(self):
         """Adjust deviation with batteries
         """
@@ -746,6 +828,8 @@ class Schedule(Strategy):
                 # charge balanced OFF schedule
                 if self.overcharge_necessary:
                     charging_stations = self.charge_cars_after_core_standing_time(charging_stations)
+        elif self.LOAD_STRAT == "individual":
+            charging_stations = self.charge_individually()
         else:
             # substrats "needy", "greedy", "balanced"
             charging_stations = self.charge_cars()

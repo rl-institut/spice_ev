@@ -246,6 +246,12 @@ def get_schedule_from_csv(obj, dir_path):
 
         window_col_idx = header.index(window_col) if window_col in header else None
 
+        if obj.get('individual'):
+            vehicle_names = header[3:]
+            vehicle_schedules = [None]*len(vehicle_names)
+        else:
+            vehicle_names = []
+
         for idx, row in enumerate(reader):
             # only generate events for changed schedule, so compare target values
             target = float(row[col_idx])
@@ -290,6 +296,19 @@ def get_schedule_from_csv(obj, dir_path):
                     "target": target,
                     "window": window,
                 }))
+
+            for i, vid in enumerate(vehicle_names):
+                v_schedule = float(row[i+3])
+                if v_schedule != vehicle_schedules[i]:
+                    schedule.append(VehicleEvent({
+                        "start_time": start_time.isoformat(),
+                        "signal_time": signal_time.isoformat(),
+                        "vehicle_id": vid,
+                        "event_type": "schedule",
+                        "update": {"schedule": v_schedule},
+                    }))
+                    vehicle_schedules[i] = v_schedule
+
     return schedule
 
 
@@ -313,6 +332,7 @@ class VehicleEvent(Event):
             ('estimated_time_of_departure', util.datetime_from_isoformat),
             ('soc_delta', float),
             ('desired_soc', float),
+            ('schedule', float),
         ]
 
         for name, func in conversions:
