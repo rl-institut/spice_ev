@@ -24,6 +24,7 @@ class Schedule(Strategy):
         self.TS_per_hour = (timedelta(hours=1) / self.interval)
 
         self.description = "schedule ({})".format(self.LOAD_STRAT)
+        self.uses_schedule = True
 
         assert self.LOAD_STRAT in allowed_substrats, (
             f"Unknown charging strategy: {self.LOAD_STRAT}. "
