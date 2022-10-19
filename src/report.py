@@ -316,6 +316,7 @@ def save_gc_timeseries(scenario, gcID, output_path):
         "hub"
     ]
 
+    # round energy values to 2 decimal places
     round_to_places = 2
 
     # which SimBEV-Use Cases are in this scenario?
@@ -381,7 +382,7 @@ def save_gc_timeseries(scenario, gcID, output_path):
             row = [idx, r['current_time'].replace(tzinfo=None)]
             # price
             if any(scenario.prices[gcID]):
-                row.append(round(scenario.prices[gcID][idx], round_to_places))
+                row.append(scenario.prices[gcID][idx])
             # grid power (negative since grid power is fed into system)
             row.append(-1 * round(scenario.totalLoad[gcID][idx], round_to_places))
             # external loads
