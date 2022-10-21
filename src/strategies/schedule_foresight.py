@@ -35,8 +35,7 @@ class ScheduleForesight(Strategy):
 
         assert len(self.world_state.grid_connectors) == 1, "Only one grid connector supported"
 
-    def step(self, event_list=[]):
-        super().step(event_list)
+    def step(self):
 
         gc = list(self.world_state.grid_connectors.values())[0]
 

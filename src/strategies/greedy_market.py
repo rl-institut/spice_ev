@@ -31,7 +31,7 @@ class GreedyMarket(Strategy):
         if changed:
             print(changed, "events signaled earlier")
 
-    def step(self, event_list=[]):
+    def step(self):
         """
         Calculates charging in each timestep.
 
@@ -40,7 +40,6 @@ class GreedyMarket(Strategy):
         :return: current time and commands of the charging stations
         :rtype: dict
         """
-        super().step(event_list)
 
         gc = list(self.world_state.grid_connectors.values())[0]
 

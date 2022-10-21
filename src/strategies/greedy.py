@@ -16,7 +16,7 @@ class Greedy(Strategy):
         super().__init__(constants, start_time, **kwargs)
         self.description = "greedy"
 
-    def step(self, event_list=[]):
+    def step(self):
         """
         Calculates charging in each timestep.
         :param event_list: List of events
@@ -24,7 +24,6 @@ class Greedy(Strategy):
         :return: current time and commands of the charging stations
         :rtype: dict
         """
-        super().step(event_list)
 
         # get power that can be drawn from battery in this timestep at each grid connector
         avail_bat_power = {}

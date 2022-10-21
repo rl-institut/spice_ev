@@ -58,7 +58,7 @@ class PeakLoadWindow(Strategy):
 
         assert len(self.world_state.grid_connectors) == 1, "Only one grid connector supported"
 
-    def step(self, event_list=[]):
+    def step(self):
         """
         Calculates charging in each timestep.
 
@@ -67,7 +67,6 @@ class PeakLoadWindow(Strategy):
         :return: current time and commands of the charging stations
         :rtype: dict
         """
-        super().step(event_list)
 
         timesteps_per_day = datetime.timedelta(days=1) // self.interval
         timesteps_per_hour = datetime.timedelta(hours=1) / self.interval
