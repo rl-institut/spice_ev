@@ -199,10 +199,10 @@ class Battery():
         # compute average power for each linear section
         # update SOC
         # computes for whole time or until target is reached
-        while remaining_hours > self.EPS and sign * (target_soc - self.soc) > self.EPS:
+        while remaining_hours > self.EPS and sign * (target_soc - self.soc) > 0:
             # target soc not yet reached
             # charging: self.soc < target; discharging: self.soc > target
-            while sign * (boundary_soc - self.soc) < self.EPS:
+            while sign * (boundary_soc - self.soc) <= 0:
                 # soc outside current boundary, get next section
                 # charging: self.soc >= boundary_soc; discharging: self.soc <= boudary_soc
                 boundary_idx += sign
