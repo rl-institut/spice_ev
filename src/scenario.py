@@ -170,11 +170,13 @@ class Scenario:
                 batteryLevels[batName].append(bat.soc * bat.capacity)
 
             # run strategy for single timestep
+            # default: no action
+            res = {'current_time': strat.current_time, 'commands': {}}
             try:
-                res = strat.step()
+                if error is None:
+                    res = strat.step()
             except Exception:
                 # error during strategy: add dummy result and abort
-                res = {'current_time': strat.current_time, 'commands': {}}
                 error = traceback.format_exc()
             results.append(res)
 
