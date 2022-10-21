@@ -733,15 +733,12 @@ class Schedule(Strategy):
                 bat_power = 0
             gc.add_load(bid, bat_power)
 
-    def step(self, event_list=[]):
+    def step(self):
         """Calculates charging in each timestep.
 
-        :param event_list: List of events
-        :type event_list: list
         :return: current time and commands of the charging stations
         :rtype: dict
         """
-        super().step(event_list)
 
         # no car is charging at beginning of TS
         for cs in self.world_state.charging_stations.values():

@@ -19,8 +19,7 @@ class Greedy(Strategy):
     def step(self):
         """
         Calculates charging in each timestep.
-        :param event_list: List of events
-        :type event_list: list
+
         :return: current time and commands of the charging stations
         :rtype: dict
         """
