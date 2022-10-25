@@ -647,7 +647,7 @@ class Schedule(Strategy):
             schedule = []
             event_idx = 0
             cur_time = self.current_time
-            charging = True
+            charging = vehicle.estimated_time_of_departure is not None
             while charging and cur_time < vehicle.estimated_time_of_departure:
                 # peek into future events for schedule changes or departure
                 while True:
@@ -674,14 +674,19 @@ class Schedule(Strategy):
                 schedule.append(cur_schedule)
 
             # compute number of remaining charging intervals (off by one)
-            standing = (vehicle.estimated_time_of_departure - self.current_time) // self.interval
+            if vehicle.estimated_time_of_departure is not None:
+                standing = (vehicle.estimated_time_of_departure-self.current_time) // self.interval
+            else:
+                # no info about departure: don't allocate additional power
+                standing = None
             # charge according to schedule, see if target_soc can be reached
             old_soc = vehicle.battery.soc
             gc_power_left = gc.cur_max_power - gc.get_current_load()
             for s in schedule:
                 power = clamp_power(s, vehicle, cs)
                 vehicle.battery.load(self.interval, power)
-            if standing > len(schedule):
+
+            if standing is None or standing > len(schedule):
                 # not entire schedule known / standing longer than current schedule:
                 # don't allocate additional power (avoid power creep)
                 add_power = 0
@@ -690,6 +695,9 @@ class Schedule(Strategy):
                 add_power = 0
             elif gc_power_left < self.EPS:
                 # GC max power reached
+                add_power = 0
+            elif not schedule:
+                # empty schedule -> already leaving
                 add_power = 0
             else:
                 # schedule not sufficient: add same amount of power to every timestep
