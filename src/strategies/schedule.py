@@ -677,6 +677,7 @@ class Schedule(Strategy):
             standing = (vehicle.estimated_time_of_departure - self.current_time) // self.interval
             # charge according to schedule, see if target_soc can be reached
             old_soc = vehicle.battery.soc
+            gc_power_left = gc.cur_max_power - gc.get_current_load()
             for s in schedule:
                 power = clamp_power(s, vehicle, cs)
                 vehicle.battery.load(self.interval, power)
@@ -686,6 +687,9 @@ class Schedule(Strategy):
                 add_power = 0
             elif vehicle.get_delta_soc() < self.EPS:
                 # schedule is sufficient to reach desired soc: no additional power needed
+                add_power = 0
+            elif gc_power_left < self.EPS:
+                # GC max power reached
                 add_power = 0
             else:
                 # schedule not sufficient: add same amount of power to every timestep
@@ -705,6 +709,8 @@ class Schedule(Strategy):
             vehicle.battery.soc = old_soc
             # charge for real
             power = clamp_power(vehicle.schedule + add_power, vehicle, cs)
+            # don't exceed GC max power
+            power = min(power, gc_power_left)
             avg_power = vehicle.battery.load(self.interval, power)["avg_power"]
             charging_stations[cs_id] = cs.current_power = gc.add_load(cs_id, avg_power)
         return charging_stations
