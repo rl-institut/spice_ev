@@ -189,6 +189,12 @@ def generate_from_csv(args):
                         last_arrival_event["update"]["desired_soc"] = sum_delta_soc
                 trips_total += 1
 
+                if sum_delta_soc > 1:
+                    warnings.warn(
+                        "Problem at {}: vehicle {} of type {} used {}% of its battery".format(
+                            arrival.isoformat(), v_name, vt, round(sum_delta_soc * 100, 2)
+                        ))
+
                 last_arrival_event = {
                     "signal_time": arrival.isoformat(),
                     "start_time": arrival.isoformat(),
