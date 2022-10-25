@@ -20,8 +20,7 @@ class Distributed(Strategy):
         # dict that holds the current vehicles connected to a grid connector for each gc
         self.v_connect = {gcID: [] for gcID in self.world_state.grid_connectors.keys()}
 
-    def step(self, event_list=[]):
-        super().step(event_list)
+    def step(self):
 
         # get power that can be drawn from battery in this timestep
         avail_bat_power = {}

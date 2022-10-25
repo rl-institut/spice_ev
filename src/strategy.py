@@ -122,6 +122,7 @@ class Strategy():
                 for k, v in ev.update.items():
                     setattr(vehicle, k, v)
                 if ev.event_type == "departure":
+                    vehicle.estimated_time_of_departure = None
                     if ev.start_time < self.current_time - self.interval:
                         # event from the past: simulate optimal charging
                         vehicle.battery.soc = vehicle.desired_soc
