@@ -291,7 +291,8 @@ class Scenario:
                         file_name = options["save_results"]
                     else:
                         file_name, ext = os.path.splitext(options["save_results"])
-                        file_name = f"{file_name}_{gcID}{ext}"
+                        # gcID might contain special characters not suited for file system
+                        file_name = f"{file_name}_{util.sanitize(gcID)}{ext}"
                     with open(file_name, 'w') as results_file:
                         json.dump(results_file_content, results_file, indent=2)
 
@@ -306,7 +307,8 @@ class Scenario:
                     output_path = options["save_timeseries"]
                 else:
                     file_name, ext = os.path.splitext(options["save_timeseries"])
-                    output_path = f"{file_name}_{gcID}{ext}"
+                    # gcID might contain special characters not suited for file system
+                    output_path = f"{file_name}_{util.sanitize(gcID)}{ext}"
 
                 report.save_gc_timeseries(self, gcID, output_path)
 
