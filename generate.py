@@ -398,7 +398,7 @@ if __name__ == '__main__':
                         (-1 for variable capacity, second argument is fixed power))')
     parser.add_argument('--gc-power', type=int, default=530, help='set power at grid connection '
                                                                   'point in kW')
-    parser.add_argument('--voltage_level', '-vl', default='MV',
+    parser.add_argument('--voltage-level', '-vl', default='MV',
                         help='Choose voltage level for cost calculation')
     parser.add_argument('--seed', default=None, type=int, help='set random seed')
 
@@ -406,7 +406,7 @@ if __name__ == '__main__':
                         help='location of vehicle type definitions')
     parser.add_argument('--discharge-limit', default=0.5,
                         help='Minimum SoC to discharge to during v2g. [0-1]')
-    parser.add_argument('--pv_power', type=int, default=0, help='set nominal power for local '
+    parser.add_argument('--pv-power', type=int, default=0, help='set nominal power for local '
                                                                 'photovoltaic power plant in kWp')
     parser.add_argument('--include-ext-load-csv',
                         help='include CSV for external load. \

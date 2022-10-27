@@ -818,12 +818,12 @@ def calculate_costs(strategy, voltage_level, interval_min, timestamps_list, powe
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description='Generate scenarios as JSON files for vehicle charging modelling')
-    parser.add_argument('--voltage_level', '-vl', help='Choose voltage level for cost calculation')
-    parser.add_argument('--pv_power', type=int, default=0, help='set nominal power for local '
+    parser.add_argument('--voltage-level', '-vl', help='Choose voltage level for cost calculation')
+    parser.add_argument('--pv-power', type=int, default=0, help='set nominal power for local '
                                                                 'photovoltaic power plant in kWp')
-    parser.add_argument('--get_timeseries', '-ts', help='get timeseries from csv file.')
-    parser.add_argument('--get_results', '-r', help='get simulation results from json file.')
-    parser.add_argument('--get_cost_parameters', '-cp', help='get cost parameters from json file.')
+    parser.add_argument('--get-timeseries', '-ts', help='get timeseries from csv file.')
+    parser.add_argument('--get-results', '-r', help='get simulation results from json file.')
+    parser.add_argument('--get-cost-parameters', '-cp', help='get cost parameters from json file.')
     parser.add_argument('--config', help='Use config file to set arguments')
 
     args = parser.parse_args()
@@ -858,7 +858,6 @@ if __name__ == "__main__":
                                                               {}).get("voltage_level")
     if voltage_level is None:
         raise Exception("voltage")
-    print(voltage_level)
 
     # cost calculation:
     calculate_costs(

@@ -125,9 +125,9 @@ if __name__ == "__main__":
     parser.add_argument('--strategy-option', '-so', metavar=('KEY', 'VALUE'),
                         nargs=2, action='append',
                         help='Append additional options to the charging strategy.')
-    parser.add_argument('--cost_calc', '-cc', action='store_true',
+    parser.add_argument('--cost-calc', '-cc', action='store_true',
                         help='Calculate electricity costs')
-    parser.add_argument('--get_cost_parameters', '-cp', help='Get cost parameters from json file.')
+    parser.add_argument('--get-cost-parameters', '-cp', help='Get cost parameters from json file.')
     parser.add_argument('--visual', '-v', action='store_true', help='Show plots of the results')
     parser.add_argument('--eta', action='store_true',
                         help='Show estimated time to finish simulation after each step, \
