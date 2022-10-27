@@ -94,7 +94,7 @@ def aggregate_local_results(strategy_name, scenario, gcID):
         }
 
     json_results["grid_connector"] = {
-        "voltage_level" : scenario.constants.grid_connectors[gcID].voltage_level,
+        "voltage_level": scenario.constants.grid_connectors[gcID].voltage_level,
         "info": "Voltage level of grid connection"
         }
 

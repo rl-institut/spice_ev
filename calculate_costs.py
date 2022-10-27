@@ -854,7 +854,8 @@ if __name__ == "__main__":
     ) = read_simulation_csv(args.get_timeseries, strategy)
 
     # voltage level of grid connection:
-    voltage_level = args.voltage_level or simulation_json.get("grid_connector", {}).get("voltage_level")
+    voltage_level = args.voltage_level or simulation_json.get("grid_connector",
+                                                              {}).get("voltage_level")
     if voltage_level is None:
         raise Exception("voltage")
     print(voltage_level)
