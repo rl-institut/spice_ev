@@ -103,6 +103,13 @@
         "info": "remuneration for power fed into the grid by PV power plants or electric vehicles"
     },
     "strategy_related_cost_parameters": {
+        "balanced_market": {
+            "low_tariff_factor": 0.68,
+            "medium_tariff_factor": 1,
+            "unit": "-",
+            "info": ["factor sets commodity charge for low and medium tariff window by being multiplied with the ",
+                "commodity charge in the price sheet"]
+        },
         "schedule": {
             "reduction_of_commodity_charge": 0,
             "unit": "ct/kWh",
