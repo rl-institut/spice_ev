@@ -1,20 +1,20 @@
 {
     "grid_fee":{
-        "slp": {
+        "SLP": {
             "basic_charge_EUR/a": {
                 "net_price": 65.7,
                 "gross_price": 78.18,
                 "unit": "EUR/a",
-                "info": "bacis charge for slp customers. Wording 'capacity charge' only used for SpiceEV"
+                "info": "basic charge for SLP (standard load profile) customers."
             },
             "commodity_charge_ct/kWh": {
                 "net_price": 7.48,
                 "gross_price": 8.9,
                 "unit": "ct/kWh",
-                "info": "commodity costs for slp customers"
+                "info": "commodity costs for SLP (standard load profile) customers"
             }
         },
-        "jlp": {
+        "RLM": {
             "<2500_h/a": {
                 "capacity_charge_EUR/kW*a": {
                     "HV": 19.13,
@@ -23,7 +23,9 @@
                     "MV/LV": 44.26,
                     "LV": 44.26,
                     "unit": "EUR/(kW*a)",
-                    "info": "capacity charge for jlp customers with annual utilization time < 2500 h/a"
+                    "info": ["capacity charge depending on the voltage level for RLM",
+                        "(Registrierende Leistungsmessung, engl.: consumption metering) customers with",
+                        "annual utilization time < 2500 h/a"]
                 },
                 "commodity_charge_ct/kWh": {
                     "HV": 2.3,
@@ -32,7 +34,9 @@
                     "MV/LV": 4.39,
                     "LV": 4.83,
                     "unit": "ct/kWh",
-                    "info": "commodity charge for jlp customers with annual utilization time < 2500 h/a"
+                    "info": ["commodity charge depending on the voltage level for RLM",
+                        "(Registrierende Leistungsmessung, engl.: consumption metering) customers with",
+                        "annual utilization time < 2500 h/a"]
                 }
             },
             ">=2500_h/a": {
@@ -43,7 +47,8 @@
                     "MV/LV": 97.01,
                     "LV": 64.33,
                     "unit": "EUR/(kW*a)",
-                    "info": "capacity charge for jlp customers with annual utilization time >= 2500 h/a"
+                    "info": ["capacity charge depending on the voltage level for RLM customers with",
+                        "annual utilization time >= 2500 h/a"]
                 },
                 "commodity_charge_ct/kWh": {
                     "HV": 0.81,
@@ -52,13 +57,14 @@
                     "MV/LV": 2.28,
                     "LV": 4.03,
                     "unit": "ct/kWh",
-                    "info": "commodity charge for jlp customers with annual utilization time >= 2500 h/a"
+                    "info": ["commodity charge depending on the voltage level for RLM customers with",
+                        "annual utilization time >= 2500 h/a"]
                 }
             },
             "additional_costs": {
                 "costs": 0,
                 "unit": "EUR",
-                "info": "additional costs for jlp customers (f.i. costs for metering point operation)"
+                "info": "additional costs for RLM customers per year (f.i. costs for metering point operation)"
             }
         }
     },
@@ -74,8 +80,7 @@
         "offshore_levy": 0.419,
         "interruptible_loads_levy": 0.003,
         "unit": "ct/kWh",
-        "info": ["levies on energy supplied from the power grid according to art. 26 und 26a KWKG 2020",
-            "art. 19 Abs. 2 StromNEV, art. 17f Absatz 7 EnWG and art. 18 AbLaV"]
+        "info": ["levies on energy supplied from the power grid"]
     },
     "concession_fee": {
         "charge": 1.32,
@@ -95,7 +100,7 @@
         },
         "V2G": 0,
         "unit": "ct/kWh",
-        "info": "remuneration for power fed into the grid by PV-power plants and electric vehicles"
+        "info": "remuneration for power fed into the grid by PV power plants or electric vehicles"
     },
     "strategy_related_cost_parameters": {
         "schedule": {

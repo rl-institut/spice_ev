@@ -47,9 +47,6 @@ class Scenario:
         # only relevant for schedule strategy
         self.core_standing_time = scenario.get('core_standing_time', None)
 
-        # only relevant for cost calculation
-        # self.photovoltaics = scenario.get('photovoltaics', None)
-        # self.sz = scenario
         # compute average load for each timeslot
         for ext_load_list in self.events.external_load_lists.values():
             gc_id = ext_load_list.grid_connector_id
@@ -264,7 +261,8 @@ class Scenario:
 
             for gcID in gc_ids:
                 # stepwise gc specific information is aggregated and curated for results file output
-                results_file_content = report.aggregate_local_results(scenario=self, gcID=gcID)
+                results_file_content = report.aggregate_local_results(strategy_name=strategy_name,
+                                                                      scenario=self, gcID=gcID)
 
                 if options.get("save_results", False):
                     # write to file
@@ -336,4 +334,4 @@ class Scenario:
 
         if options.get("save_timeseries", False):
             return (timestamps_list, power_grid_supply_list, price_list, power_fix_load_list,
-                    power_feed_in_list, charging_signal_list)
+                    power_feed_in_list, charging_signal_list, results_file_content)

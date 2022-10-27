@@ -352,6 +352,7 @@ def generate(args):
             "grid_connectors": {
                 "GC1": {
                     "max_power": vars(args).get("gc_power", 530),
+                    "voltage_level": vars(args).get("voltage_level", "MV"),
                     "cost": {"type": "fixed", "value": 0.3}
                 }
             },
@@ -397,14 +398,16 @@ if __name__ == '__main__':
                         (-1 for variable capacity, second argument is fixed power))')
     parser.add_argument('--gc-power', type=int, default=530, help='set power at grid connection '
                                                                   'point in kW')
+    parser.add_argument('--voltage_level', '-vl', default='MV',
+                        help='Choose voltage level for cost calculation')
     parser.add_argument('--seed', default=None, type=int, help='set random seed')
 
     parser.add_argument('--vehicle-types', default=None,
                         help='location of vehicle type definitions')
     parser.add_argument('--discharge-limit', default=0.5,
                         help='Minimum SoC to discharge to during v2g. [0-1]')
-    parser.add_argument('--pv_power', type=int, default=0, help='set nominal power for photovoltaik'
-                                                                'power plant in kW')
+    parser.add_argument('--pv_power', type=int, default=0, help='set nominal power for local '
+                                                                'photovoltaic power plant in kWp')
     parser.add_argument('--include-ext-load-csv',
                         help='include CSV for external load. \
                         You may define custom options with --include-ext-csv-option')

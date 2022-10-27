@@ -47,7 +47,7 @@ def aggregate_global_results(scenario):
     scenario.all_totalLoad = all_totalLoad
 
 
-def aggregate_local_results(scenario, gcID):
+def aggregate_local_results(strategy_name, scenario, gcID):
     """ Aggregate results of simulation for a single grid connector.
         Aggregated Quantities:
         avg flex per window,
@@ -93,16 +93,26 @@ def aggregate_local_results(scenario, gcID):
             "info": "Core standing time: start time, end time, duration"
         }
 
+    json_results["grid_connector"] = {
+        "voltage_level" : scenario.constants.grid_connectors[gcID].voltage_level,
+        "info": "Voltage level of grid connection"
+        }
+
     try:
         nominal_pv_power = scenario.constants_json['photovoltaics']['nominal_power']
     except KeyError:
-        print('nominal_power of PV power plant is not defined.')
+        print('nominal_power of PV power plant is not defined, setting to zero')
         nominal_pv_power = 0
 
     json_results["photovoltaics"] = {
         "nominal_power": nominal_pv_power,
-        "unit": "kW",
+        "unit": "kWp",
         "info": "Nominal power of PV power plant"
+    }
+
+    json_results["charging_strategy"] = {
+        "strategy": strategy_name,
+        "info": "charging strategy for electric vehicles"
     }
 
     # gather info about standing and power in specific time windows

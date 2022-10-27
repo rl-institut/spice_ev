@@ -68,16 +68,43 @@ def simulate(args):
         power_fix_load_list,
         power_feed_in_list,
         charging_signal_list,
+        results_file_content
     ) = s.run(strategy_name, options)
 
-    return (
-        timestamps_list,
-        power_grid_supply_list,
-        price_list,
-        power_fix_load_list,
-        power_feed_in_list,
-        charging_signal_list,
-    )
+    # Cost calculation
+    timestamps = timestamps_list
+    power_grid_supply = power_grid_supply_list
+    prices = price_list
+    power_fix_load = power_fix_load_list
+    charging_signals = charging_signal_list
+    voltage_level = results_file_content['grid_connector']['voltage_level']
+    interval_min = results_file_content["temporal_parameters"]["interval"]
+    power_pv_nominal = results_file_content['photovoltaics']['nominal_power']
+    core_standing_time_dict = results_file_content.get("core_standing_time")
+
+    if args["cost_calc"]:
+        (
+            total_costs_per_year,
+            commodity_costs_eur_per_year,
+            capacity_costs_eur,
+            power_procurement_per_year,
+            levies_fees_and_taxes_per_year,
+            feed_in_remuneration_per_year
+        ) = calculate_costs(
+            args["strategy"],
+            voltage_level,
+            interval_min,
+            timestamps,
+            power_grid_supply,
+            prices,
+            power_fix_load,
+            power_feed_in_list,
+            charging_signals,
+            core_standing_time_dict,
+            args["get_cost_parameters"],
+            args["save_results"],
+            power_pv_nominal
+        )
 
 
 if __name__ == "__main__":
@@ -98,8 +125,9 @@ if __name__ == "__main__":
     parser.add_argument('--strategy-option', '-so', metavar=('KEY', 'VALUE'),
                         nargs=2, action='append',
                         help='Append additional options to the charging strategy.')
-    parser.add_argument('--voltage_level', '-vl', default='MV',
-                        help='Choose voltage level for cost calculation')
+    parser.add_argument('--cost_calc', '-cc', action='store_true',
+                        help='Calculate electricity costs')
+    parser.add_argument('--get_cost_parameters', '-cp', help='Get cost parameters from json file.')
     parser.add_argument('--visual', '-v', action='store_true', help='Show plots of the results')
     parser.add_argument('--eta', action='store_true',
                         help='Show estimated time to finish simulation after each step, \
@@ -120,35 +148,4 @@ if __name__ == "__main__":
         args.save_timeseries = args.save_timeseries or args.output
 
     # Simulation
-    (
-        timestamps_list,
-        power_grid_supply_list,
-        price_list,
-        power_fix_load_list,
-        power_feed_in_list,
-        charging_signal_list,
-    ) = simulate(args)
-    # Cost calculation
-
-    # set flag for cost calculation:
-    # cost_calc = True: calculate costs
-    # cost_calc = False: don't calculate costs
-    cost_calc = True
-
-    timestamps = timestamps_list
-    power_grid_supply = power_grid_supply_list
-    prices = price_list
-    power_fix_load = power_fix_load_list
-    charging_signals = charging_signal_list
-
-    if cost_calc is True:
-        total_costs_per_year, total_costs_sim = calculate_costs(
-            args.strategy,
-            args.voltage_level,
-            timestamps,
-            power_grid_supply,
-            prices,
-            power_fix_load,
-            power_feed_in_list,
-            charging_signals,
-        )
+    simulate(args)
