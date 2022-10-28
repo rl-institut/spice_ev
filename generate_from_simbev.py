@@ -281,7 +281,7 @@ def generate_from_simbev(args):
                         vehicle_name, idx + 3)
 
                 # actual driving and charging behavior
-                if args.use_simbev_soc:
+                if not args.ignore_simbev_soc:
                     if cs_present and float(row["energy"]) > 0:
                         # arrival at new CS: use info from SimBEV directly
                         is_charge_event = True
@@ -406,7 +406,7 @@ def generate_from_simbev(args):
                     # arrival at new CS
                     event_end_idx = int(row["event_start"]) + int(row["event_time"]) + 1
                     event_end_ts = datetime_from_timestep(event_end_idx)
-                    delta_soc = delta_soc if args.use_simbev_soc else soc_needed
+                    delta_soc = soc_needed if args.ignore_simbev_soc else delta_soc
                     last_cs_event = {
                         "signal_time": event_start_ts.isoformat(),
                         "start_time": event_start_ts.isoformat(),
@@ -420,8 +420,8 @@ def generate_from_simbev(args):
                         }
                     }
 
-                    if args.use_simbev_soc:
-                        # append charge event right away
+                    if not args.ignore_simbev_soc:
+                        # use SimBEV SoC: append charge event right away
                         events["vehicle_events"].append(last_cs_event)
 
                     # reset distance (needed charge) to next CS
@@ -508,8 +508,8 @@ if __name__ == '__main__':
                         help='Set minimum desired SoC for each charging event. Default: 0.5')
     parser.add_argument('--min-soc-threshold', type=float, default=0.05,
                         help='SoC below this threshold trigger a warning. Default: 0.05')
-    parser.add_argument('--use-simbev-soc', action='store_true',
-                        help='Use SoC columns from SimBEV files')
+    parser.add_argument('--ignore-simbev-soc', action='store_true',
+                        help='Don\'t use SoC columns from SimBEV files')
     parser.add_argument('--verbose', '-v', action='count', default=0,
                         help='Set verbosity level. Use this multiple times for more output. '
                              'Default: only errors, 1: warnings, 2: debug')
