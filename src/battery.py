@@ -6,20 +6,27 @@ from src.loading_curve import LoadingCurve
 
 class Battery():
     """Battery class"""
-    def __init__(self, capacity, loading_curve, soc, efficiency=0.95, unloading_curve=None):
-        """ Initializing the battery
-        :param capacity: capacity of the battery
-        :type capacity: int/float
+    def __init__(self, capacity, loading_curve, soc,
+                 efficiency=0.95, unloading_curve=None, loss_rate=None):
+        """ Initialize the battery.
+
+        :param capacity: capacity of the battery in kWh
+        :type capacity: numerical
         :param loading_curve: loading curve of the battery
         :type loading_curve: src.loading_curve.LoadingCurve
         :param soc: soc of the battery
         :type soc: float
         :param efficiency: efficiency of the battery
         :type efficiency: float
-        :param unloading_curve: unloading curve of the battery
-            defaults to None for backwards-compatability, discharge with maximum
-            power of loading curve in case no unloading curve specified
+        :param unloading_curve: unloading curve of the battery.
+            Defaults to None for backwards-compatability (discharge with maximum
+            power of loading curve)
         :type unloading_curve: src.loading_curve.LoadingCurve
+        :param loss_rate: adjusted loss rate per timestep. Can have keys
+            *relative* (percent in relation to current charge),
+            *fixed_relative* (percent in relation to capacity) and
+            *fixed_absolute* (energy in kWh independent of capacity)
+        :type loss_rate: dict
         """
         # epsilon for floating point comparison
         self.EPS = 1e-5
@@ -27,6 +34,7 @@ class Battery():
         self.loading_curve = copy.deepcopy(loading_curve)
         self.soc = soc
         self.efficiency = efficiency
+        self.loss_rate = loss_rate
         if unloading_curve is None:
             self.unloading_curve = LoadingCurve([[0, self.loading_curve.max_power],
                                                  [1, self.loading_curve.max_power]])

@@ -1,8 +1,9 @@
 import json
 import unittest
 import os
+import pytest
 
-from src import scenario
+from src import scenario, strategy
 
 TEST_REPO_PATH = os.path.dirname(__file__)
 
@@ -281,6 +282,104 @@ class TestScenarios(TestCaseBase):
         os.remove(save_results)
         os.remove(save_timeseries)
         os.remove(save_soc)
+
+
+def test_apply_battery_losses():
+    test_json = {
+        "scenario": {
+            "start_time": "2020-01-01T00:00:00+02:00",
+            "interval": 15,
+            "n_intervals": 100
+        },
+        "constants": {
+            "grid_connectors": {},
+            "charging_stations": {},
+            "vehicle_types": {
+                "test": {
+                    "name": "test",
+                    "capacity": 100,
+                    "charging_curve": [(0, 1), (1, 1)],
+                    "loss_rate": None
+                }
+            },
+            "vehicles": {
+                "test_vehicle": {"vehicle_type": "test", "soc": 1}
+            },
+            "batteries": {
+                "test_battery": {
+                    "parent": "GC",
+                    "charging_curve": [(0, 1), (1, 1)],
+                    "capacity": 100,
+                    "soc": 1,
+                    "loss_rate": None
+                }
+            }
+        },
+        "events": {
+            "external_loads": {},
+            "grid_operator_signals": [],
+            "vehicle_events": [],
+        }
+    }
+    s = scenario.Scenario(test_json)
+    strat = strategy.Strategy(s.constants, s.start_time, **{"interval": s.interval})
+    # test vehicle battery in particular
+    battery = strat.world_state.vehicles["test_vehicle"].battery
+
+    # no loss rate -> no change
+    strat.apply_battery_losses()
+    assert battery.soc == 1
+
+    # empty dict -> no change
+    battery.loss_rate = {}
+    strat.apply_battery_losses()
+    assert battery.soc == 1
+
+    # relative loss rate = 10 -> 10% of SoC per timestep lost
+    battery.soc = 1
+    battery.loss_rate = {"relative": 10}
+    for i in range(10):
+        strat.apply_battery_losses()
+        assert battery.soc == pytest.approx(0.9**(i+1))
+
+    # fixed relative loss rate = 10 -> flat 10% SoC per timestep lost
+    battery.soc = 1
+    battery.loss_rate = {"fixed_relative": 10}
+    for i in range(10):
+        strat.apply_battery_losses()
+        assert battery.soc == pytest.approx(1 - (i+1)*0.1)
+
+    # fixed absolute loss rate = 5 => flat 5 kWh per timestep lost
+    battery.soc = 1
+    battery.loss_rate = {"fixed_absolute": 5}
+    for i in range(10):
+        strat.apply_battery_losses()
+        assert battery.soc == pytest.approx(1 - (i+1)*0.05)
+
+    # combined loss rates
+    battery.soc = 0.6
+    battery.capacity = 30
+    loss_rate = {
+        "relative": 50,
+        "fixed_relative": 5,
+        "fixed_absolute": 3
+    }
+    battery.loss_rate = loss_rate
+    strat.apply_battery_losses()
+    # new soc: 0.6 - (50%*0.6) - (5%) - (3kWh/30kWh) = 0.15
+    assert pytest.approx(battery.soc) == 0.15
+
+    # no loss on empty battery
+    battery.soc = 0
+    strat.apply_battery_losses()
+    assert battery.soc == 0
+
+    # test stationary battery, only combined test (should behave identical)
+    battery = strat.world_state.batteries["test_battery"]
+    battery.loss_rate = loss_rate
+    strat.apply_battery_losses()
+    # new soc: 1.0 - (50%*1.0) - (5%) - (3kWh/100kWh) = 0.42
+    assert pytest.approx(battery.soc) == 0.42
 
 
 if __name__ == '__main__':
