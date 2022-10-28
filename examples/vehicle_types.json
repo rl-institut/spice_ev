@@ -48,6 +48,11 @@
         "min_charging_power": 0,
         "v2g": false,
         "v2g_power_factor": 0.5,
-        "battery_efficiency": 0.95
+        "battery_efficiency": 0.95,
+        "loss_rate": {
+            "relative": 0,
+            "fixed_relative": 0,
+            "fixed_absolute": 0
+        }
     }
 }
