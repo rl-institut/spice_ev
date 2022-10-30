@@ -82,7 +82,7 @@ def simulate(args):
     power_pv_nominal = results_file_content['photovoltaics']['nominal_power']
     core_standing_time_dict = results_file_content.get("core_standing_time")
 
-    if args["cost_calc"]:
+    if args.get("cost_calc"):
         (
             total_costs_per_year,
             commodity_costs_eur_per_year,
@@ -91,7 +91,7 @@ def simulate(args):
             levies_fees_and_taxes_per_year,
             feed_in_remuneration_per_year
         ) = calculate_costs(
-            args["strategy"],
+            args.get("strategy"),
             voltage_level,
             interval_min,
             timestamps,
@@ -101,8 +101,8 @@ def simulate(args):
             power_feed_in_list,
             charging_signals,
             core_standing_time_dict,
-            args["get_cost_parameters"],
-            args["save_results"],
+            args.get("cost_parameters_file"),
+            args.get("save_results"),
             power_pv_nominal
         )
 
@@ -127,7 +127,7 @@ if __name__ == "__main__":
                         help='Append additional options to the charging strategy.')
     parser.add_argument('--cost-calc', '-cc', action='store_true',
                         help='Calculate electricity costs')
-    parser.add_argument('--get-cost-parameters', '-cp', help='Get cost parameters from json file.')
+    parser.add_argument('--cost-parameters-file', '-cp', help='Get cost parameters from json file.')
     parser.add_argument('--visual', '-v', action='store_true', help='Show plots of the results')
     parser.add_argument('--eta', action='store_true',
                         help='Show estimated time to finish simulation after each step, \
@@ -147,5 +147,4 @@ if __name__ == "__main__":
                       DeprecationWarning)
         args.save_timeseries = args.save_timeseries or args.output
 
-    # Simulation
     simulate(args)

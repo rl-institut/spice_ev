@@ -7,10 +7,16 @@ from src.util import set_options_from_config
 
 from src.util import dt_within_core_standing_time
 
-# constants:
-# constant utilization time of the grid needed for the price sheet in order to define fee type
+# constants for grid fee
+
+# constant utilization time of the grid needed in order to find commodity and capacity charge
+# in the price sheet:
 UTILIZATION_TIME_PER_YEAR_EC = 2500  # ec: edge condition, [h/a]
-# duration of one year
+
+# maximum yearly energy supply for SLP customers:
+MAX_ENERGY_SUPPLY_PER_YEAR_SLP = 100000
+
+# duration of one year:
 DURATION_YEAR_S = 365 * 24 * 60 * 60  # [s]
 
 
@@ -22,7 +28,7 @@ def read_simulation_csv(csv_file, strategy):
     :param strategy: charging strategy for electric vehicles
     :type strategy: str
     :return: timestamps, prices, power supplied from the grid, power fed into the grid, needed power
-    of fix load, charging signals
+    of fixed load, charging signals
     :rtype: list
     """
 
@@ -84,7 +90,7 @@ def get_flexible_load(power_grid_supply_list, power_fix_load_list):
     """Determines power of flexible load
     :param power_grid_supply_list: power supplied from the power grid
     :type power_grid_supply_list: list
-    :param power_fix_load_list: power of the fix load
+    :param power_fix_load_list: power of the fixed load
     :type power_fix_load_list: list
     :return: power of flexible load in kW
     :rtype: list
@@ -119,7 +125,8 @@ def find_prices(price_sheet_path, strategy, voltage_level, utilization_time_per_
 
     with open(price_sheet_path, "r", newline="") as ps:
         price_sheet = json.load(ps)
-    if (strategy == "greedy" or strategy == "balanced") and abs(energy_supply_per_year) <= 100000:
+    if (strategy == "greedy" or strategy == "balanced") \
+            and abs(energy_supply_per_year) <= MAX_ENERGY_SUPPLY_PER_YEAR_SLP:
         # customer type 'SLP'
         fee_type = "SLP"
         commodity_charge = price_sheet["grid_fee"]["SLP"]["commodity_charge_ct/kWh"]["net_price"]
@@ -209,7 +216,7 @@ def calculate_costs(strategy, voltage_level, interval_min, timestamps_list, powe
     :type power_grid_supply_list: list
     :param price_list: prices for energy supply in EUR/kWh
     :type price_list: list
-    :param power_fix_load_list: power supplied from the grid for the fix load
+    :param power_fix_load_list: power supplied from the grid for the fixed load
     :type power_fix_load_list list
     :param power_feed_in_list: power fed into the grid
     :type power_feed_in_list: list
@@ -270,11 +277,11 @@ def calculate_costs(strategy, voltage_level, interval_min, timestamps_list, powe
 
     elif strategy == "balanced_market":
         """Payment model for the charging strategy 'balanced market'.
-        For the charging strategy a price time series is used. The fix and flexible load are
+        For the charging strategy a price time series is used. The fixed and flexible load are
         charged separately.
-        Commodity and capacity costs fix: The price is depending on the utilization time per year
-        (as usual). For the utilization time the maximum fix load and the fix energy supply per year
-        is used. Then the fix costs are calculated as usual.
+        Commodity and capacity costs fixed: The price is depending on the utilization time per year
+        (as usual). For the utilization time the maximum fixed load and the fixed energy supply per
+        year is used. Then the fixed costs are calculated as usual.
         Commodity and capacity costs flexible: For the flexible load all prices are based on the
         prices for a utilization time <2500 hours in the price sheet (prices for grid friendly power
         supply). For the commodity charge the generated price time series is adjusted to the prices
@@ -283,17 +290,17 @@ def calculate_costs(strategy, voltage_level, interval_min, timestamps_list, powe
         window.
         """
 
-        # COSTS FOR FIX LOAD
+        # COSTS FOR FIXED LOAD
 
-        # maximum fix power supplied from the grid [kW]:
+        # maximum fixed power supplied from the grid [kW]:
         max_power_grid_supply_fix = min(power_fix_load_list)  # min() because of negative values
 
         if max_power_grid_supply_fix == 0:  # no fix load existing
             commodity_costs_eur_per_year_fix = 0
             commodity_costs_eur_sim_fix = 0
             capacity_costs_eur_fix = 0
-        else:  # fix load existing
-            # fix energy supply:
+        else:  # fixed load existing
+            # fixed energy supply:
             energy_supply_sim_fix = sum(power_fix_load_list) * timestep_s / 3600
             energy_supply_per_year_fix = energy_supply_sim_fix * (duration_year_s / duration_sim_s)
 
@@ -305,13 +312,13 @@ def calculate_costs(strategy, voltage_level, interval_min, timestamps_list, powe
                             utilization_time_per_year_fix, energy_supply_per_year_fix,
                             UTILIZATION_TIME_PER_YEAR_EC)
 
-            # commodity costs for fix load:
+            # commodity costs for fixed load:
             price_list_fix_load = [commodity_charge_fix] * len(power_fix_load_list)
             commodity_costs_eur_per_year_fix, commodity_costs_eur_sim_fix = \
                 calculate_commodity_costs(price_list_fix_load, power_fix_load_list,
                                           timestep_s, duration_year_s)
 
-            # capacity costs for fix load:
+            # capacity costs for fixed load:
             capacity_costs_eur_fix = \
                 calculate_capacity_costs_rlm(capacity_charge_fix, max_power_grid_supply_fix)
 
@@ -380,28 +387,28 @@ def calculate_costs(strategy, voltage_level, interval_min, timestamps_list, powe
     elif strategy == "flex_window":
         """Payment model for the charging strategy 'flex window'.
         The charging strategy uses a charging signal time series (1 = charge, 0 = don't charge).
-        The fix and flexible load are charged separately.
-        Commodity and capacity costs fix: The price is depending on the utilization time per year
+        The fixed and flexible load are charged separately.
+        Commodity and capacity costs fixed: The price is depending on the utilization time per year
         (as usual). For the
-        utilization time the maximum fix load and the fix energy supply per year is used. Then the
-        fix costs are calculated as usual.
+        utilization time the maximum fixed load and the fixed energy supply per year is used. Then
+        the fixed costs are calculated as usual.
         Commodity and capacity costs flexible: For the flexible load all prices are based on the
         right column of the price sheet (prices for grid friendly power supply). Then the flexible
         commodity costs are calculated as usual. The flexible capacity costs are calculated only for
         grid supply in the high tariff window (signal = 0).
         """
 
-        # COSTS FOR FIX LOAD
+        # COSTS FOR FIXED LOAD
 
-        # maximum fix power supplied from the grid [kW]:
+        # maximum fixed power supplied from the grid [kW]:
         max_power_grid_supply_fix = min(power_fix_load_list)  # min() because of negative values
 
         if max_power_grid_supply_fix == 0:  # no fix load existing
             commodity_costs_eur_per_year_fix = 0
             commodity_costs_eur_sim_fix = 0
             capacity_costs_eur_fix = 0
-        else:  # fix load existing
-            # fix energy supply:
+        else:  # fixed load existing
+            # fixed energy supply:
             energy_supply_sim_fix = sum(power_fix_load_list) * timestep_s / 3600
             energy_supply_per_year_fix = energy_supply_sim_fix * (duration_year_s / duration_sim_s)
 
@@ -413,13 +420,13 @@ def calculate_costs(strategy, voltage_level, interval_min, timestamps_list, powe
                             utilization_time_per_year_fix, energy_supply_per_year_fix,
                             UTILIZATION_TIME_PER_YEAR_EC)
 
-            # commodity costs for fix load:
+            # commodity costs for fixed load:
             price_list_fix_load = [commodity_charge_fix] * len(power_fix_load_list)
             commodity_costs_eur_per_year_fix, commodity_costs_eur_sim_fix = \
                 calculate_commodity_costs(price_list_fix_load, power_fix_load_list,
                                           timestep_s, duration_year_s)
 
-            # capacity costs for fix load:
+            # capacity costs for fixed load:
             capacity_costs_eur_fix = \
                 calculate_capacity_costs_rlm(capacity_charge_fix, max_power_grid_supply_fix)
 
@@ -462,29 +469,29 @@ def calculate_costs(strategy, voltage_level, interval_min, timestamps_list, powe
     elif strategy == "schedule":
         """Payment model for the charging strategy 'schedule'.
         For the charging strategy a core standing time is chosen in which the distribution system
-        operator can choose how the GC should draw power. The fix and flexible load are charged
+        operator can choose how the GC should draw power. The fixed and flexible load are charged
         separately.
-        Commodity and capacity costs fix: The price is depending on the utilization time per year
-        (as usual). For the utilization time the maximum fix load and the energy supply per year
-        for the fix load is used. The commodity charge can be lowered by a flat fee in order to
-        reimburse flexibility. Then the fix commodity and capacity costs are calculated as usual.
+        Commodity and capacity costs fixed: The price is depending on the utilization time per year
+        (as usual). For the utilization time the maximum fixed load and the energy supply per year
+        for the fixed load is used. The commodity charge can be lowered by a flat fee in order to
+        reimburse flexibility. Then the fixed commodity and capacity costs are calculated as usual.
         Commodity and capacity costs flexible: For the flexible load all prices are based on the
         right column of the price sheet (prices for grid friendly power supply). Then the flexible
         commodity costs are calculated as usual. The capacity costs for the flexible load are
         calculated for the times outside of the core standing time only.
         """
 
-        # COSTS FOR FIX LOAD
+        # COSTS FOR FIXED LOAD
 
-        # maximum fix power supplied from the grid:
+        # maximum fixed power supplied from the grid:
         max_power_grid_supply_fix = min(power_fix_load_list)  # minimum wegen negativen Werten [kW]
 
-        if max_power_grid_supply_fix == 0:  # no fix load existing
+        if max_power_grid_supply_fix == 0:  # no fixed load existing
             commodity_costs_eur_per_year_fix = 0
             commodity_costs_eur_sim_fix = 0
             capacity_costs_eur_fix = 0
-        else:  # fix load existing
-            # fix energy supply:
+        else:  # fixed load existing
+            # fixed energy supply:
             energy_supply_sim_fix = sum(power_fix_load_list) * timestep_s / 3600
             energy_supply_per_year_fix = energy_supply_sim_fix * (duration_year_s / duration_sim_s)
 
@@ -499,13 +506,13 @@ def calculate_costs(strategy, voltage_level, interval_min, timestamps_list, powe
                 "schedule"]["reduction_of_commodity_charge"]
             commodity_charge_fix = commodity_charge_fix - reduction_commodity_charge
 
-            # commodity costs for fix load:
+            # commodity costs for fixed load:
             price_list_fix_load = [commodity_charge_fix, ] * len(power_fix_load_list)
             commodity_costs_eur_per_year_fix, commodity_costs_eur_sim_fix = \
                 calculate_commodity_costs(price_list_fix_load, power_fix_load_list,
                                           timestep_s, duration_year_s)
 
-            # capacity costs for fix load:
+            # capacity costs for fixed load:
             max_power_grid_supply_fix = min(power_fix_load_list)
             capacity_costs_eur_fix \
                 = calculate_capacity_costs_rlm(capacity_charge_fix, max_power_grid_supply_fix)
@@ -546,7 +553,7 @@ def calculate_costs(strategy, voltage_level, interval_min, timestamps_list, powe
             calculate_capacity_costs_rlm(capacity_charge_flex,
                                          max_power_grid_supply_outside_cst_flex)
 
-        # TOTAl COSTS:
+        # TOTAL COSTS:
         commodity_costs_eur_sim = commodity_costs_eur_sim_fix + commodity_costs_eur_sim_flex
         commodity_costs_eur_per_year = (commodity_costs_eur_per_year_fix
                                         + commodity_costs_eur_per_year_flex)
@@ -627,7 +634,6 @@ def calculate_costs(strategy, voltage_level, interval_min, timestamps_list, powe
                              "up to 100 kWp")
     # PV power plant not existing:
     else:
-        print('else')
         feed_in_charge_pv = 0  # [ct/kWh]
 
     # energy feed in by PV power plant:
@@ -681,7 +687,7 @@ def calculate_costs(strategy, voltage_level, interval_min, timestamps_list, powe
 
         if strategy in ["greedy", "balanced", "distributed"]:
             # strategies without differentiation between fixed and flexible load
-            information_fix_flex = "no differentiation between fix and flexible load"
+            information_fix_flex = "no differentiation between fixed and flexible load"
             commodity_costs_eur_per_year_fix = information_fix_flex
             commodity_costs_eur_sim_fix = information_fix_flex
             capacity_costs_eur_fix = information_fix_flex
@@ -704,12 +710,12 @@ def calculate_costs(strategy, voltage_level, interval_min, timestamps_list, powe
                                                 + capacity_costs_eur, round_to_places),
                         "commodity costs": {
                             "total costs": round(commodity_costs_eur_per_year, round_to_places),
-                            "costs for fix load": commodity_costs_eur_per_year_fix,
+                            "costs for fixed load": commodity_costs_eur_per_year_fix,
                             "costs for flexible load": commodity_costs_eur_per_year_flex,
                         },
                         "capacity_or_basic_costs": {
                             "total costs": round(capacity_costs_eur, round_to_places),
-                            "costs for fix load": capacity_costs_eur_fix,
+                            "costs for fixed load": capacity_costs_eur_fix,
                             "costs for flexible load": capacity_costs_eur_flex,
                         },
                         "additional costs": round(additional_costs_per_year, round_to_places),
@@ -744,12 +750,12 @@ def calculate_costs(strategy, voltage_level, interval_min, timestamps_list, powe
                                                 + capacity_costs_eur, round_to_places),
                         "commodity costs": {
                             "total costs": round(commodity_costs_eur_sim, round_to_places),
-                            "costs for fix load": commodity_costs_eur_sim_fix,
+                            "costs for fixed load": commodity_costs_eur_sim_fix,
                             "costs for flexible load": commodity_costs_eur_sim_flex,
                         },
                         capacity_or_basic_costs: {
                             "total costs": round(capacity_costs_eur, round_to_places),
-                            "costs for fix load": capacity_costs_eur_fix,
+                            "costs for fixed load": capacity_costs_eur_fix,
                             "costs for flexible load": capacity_costs_eur_flex,
                         },
                         "additional costs": round(additional_costs_sim, round_to_places),
@@ -823,7 +829,7 @@ if __name__ == "__main__":
                                                                 'photovoltaic power plant in kWp')
     parser.add_argument('--get-timeseries', '-ts', help='get timeseries from csv file.')
     parser.add_argument('--get-results', '-r', help='get simulation results from json file.')
-    parser.add_argument('--get-cost-parameters', '-cp', help='get cost parameters from json file.')
+    parser.add_argument('--cost-parameters-file', '-cp', help='get cost parameters from json file.')
     parser.add_argument('--config', help='Use config file to set arguments')
 
     args = parser.parse_args()
@@ -857,7 +863,7 @@ if __name__ == "__main__":
     voltage_level = args.voltage_level or simulation_json.get("grid_connector",
                                                               {}).get("voltage_level")
     if voltage_level is None:
-        raise Exception("voltage")
+        raise Exception("voltage_level is not defined.")
 
     # cost calculation:
     calculate_costs(
