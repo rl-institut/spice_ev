@@ -111,11 +111,6 @@ class Strategy():
                 else:
                     # connector max power not set
                     connector.cur_max_power = ev.max_power
-                # sanitiy check: scheduled target must not exceed max power
-                if connector.target is not None and connector.cur_max_power is not None:
-                    assert connector.target <= connector.cur_max_power, (
-                        "Schedule exceeds power of {}".format(ev.grid_connector_id))
-
             elif type(ev) == events.VehicleEvent:
                 vehicle = self.world_state.vehicles[ev.vehicle_id]
                 # update vehicle attributes

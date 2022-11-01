@@ -357,8 +357,8 @@ def generate_individual_flex_band(scenario, gcID):
             # other event types ignored
         # end of current events: get current GC loads
         flex["base"].append(gc.get_current_load())
-        flex["min"].append(-gc.max_power)
-        flex["max"].append(gc.max_power)
+        flex["min"].append(-gc.cur_max_power)
+        flex["max"].append(gc.cur_max_power)
     # end of timesteps
     return flex
 

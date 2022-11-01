@@ -733,17 +733,31 @@ class Schedule(Strategy):
                 # no schedule set
                 continue
             # get difference between target and GC load
-            power = gc.target - gc.get_current_load()
-            if power < -self.EPS:
-                # discharge
-                # to provide the energy the schedule asks for, charge with more
-                # power to make up for loss due to efficiency
+            current_load = gc.get_current_load()
+            power = gc.target - current_load
+            # get differences to positive and negative GC limits
+            avail_pos_power = gc.cur_max_power - current_load
+            avail_neg_power = -gc.cur_max_power - current_load
+
+            if avail_pos_power < -self.EPS:
+                # GC limit exceeded: supply from battery
+                power = -avail_pos_power
+                bat_power = -battery.unload(self.interval, power / battery.efficiency)["avg_power"]
+            elif avail_neg_power > self.EPS:
+                # negative GC limit exceeded: store excess in battery
+                power = max(battery.min_power, avail_neg_power)
+                bat_power = battery.load(self.interval, power)["avg_power"]
+            elif power < -self.EPS:
+                # discharge to provide the energy the schedule asks for
+                # charge with more power to make up for loss due to efficiency
+                power = min(-power, avail_neg_power)
                 bat_power = -battery.unload(self.interval, -power / battery.efficiency)["avg_power"]
-            elif power > battery.min_charging_power:
-                # charge
+            elif min(power, avail_pos_power) >= battery.min_charging_power:
+                # target not yet reached and within GC limit: draw power to reach target
+                power = min(power, avail_pos_power)
                 bat_power = battery.load(self.interval, power)["avg_power"]
             else:
-                # positive difference, but below minimum charging power
+                # below minimum charging power
                 bat_power = 0
             gc.add_load(bid, bat_power)
 
