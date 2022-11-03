@@ -180,6 +180,9 @@ class Scenario:
                 error = traceback.format_exc()
             results.append(res)
 
+            # apply battery losses at end of timestep
+            strat.apply_battery_losses()
+
             # get loads during timestep
             for gcID, gc in strat.world_state.grid_connectors.items():
 

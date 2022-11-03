@@ -240,3 +240,20 @@ class Strategy():
                 # GC draws power: use stored energy to support GC
                 bat_power = battery.unload(self.interval, gc_current_load)['avg_power']
                 gc.add_load(b_id, -bat_power)
+
+    def apply_battery_losses(self):
+        """
+        Regardless of specific strategy, reduce SoC of lossy batteries. In-place.
+        """
+        for battery in (
+                        list(self.world_state.batteries.values()) +
+                        [v.battery for v in self.world_state.vehicles.values()]):
+            if battery.loss_rate:
+                relative_loss = battery.loss_rate.get("relative", 0)
+                battery.soc *= 1 - relative_loss/100
+                fixed_relative_loss = battery.loss_rate.get("fixed_relative", 0)
+                battery.soc -= fixed_relative_loss / 100
+                fixed_absolute_loss = battery.loss_rate.get("fixed_absolute", 0)
+                battery.soc -= fixed_absolute_loss / battery.capacity
+                # can only discharge, but not become negative
+                battery.soc = max(battery.soc, 0)
