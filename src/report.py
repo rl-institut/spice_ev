@@ -1,4 +1,3 @@
-import os
 import datetime
 
 
@@ -76,12 +75,16 @@ def aggregate_local_results(strategy_name, scenario, gcID):
 
     if gcID not in scenario.flex_bands.keys():
         if 'generate_flex_band' not in locals().keys():
+            # cyclic dependency: import when needed
             from generate_schedule import generate_flex_band
-        scenario.flex_bands[gcID] = generate_flex_band(scenario, gcID)
+        try:
+            scenario.flex_bands[gcID] = generate_flex_band(scenario, gcID)
+        except Exception:
+            scenario.flex_bands[gcID] = {}
 
     json_results["temporal_parameters"] = {
-        "interval": scenario.interval_min,
-        "unit": 'min',
+        "interval": scenario.interval.total_seconds() // 60,
+        "unit": 'minutes',
         "info": "simulation interval"
     }
 
@@ -132,9 +135,13 @@ def aggregate_local_results(strategy_name, scenario, gcID):
         # compute window index
         widx = (shifted_time // datetime.timedelta(hours=6)) % 4
 
-        load_window[widx].append((scenario.flex_bands[gcID]["max"][idx]
-                                  - scenario.flex_bands[gcID]["min"][idx],
-                                  scenario.totalLoad[gcID][idx]))
+        flex = scenario.flex_bands[gcID]
+        try:
+            cur_load_window = (flex["max"][idx] - flex["min"][idx], scenario.totalLoad[gcID][idx])
+        except KeyError:
+            cur_load_window = (0, scenario.totalLoad[gcID][idx])
+        load_window[widx].append(cur_load_window)
+
         count_window[widx] = list(map(
             lambda c, t: c + (t is not None),
             count_window[widx], scenario.socs[idx]))
@@ -222,7 +229,7 @@ def aggregate_local_results(strategy_name, scenario, gcID):
     }
 
     # avg needed energy per standing period
-    intervals = scenario.flex_bands[gcID]["intervals"]
+    intervals = scenario.flex_bands[gcID].get("intervals")
     if intervals:
         scenario.avg_needed_energy[gcID] = sum([i["needed"] / i["num_cars_present"]
                                                 for i in intervals]) / len(intervals)
@@ -312,9 +319,10 @@ def aggregate_local_results(strategy_name, scenario, gcID):
     return json_results
 
 
-def save_gc_timeseries(scenario, strategy_name, gcID, output_path):
-    """ Compute various timeseries for a given grid connector and save the
-        result to file. The time series generated are:
+def aggregate_timeseries(scenario, gcID):
+    """ Compute various timeseries for a given grid connector.
+
+    The time series generated are:
         price [EUR/kWh],
         grid power [kW],
         ext.load [kW],
@@ -326,14 +334,16 @@ def save_gc_timeseries(scenario, strategy_name, gcID, output_path):
         number of occupied CS,
         power at CS (one per CS) [kW]
 
+    The given scenario gains multiple list attributes used for calculating costs.
+
     :param scenario: Scenario for with to generate timeseries.
     :type scenario: spice_ev.Scenario
     :param gcID: ID of GC for which to generate timeseries.
     :type gcID: str
-    :param output_path: Path to output file.
-    :type output_path: str
+    :return: header and timeseries
+    rtype: dict
     """
-    # check file extension
+
     cs_ids = sorted(item for item in scenario.constants.charging_stations.keys() if
                     scenario.constants.charging_stations[item].parent == gcID)
 
@@ -347,14 +357,6 @@ def save_gc_timeseries(scenario, strategy_name, gcID, output_path):
         "home",
         "hub"
     ]
-
-    # create empty lists for cost calculation (values are filled in during simulation)
-    timestamps_list = []
-    power_grid_supply_list = []
-    price_list = []
-    power_fix_load_list = []
-    power_feed_in_list = []
-    charging_signal_list = []
 
     round_to_places = 2
 
@@ -372,198 +374,161 @@ def save_gc_timeseries(scenario, strategy_name, gcID, output_path):
 
     uc_keys_present = cs_by_uc.keys()
 
-    scheduleKeys = []
-    for gcID in sorted(scenario.gcPowerSchedule.keys()):
-        if any(s is not None for s in scenario.gcPowerSchedule[gcID]):
-            scheduleKeys.append(gcID)
+    has_schedule = any(s is not None for s in scenario.gcPowerSchedule[gcID])
+
+    # flex
+    if not hasattr(scenario, "flex_bands"):
+        setattr(scenario, "flex_bands", {})
+    if gcID not in scenario.flex_bands.keys():
+        if 'generate_flex_band' not in locals().keys():
+            # circular dependency: import when needed
+            from generate_schedule import generate_flex_band
+        try:
+            scenario.flex_bands[gcID] = generate_flex_band(scenario, gcID)
+        except Exception:
+            scenario.flex_bands[gcID] = {}
 
     # any loads except CS present?
     hasExtLoads = any(scenario.extLoads)
 
-    with open(output_path, 'w') as timeseries_file:
-        # write header
-        # general info
-        header = ["timestep", "time"]
+    # accumulate header
+    # general info
+    header = ["timestep", "time"]
+    # price
+    if any(scenario.prices):
+        # external loads (e.g., building)
+        header.append("price [EUR/kWh]")
+    # grid power
+    header.append("grid power [kW]")
+    # external loads
+    if hasExtLoads:
+        # external loads (e.g., building)
+        header.append("ext.load [kW]")
+    # feed-in
+    if any(scenario.feedInPower):
+        header.append("feed-in [kW]")
+    # batteries
+    if scenario.constants.batteries:
+        header += ["battery power [kW]", "bat. stored energy [kWh]"]
+    # flex + schedule
+    header += ["flex min [kW]", "flex base [kW]", "flex max [kW]"]
+    if has_schedule:
+        header += ["schedule [kW]", "window"]
+    # sum of charging power
+    header.append("sum CS power")
+    # charging power per use case
+    header += ["sum UC {}".format(uc) for uc in uc_keys_present]
+    # total number of occupied charging stations
+    header.append("# occupied CS")
+    # number of occupied CS per UC
+    header += ["# occupied UC {}".format(uc) for uc in uc_keys_present]
+    # charging power per CS
+    header += [str(cs_id) for cs_id in cs_ids]
+
+    # accumulate timesteps
+    timeseries = []
+    for idx, r in enumerate(scenario.results):
+        # general info: timestep index and timestamp
+        # TZ removed for spreadsheet software
+        row = [idx, r['current_time'].replace(tzinfo=None)]
         # price
-        if any(scenario.prices):
-            # external loads (e.g., building)
-            header.append("price [EUR/kWh]")
-        # grid power
-        header.append("grid power [kW]")
+        if any(scenario.prices[gcID]):
+            row.append(round(scenario.prices[gcID][idx][0], round_to_places))
+        # grid power (negative since grid power is fed into system)
+        row.append(-1 * round(scenario.totalLoad[gcID][idx], round_to_places))
         # external loads
         if hasExtLoads:
-            # external loads (e.g., building)
-            header.append("ext.load [kW]")
-        # feed-in
+            sumExtLoads = sum([
+                v for k, v in scenario.extLoads[gcID][idx].items()
+                if k in scenario.events.external_load_lists])
+            row.append(round(sumExtLoads, round_to_places))
+        # feed-in (negative since grid power is fed into system)
         if any(scenario.feedInPower):
-            header.append("feed-in [kW]")
+            row.append(-1 * round(scenario.feedInPower[gcID][idx], round_to_places))
         # batteries
         if scenario.constants.batteries:
-            header += ["battery power [kW]", "bat. stored energy [kWh]"]
-        # flex + schedule
-        header += ["flex min [kW]", "flex base [kW]", "flex max [kW]"]
-        header += ["schedule {} [kW]".format(gcID) for gcID in scheduleKeys]
-        header += ["window {}".format(gcID) for gcID in scheduleKeys]
-        # sum of charging power
-        header.append("sum CS power")
-        # charging power per use case
-        header += ["sum UC {}".format(uc) for uc in uc_keys_present]
-        # total number of occupied charging stations
-        header.append("# occupied CS")
-        # number of occupied CS per UC
-        header += ["# occupied UC {}".format(uc) for uc in uc_keys_present]
-        # charging power per CS
-        header += [str(cs_id) for cs_id in cs_ids]
-        timeseries_file.write(','.join(header))
-
-        # write timesteps
-        for idx, r in enumerate(scenario.results):
-            # general info: timestep index and timestamp
-            # TZ removed for spreadsheet software
-            row = [idx, r['current_time'].replace(tzinfo=None)]
-            # price
-            if any(scenario.prices[gcID]):
-                row.append(round(scenario.prices[gcID][idx][0], round_to_places))
-            # grid power (negative since grid power is fed into system)
-            row.append(-1 * round(scenario.totalLoad[gcID][idx], round_to_places))
-            # external loads
-            if hasExtLoads:
-                sumExtLoads = sum([
+            current_battery = {}
+            for batID in scenario.batteryLevels:
+                if scenario.constants.batteries[batID].parent == gcID:
+                    current_battery.update({batID: scenario.batteryLevels[batID]})
+            row += [
+                # battery power
+                round(sum([
                     v for k, v in scenario.extLoads[gcID][idx].items()
-                    if k in scenario.events.external_load_lists])
-                row.append(round(sumExtLoads, round_to_places))
-            # feed-in (negative since grid power is fed into system)
-            if any(scenario.feedInPower):
-                row.append(-1 * round(scenario.feedInPower[gcID][idx], round_to_places))
-            # batteries
-            if scenario.constants.batteries:
-                current_battery = {}
-                for batID in scenario.batteryLevels:
-                    if scenario.constants.batteries[batID].parent == gcID:
-                        current_battery.update({batID: scenario.batteryLevels[batID]})
-                row += [
-                    # battery power
-                    round(sum([
-                        v for k, v in scenario.extLoads[gcID][idx].items()
-                        if k in scenario.constants.batteries]),
-                        round_to_places),
-                    # battery levels
-                    # get connected battery
-                    round(
-                        sum([levels[idx] for levels in current_battery.values()]),
-                        round_to_places
-                    )
-                ]
-            # flex
-            if not hasattr(scenario, "flex_bands"):
-                setattr(scenario, "flex_bands", {})
-            if gcID not in scenario.flex_bands.keys():
-                if 'generate_flex_band' not in locals().keys():
-                    from generate_schedule import generate_flex_band
-                scenario.flex_bands[gcID] = generate_flex_band(scenario, gcID)
+                    if k in scenario.constants.batteries]),
+                    round_to_places),
+                # battery levels
+                # get connected battery
+                round(
+                    sum([levels[idx] for levels in current_battery.values()]),
+                    round_to_places
+                )
+            ]
 
+        try:
+            # flex, might not exist
             row += [
                 round(scenario.flex_bands[gcID]["min"][idx], round_to_places),
                 round(scenario.flex_bands[gcID]["base"][idx], round_to_places),
                 round(scenario.flex_bands[gcID]["max"][idx], round_to_places)
             ]
-            # schedule + window schedule
-            row += [
-                round(scenario.gcPowerSchedule[gcID][idx], round_to_places)
-                for gcID in scheduleKeys]
-            row += [
-                round(scenario.gcWindowSchedule[gcID][idx], round_to_places)
-                for gcID in scheduleKeys]
-            # charging power
-            # get sum of all current CS power that are connected to gc
-            gc_commands = {}
-            if r['commands']:
-                for k, v in r["commands"].items():
-                    if k in cs_ids:
-                        gc_commands.update({k: v})
-            row.append(round(sum(gc_commands.values()), round_to_places))
-            # sum up all charging power at gc for each use case
-            row += [round(sum([cs_value for cs_id, cs_value in gc_commands.items()
-                               if cs_id in cs_by_uc[uc_key]]),
-                    round_to_places) for uc_key in uc_keys_present]
-            # get total number of occupied CS that are connected to gc
-            row.append(len(scenario.connChargeByTS[gcID][idx]))
-            # get number of occupied CS at gc for each use case
-            row += [
-                sum([1 if uc_key in cs_id else 0
-                    for cs_id in scenario.connChargeByTS[gcID][idx]]) for uc_key in
-                uc_keys_present]
-            # get individual charging power of cs_id that is connected to gc
-            row += [round(gc_commands.get(cs_id, 0), round_to_places) for cs_id in
-                    cs_ids]
-            # write row to file
-            timeseries_file.write('\n' + ','.join(map(lambda x: str(x), row)))
+        except KeyError:
+            row += [0, 0, 0]
 
-            # add values to lists for cost calculation
-            timestamps_list.append(r['current_time'].replace(tzinfo=None))
-            power_grid_supply_list.append(
-                -1 * round(scenario.totalLoad[gcID][idx], round_to_places))
-            price_list.append(round(scenario.prices[gcID][idx][0], round_to_places))
-            power_fix_load_list.append(round(sumExtLoads, round_to_places))
-            if any(scenario.feedInPower):
-                power_feed_in_list.append(
-                    -1 * round(scenario.feedInPower[gcID][idx], round_to_places))
-            if strategy_name == 'flex_window':
-                charging_signal_list.append(
-                    round(scenario.gcWindowSchedule[gcID][idx], round_to_places))
+        # schedule + window schedule
+        if has_schedule:
+            row.append(round(scenario.gcPowerSchedule[gcID][idx], round_to_places))  # float
+            row.append(scenario.gcWindowSchedule[gcID][idx])  # bool
 
-    return (timestamps_list, power_grid_supply_list, price_list, power_fix_load_list,
-            power_feed_in_list, charging_signal_list)
+        # charging power
+        # get sum of all current CS power that are connected to gc
+        gc_commands = {}
+        if r['commands']:
+            for k, v in r["commands"].items():
+                if k in cs_ids:
+                    gc_commands.update({k: v})
+        row.append(round(sum(gc_commands.values()), round_to_places))
+        # sum up all charging power at gc for each use case
+        row += [round(sum([cs_value for cs_id, cs_value in gc_commands.items()
+                           if cs_id in cs_by_uc[uc_key]]),
+                round_to_places) for uc_key in uc_keys_present]
+        # get total number of occupied CS that are connected to gc
+        row.append(len(scenario.connChargeByTS[gcID][idx]))
+        # get number of occupied CS at gc for each use case
+        row += [
+            sum([1 if uc_key in cs_id else 0
+                for cs_id in scenario.connChargeByTS[gcID][idx]]) for uc_key in
+            uc_keys_present]
+        # get individual charging power of cs_id that is connected to gc
+        row += [round(gc_commands.get(cs_id, 0), round_to_places) for cs_id in
+                cs_ids]
+        timeseries.append(row)
+
+    # update scenario with timeseries data
+    setattr(scenario, "timeseries", dict(zip(header, map(list, zip(*timeseries)))))
+
+    return {
+        "header": header,
+        "timeseries": timeseries,
+    }
 
 
-def save_soc_timeseries(scenario, output_path):
-    """ Generates and optionally saves an SOC timeseries for each vehicle.
+def generate_soc_timeseries(scenario):
+    """ Generates an SOC timeseries for each vehicle.
 
     :param scenario: The scenario for which to generate SOC timeseries.
     :type scenario: spice_ev.Scenario
-    :param output_path: Path to file in which to save the SOC timeseries.
-                        If False do not save to file.
-    :type output_path: str
     """
-    # save soc of each vehicle in one file
 
-    # check file extension
-
-    # combine SOCs from connected and disconnected timesteps
-    # for every time step and vehicle, exactly one of the two has
-    # a numeric value while the other contains a NoneType
-    continuous_soc = [[s or d for s, d in zip(socs_ts, disconnect_ts)]
-                      for socs_ts, disconnect_ts in zip(scenario.socs, scenario.disconnect)]
-
-    socsPerVehicle = list(map(list, zip(*continuous_soc)))
-    scenario.vehicle_socs.update({
-            v_id: soc for v_id, soc in
-            zip(sorted(scenario.constants.vehicles.keys()), socsPerVehicle)
-        })
-
-    if hasattr(scenario.strat, "negative_soc_tracker"):
-        scenario.negative_soc_tracker = scenario.strat.negative_soc_tracker
-
-    if output_path:
-        ext = os.path.splitext(output_path)[-1]
-        if ext != ".csv":
-            print("File extension mismatch: timeseries file is of type .csv")
-
-        with open(output_path, "w+") as soc_file:
-            # write header
-            header_s = ["timestep", "time"]
-            for vidx, vid in enumerate(sorted(scenario.constants.vehicles.keys())):
-                header_s.append(vid)
-            soc_file.write(','.join(header_s))
-
-            for idx, r in enumerate(scenario.results):
-                # general info: timestep index and timestamp
-                # TZ removed for spreadsheet software
-                row_s = [idx, r['current_time'].replace(tzinfo=None).isoformat()]
-                row_s += continuous_soc[idx]
-
-                # write row to file
-                soc_file.write('\n' + ','.join(map(lambda x: str(x), row_s)))
+    vids = sorted(scenario.constants.vehicles.keys())
+    scenario.vehicle_socs = {vid: [] for vid in vids}
+    for ts_idx in range(scenario.step_i):
+        for vidx, vid in enumerate(vids):
+            # combine SOCs from connected and disconnected timesteps
+            # for every time step and vehicle, exactly one of the two has
+            # a numeric value while the other contains a NoneType
+            soc = scenario.socs[ts_idx][vidx] or scenario.disconnect[ts_idx][vidx]
+            scenario.vehicle_socs[vid].append(soc)
 
 
 def plot(scenario):

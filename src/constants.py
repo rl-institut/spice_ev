@@ -16,6 +16,8 @@ class Constants:
             {k: Vehicle(v, self.vehicle_types) for k, v in obj['vehicles'].items()})
         self.batteries = dict(
             {k: StationaryBattery(v) for k, v in obj.get('batteries', {}).items()})
+        self.photovoltaics = dict(
+            {k: Photovoltaics(v) for k, v in obj.get('photovoltaics', {}).items()})
 
 
 class GridConnector:
@@ -148,6 +150,17 @@ class ChargingStation:
             ('current_power', float, 0.0),
             ('min_power', float, 0.0)
         ]
+        util.set_attr_from_dict(obj, self, keys, optional_keys)
+
+
+class Photovoltaics:
+    """PV power plant class"""
+    def __init__(self, obj):
+        keys = [
+            ('nominal_power', float),
+            ('parent', str),
+        ]
+        optional_keys = []
         util.set_attr_from_dict(obj, self, keys, optional_keys)
 
 

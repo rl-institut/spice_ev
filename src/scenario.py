@@ -28,7 +28,6 @@ class Scenario:
         # compute time stuff
         self.start_time = util.datetime_from_isoformat(scenario['start_time'])
         self.interval = datetime.timedelta(minutes=scenario['interval'])
-        self.interval_min = scenario['interval']
 
         # compute n_intervals or stop_time
         assert (scenario.get('stop_time') is None) ^ (scenario.get('n_intervals') is None), (
@@ -239,81 +238,107 @@ class Scenario:
                     "connChargeByTS", "gcPowerSchedule", "gcWindowSchedule"]:
             setattr(self, var, locals()[var])
 
-        for gcID in gc_ids:
-            print("Energy drawn from {}: {:.0f} kWh, Costs: {:.2f} €".format(gcID,
-                                                                             sum(totalLoad[gcID]) /
-                                                                             stepsPerHour,
-                                                                             sum(costs[gcID])))
+        # save reference to negative soc tracker for ease of use in other modules
+        self.negative_soc_tracker = strat.negative_soc_tracker
 
-        if options.get("save_results", False) or options.get("testing", False):
+        attach_vehicle_soc = options.get("attach_vehicle_soc")
+        cost_calculation = options.get("cost_calculation")
+        save_timeseries = options.get("save_timeseries")
+        save_results = options.get("save_results")
+        save_soc = options.get("save_soc")
+        testing = options.get("testing")
+        visual = options.get("visual")
 
+        if save_results or testing:
             # initialize aggregation variables with empty dicts
             for var in ["avg_drawn", "flex_bands", "total_car_cap", "avg_stand_time",
                         "total_car_energy", "avg_needed_energy", "perc_stand_window",
                         "avg_flex_per_window", "sum_energy_per_window", "avg_total_standing_time"]:
                 setattr(self, var, {})
 
-            if options.get("save_results", False):
-                # save general simulation info to JSON file
-                ext = os.path.splitext(options["save_results"])
-                if ext[-1] != ".json":
-                    print("File extension mismatch: results file is of type .json")
-
-            for gcID in gc_ids:
-                # stepwise gc specific information is aggregated and curated for results file output
-                results_file_content = report.aggregate_local_results(strategy_name=strategy_name,
-                                                                      scenario=self, gcID=gcID)
-
-                if options.get("save_results", False):
-                    # write to file
-                    if len(gc_ids) == 1:
-                        file_name = options["save_results"]
-                    else:
-                        file_name, ext = os.path.splitext(options["save_results"])
-                        file_name = f"{file_name}_{gcID}{ext}"
-                    with open(file_name, 'w') as results_file:
-                        json.dump(results_file_content, results_file, indent=2)
-
-        if options.get("save_timeseries", False):
-            # save power use for each timestep in file
-            output_path, ext = os.path.splitext(options["save_timeseries"])
+        # check file extensions
+        if save_results:
+            # general results should be JSON
+            ext = os.path.splitext(save_results)[-1]
+            if ext != ".json":
+                print("File extension mismatch: results file is of type .json")
+        if save_soc:
+            # vehicle SoC should be CSV
+            ext = os.path.splitext(save_soc)[-1]
+            if ext != ".csv":
+                print("File extension mismatch: SoC timeseries file is of type .csv")
+        if save_timeseries:
+            # timeseries data should be CSV
+            ext = os.path.splitext(save_timeseries)[-1]
             if ext != ".csv":
                 print("File extension mismatch: timeseries file is of type .csv")
-            for gcID in gc_ids:
+
+        for gcID in gc_ids:
+            if cost_calculation or save_timeseries:
+                # aggregate timeseries info
+                agg_ts = report.aggregate_timeseries(self, gcID)
+            if save_results or testing:
+                # aggregate GC dependent info
+                results_file_content = report.aggregate_local_results(
+                    strategy_name=strategy_name, scenario=self, gcID=gcID)
+            if save_results:
+                # write general results to file
                 if len(gc_ids) == 1:
-                    output_path = options["save_timeseries"]
+                    file_name = save_results
                 else:
-                    file_name, ext = os.path.splitext(options["save_timeseries"])
-                    output_path = f"{file_name}_{gcID}{ext}"
+                    file_name, ext = os.path.splitext(save_results)
+                    file_name = f"{file_name}_{gcID}{ext}"
+                with open(file_name, 'w') as results_file:
+                    json.dump(results_file_content, results_file, indent=2)
+            if save_timeseries:
+                # save power use for each timestep in file
+                file_name, ext = os.path.splitext(save_timeseries)
+                if len(gc_ids) == 1:
+                    file_name = save_timeseries
+                else:
+                    file_name, ext = os.path.splitext(save_timeseries)
+                    file_name = f"{file_name}_{gcID}{ext}"
+                with open(file_name, 'w') as timeseries_file:
+                    # write header
+                    timeseries_file.write(','.join(agg_ts["header"]))
+                    # write timestep data
+                    for row in agg_ts["timeseries"]:
+                        timeseries_file.write('\n' + ','.join(map(lambda x: str(x), row)))
 
-                (
-                    timestamps_list,
-                    power_grid_supply_list,
-                    price_list,
-                    power_fix_load_list,
-                    power_feed_in_list,
-                    charging_signal_list,
-                ) = report.save_gc_timeseries(self, strategy_name, gcID, output_path)
+        # GC-independent stuff
 
-        if options.get("save_soc", False) or options.get("attach_vehicle_soc", False):
+        if attach_vehicle_soc or save_soc:
+            # generate (continuous) SoC of vehicles
             self.vehicle_socs = {}
-            report.save_soc_timeseries(scenario=self,
-                                       output_path=options.get("save_soc", None))
+            report.generate_soc_timeseries(scenario=self)
+        if save_soc:
+            # write vehicle SoC per timestep to file
+            vids = sorted(self.constants.vehicles.keys())
+            with open(save_soc, "w") as soc_file:
+                # write header
+                header = ["timestep", "time"] + vids
+                soc_file.write(','.join(header))
 
-        if options.get('visual', False) or options.get("testing", False):
-            # sum up total load of all grid connectors
+                for idx, r in enumerate(results):
+                    # general info: timestep index and timestamp
+                    # TZ removed for spreadsheet software
+                    row = [idx, r['current_time'].replace(tzinfo=None).isoformat()]
+                    row += [self.vehicle_socs[vid][idx] for vid in vids]
+                    # write row to file
+                    soc_file.write('\n' + ','.join(map(lambda x: str(x), row)))
+
+        if visual or testing:
             report.aggregate_global_results(self)
-
+        if visual:
             # plot!
-            if options.get('visual', False):
-                report.plot(self)
-
-        if options.get("testing", False):
+            report.plot(self)
+        if testing:
+            # metadata, used in tests
             self.testing = {
                 "timeseries": {
                     "total_load": self.all_totalLoad,
                     "prices": prices,
-                    "schedule": {gcID: gcWindowSchedule[gcID] for gcID in gc_ids},
+                    "schedule": gcWindowSchedule,
                     "sum_cs": self.sum_cs,
                     "loads": self.loads
                 },
@@ -331,7 +356,3 @@ class Scenario:
                     for gcID in gc_ids
                 }
             }
-
-        if options.get("save_timeseries", False):
-            return (timestamps_list, power_grid_supply_list, price_list, power_fix_load_list,
-                    power_feed_in_list, charging_signal_list, results_file_content)

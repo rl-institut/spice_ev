@@ -33,13 +33,14 @@ def simulate(args):
         raise SystemExit("Please specify a valid input file.")
 
     options = {
-        'timing': args.get("eta"),
-        'visual': args.get("visual"),
+        'cost_calculation': args.get("cost_calc"),
         'margin': args.get("margin"),
         'save_timeseries': args.get("save_timeseries"),
         'save_soc': args.get("save_soc"),
         'save_results': args.get("save_results"),
-        'testing': args.get("testing")
+        'testing': args.get("testing"),
+        'timing': args.get("eta"),
+        'visual': args.get("visual"),
     }
 
     # parse strategy options
@@ -61,50 +62,30 @@ def simulate(args):
         s = Scenario(json.load(f), os.path.dirname(args["input"]))
 
     # RUN!
-    (
-        timestamps_list,
-        power_grid_supply_list,
-        price_list,
-        power_fix_load_list,
-        power_feed_in_list,
-        charging_signal_list,
-        results_file_content
-    ) = s.run(strategy_name, options)
-
-    # Cost calculation
-    timestamps = timestamps_list
-    power_grid_supply = power_grid_supply_list
-    prices = price_list
-    power_fix_load = power_fix_load_list
-    charging_signals = charging_signal_list
-    voltage_level = results_file_content['grid_connector']['voltage_level']
-    interval_min = results_file_content["temporal_parameters"]["interval"]
-    power_pv_nominal = results_file_content['photovoltaics']['nominal_power']
-    core_standing_time_dict = results_file_content.get("core_standing_time")
+    s.run(strategy_name, options)
 
     if args.get("cost_calc"):
-        (
-            total_costs_per_year,
-            commodity_costs_eur_per_year,
-            capacity_costs_eur,
-            power_procurement_per_year,
-            levies_fees_and_taxes_per_year,
-            feed_in_remuneration_per_year
-        ) = calculate_costs(
-            args.get("strategy"),
-            voltage_level,
-            interval_min,
-            timestamps,
-            power_grid_supply,
-            prices,
-            power_fix_load,
-            power_feed_in_list,
-            charging_signals,
-            core_standing_time_dict,
-            args.get("cost_parameters_file"),
-            args.get("save_results"),
-            power_pv_nominal
-        )
+        # cost calculation following directly after simulation
+        for gcID, gc in s.constants.grid_connectors.items():
+            pv = sum([pv.nominal_power for pv in s.constants.photovoltaics.values()
+                      if pv.parent == gcID])
+            costs = calculate_costs(
+                strategy=strategy_name,
+                voltage_level=gc.voltage_level,
+                interval=s.interval,
+                timestamps_list=s.timeseries.get("time"),
+                power_grid_supply_list=s.timeseries.get("grid power [kW]"),
+                price_list=s.timeseries.get("price [EUR/kWh]"),
+                power_fix_load_list=s.timeseries.get("ext.load [kW]"),
+                power_feed_in_list=s.timeseries.get("feed-in [kW]"),
+                charging_signal_list=s.timeseries.get("window"),
+                core_standing_time_dict=s.core_standing_time,
+                price_sheet_json=args.get("cost_parameters_file"),
+                results_json=args.get("save_results"),
+                power_pv_nominal=pv,
+            )
+            print(f"Energy drawn from {gcID}: {round(sum(s.totalLoad[gcID]))} kWh,"
+                  f" Costs: {costs['total_costs_per_year']} €/a")
 
 
 if __name__ == "__main__":
