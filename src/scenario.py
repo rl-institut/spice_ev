@@ -312,8 +312,7 @@ class Scenario:
                 agg_ts = report.aggregate_timeseries(self, gcID)
             if save_results or testing:
                 # aggregate GC dependent info
-                results_file_content = report.aggregate_local_results(
-                    strategy_name=strategy_name, scenario=self, gcID=gcID)
+                results_file_content = report.aggregate_local_results(scenario=self, gcID=gcID)
             if save_results:
                 # write general results to file
                 if len(gc_ids) == 1:
@@ -351,11 +350,11 @@ class Scenario:
                 # write header
                 header = ["timestep", "time"] + vids
                 soc_file.write(','.join(header))
-
                 for idx, r in enumerate(results):
                     # general info: timestep index and timestamp
                     # TZ removed for spreadsheet software
                     row = [idx, r['current_time'].replace(tzinfo=None).isoformat()]
+
                     row += [self.vehicle_socs[vid][idx] for vid in vids]
                     # write row to file
                     soc_file.write('\n' + ','.join(map(lambda x: str(x), row)))

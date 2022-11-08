@@ -522,12 +522,13 @@ def generate_soc_timeseries(scenario):
     """
     vids = sorted(scenario.constants.vehicles.keys())
     scenario.vehicle_socs = {vid: [] for vid in vids}
-    for ts_idx in range(scenario.step_i):
+    for ts_idx, socs in enumerate(scenario.socs):
         for vidx, vid in enumerate(vids):
             # combine SOCs from connected and disconnected timesteps
             # for every time step and vehicle, exactly one of the two has
             # a numeric value while the other contains a NoneType
-            soc = scenario.socs[ts_idx][vidx] or scenario.disconnect[ts_idx][vidx]
+            # (except if not known, like absent at beginning or end)
+            soc = socs[vidx] or scenario.disconnect[ts_idx][vidx]
             scenario.vehicle_socs[vid].append(soc)
 
 
