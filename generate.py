@@ -364,7 +364,10 @@ def generate(args):
             "charging_stations": charging_stations,
             "batteries": batteries,
             "photovoltaics": {
-                "nominal_power": vars(args).get("pv_power", 0)
+                "PV1": {
+                    "parent": "GC1",
+                    "nominal_power": vars(args).get("pv_power", 0),
+                }
             }
         },
         "events": events

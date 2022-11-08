@@ -24,7 +24,6 @@ class Scenario:
         self.events = events.Events(json_dict.get('events'), dir_path)
 
         scenario = json_dict.get('scenario')
-        self.constants_json = json_dict.get('constants')  # is there an easier way?
 
         # compute time stuff
         self.start_time = util.datetime_from_isoformat(scenario['start_time'])
@@ -255,9 +254,10 @@ class Scenario:
         # next simulation timestep
 
         # make variable members of Scenario class to access them in report
-        for var in ["socs", "strat", "costs", "step_i", "prices", "results", "extLoads",
-                    "totalLoad", "disconnect", "feedInPower", "stepsPerHour", "batteryLevels",
-                    "connChargeByTS", "gcPowerSchedule", "gcWindowSchedule"]:
+        for var in ["batteryLevels", "connChargeByTS", "costs", "disconnect",
+                    "extLoads", "feedInPower", "gcPowerSchedule", "gcWindowSchedule", "prices",
+                    "results", "socs", "step_i", "stepsPerHour", "strat",
+                    "strategy_name", "totalLoad"]:
             setattr(self, var, locals()[var])
 
         # save reference to negative soc tracker for ease of use in other modules

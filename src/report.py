@@ -41,7 +41,7 @@ def aggregate_global_results(scenario):
     scenario.all_totalLoad = all_totalLoad
 
 
-def aggregate_local_results(strategy_name, scenario, gcID):
+def aggregate_local_results(scenario, gcID):
     """ Aggregate results of simulation for a single grid connector.
         Aggregated Quantities:
         avg flex per window,
@@ -92,23 +92,21 @@ def aggregate_local_results(strategy_name, scenario, gcID):
         }
 
     json_results["grid_connector"] = {
+        "gcID": gcID,
         "voltage_level": scenario.constants.grid_connectors[gcID].voltage_level
         }
 
-    try:
-        nominal_pv_power = scenario.constants_json['photovoltaics']['nominal_power']
-    except KeyError:
-        print('nominal_power of PV power plant is not defined, setting to zero')
-        nominal_pv_power = 0
+    nominal_pv_power = sum([pv.nominal_power for pv in scenario.constants.photovoltaics.values()
+                            if pv.parent == gcID])
 
     json_results["photovoltaics"] = {
         "nominal_power": nominal_pv_power,
         "unit": "kWp",
-        "info": "Nominal power of PV power plant"
+        "info": "Nominal power of PV power plants"
     }
 
     json_results["charging_strategy"] = {
-        "strategy": strategy_name,
+        "strategy": scenario.strategy_name,
         "info": "charging strategy for electric vehicles"
     }
 
