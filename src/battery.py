@@ -6,20 +6,27 @@ from src.loading_curve import LoadingCurve
 
 class Battery():
     """Battery class"""
-    def __init__(self, capacity, loading_curve, soc, efficiency=0.95, unloading_curve=None):
-        """ Initializing the battery
-        :param capacity: capacity of the battery
-        :type capacity: int/float
+    def __init__(self, capacity, loading_curve, soc,
+                 efficiency=0.95, unloading_curve=None, loss_rate=None):
+        """ Initialize the battery.
+
+        :param capacity: capacity of the battery in kWh
+        :type capacity: numerical
         :param loading_curve: loading curve of the battery
         :type loading_curve: src.loading_curve.LoadingCurve
         :param soc: soc of the battery
         :type soc: float
         :param efficiency: efficiency of the battery
         :type efficiency: float
-        :param unloading_curve: unloading curve of the battery
-            defaults to None for backwards-compatability, discharge with maximum
-            power of loading curve in case no unloading curve specified
+        :param unloading_curve: unloading curve of the battery.
+            Defaults to None for backwards-compatability (discharge with maximum
+            power of loading curve)
         :type unloading_curve: src.loading_curve.LoadingCurve
+        :param loss_rate: adjusted loss rate per timestep. Can have keys
+            *relative* (percent in relation to current charge),
+            *fixed_relative* (percent in relation to capacity) and
+            *fixed_absolute* (energy in kWh independent of capacity)
+        :type loss_rate: dict
         """
         # epsilon for floating point comparison
         self.EPS = 1e-5
@@ -27,6 +34,7 @@ class Battery():
         self.loading_curve = copy.deepcopy(loading_curve)
         self.soc = soc
         self.efficiency = efficiency
+        self.loss_rate = loss_rate
         if unloading_curve is None:
             self.unloading_curve = LoadingCurve([[0, self.loading_curve.max_power],
                                                  [1, self.loading_curve.max_power]])
@@ -53,7 +61,7 @@ class Battery():
         old_soc = self.soc
         # get loading curve clamped to maximum value
         # adjust charging curve to reflect power that reaches the battery
-        # after losses due to efficieny
+        # after losses due to efficiency
         clamped = self.loading_curve.clamped(max_charging_power, post_scale=self.efficiency)
         # get average power (energy over complete timedelta)
         avg_power = self._adjust_soc(charging_curve=clamped,
@@ -95,6 +103,7 @@ class Battery():
         avg_power = self._adjust_soc(charging_curve=clamped,
                                      target_soc=target_soc,
                                      timedelta=timedelta)
+
         # get power supplied to the connected device/vehicle after loss due to efficiency
         avg_power *= self.efficiency
 
@@ -198,10 +207,10 @@ class Battery():
         # compute average power for each linear section
         # update SOC
         # computes for whole time or until target is reached
-        while remaining_hours > self.EPS and sign * (target_soc - self.soc) > self.EPS:
+        while remaining_hours > self.EPS and sign * (target_soc - self.soc) > 0:
             # target soc not yet reached
             # charging: self.soc < target; discharging: self.soc > target
-            while sign * (boundary_soc - self.soc) < self.EPS:
+            while sign * (boundary_soc - self.soc) <= 0:
                 # soc outside current boundary, get next section
                 # charging: self.soc >= boundary_soc; discharging: self.soc <= boudary_soc
                 boundary_idx += sign
@@ -236,7 +245,7 @@ class Battery():
                     # inverse of exponential function
                     t = log((x2 + n/m) / (self.soc + n/m)) * c/m
             except (ValueError, ZeroDivisionError):
-                t = remaining_hours
+                t = sign * remaining_hours
 
             # what is earlier, breakpoint or interval end?
             # keep track of sign(t) as it encodes whether we charge or discharge
@@ -249,6 +258,11 @@ class Battery():
                 # charge power dependent on SOC
                 # inhomogenous differential equation -> exponential function
                 new_soc = -n/m + (n/m + self.soc) * exp(m/c * t)
+
+            if discharge:
+                assert new_soc <= self.soc, f"Discharge: {new_soc} should be less than {self.soc}"
+            else:
+                assert new_soc >= self.soc, f"Charge: {new_soc} should be greater than {self.soc}"
 
             energy_delta = abs(new_soc - self.soc) * c
             self.soc = new_soc

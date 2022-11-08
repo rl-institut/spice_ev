@@ -4,6 +4,7 @@ import datetime
 import json
 import traceback
 import os
+from warnings import warn
 
 from src import constants, events, strategy, util, report
 
@@ -85,9 +86,11 @@ class Scenario:
         connChargeByTS = {gcID: [] for gcID in gc_ids}
         gcPowerSchedule = {gcID: [] for gcID in gc_ids}
         gcWindowSchedule = {gcID: [] for gcID in gc_ids}
+        departed_vehicles = {}
         gcWithinPowerLimit = True
 
         begin = datetime.datetime.now()
+        error = None
         for step_i in range(self.n_intervals):
 
             if options.get("timing", False):
@@ -116,56 +119,77 @@ class Scenario:
                         '.' * (width - progress)
                     ), end="", flush=True)
 
-            # run single timestep
+            # process events
             try:
-                res = strat.step(event_steps[step_i])
-            except Exception as e:
-                print('\n', '*' * 42)
-                print(e)
-                print("Aborting simulation in timestep {} ({})".format(
-                        step_i + 1, strat.current_time))
-                strat.description = "*** {} (ABORTED) ***".format(strat.description)
-                traceback.print_exc()
-                step_i -= 1
-                break
-            results.append(res)
+                super(type(strat), strat).step(event_steps[step_i])
+            except Exception:
+                error = traceback.format_exc()
 
-            # get SOC for all vehicle at all timesteps
+            # get vehicle SoC at start of timestep
             cur_dis = []
             cur_socs = []
             for vidx, vid in enumerate(sorted(strat.world_state.vehicles.keys())):
                 vehicle = strat.world_state.vehicles[vid]
-                if vehicle.connected_charging_station:
-                    cur_dis.append(None)
-                    cur_socs.append(vehicle.battery.soc)
-                    if len(socs) > 0 and socs[-1][vidx] is None:
-                        # just arrived -> update disconnect
-                        # find departure
-                        start_idx = step_i-1
-                        while start_idx >= 0 and socs[start_idx][vidx] is None:
-                            start_idx -= 1
-                        if start_idx < 0:
-                            # first charge, no info about old soc
-                            continue
-                        # get start soc
-                        start_soc = socs[start_idx][vidx]
-                        # compute linear equation
-                        m = (vehicle.battery.soc - start_soc) / (step_i - start_idx - 1)
-                        # update timesteps between start and now
-                        for idx in range(start_idx+1, step_i):
-                            disconnect[idx][vidx] = m * (idx - start_idx) + start_soc
+                cur_socs.append(None)
+                cur_dis.append(None)
+                connected = vehicle.connected_charging_station is not None
+                departed = (vehicle.estimated_time_of_departure is None
+                            or vehicle.estimated_time_of_departure <= strat.current_time)
+
+                if connected:
+                    cur_socs[-1] = vehicle.battery.soc
                 else:
-                    cur_socs.append(None)
-                    cur_dis.append(None)  # placeholder
+                    if departed:
+                        if vid not in departed_vehicles:
+                            # newly departed: save current soc, make note of departure
+                            cur_dis[-1] = vehicle.battery.soc
+                            departed_vehicles[vid] = (step_i, vehicle.battery.soc)
+                            # just for continuous lines in plot between connected and disconnected
+                            if step_i > 0 and socs[-1][vidx] is not None:
+                                cur_socs[-1] = vehicle.battery.soc
+                    else:
+                        # not driving,just standing disconnected
+                        cur_dis[-1] = vehicle.battery.soc
+
+                if (connected or not departed) and vid in departed_vehicles:
+                    # newly arrived: update disconnect with linear interpolation
+                    start_idx, start_soc = departed_vehicles[vid]
+                    # compute linear equation
+                    m = (vehicle.battery.soc - start_soc) / (step_i - start_idx)
+                    # update timesteps between start and now
+                    for idx in range(start_idx, step_i):
+                        disconnect[idx][vidx] = m * (idx - start_idx) + start_soc
+                        cur_dis[-1] = vehicle.battery.soc
+                    # remove vehicle from departed list
+                    del departed_vehicles[vid]
 
             socs.append(cur_socs)
             disconnect.append(cur_dis)
 
+            # get battery levels at start of timestep
+            for batName, bat in strat.world_state.batteries.items():
+                batteryLevels[batName].append(bat.soc * bat.capacity)
+
+            # run strategy for single timestep
+            # default: no action
+            res = {'current_time': strat.current_time, 'commands': {}}
+            try:
+                if error is None:
+                    res = strat.step()
+            except Exception:
+                # error during strategy: add dummy result and abort
+                error = traceback.format_exc()
+            results.append(res)
+
+            # apply battery losses at end of timestep
+            strat.apply_battery_losses()
+
+            # get loads during timestep
             for gcID, gc in strat.world_state.grid_connectors.items():
 
                 # get current loads
                 cost = 0
-                price = []
+                price = 0
                 curLoad = 0
                 curFeedIn = 0
 
@@ -185,19 +209,20 @@ class Scenario:
 
                 # safety check: GC load within bounds?
                 gcWithinPowerLimit &= -gc.max_power-strat.EPS <= gc_load <= gc.max_power+strat.EPS
-                if not gcWithinPowerLimit:
-                    print('\n', '*'*42)
-                    print("{} maximum load exceeded: {} / {}".format(gcID, gc_load, gc.max_power))
-                    strat.description = "*** {} (ABORTED) ***".format(strat.description)
+                try:
+                    assert gcWithinPowerLimit, (
+                        "{} maximum load exceeded: {} / {}".format(gcID, gc_load, gc.max_power))
+                except AssertionError:
+                    # abort if GC power limit exceeded
+                    error = traceback.format_exc()
 
                 # compute cost: price in ct/kWh -> get price in EUR
                 if gc.cost:
                     power = max(gc_load, 0)
                     energy = power / stepsPerHour
                     cost += util.get_cost(energy, gc.cost) / 100
-                    price.append(util.get_cost(1, gc.cost))
-                else:
-                    price.append(0)
+                    price = util.get_cost(1, gc.cost)
+
                 curLoad += gc_load
 
                 gcPowerSchedule[gcID].append(gc.target)
@@ -219,18 +244,15 @@ class Scenario:
                 feedInPower[gcID].append(curFeedIn)
                 connChargeByTS[gcID].append(cur_cs)
 
-            # get battery levels
-            for batName, bat in strat.world_state.batteries.items():
-                batteryLevels[batName].append(bat.soc * bat.capacity)
-
-            # abort if GC power limit exceeded
-            if not gcWithinPowerLimit:
+            if error is not None:
+                print('\n', '*'*42)
+                print("Aborting simulation in timestep {} ({})".format(
+                    step_i + 1, strat.current_time))
+                strat.description = "*** {} (ABORTED) ***".format(strat.description)
+                print(error)
                 break
 
         # next simulation timestep
-
-        # adjust step_i: n_intervals or failed simulation step
-        step_i += 1
 
         # make variable members of Scenario class to access them in report
         for var in ["socs", "strat", "costs", "step_i", "prices", "results", "extLoads",
@@ -240,6 +262,17 @@ class Scenario:
 
         # save reference to negative soc tracker for ease of use in other modules
         self.negative_soc_tracker = strat.negative_soc_tracker
+
+        # summary if desired SoC was not reached anytime
+        if strat.desired_counter:
+            warn(f"Desired SoC not reached in {strat.desired_counter} cases "
+                 f"(with margin of {strat.margin * 100}%: {strat.margin_counter} cases)")
+
+        for gcID in gc_ids:
+            print("Energy drawn from {}: {:.0f} kWh, Costs: {:.2f} €".format(gcID,
+                                                                             sum(totalLoad[gcID]) /
+                                                                             stepsPerHour,
+                                                                             sum(costs[gcID])))
 
         attach_vehicle_soc = options.get("attach_vehicle_soc")
         cost_calculation = options.get("cost_calculation")
@@ -287,7 +320,7 @@ class Scenario:
                     file_name = save_results
                 else:
                     file_name, ext = os.path.splitext(save_results)
-                    file_name = f"{file_name}_{gcID}{ext}"
+                    file_name = f"{file_name}_{util.sanitize(gcID)}{ext}"
                 with open(file_name, 'w') as results_file:
                     json.dump(results_file_content, results_file, indent=2)
             if save_timeseries:
@@ -297,7 +330,7 @@ class Scenario:
                     file_name = save_timeseries
                 else:
                     file_name, ext = os.path.splitext(save_timeseries)
-                    file_name = f"{file_name}_{gcID}{ext}"
+                    file_name = f"{file_name}_{util.sanitize(gcID)}{ext}"
                 with open(file_name, 'w') as timeseries_file:
                     # write header
                     timeseries_file.write(','.join(agg_ts["header"]))

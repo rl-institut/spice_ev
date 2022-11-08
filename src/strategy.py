@@ -32,8 +32,6 @@ class Strategy():
         self.world_state.future_events = []
         self.interval = kwargs.get('interval')  # required
         self.current_time = start_time - self.interval
-        # for each vehicle, save timestamps when SoC becomes negative
-        self.negative_soc_tracker = {}
         # relative allowed difference between battery SoC and desired SoC when leaving
         self.margin = 0.1
         self.ALLOW_NEGATIVE_SOC = False
@@ -52,6 +50,13 @@ class Strategy():
         # update optional
         for k, v in kwargs.items():
             setattr(self, k, v)
+        # everything below can not be set by user
+        # for each vehicle, save timestamps when SoC becomes negative
+        self.negative_soc_tracker = {}
+        # count number of times SoC is below desired SoC on departure (used in report)
+        self.desired_counter = 0
+        # count number of times SoC is below desired SoC (with margin) on departure
+        self.margin_counter = 0
 
     def step(self, event_list=[]):
         """
@@ -106,28 +111,27 @@ class Strategy():
                 else:
                     # connector max power not set
                     connector.cur_max_power = ev.max_power
-                # sanitiy check: scheduled target must not exceed max power
-                if connector.target is not None and connector.cur_max_power is not None:
-                    assert connector.target <= connector.cur_max_power, (
-                        "Schedule exceeds power of {}".format(ev.grid_connector_id))
-
             elif type(ev) == events.VehicleEvent:
                 vehicle = self.world_state.vehicles[ev.vehicle_id]
                 # update vehicle attributes
                 for k, v in ev.update.items():
                     setattr(vehicle, k, v)
                 if ev.event_type == "departure":
-                    # vehicle leaves: disconnect vehicle
-                    vehicle.connected_charging_station = None
+                    vehicle.estimated_time_of_departure = None
                     if ev.start_time < self.current_time - self.interval:
                         # event from the past: simulate optimal charging
                         vehicle.battery.soc = vehicle.desired_soc
-                    # check that vehicle has charged enough
-                    if 0 <= vehicle.battery.soc < (1-self.margin)*vehicle.desired_soc - self.EPS:
-                        # not charged enough: stop simulation
-                        raise RuntimeError("{}: Vehicle {} is below desired SOC ({} < {})".format(
-                            ev.start_time.isoformat(), ev.vehicle_id,
-                            vehicle.battery.soc, vehicle.desired_soc))
+                    if vehicle.connected_charging_station is not None:
+                        # if connected, check that vehicle has charged enough
+                        self.desired_counter += vehicle.battery.soc < vehicle.desired_soc - self.EPS
+                        if 0 <= vehicle.battery.soc < (1-self.margin)*vehicle.desired_soc-self.EPS:
+                            # not charged enough: write warning
+                            self.margin_counter += 1
+                            warn("{}: Vehicle {} is below desired SOC ({} < {})".format(
+                                ev.start_time.isoformat(), ev.vehicle_id,
+                                vehicle.battery.soc, vehicle.desired_soc))
+                        # vehicle leaves: disconnect vehicle
+                        vehicle.connected_charging_station = None
                 elif ev.event_type == "arrival":
                     # vehicle arrives
                     assert hasattr(vehicle, 'soc_delta')
@@ -236,3 +240,20 @@ class Strategy():
                 # GC draws power: use stored energy to support GC
                 bat_power = battery.unload(self.interval, gc_current_load)['avg_power']
                 gc.add_load(b_id, -bat_power)
+
+    def apply_battery_losses(self):
+        """
+        Regardless of specific strategy, reduce SoC of lossy batteries. In-place.
+        """
+        for battery in (
+                        list(self.world_state.batteries.values()) +
+                        [v.battery for v in self.world_state.vehicles.values()]):
+            if battery.loss_rate:
+                relative_loss = battery.loss_rate.get("relative", 0)
+                battery.soc *= 1 - relative_loss/100
+                fixed_relative_loss = battery.loss_rate.get("fixed_relative", 0)
+                battery.soc -= fixed_relative_loss / 100
+                fixed_absolute_loss = battery.loss_rate.get("fixed_absolute", 0)
+                battery.soc -= fixed_absolute_loss / battery.capacity
+                # can only discharge, but not become negative
+                battery.soc = max(battery.soc, 0)

@@ -16,15 +16,13 @@ class Balanced(Strategy):
         super().__init__(constants, start_time, **kwargs)
         self.description = "balanced"
 
-    def step(self, event_list=[]):
+    def step(self):
         """
         Calculates charging in each timestep.
-        :param event_list: List of events
-        :type event_list: list
+
         :return: current time and commands of the charging stations
         :rtype: dict
         """
-        super().step(event_list)
 
         # get power that can be drawn from battery in this timestep
         avail_bat_power = {}

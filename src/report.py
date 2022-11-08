@@ -12,12 +12,7 @@ def aggregate_global_results(scenario):
     :type scenario: spice_ev.Scenario
     """
     gc_ids = scenario.constants.grid_connectors.keys()
-    all_totalLoad = []
-    for gcID in gc_ids:
-        if not all_totalLoad:
-            all_totalLoad = scenario.totalLoad[gcID]
-        else:
-            all_totalLoad = list(map(lambda x, y: x+y, all_totalLoad, scenario.totalLoad[gcID]))
+    all_totalLoad = [sum(x) for x in zip(*scenario.totalLoad.values())]
 
     sum_cs = []
     for r in scenario.results:
@@ -316,6 +311,14 @@ def aggregate_local_results(strategy_name, scenario, gcID):
         "info": "Number of load cycles per vehicle (averaged)"
     }
 
+    json_results["times below desired soc"] = {
+        "without margin": scenario.strat.desired_counter,
+        "with margin": scenario.strat.margin_counter,
+        "margin": scenario.strat.margin,
+        "info": "Number of times vehicle SoC was below desired SoC on departure "
+                "(with and without margin of {}%)".format(scenario.strat.margin * 100)
+    }
+
     return json_results
 
 
@@ -358,6 +361,7 @@ def aggregate_timeseries(scenario, gcID):
         "hub"
     ]
 
+    # round energy values to 2 decimal places
     round_to_places = 2
 
     # which SimBEV-Use Cases are in this scenario?
@@ -374,8 +378,6 @@ def aggregate_timeseries(scenario, gcID):
 
     uc_keys_present = cs_by_uc.keys()
 
-    has_schedule = any(s is not None for s in scenario.gcPowerSchedule[gcID])
-
     # flex
     if not hasattr(scenario, "flex_bands"):
         setattr(scenario, "flex_bands", {})
@@ -390,13 +392,14 @@ def aggregate_timeseries(scenario, gcID):
 
     # any loads except CS present?
     hasExtLoads = any(scenario.extLoads)
+    hasSchedule = any(s is not None for s in scenario.gcPowerSchedule[gcID])
+    hasBatteries = sum([b.parent == gcID for b in scenario.constants.batteries.values()])
 
     # accumulate header
     # general info
     header = ["timestep", "time"]
     # price
-    if any(scenario.prices):
-        # external loads (e.g., building)
+    if any(scenario.prices[gcID]):
         header.append("price [EUR/kWh]")
     # grid power
     header.append("grid power [kW]")
@@ -408,12 +411,10 @@ def aggregate_timeseries(scenario, gcID):
     if any(scenario.feedInPower):
         header.append("feed-in [kW]")
     # batteries
-    if scenario.constants.batteries:
+    if hasBatteries:
         header += ["battery power [kW]", "bat. stored energy [kWh]"]
     # flex + schedule
     header += ["flex min [kW]", "flex base [kW]", "flex max [kW]"]
-    if has_schedule:
-        header += ["schedule [kW]", "window"]
     # sum of charging power
     header.append("sum CS power")
     # charging power per use case
@@ -433,7 +434,7 @@ def aggregate_timeseries(scenario, gcID):
         row = [idx, r['current_time'].replace(tzinfo=None)]
         # price
         if any(scenario.prices[gcID]):
-            row.append(round(scenario.prices[gcID][idx][0], round_to_places))
+            row.append(round(scenario.prices[gcID][idx], round_to_places))
         # grid power (negative since grid power is fed into system)
         row.append(-1 * round(scenario.totalLoad[gcID][idx], round_to_places))
         # external loads
@@ -445,8 +446,9 @@ def aggregate_timeseries(scenario, gcID):
         # feed-in (negative since grid power is fed into system)
         if any(scenario.feedInPower):
             row.append(-1 * round(scenario.feedInPower[gcID][idx], round_to_places))
+
         # batteries
-        if scenario.constants.batteries:
+        if hasBatteries:
             current_battery = {}
             for batID in scenario.batteryLevels:
                 if scenario.constants.batteries[batID].parent == gcID:
@@ -464,21 +466,22 @@ def aggregate_timeseries(scenario, gcID):
                     round_to_places
                 )
             ]
-
         try:
             # flex, might not exist
             row += [
                 round(scenario.flex_bands[gcID]["min"][idx], round_to_places),
                 round(scenario.flex_bands[gcID]["base"][idx], round_to_places),
-                round(scenario.flex_bands[gcID]["max"][idx], round_to_places)
+                round(scenario.flex_bands[gcID]["max"][idx], round_to_places),
             ]
         except KeyError:
             row += [0, 0, 0]
 
         # schedule + window schedule
-        if has_schedule:
-            row.append(round(scenario.gcPowerSchedule[gcID][idx], round_to_places))  # float
-            row.append(scenario.gcWindowSchedule[gcID][idx])  # bool
+        if hasSchedule:
+            row += [
+                round(scenario.gcPowerSchedule[gcID][idx], round_to_places),  # float
+                int(scenario.gcWindowSchedule[gcID][idx]),  # bool -> int
+            ]
 
         # charging power
         # get sum of all current CS power that are connected to gc
@@ -505,7 +508,7 @@ def aggregate_timeseries(scenario, gcID):
         timeseries.append(row)
 
     # update scenario with timeseries data
-    setattr(scenario, "timeseries", dict(zip(header, map(list, zip(*timeseries)))))
+    setattr(scenario, f"{gcID}_timeseries", dict(zip(header, map(list, zip(*timeseries)))))
 
     return {
         "header": header,
@@ -519,7 +522,6 @@ def generate_soc_timeseries(scenario):
     :param scenario: The scenario for which to generate SOC timeseries.
     :type scenario: spice_ev.Scenario
     """
-
     vids = sorted(scenario.constants.vehicles.keys())
     scenario.vehicle_socs = {vid: [] for vid in vids}
     for ts_idx in range(scenario.step_i):
@@ -566,7 +568,7 @@ def plot(scenario):
     ax = plt.subplot(2, plots_top_row, 1)
     ax.set_title('Vehicles')
     ax.set(ylabel='SoC')
-    lines = ax.step(xlabels, scenario.socs)
+    lines = ax.plot(xlabels, scenario.socs)
     # reset color cycle, so lines have same color
     ax.set_prop_cycle(None)
 
@@ -578,31 +580,31 @@ def plot(scenario):
     ax = plt.subplot(2, plots_top_row, 2)
     ax.set_title('Charging Stations')
     ax.set(ylabel='Power in kW')
-    lines = ax.step(xlabels, scenario.sum_cs)
+    lines = ax.step(xlabels, scenario.sum_cs, where='post')
     if len(scenario.constants.charging_stations) <= 10:
         ax.legend(lines, sorted(scenario.constants.charging_stations.keys()))
 
     # total power
     ax = plt.subplot(2, 2, 3)
-    ax.plot(xlabels, list([sum(cs) for cs in scenario.sum_cs]), label="CS")
+    ax.step(xlabels, list([sum(cs) for cs in scenario.sum_cs]), label="CS", where='post')
     gc_ids = scenario.constants.grid_connectors.keys()
     for gcID in gc_ids:
         for name, values in scenario.loads[gcID].items():
-            ax.plot(xlabels, values, label=name)
+            ax.step(xlabels, values, label=name, where='post')
     # draw schedule
     if scenario.strat.uses_window:
         for gcID, schedule in scenario.gcWindowSchedule.items():
             if all(s is not None for s in schedule):
                 # schedule exists
                 window_values = [v * int(max(scenario.totalLoad[gcID])) for v in schedule]
-                ax.plot(xlabels, window_values, label="window {}".format(gcID),
-                        linestyle='--')
+                ax.step(xlabels, window_values, label="window {}".format(gcID),
+                        linestyle='--', where='post')
     if scenario.strat.uses_schedule:
         for gcID, schedule in scenario.gcPowerSchedule.items():
             if any(s is not None for s in schedule):
-                ax.plot(xlabels, schedule, label="Schedule {}".format(gcID))
+                ax.step(xlabels, schedule, label="Schedule {}".format(gcID), where='post')
 
-    ax.plot(xlabels, scenario.all_totalLoad, label="Total")
+    ax.step(xlabels, scenario.all_totalLoad, label="Total", where='post')
     ax.set_title('Power')
     ax.set(ylabel='Power in kW')
     ax.legend()
@@ -610,8 +612,8 @@ def plot(scenario):
 
     # price
     ax = plt.subplot(2, 2, 4)
-    for gcID, price in scenario.prices.items():
-        lines = ax.step(xlabels, price)
+    prices = list(zip(*scenario.prices.values()))
+    lines = ax.step(xlabels, prices, where='post')
     ax.set_title('Price for 1 kWh')
     ax.set(ylabel='€')
     if len(gc_ids) <= 10:

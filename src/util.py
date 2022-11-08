@@ -242,3 +242,20 @@ def set_options_from_config(args, check=False, verbose=True):
         # Give overview of options
         if verbose:
             print("Options: {}".format(vars(args)))
+
+
+def sanitize(s, chars=''):
+    """
+    Removes special characters from string.
+
+    Used to make strings safe for file paths.
+    :param s: input to be sanitized
+    :type s: string
+    :param chars: characters to replace
+    :type chars: string
+    :return: input without special characters in chars
+    :rtype: string
+    """
+    if not chars:
+        chars = '</|\\>:"?*'
+    return s.translate({ord(c): "" for c in chars})

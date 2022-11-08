@@ -69,16 +69,17 @@ def simulate(args):
         for gcID, gc in s.constants.grid_connectors.items():
             pv = sum([pv.nominal_power for pv in s.constants.photovoltaics.values()
                       if pv.parent == gcID])
+            timeseries = vars(s).get(f"{gcID}_timeseries")
             costs = calculate_costs(
                 strategy=strategy_name,
                 voltage_level=gc.voltage_level,
                 interval=s.interval,
-                timestamps_list=s.timeseries.get("time"),
-                power_grid_supply_list=s.timeseries.get("grid power [kW]"),
-                price_list=s.timeseries.get("price [EUR/kWh]"),
-                power_fix_load_list=s.timeseries.get("ext.load [kW]"),
-                power_feed_in_list=s.timeseries.get("feed-in [kW]"),
-                charging_signal_list=s.timeseries.get("window"),
+                timestamps_list=timeseries.get("time"),
+                power_grid_supply_list=timeseries.get("grid power [kW]"),
+                price_list=timeseries.get("price [EUR/kWh]"),
+                power_fix_load_list=timeseries.get("ext.load [kW]"),
+                power_feed_in_list=timeseries.get("feed-in [kW]"),
+                charging_signal_list=timeseries.get("window"),
                 core_standing_time_dict=s.core_standing_time,
                 price_sheet_json=args.get("cost_parameters_file"),
                 results_json=args.get("save_results"),
