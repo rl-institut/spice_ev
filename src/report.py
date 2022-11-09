@@ -198,8 +198,9 @@ def aggregate_local_results(scenario, gcID):
     # avg total standing time
     # count per car: list(zip(*count_window))
     total_standing = sum(map(sum, count_window))
-    scenario.avg_total_standing_time[gcID] = total_standing / len(
-        scenario.constants.vehicles) / stepsPerHour
+    # avoid div0 if there are no vehicles
+    num_vehicles = max(len(scenario.constants.vehicles), 1)
+    scenario.avg_total_standing_time[gcID] = total_standing / num_vehicles / stepsPerHour
     json_results["avg standing time"] = {
         "single": avg_stand_time[gcID],
         "total": scenario.avg_total_standing_time,
@@ -299,12 +300,14 @@ def aggregate_local_results(scenario, gcID):
             "info": "Number of load cycles of stationary batteries (averaged)"
         }
     # vehicles
-    scenario.total_car_cap[gcID] = sum([v.battery.capacity for v in
-                                        scenario.constants.vehicles.values()])
-    scenario.total_car_energy[gcID] = sum([sum(map(
-        lambda v: max(v, 0), r["commands"].values())) for r in scenario.results])
+    car_cap = sum([v.battery.capacity for v in scenario.constants.vehicles.values()])
+    car_energy = sum([sum(map(lambda v: max(v, 0), r["commands"].values()))
+                      for r in scenario.results])
+    scenario.total_car_cap[gcID] = car_cap
+    scenario.total_car_energy[gcID] = car_energy
+    battery_cycles = car_energy / car_cap if car_cap > 0 else 0
     json_results["all vehicle battery cycles"] = {
-        "value": scenario.total_car_energy[gcID]/scenario.total_car_cap[gcID],
+        "value": battery_cycles,
         "unit": None,
         "info": "Number of load cycles per vehicle (averaged)"
     }

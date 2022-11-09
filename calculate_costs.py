@@ -25,7 +25,7 @@ def read_simulation_csv(csv_file):
     :type csv_file: str
     :return: timestamps, prices, power supplied from the grid, power fed into the grid, needed power
     of fixed load, charging signals
-    :rtype: lists
+    :rtype: dict of lists
     """
 
     timestamps_list = []
@@ -40,7 +40,7 @@ def read_simulation_csv(csv_file):
 
             # find value for parameter:
             timestamp = datetime.datetime.fromisoformat(row["time"])
-            price = float(row["price [EUR/kWh]"])
+            price = float(row.get("price [EUR/kWh]", 0))
             power_grid_supply = float(row["grid power [kW]"])
             power_feed_in = float(row["feed-in [kW]"])
             power_fix_load = float(row["ext.load [kW]"])
@@ -58,14 +58,14 @@ def read_simulation_csv(csv_file):
                 charging_signal = None
             charging_signal_list.append(charging_signal)
 
-    return (
-        timestamps_list,
-        price_list,
-        power_grid_supply_list,
-        power_feed_in_list,
-        power_fix_load_list,
-        charging_signal_list,
-    )
+    return {
+        "timestamps_list": timestamps_list,
+        "price_list": price_list,
+        "power_grid_supply_list": power_grid_supply_list,
+        "power_feed_in_list": power_feed_in_list,
+        "power_fix_load_list": power_fix_load_list,
+        "charging_signal_list": charging_signal_list,
+    }
 
 
 def get_flexible_load(power_grid_supply_list, power_fix_load_list):
@@ -236,7 +236,10 @@ def calculate_costs(strategy, voltage_level, interval,
         max_power_grid_supply = min(power_grid_supply_list)  # min() because of negative values [kW]
 
         # prices:
-        utilization_time_per_year = abs(energy_supply_per_year / max_power_grid_supply)  # [h/a]
+        if max_power_grid_supply == 0:
+            utilization_time_per_year = 0
+        else:
+            utilization_time_per_year = abs(energy_supply_per_year / max_power_grid_supply)  # [h/a]
         commodity_charge, capacity_charge, fee_type = find_prices(
             price_sheet_json,
             strategy,
@@ -332,7 +335,7 @@ def calculate_costs(strategy, voltage_level, interval,
             "balanced_market"]["medium_tariff_factor"]  # medium tariff [€/kWh]
 
         # find power at times of high tariff
-        max_power_costs = None
+        max_power_costs = 0  # changed: was None
         for i, power in enumerate(power_flex_load_list):
             if price_list_ct[i] <= 0:
                 continue
@@ -832,14 +835,7 @@ if __name__ == "__main__":
     core_standing_time_dict = simulation_json.get("core_standing_time")
 
     # load simulation time series:
-    (
-        timestamps_list,
-        price_list,
-        power_grid_supply_list,
-        power_feed_in_list,
-        power_fix_load_list,
-        charging_signal_list,
-    ) = read_simulation_csv(args.get_timeseries)
+    timeseries_lists = read_simulation_csv(args.get_timeseries)
 
     # voltage level of grid connection:
     voltage_level = args.voltage_level or simulation_json.get("grid_connector",
@@ -851,14 +847,9 @@ if __name__ == "__main__":
         strategy=strategy,
         voltage_level=voltage_level,
         interval=datetime.timedelta(minutes=interval_min),
-        timestamps_list=timestamps_list,
-        power_grid_supply_list=power_grid_supply_list,
-        price_list=price_list,
-        power_fix_load_list=power_fix_load_list,
-        power_feed_in_list=power_feed_in_list,
-        charging_signal_list=charging_signal_list,
         core_standing_time_dict=core_standing_time_dict,
         price_sheet_json=args.cost_parameters_file,
         results_json=args.get_results,
         power_pv_nominal=args.pv_power,
+        **timeseries_lists
     )
