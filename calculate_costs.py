@@ -219,7 +219,7 @@ def calculate_costs(strategy, voltage_level, interval,
 
     # TEMPORAL PARAMETERS
     # fraction of scenario duration in relation to one year (scenario per years)
-    fraction_year = interval / datetime.timedelta(days=365)
+    fraction_year = len(timestamps_list) * interval / datetime.timedelta(days=365)
 
     # ENERGY SUPPLY:
     energy_supply_sim = sum(power_grid_supply_list) * interval.total_seconds() / 3600
@@ -554,7 +554,7 @@ def calculate_costs(strategy, voltage_level, interval,
     # ADDITIONAL COSTS FOR RLM-CONSUMERS:
     if fee_type == "RLM":
         additional_costs_per_year = price_sheet["grid_fee"]["RLM"]["additional_costs"]["costs"]
-        additional_costs_sim = additional_costs_per_year / fraction_year
+        additional_costs_sim = additional_costs_per_year * fraction_year
     else:
         additional_costs_per_year = 0
         additional_costs_sim = 0
