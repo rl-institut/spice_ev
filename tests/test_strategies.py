@@ -169,8 +169,15 @@ class TestScenarios(TestCaseBase):
         assert s.testing["max_total_load"] <= max_power
         assert s.testing["max_total_load"] > 0
 
-    # TEST STRATEGY OUTPUTS
+    def test_pv_bat(self):
+        input = os.path.join(TEST_REPO_PATH, 'test_data/input_test_strategies/scenario_PV_Bat.json')
+        s = scenario.Scenario(load_json(input), os.path.dirname(input))
+        s.run('greedy', {"testing": True})
+        assert pytest.approx(s.testing["max_total_load"]) == 0
+        assert s.testing["sum_feed_in_per_h"]["GC1"] == 246.0
+        assert s.strat.world_state.batteries["BAT1"].soc > 0
 
+    # TEST STRATEGY OUTPUTS
     def test_general_outputs(self):
         input = os.path.join(TEST_REPO_PATH, 'test_data/input_test_strategies/scenario_C1.json')
         s = scenario.Scenario(load_json(input), os.path.dirname(input))
