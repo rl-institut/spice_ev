@@ -338,6 +338,11 @@ def generate(args):
         del v["last_arrival_idx"]
         del v["arrival"]
 
+    # check voltage level (used in cost calculation)
+    voltage_level = vars(args).get("voltage_level")
+    if voltage_level is None:
+        warnings.warn("Voltage level is not set, please choose one when calculating costs.")
+
     j = {
         "scenario": {
             "start_time": start.isoformat(),
@@ -352,11 +357,18 @@ def generate(args):
             "grid_connectors": {
                 "GC1": {
                     "max_power": vars(args).get("gc_power", 530),
+                    "voltage_level": voltage_level,
                     "cost": {"type": "fixed", "value": 0.3}
                 }
             },
             "charging_stations": charging_stations,
-            "batteries": batteries
+            "batteries": batteries,
+            "photovoltaics": {
+                "PV1": {
+                    "parent": "GC1",
+                    "nominal_power": vars(args).get("pv_power", 0),
+                }
+            }
         },
         "events": events
     }
@@ -394,12 +406,15 @@ if __name__ == '__main__':
                         (-1 for variable capacity, second argument is fixed power))')
     parser.add_argument('--gc-power', type=int, default=530, help='set power at grid connection '
                                                                   'point in kW')
+    parser.add_argument('--voltage-level', '-vl', help='Choose voltage level for cost calculation')
     parser.add_argument('--seed', default=None, type=int, help='set random seed')
 
     parser.add_argument('--vehicle-types', default=None,
                         help='location of vehicle type definitions')
     parser.add_argument('--discharge-limit', default=0.5,
                         help='Minimum SoC to discharge to during v2g. [0-1]')
+    parser.add_argument('--pv-power', type=int, default=0, help='set nominal power for local '
+                                                                'photovoltaic power plant in kWp')
     parser.add_argument('--include-ext-load-csv',
                         help='include CSV for external load. \
                         You may define custom options with --include-ext-csv-option')

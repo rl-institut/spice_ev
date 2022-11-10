@@ -7,7 +7,7 @@ import warnings
 
 from src.scenario import Scenario
 from src.util import set_options_from_config
-
+from calculate_costs import calculate_costs
 
 STRATEGIES = [
     'greedy', 'greedy_market',
@@ -33,13 +33,14 @@ def simulate(args):
         raise SystemExit("Please specify a valid input file.")
 
     options = {
-        'timing': args.get("eta"),
-        'visual': args.get("visual"),
+        'cost_calculation': args.get("cost_calc"),
         'margin': args.get("margin"),
         'save_timeseries': args.get("save_timeseries"),
         'save_soc': args.get("save_soc"),
         'save_results': args.get("save_results"),
-        'testing': args.get("testing")
+        'testing': args.get("testing"),
+        'timing': args.get("eta"),
+        'visual': args.get("visual"),
     }
 
     # parse strategy options
@@ -63,8 +64,32 @@ def simulate(args):
     # RUN!
     s.run(strategy_name, options)
 
+    if args.get("cost_calc"):
+        # cost calculation following directly after simulation
+        for gcID, gc in s.constants.grid_connectors.items():
+            pv = sum([pv.nominal_power for pv in s.constants.photovoltaics.values()
+                      if pv.parent == gcID])
+            timeseries = vars(s).get(f"{gcID}_timeseries")
 
-if __name__ == '__main__':
+            # Calculate costs
+            costs = calculate_costs(
+                strategy=strategy_name,
+                voltage_level=gc.voltage_level,
+                interval=s.interval,
+                timestamps_list=timeseries.get("time"),
+                power_grid_supply_list=timeseries.get("grid power [kW]"),
+                price_list=timeseries.get("price [EUR/kWh]"),
+                power_fix_load_list=timeseries.get("ext.load [kW]"),
+                charging_signal_list=timeseries.get("window"),
+                core_standing_time_dict=s.core_standing_time,
+                price_sheet_json=args.get("cost_parameters_file"),
+                results_json=args.get("save_results"),
+                power_pv_nominal=pv,
+            )
+            print(f"Costs at {gcID}: {costs['total_costs_per_year']} €/a")
+
+
+if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(
         description='SpiceEV - \
@@ -82,6 +107,9 @@ if __name__ == '__main__':
     parser.add_argument('--strategy-option', '-so', metavar=('KEY', 'VALUE'),
                         nargs=2, action='append',
                         help='Append additional options to the charging strategy.')
+    parser.add_argument('--cost-calc', '-cc', action='store_true',
+                        help='Calculate electricity costs')
+    parser.add_argument('--cost-parameters-file', '-cp', help='Get cost parameters from json file.')
     parser.add_argument('--visual', '-v', action='store_true', help='Show plots of the results')
     parser.add_argument('--eta', action='store_true',
                         help='Show estimated time to finish simulation after each step, \
