@@ -3,9 +3,8 @@ import csv
 import json
 import datetime
 import argparse
-from src.util import set_options_from_config
 
-from src.util import dt_within_core_standing_time
+from src import util
 
 # constants for grid fee
 
@@ -38,7 +37,7 @@ def read_simulation_csv(csv_file):
         for row in reader:
 
             # find values for parameter
-            timestamp = datetime.datetime.fromisoformat(row["time"])
+            timestamp = util.datetime_from_isoformat(row["time"])
             price = float(row.get("price [EUR/kWh]", 0))
             power_grid_supply = float(row["grid power [kW]"])
             power_fix_load = float(row["ext.load [kW]"])
@@ -536,7 +535,7 @@ def calculate_costs(strategy, voltage_level, interval,
         # capacity costs for flexible load:
         power_outside_core_standing_time_flex_list = [
             p for i, p in enumerate(power_flex_load_list) if p < 0 and not
-            dt_within_core_standing_time(timestamps_list[i], core_standing_time_dict)]
+            util.dt_within_core_standing_time(timestamps_list[i], core_standing_time_dict)]
 
         # charging only within core standing time (cst)
         if power_outside_core_standing_time_flex_list == []:
@@ -824,7 +823,7 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    set_options_from_config(args, check=False, verbose=False)
+    util.set_options_from_config(args, check=False, verbose=False)
 
     # load simulation results:
     with open(args.get_results, "r", newline="") as sj:
