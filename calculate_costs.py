@@ -31,25 +31,22 @@ def read_simulation_csv(csv_file):
     timestamps_list = []
     price_list = []  # [€/kWh]
     power_grid_supply_list = []  # [kW]
-    power_feed_in_list = []  # [kW]
     power_fix_load_list = []  # [kW]
     charging_signal_list = []  # [-]
     with open(csv_file, "r", newline="") as simulation_data:
         reader = csv.DictReader(simulation_data, delimiter=",")
         for row in reader:
 
-            # find values for parameter and take adjust to calculate only with positive values:
+            # find values for parameter
             timestamp = datetime.datetime.fromisoformat(row["time"])
             price = float(row.get("price [EUR/kWh]", 0))
-            power_grid_supply = -min(float(row["grid power [kW]"]), float(0))
-            power_feed_in = max(float(row["grid power [kW]"]), float(0))
+            power_grid_supply = float(row["grid power [kW]"])
             power_fix_load = float(row["ext.load [kW]"])
 
             # append value to the respective list:
             timestamps_list.append(timestamp)
             price_list.append(price)
             power_grid_supply_list.append(power_grid_supply)
-            power_feed_in_list.append(power_feed_in)
             power_fix_load_list.append(power_fix_load)
 
             try:
@@ -62,7 +59,6 @@ def read_simulation_csv(csv_file):
         "timestamps_list": timestamps_list,
         "price_list": price_list,
         "power_grid_supply_list": power_grid_supply_list,
-        "power_feed_in_list": power_feed_in_list,
         "power_fix_load_list": power_fix_load_list,
         "charging_signal_list": charging_signal_list,
     }
@@ -183,7 +179,7 @@ def calculate_capacity_costs_rlm(capacity_charge, max_power_strategy):
 
 def calculate_costs(strategy, voltage_level, interval,
                     timestamps_list, power_grid_supply_list,
-                    price_list, power_fix_load_list, power_feed_in_list, charging_signal_list,
+                    price_list, power_fix_load_list, charging_signal_list,
                     core_standing_time_dict, price_sheet_json, results_json=None,
                     power_pv_nominal=0):
     """Calculate costs for the chosen charging strategy
@@ -202,8 +198,6 @@ def calculate_costs(strategy, voltage_level, interval,
     :type price_list: list
     :param power_fix_load_list: power supplied from the grid for the fixed load
     :type power_fix_load_list list
-    :param power_feed_in_list: power fed into the grid
-    :type power_feed_in_list: list
     :param charging_signal_list: charging signal given by the distribution system operator
     (1: charge, 0: don't charge)
     :type charging_signal_list: list
@@ -230,6 +224,10 @@ def calculate_costs(strategy, voltage_level, interval,
     # TEMPORAL PARAMETERS
     # fraction of scenario duration in relation to one year
     fraction_year = len(timestamps_list) * interval / datetime.timedelta(days=365)
+
+    # split power into feed-in and supply (change sign)
+    power_feed_in_list = [max(v, 0) for v in power_grid_supply_list]
+    power_grid_supply_list = [max(-v, 0) for v in power_grid_supply_list]
 
     # ENERGY SUPPLY:
     energy_supply_sim = sum(power_grid_supply_list) * interval.total_seconds() / 3600
@@ -345,14 +343,14 @@ def calculate_costs(strategy, voltage_level, interval,
             "balanced_market"]["medium_tariff_factor"]  # medium tariff [€/kWh]
 
         # find power at times of high tariff
-        max_power_costs = 0  # changed: was None
+        max_power_costs = 0
         for i, power in enumerate(power_flex_load_list):
             if price_list_ct[i] <= 0:
                 continue
             if price_list_ct[i] in [commodity_charge_lt, commodity_charge_mt]:
                 # different tariff
                 continue
-                # find maximum power
+            # find maximum power
             if power > max_power_costs:
                 max_power_costs = power
         # TODO: what happens when there are no times at high tariff?
@@ -625,7 +623,7 @@ def calculate_costs(strategy, voltage_level, interval,
             feed_in_charge_pv = pv_remuneration[2]  # [ct/kWh]
         else:
             raise ValueError("Feed-in remuneration for PV is calculated only for nominal powers of "
-                             "up to 100 kWp")
+                             f"up to {pv_nominal_power_max[-1]} kWp")
     # PV power plant not existing:
     else:
         feed_in_charge_pv = 0  # [ct/kWh]
@@ -682,19 +680,20 @@ def calculate_costs(strategy, voltage_level, interval,
 
     power_procurement_per_year = round(power_procurement_costs_sim, round_to_places)
 
-    levies_fees_and_taxes_per_year = round(eeg_costs_per_year, round_to_places)\
-        + round(chp_costs_per_year, round_to_places)\
-        + round(individual_charge_costs_per_year, round_to_places)\
-        + round(offshore_costs_per_year, round_to_places)\
-        + round(interruptible_loads_costs_per_year, round_to_places)\
-        + round(concession_fee_costs_per_year, round_to_places)\
-        + round(electricity_tax_costs_per_year, round_to_places)\
-        + round(value_added_tax_costs_per_year, round_to_places)
+    levies_fees_and_taxes_per_year = round(
+        round(eeg_costs_per_year, round_to_places) +
+        round(chp_costs_per_year, round_to_places) +
+        round(individual_charge_costs_per_year, round_to_places) +
+        round(offshore_costs_per_year, round_to_places) +
+        round(interruptible_loads_costs_per_year, round_to_places) +
+        round(concession_fee_costs_per_year, round_to_places) +
+        round(electricity_tax_costs_per_year, round_to_places) +
+        round(value_added_tax_costs_per_year, round_to_places),
+        round_to_places)
 
     feed_in_remuneration_per_year = round(pv_feed_in_costs_per_year, round_to_places)
 
     # WRITE ALL COSTS INTO JSON:
-
     if results_json is not None:
 
         capacity_or_basic_costs = "capacity costs"

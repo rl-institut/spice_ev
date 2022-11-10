@@ -266,9 +266,6 @@ class Scenario:
             warn(f"Desired SoC not reached in {strat.desired_counter} cases "
                  f"(with margin of {strat.margin * 100}%: {strat.margin_counter} cases)")
 
-        for gcID in gc_ids:
-            print(f"Energy drawn from {gcID}: {round((sum(totalLoad[gcID])/stepsPerHour), 3)} kWh")
-
         attach_vehicle_soc = options.get("attach_vehicle_soc")
         cost_calculation = options.get("cost_calculation")
         save_timeseries = options.get("save_timeseries")
@@ -302,6 +299,7 @@ class Scenario:
                 print("File extension mismatch: timeseries file is of type .csv")
 
         for gcID in gc_ids:
+            print(f"Energy drawn from {gcID}: {round((sum(totalLoad[gcID])/stepsPerHour), 3)} kWh")
             if cost_calculation or save_timeseries:
                 # aggregate timeseries info
                 agg_ts = report.aggregate_timeseries(self, gcID)

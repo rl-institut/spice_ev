@@ -70,27 +70,16 @@ def simulate(args):
             pv = sum([pv.nominal_power for pv in s.constants.photovoltaics.values()
                       if pv.parent == gcID])
             timeseries = vars(s).get(f"{gcID}_timeseries")
-            power_grid_for_costs = timeseries.get("grid power [kW]")
-            # Allocate real energy supply from grid and energy fed into the grid
-            power_grid_supply_list_for_costs = []
-            power_feed_in_list_for_costs = []
-            for v in power_grid_for_costs:
-                if v < 0:
-                    power_grid_supply_list_for_costs.append(-v)
-                    power_feed_in_list_for_costs.append(float(0))
-                else:
-                    power_grid_supply_list_for_costs.append(float(0))
-                    power_feed_in_list_for_costs.append(v)
+
             # Calculate costs
             costs = calculate_costs(
                 strategy=strategy_name,
                 voltage_level=gc.voltage_level,
                 interval=s.interval,
                 timestamps_list=timeseries.get("time"),
-                power_grid_supply_list=power_grid_supply_list_for_costs,
+                power_grid_supply_list=timeseries.get("grid power [kW]"),
                 price_list=timeseries.get("price [EUR/kWh]"),
                 power_fix_load_list=timeseries.get("ext.load [kW]"),
-                power_feed_in_list=power_feed_in_list_for_costs,
                 charging_signal_list=timeseries.get("window"),
                 core_standing_time_dict=s.core_standing_time,
                 price_sheet_json=args.get("cost_parameters_file"),
@@ -98,7 +87,6 @@ def simulate(args):
                 power_pv_nominal=pv,
             )
             print(f"Costs at {gcID}: {costs['total_costs_per_year']} €/a")
-            # ToDo: Implement Costs for multiple GC
 
 
 if __name__ == "__main__":
