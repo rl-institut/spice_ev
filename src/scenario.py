@@ -73,7 +73,6 @@ class Scenario:
         gc_ids = self.constants.grid_connectors.keys()
 
         socs = []
-        costs = {gcID: [] for gcID in gc_ids}
         prices = {gcID: [] for gcID in gc_ids}
         results = []
         extLoads = {gcID: [] for gcID in gc_ids}
@@ -237,7 +236,6 @@ class Scenario:
                         cur_cs.append(vehicle.connected_charging_station)
 
                 # append accumulated info
-                costs[gcID].append(cost)
                 prices[gcID].append(price)
                 totalLoad[gcID].append(curLoad)
                 feedInPower[gcID].append(curFeedIn)
@@ -254,7 +252,7 @@ class Scenario:
         # next simulation timestep
 
         # make variable members of Scenario class to access them in report
-        for var in ["batteryLevels", "connChargeByTS", "costs", "disconnect",
+        for var in ["batteryLevels", "connChargeByTS", "disconnect",
                     "extLoads", "feedInPower", "gcPowerSchedule", "gcWindowSchedule", "prices",
                     "results", "socs", "step_i", "stepsPerHour", "strat",
                     "strategy_name", "totalLoad"]:
@@ -269,10 +267,7 @@ class Scenario:
                  f"(with margin of {strat.margin * 100}%: {strat.margin_counter} cases)")
 
         for gcID in gc_ids:
-            print("Energy drawn from {}: {:.0f} kWh, Costs: {:.2f} €".format(gcID,
-                                                                             sum(totalLoad[gcID]) /
-                                                                             stepsPerHour,
-                                                                             sum(costs[gcID])))
+            print(f"Energy drawn from {gcID}: {round((sum(totalLoad[gcID])/stepsPerHour), 3)} kWh")
 
         attach_vehicle_soc = options.get("attach_vehicle_soc")
         cost_calculation = options.get("cost_calculation")

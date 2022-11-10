@@ -38,11 +38,11 @@ def read_simulation_csv(csv_file):
         reader = csv.DictReader(simulation_data, delimiter=",")
         for row in reader:
 
-            # find value for parameter:
+            # find values for parameter and take adjust to calculate only with positive values:
             timestamp = datetime.datetime.fromisoformat(row["time"])
             price = float(row.get("price [EUR/kWh]", 0))
-            power_grid_supply = float(row["grid power [kW]"])
-            power_feed_in = float(row["feed-in [kW]"])
+            power_grid_supply = -min(float(row["grid power [kW]"]), float(0))
+            power_feed_in = max(float(row["grid power [kW]"]), float(0))
             power_fix_load = float(row["ext.load [kW]"])
 
             # append value to the respective list:
@@ -89,6 +89,8 @@ def find_prices(price_sheet_path, strategy, voltage_level, utilization_time_per_
 
     For type 'SLP' the capacity charge is equivalent to the basic charge.
 
+    :param price_sheet_path: path of price sheet
+    :type price_sheet_path: str
     :param strategy: charging strategy for the electric vehicles
     :type strategy: str
     :param voltage_level: voltage level of the power grid
@@ -205,6 +207,14 @@ def calculate_costs(strategy, voltage_level, interval,
     :param charging_signal_list: charging signal given by the distribution system operator
     (1: charge, 0: don't charge)
     :type charging_signal_list: list
+    :param core_standing_time_dict: defined core standing time of the fleet
+    :type core_standing_time_dict: dict
+    :param price_sheet_json: path to price sheet
+    :type price_sheet_json: str
+    :param results_json: path to resulting json
+    :type results_json: str
+    :param power_pv_nominal: nominal power of pv power plant
+    :type power_pv_nominal: int
     :return: total costs per year and simulation period (fees and taxes included)
     :rtype: float
     """
@@ -218,7 +228,7 @@ def calculate_costs(strategy, voltage_level, interval,
         price_sheet = json.load(ps)
 
     # TEMPORAL PARAMETERS
-    # fraction of scenario duration in relation to one year (scenario per years)
+    # fraction of scenario duration in relation to one year
     fraction_year = len(timestamps_list) * interval / datetime.timedelta(days=365)
 
     # ENERGY SUPPLY:
@@ -233,7 +243,7 @@ def calculate_costs(strategy, voltage_level, interval,
         """
 
         # maximum power supplied from the grid:
-        max_power_grid_supply = min(power_grid_supply_list)  # min() because of negative values [kW]
+        max_power_grid_supply = max(power_grid_supply_list)
 
         # prices:
         if max_power_grid_supply == 0:
@@ -251,7 +261,7 @@ def calculate_costs(strategy, voltage_level, interval,
 
         # CAPACITY COSTS:
         if fee_type == "SLP":
-            capacity_costs_eur = -capacity_charge
+            capacity_costs_eur = capacity_charge
 
         else:  # RLM
             capacity_costs_eur = calculate_capacity_costs_rlm(
@@ -280,7 +290,7 @@ def calculate_costs(strategy, voltage_level, interval,
         # COSTS FOR FIXED LOAD
 
         # maximum fixed power supplied from the grid [kW]:
-        max_power_grid_supply_fix = min(power_fix_load_list)  # min() because of negative values
+        max_power_grid_supply_fix = max(power_fix_load_list)
 
         if max_power_grid_supply_fix == 0:  # no fix load existing
             commodity_costs_eur_per_year_fix = 0
@@ -342,9 +352,9 @@ def calculate_costs(strategy, voltage_level, interval,
             if price_list_ct[i] in [commodity_charge_lt, commodity_charge_mt]:
                 # different tariff
                 continue
-            # find maximum power
-            # (min() function because power drawn from the grid has a negative sign)
-            max_power_costs = min(max_power_costs or power, power)
+                # find maximum power
+            if power > max_power_costs:
+                max_power_costs = power
         # TODO: what happens when there are no times at high tariff?
 
         # capacity costs for flexible load:
@@ -387,8 +397,7 @@ def calculate_costs(strategy, voltage_level, interval,
         # COSTS FOR FIXED LOAD
 
         # maximum fixed power supplied from the grid [kW]
-        # (min() function because of negative values)
-        max_power_grid_supply_fix = min(power_fix_load_list)
+        max_power_grid_supply_fix = max(power_fix_load_list)
 
         if max_power_grid_supply_fix == 0:
             # no fix load existing
@@ -473,8 +482,7 @@ def calculate_costs(strategy, voltage_level, interval,
         # COSTS FOR FIXED LOAD
 
         # maximum fixed power supplied from the grid:
-        # (min() function because of negative values)
-        max_power_grid_supply_fix = min(power_fix_load_list)
+        max_power_grid_supply_fix = max(power_fix_load_list)
 
         if max_power_grid_supply_fix == 0:
             # no fixed load existing
@@ -665,8 +673,9 @@ def calculate_costs(strategy, voltage_level, interval,
 
     # aggregated and rounded values
     round_to_places = 2
+    total_costs_sim = round(costs_total_value_added_eur_sim - pv_feed_in_costs_sim, round_to_places)
     total_costs_per_year = round(
-        costs_total_value_added_eur_per_year + pv_feed_in_costs_per_year, round_to_places)
+        costs_total_value_added_eur_per_year - pv_feed_in_costs_per_year, round_to_places)
 
     commodity_costs_eur_per_year = round(commodity_costs_eur_per_year, round_to_places)
     capacity_costs_eur = round(capacity_costs_eur, round_to_places)
@@ -705,7 +714,7 @@ def calculate_costs(strategy, voltage_level, interval,
         json_results_costs = {"costs": {
             "electricity costs": {
                 "per year": {
-                    "total (brutto)": total_costs_per_year,
+                    "total (gross)": total_costs_per_year,
                     "grid_fee": {
                         "total grid fee": round(
                             commodity_costs_eur_per_year + capacity_costs_eur, round_to_places),
@@ -744,8 +753,7 @@ def calculate_costs(strategy, voltage_level, interval,
                     "info": "energy costs for one year",
                 },
                 "for simulation period": {
-                    "total (brutto)": round(costs_total_value_added_eur_sim
-                                            + pv_feed_in_costs_sim, round_to_places),
+                    "total (gross)": total_costs_sim,
                     "grid fee": {
                         "total grid fee": round(commodity_costs_eur_sim
                                                 + capacity_costs_eur, round_to_places),
