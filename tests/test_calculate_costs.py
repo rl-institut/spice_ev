@@ -1,7 +1,7 @@
 import json
 import pytest
 from pathlib import Path
-import os
+import subprocess
 
 from src import scenario
 import calculate_costs as cc
@@ -138,8 +138,13 @@ class TestPostSimulationCosts:
         })
 
         # call calculate cost from shell
-        os.system(f"python {TEST_REPO_PATH.parent / 'calculate_costs.py'}"
-                  f" -vl MV -r {save_results} -ts {save_timeseries} -cp {price_sheet}")
+        assert subprocess.call([
+            "python", TEST_REPO_PATH.parent / "calculate_costs.py",
+            "--voltage-level", "MV",
+            "--get-results", save_results,
+            "--get-timeseries", save_timeseries,
+            "--cost-parameters-file", price_sheet
+        ]) == 0
         with save_results.open() as f:
             results = json.load(f)
         assert "costs" in results
