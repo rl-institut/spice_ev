@@ -37,7 +37,7 @@ def read_simulation_csv(csv_file):
         for row in reader:
 
             # find values for parameter
-            timestamp = util.datetime_from_isoformat(row["time"])
+            timestamp = datetime.datetime.fromisoformat(row["time"])
             price = float(row.get("price [EUR/kWh]", 0))
             power_grid_supply = float(row["grid power [kW]"])
             power_fix_load = float(row["ext.load [kW]"])
