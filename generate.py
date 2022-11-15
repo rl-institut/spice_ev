@@ -34,6 +34,10 @@ def generate_trip(args, v_type):
     with open(args.statistical_values) as f:
         stat_values = json.load(f)
 
+    # check if statistical values for current vehicle type are set
+    assert v_type in stat_values.keys(), f"No statistical values set for vehicle type '{v_type}'."
+
+    # create trip dictionary with statistical values for current vehicle
     trip = {"avg_distance": stat_values[v_type]["distance_in_km"].get("avg_distance", -99),
             "std_distance": stat_values[v_type]["distance_in_km"].get("std_distance", -99),
             "min_distance": stat_values[v_type]["distance_in_km"].get("min_distance", -99),
@@ -47,16 +51,17 @@ def generate_trip(args, v_type):
             "min_driving": stat_values[v_type]["duration_in_hours"].get("min_driving", -99),
             "max_driving": stat_values[v_type]["duration_in_hours"].get("max_driving", -99)}
 
+    # check for missing or invalid parameters in statistical values file
     for key, v in trip.items():
-        assert v != -99, f"Parameter '{key}' missing for vehicle type {v_type}. " \
+        assert v != -99, f"Parameter '{key}' missing for vehicle type '{v_type}'. " \
                          f"Please provide in json with statistical values."
         if key in ["avg_start", "min_start", "max_start"]:
             r = re.compile('.{2}:.{2}')
-            assert r.match(v), f"Format of {key} is invalid. Please provide departure time " \
+            assert r.match(v), f"Format of '{key}' is invalid. Please provide departure time " \
                                f"as string in format 'XX:XX' in json with statistical values."
             continue
         assert type(v) is float or type(v) is int, \
-            f"Type of {key} is invalid. Please provide as int or float " \
+            f"Type of '{key}' is invalid. Please provide as int or float " \
             f"in json with statistical values."
 
     # start time
