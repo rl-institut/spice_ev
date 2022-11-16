@@ -58,7 +58,7 @@ def generate_trip(args, v_type):
         if key in ["avg_start", "min_start", "max_start"]:
             r = re.compile('.{2}:.{2}')
             assert r.match(v), f"Format of '{key}' is invalid. Please provide departure time " \
-                               f"as string in format 'XX:XX' in json with statistical values."
+                               f"as string in format 'hh:mm' in json with statistical values."
             continue
         assert type(v) is float or type(v) is int, \
             f"Type of '{key}' is invalid. Please provide as int or float " \
