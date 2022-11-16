@@ -1,0 +1,42 @@
+{
+    "sprinter":{
+        "distance_in_km": {
+            "avg_distance": 47.13,
+            "std_distance": 19.89,
+            "min_distance": 27.23,
+            "max_distance": 67.02
+        },
+        "departure": {
+            "avg_start": "08:15",
+            "std_start_in_hours": 0.42,
+            "min_start": "07:00",
+            "max_start": "09:30"
+        },
+        "duration_in_hours": {
+            "avg_driving": 8.33,
+            "std_driving": 1.35,
+            "min_driving": 4.28,
+            "max_driving": 12.38
+        }
+    },
+    "golf":{
+        "distance_in_km": {
+            "avg_distance": 26.122,
+            "std_distance": 10.551,
+            "min_distance": 13.775,
+            "max_distance": 57.583
+        },
+        "departure": {
+            "avg_start": "07:00",
+            "std_start_in_hours": 0.15,
+            "min_start": "06:10",
+            "max_start": "07:20"
+        },
+        "duration_in_hours": {
+            "avg_driving": 6.74,
+            "std_driving": 0.75,
+            "min_driving": 5.11,
+            "max_driving": 9.64
+        }
+    }
+}

@@ -21,6 +21,7 @@ ARG_VALUES1 = {
     "battery": [[350, 0.5]],
     "start_time": '2018-01-01T00:15:00+00:00',
     "no_drive_days": [6],
+    "statistical_values": "test_data/input_test_generate/trip_statistical_values.json",
     "vehicle_types": "test_data/input_test_generate/vehicle_types.json",
     "discharge_limit": 0.5,
     "include_ext_load_csv": None,
@@ -49,6 +50,10 @@ class TestGenerate(TestCaseBase):
             "vehicle_types":
                 os.path.join(TEST_REPO_PATH,
                              "test_data/input_test_generate/vehicle_types.json")})
+        current_arg_values.update({
+            "statistical_values":
+                os.path.join(TEST_REPO_PATH,
+                             "test_data/input_test_generate/trip_statistical_values.json")})
         current_arg_values.update({
             "discharge_limit": 0.5})
         generate.generate(Namespace(**current_arg_values))

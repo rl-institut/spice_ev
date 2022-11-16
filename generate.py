@@ -21,12 +21,12 @@ def datetime_from_string(s):
 
 def generate_trip(args, v_type):
     """
-    Creates randomly generated dummy trips from average input arguments
+    Creates randomly generated trips from average input arguments
 
     :param args: input arguments
     :type args: argparse.Namespace
-    :param vehicles: used vehicle types
-    :type vehicles: dict
+    :param v_type: used vehicle type
+    :type v_type: str
     :return:
         start (datetime), duration (timedelta), distance (float)
     """
