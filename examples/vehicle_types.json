@@ -6,7 +6,27 @@
         "charging_curve": [[0, 11], [0.8, 11], [1, 11]],
         "min_charging_power": 0.2,
         "v2g": false,
-        "v2g_power_factor": 0.5
+        "v2g_power_factor": 0.5,
+        "statistical_values":{
+            "distance_in_km": {
+                "avg_distance": 47.13,
+                "std_distance": 19.89,
+                "min_distance": 27.23,
+                "max_distance": 67.02
+            },
+            "departure": {
+                "avg_start": "08:15",
+                "std_start_in_hours": 0.42,
+                "min_start": "07:00",
+                "max_start": "09:30"
+            },
+            "duration_in_hours": {
+                "avg_driving": 8.33,
+                "std_driving": 1.35,
+                "min_driving": 4.28,
+                "max_driving": 12.38
+            }
+        }
     },
     "sprinter": {
         "name": "Sprinter",
@@ -15,7 +35,27 @@
         "charging_curve": [[0, 11], [0.8, 11], [1, 11]],
         "min_charging_power": 0.2,
         "v2g": false,
-        "v2g_power_factor": 0.5
+        "v2g_power_factor": 0.5,
+        "statistical_values":{
+            "distance_in_km": {
+                "avg_distance": 47.13,
+                "std_distance": 19.89,
+                "min_distance": 27.23,
+                "max_distance": 67.02
+            },
+            "departure": {
+                "avg_start": "08:15",
+                "std_start_in_hours": 0.42,
+                "min_start": "07:00",
+                "max_start": "09:30"
+            },
+            "duration_in_hours": {
+                "avg_driving": 8.33,
+                "std_driving": 1.35,
+                "min_driving": 4.28,
+                "max_driving": 12.38
+            }
+        }
     },
     "golf": {
         "name": "E-Golf",
@@ -24,7 +64,27 @@
         "charging_curve": [[0, 22], [0.8, 22], [1, 22]],
         "min_charging_power": 0,
         "v2g": false,
-        "v2g_power_factor": 0.5
+        "v2g_power_factor": 0.5,
+        "statistical_values":{
+            "distance_in_km": {
+                "avg_distance": 47.13,
+                "std_distance": 19.89,
+                "min_distance": 27.23,
+                "max_distance": 67.02
+            },
+            "departure": {
+                "avg_start": "08:15",
+                "std_start_in_hours": 0.42,
+                "min_start": "07:00",
+                "max_start": "09:30"
+            },
+            "duration_in_hours": {
+                "avg_driving": 8.33,
+                "std_driving": 1.35,
+                "min_driving": 4.28,
+                "max_driving": 12.38
+            }
+        }
     },
     "AB-OPP": {
         "name": "articulated bus - opportunity charging",

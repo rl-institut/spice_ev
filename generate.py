@@ -18,55 +18,73 @@ def datetime_from_string(s):
     return datetime.datetime(1972, 1, 1, h, m)
 
 
-def generate_trip(args):
+def generate_trip(vehicle_type_info):
     """
-    Creates randomly generated dummy trips from average input arguments
+    Creates randomly generated trips from average input arguments
 
-    :param args: input arguments
-    :type args: argparse.Namespace
+    :param vehicle_type_info: info of used vehicle_type
+    :type vehicle_type_info: dict
     :return:
         start (datetime), duration (timedelta), distance (float)
     """
-    # distance of one trip
-    avg_distance = vars(args).get("avg_distance", 47.13)  # km
-    std_distance = vars(args).get("std_distance", 19.89)
-    min_distance = vars(args).get("min_distance", 27.23)
-    max_distance = vars(args).get("max_distance", 67.02)
-    # departure time
-    avg_start = vars(args).get("avg_start", "08:15")  # hh:mm
-    std_start = vars(args).get("std_start", 0.42)  # hours
-    min_start = vars(args).get("min_start", "07:00")
-    max_start = vars(args).get("max_start", "09:30")
-    # trip duration
-    avg_driving = vars(args).get("avg_driving", 8.33)  # hours
-    std_driving = vars(args).get("std_driving", 1.35)
-    min_driving = vars(args).get("min_driving", 4.28)
-    max_driving = vars(args).get("max_driving", 12.38)
+
+    stat_values = vehicle_type_info["statistical_values"]
+
+    # create trip dictionary with statistical values for current vehicle
+    trip = {"avg_distance": stat_values["distance_in_km"].get("avg_distance"),
+            "std_distance": stat_values["distance_in_km"].get("std_distance"),
+            "min_distance": stat_values["distance_in_km"].get("min_distance"),
+            "max_distance": stat_values["distance_in_km"].get("max_distance"),
+            "avg_start": stat_values["departure"].get("avg_start"),
+            "std_start": stat_values["departure"].get("std_start_in_hours"),
+            "min_start": stat_values["departure"].get("min_start"),
+            "max_start": stat_values["departure"].get("max_start"),
+            "avg_driving": stat_values["duration_in_hours"].get("avg_driving"),
+            "std_driving": stat_values["duration_in_hours"].get("std_driving"),
+            "min_driving": stat_values["duration_in_hours"].get("min_driving"),
+            "max_driving": stat_values["duration_in_hours"].get("max_driving")}
+
+    # check for missing or invalid parameters in statistical values file
+    for k, v in trip.items():
+        # check all necessary info is given
+        assert v is not None, (f"Parameter '{k}' missing for vehicle type "
+                               f"'{vehicle_type_info['name']}'. "
+                               "Please provide statistical values in vehicle_type.json.")
+        # parse times from string
+        if k in ["avg_start", "min_start", "max_start"]:
+            try:
+                trip[k] = datetime_from_string(v)
+            except Exception:
+                print(f"Format of '{k}' is invalid. Please provide the time in format 'hh:mm'.")
+                raise
+        else:
+            # make sure non-time arguments are numbers
+            assert type(v) in [int, float], f"'{k}' must be given as integer or float."
 
     # start time
-    start = datetime_from_string(avg_start)
+    start = trip["avg_start"]
     # to timestamp (resolution in seconds)
     start = start.timestamp()
     # apply normal distribution (hours -> seconds)
-    start = random.gauss(start, std_start * 60 * 60)
+    start = random.gauss(start, trip["std_start"] * 60 * 60)
     # back to datetime (ignore sub-minute resolution)
     start = datetime.datetime.fromtimestamp(start).replace(second=0, microsecond=0)
     # clamp start
-    min_start = datetime_from_string(min_start)
-    max_start = datetime_from_string(max_start)
+    min_start = trip["min_start"]
+    max_start = trip["max_start"]
     start = min(max(start, min_start), max_start)
 
     # get trip duration
     # random distribution
-    duration = random.gauss(avg_driving, std_driving)
+    duration = random.gauss(trip["avg_driving"], trip["std_driving"])
     # clipping to min/max
-    duration = min(max(duration, min_driving), max_driving)
+    duration = min(max(duration, trip["min_driving"]), trip["max_driving"])
     duration = datetime.timedelta(hours=duration)
     # ignore sub-minute resolution
     duration = datetime.timedelta(minutes=duration // datetime.timedelta(minutes=1))
     # get trip distance
-    distance = random.gauss(avg_distance, std_distance)
-    distance = min(max(distance, min_distance), max_distance)
+    distance = random.gauss(trip["avg_distance"], trip["std_distance"])
+    distance = min(max(distance, trip["min_distance"]), trip["max_distance"])
 
     return start.time(), duration, distance
 
@@ -245,7 +263,7 @@ def generate(args):
             mileage = vehicle_types[v["vehicle_type"]]["mileage"] / 100
 
             # generate trip event
-            dep_time, duration, distance = generate_trip(args)
+            dep_time, duration, distance = generate_trip(vehicle_types[v["vehicle_type"]])
             departure = datetime.datetime.combine(now.date(), dep_time, now.tzinfo)
             arrival = departure + duration
             soc_delta = distance * mileage / capacity
@@ -408,7 +426,6 @@ if __name__ == '__main__':
                                                                   'point in kW')
     parser.add_argument('--voltage-level', '-vl', help='Choose voltage level for cost calculation')
     parser.add_argument('--seed', default=None, type=int, help='set random seed')
-
     parser.add_argument('--vehicle-types', default=None,
                         help='location of vehicle type definitions')
     parser.add_argument('--discharge-limit', default=0.5,
