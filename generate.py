@@ -18,52 +18,48 @@ def datetime_from_string(s):
     return datetime.datetime(1972, 1, 1, h, m)
 
 
-def generate_trip(vehicle_types, v_type):
+def generate_trip(vehicle_type_info):
     """
     Creates randomly generated trips from average input arguments
 
-    :param vehicle_types: info of used vehicle_types
-    :type vehicle_types: dict
-    :param v_type: used vehicle type of trip
-    :type v_type: str
+    :param vehicle_type_info: info of used vehicle_type
+    :type vehicle_type_info: dict
     :return:
         start (datetime), duration (timedelta), distance (float)
     """
 
-    stat_values = vehicle_types[v_type]["statistical_values"]
+    stat_values = vehicle_type_info["statistical_values"]
 
     # create trip dictionary with statistical values for current vehicle
-    trip = {"avg_distance": stat_values["distance_in_km"].get("avg_distance", None),
-            "std_distance": stat_values["distance_in_km"].get("std_distance", None),
-            "min_distance": stat_values["distance_in_km"].get("min_distance", None),
-            "max_distance": stat_values["distance_in_km"].get("max_distance", None),
-            "avg_start": stat_values["departure"].get("avg_start", None),
-            "std_start": stat_values["departure"].get("std_start_in_hours", None),
-            "min_start": stat_values["departure"].get("min_start", None),
-            "max_start": stat_values["departure"].get("max_start", None),
-            "avg_driving": stat_values["duration_in_hours"].get("avg_driving", None),
-            "std_driving": stat_values["duration_in_hours"].get("std_driving", None),
-            "min_driving": stat_values["duration_in_hours"].get("min_driving", None),
-            "max_driving": stat_values["duration_in_hours"].get("max_driving", None)}
+    trip = {"avg_distance": stat_values["distance_in_km"].get("avg_distance"),
+            "std_distance": stat_values["distance_in_km"].get("std_distance"),
+            "min_distance": stat_values["distance_in_km"].get("min_distance"),
+            "max_distance": stat_values["distance_in_km"].get("max_distance"),
+            "avg_start": stat_values["departure"].get("avg_start"),
+            "std_start": stat_values["departure"].get("std_start_in_hours"),
+            "min_start": stat_values["departure"].get("min_start"),
+            "max_start": stat_values["departure"].get("max_start"),
+            "avg_driving": stat_values["duration_in_hours"].get("avg_driving"),
+            "std_driving": stat_values["duration_in_hours"].get("std_driving"),
+            "min_driving": stat_values["duration_in_hours"].get("min_driving"),
+            "max_driving": stat_values["duration_in_hours"].get("max_driving")}
 
     # check for missing or invalid parameters in statistical values file
     for k, v in trip.items():
         # check all necessary info is given
-        assert v is not None, f"Parameter '{k}' missing for vehicle type '{v_type}'. " \
-                              f"Please provide in json with statistical values."
+        assert v is not None, (f"Parameter '{k}' missing for vehicle type "
+                               f"'{vehicle_type_info['name']}'. "
+                               "Please provide statistical values in vehicle_type.json.")
         # parse times from string
         if k in ["avg_start", "min_start", "max_start"]:
             try:
                 trip[k] = datetime_from_string(v)
             except Exception:
-                print(f"Format of '{k}' is invalid. Please provide departure time as string in "
-                      f"format 'hh:mm' in json with statistical values.")
+                print(f"Format of '{k}' is invalid. Please provide the time in format 'hh:mm'.")
                 raise
         else:
             # make sure non-time arguments are numbers
-            assert type(v) in [int, float], \
-                f"Type of '{k}' is invalid. Please provide as int or float " \
-                f"in json with statistical values."
+            assert type(v) in [int, float], f"'{k}' must be given as integer or float."
 
     # start time
     start = trip["avg_start"]
@@ -267,7 +263,7 @@ def generate(args):
             mileage = vehicle_types[v["vehicle_type"]]["mileage"] / 100
 
             # generate trip event
-            dep_time, duration, distance = generate_trip(vehicle_types, v["vehicle_type"])
+            dep_time, duration, distance = generate_trip(vehicle_types[v["vehicle_type"]])
             departure = datetime.datetime.combine(now.date(), dep_time, now.tzinfo)
             arrival = departure + duration
             soc_delta = distance * mileage / capacity
