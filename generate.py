@@ -6,7 +6,6 @@ import json
 import random
 import warnings
 from os import path
-import re
 
 from src.util import set_options_from_config, datetime_from_isoformat
 
@@ -19,53 +18,55 @@ def datetime_from_string(s):
     return datetime.datetime(1972, 1, 1, h, m)
 
 
-def generate_trip(args, v_type):
+def generate_trip(vehicle_types, v_type):
     """
     Creates randomly generated trips from average input arguments
 
-    :param args: input arguments
-    :type args: argparse.Namespace
-    :param v_type: used vehicle type
+    :param vehicle_types: info of used vehicle_types
+    :type vehicle_types: dict
+    :param v_type: used vehicle type of trip
     :type v_type: str
     :return:
         start (datetime), duration (timedelta), distance (float)
     """
 
-    with open(args.statistical_values) as f:
-        stat_values = json.load(f)
-
-    # check if statistical values for current vehicle type are set
-    assert v_type in stat_values.keys(), f"No statistical values set for vehicle type '{v_type}'."
+    stat_values = vehicle_types[v_type]["statistical_values"]
 
     # create trip dictionary with statistical values for current vehicle
-    trip = {"avg_distance": stat_values[v_type]["distance_in_km"].get("avg_distance", -99),
-            "std_distance": stat_values[v_type]["distance_in_km"].get("std_distance", -99),
-            "min_distance": stat_values[v_type]["distance_in_km"].get("min_distance", -99),
-            "max_distance": stat_values[v_type]["distance_in_km"].get("max_distance", -99),
-            "avg_start": stat_values[v_type]["departure"].get("avg_start", -99),
-            "std_start": stat_values[v_type]["departure"].get("std_start_in_hours", -99),
-            "min_start": stat_values[v_type]["departure"].get("min_start", -99),
-            "max_start": stat_values[v_type]["departure"].get("max_start", -99),
-            "avg_driving": stat_values[v_type]["duration_in_hours"].get("avg_driving", -99),
-            "std_driving": stat_values[v_type]["duration_in_hours"].get("std_driving", -99),
-            "min_driving": stat_values[v_type]["duration_in_hours"].get("min_driving", -99),
-            "max_driving": stat_values[v_type]["duration_in_hours"].get("max_driving", -99)}
+    trip = {"avg_distance": stat_values["distance_in_km"].get("avg_distance", None),
+            "std_distance": stat_values["distance_in_km"].get("std_distance", None),
+            "min_distance": stat_values["distance_in_km"].get("min_distance", None),
+            "max_distance": stat_values["distance_in_km"].get("max_distance", None),
+            "avg_start": stat_values["departure"].get("avg_start", None),
+            "std_start": stat_values["departure"].get("std_start_in_hours", None),
+            "min_start": stat_values["departure"].get("min_start", None),
+            "max_start": stat_values["departure"].get("max_start", None),
+            "avg_driving": stat_values["duration_in_hours"].get("avg_driving", None),
+            "std_driving": stat_values["duration_in_hours"].get("std_driving", None),
+            "min_driving": stat_values["duration_in_hours"].get("min_driving", None),
+            "max_driving": stat_values["duration_in_hours"].get("max_driving", None)}
 
     # check for missing or invalid parameters in statistical values file
-    for key, v in trip.items():
-        assert v != -99, f"Parameter '{key}' missing for vehicle type '{v_type}'. " \
-                         f"Please provide in json with statistical values."
-        if key in ["avg_start", "min_start", "max_start"]:
-            r = re.compile('.{2}:.{2}')
-            assert r.match(v), f"Format of '{key}' is invalid. Please provide departure time " \
-                               f"as string in format 'hh:mm' in json with statistical values."
-            continue
-        assert type(v) is float or type(v) is int, \
-            f"Type of '{key}' is invalid. Please provide as int or float " \
-            f"in json with statistical values."
+    for k, v in trip.items():
+        # check all necessary info is given
+        assert v is not None, f"Parameter '{k}' missing for vehicle type '{v_type}'. " \
+                              f"Please provide in json with statistical values."
+        # parse times from string
+        if k in ["avg_start", "min_start", "max_start"]:
+            try:
+                trip[k] = datetime_from_string(v)
+            except Exception:
+                print(f"Format of '{k}' is invalid. Please provide departure time as string in "
+                      f"format 'hh:mm' in json with statistical values.")
+                raise
+        else:
+            # make sure non-time arguments are numbers
+            assert type(v) in [int, float], \
+                f"Type of '{k}' is invalid. Please provide as int or float " \
+                f"in json with statistical values."
 
     # start time
-    start = datetime_from_string(trip["avg_start"])
+    start = trip["avg_start"]
     # to timestamp (resolution in seconds)
     start = start.timestamp()
     # apply normal distribution (hours -> seconds)
@@ -73,8 +74,8 @@ def generate_trip(args, v_type):
     # back to datetime (ignore sub-minute resolution)
     start = datetime.datetime.fromtimestamp(start).replace(second=0, microsecond=0)
     # clamp start
-    min_start = datetime_from_string(trip["min_start"])
-    max_start = datetime_from_string(trip["max_start"])
+    min_start = trip["min_start"]
+    max_start = trip["max_start"]
     start = min(max(start, min_start), max_start)
 
     # get trip duration
@@ -266,7 +267,7 @@ def generate(args):
             mileage = vehicle_types[v["vehicle_type"]]["mileage"] / 100
 
             # generate trip event
-            dep_time, duration, distance = generate_trip(args, v["vehicle_type"])
+            dep_time, duration, distance = generate_trip(vehicle_types, v["vehicle_type"])
             departure = datetime.datetime.combine(now.date(), dep_time, now.tzinfo)
             arrival = departure + duration
             soc_delta = distance * mileage / capacity
@@ -429,8 +430,6 @@ if __name__ == '__main__':
                                                                   'point in kW')
     parser.add_argument('--voltage-level', '-vl', help='Choose voltage level for cost calculation')
     parser.add_argument('--seed', default=None, type=int, help='set random seed')
-    parser.add_argument('--statistical-values', default=None,
-                        help='location of statistical values for trip generation')
     parser.add_argument('--vehicle-types', default=None,
                         help='location of vehicle type definitions')
     parser.add_argument('--discharge-limit', default=0.5,
