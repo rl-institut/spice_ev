@@ -244,7 +244,7 @@ def generate(args):
     trips_above_min_soc = 0
     trips_total = 0
 
-    # create vehicle and price events
+    # create daily vehicle and price events
     daily = datetime.timedelta(days=1)
     now = start - daily
     while now < stop + 2 * daily:
@@ -252,8 +252,13 @@ def generate(args):
 
         # create vehicle events for this day
         for v_id, v in vehicles.items():
-            if now.weekday() in args.no_drive_days:
-                break
+            # check if day is defined as a no driving day for this vehicle_type
+            try:
+                if now.weekday() in vehicle_types[v["vehicle_type"]]["no_drive_days"]:
+                    break
+            except KeyError:
+                raise SystemExit(f"List of 'no_drive_days' missing for vehicle type "
+                                 f"'{v['vehicle_type']}'. Set in json of vehicle_types.")
             if now.date().isoformat() in vars(args).get("holidays", []):
                 break
 
