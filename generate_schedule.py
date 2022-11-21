@@ -389,7 +389,7 @@ def generate_schedule(args):
     else:
         flex = generate_flex_band(s, gcID=gcID, core_standing_time=args.core_standing_time)
 
-    netto = []
+    residual_load = []
     curtailment = []
     # Read NSM timeseries
     with open(args.input, 'r', newline='') as f:
@@ -405,13 +405,13 @@ def generate_schedule(args):
                     nsm_start_time = s.start_time.replace(tzinfo=None)
                     warnings.warn('Time component of NSM timeseries ignored. '
                                   'Must be of format YYYY.MM.DD HH:MM')
-            # store netto value, use previous value if none provided
+            # store residual_load value, use previous value if none provided
             try:
-                netto.append(float(row["netto"]))
+                residual_load.append(float(row["residual load"]))
             except ValueError:
-                warnings.warn("Netto timeseries contains non-numeric values.")
-                replace_unknown = netto[-1] if row_idx > 0 else 0
-                netto.append(replace_unknown)
+                warnings.warn("Residual load timeseries contains non-numeric values.")
+                replace_unknown = residual_load[-1] if row_idx > 0 else 0
+                residual_load.append(replace_unknown)
             # store curtailment info
             try:
                 curtailment.append(-float(row["curtailment"]))
@@ -428,21 +428,21 @@ def generate_schedule(args):
     # Note: The procedure to determine priorities for every timestep assumes that
     # time intervals of simulation are equal to time intervals in NSM time series.
 
-    # compute cutoff values for priorities 1 and 4 using all netto values
-    idx_percentile = int(len(netto) * args.priority_percentile)
-    sorted_netto = sorted(netto)
-    cutoff_priority_1 = sorted_netto[idx_percentile]
-    cutoff_priority_4 = sorted_netto[len(netto) - idx_percentile]
+    # compute cutoff values for priorities 1 and 4 using all residual load values
+    idx_percentile = int(len(residual_load) * args.priority_percentile)
+    sorted_residual_load = sorted(residual_load)
+    cutoff_priority_1 = sorted_residual_load[idx_percentile]
+    cutoff_priority_4 = sorted_residual_load[len(residual_load) - idx_percentile]
 
     # find timesteps relevant for simulation and discard remaining
     idx_start = (s.start_time.replace(tzinfo=None) - nsm_start_time) // s.interval
-    idx_start = idx_start if 0 < idx_start < len(netto) else 0
-    idx_end = min(idx_start + s.n_intervals, len(netto))
-    netto = netto[idx_start:idx_end]
+    idx_start = idx_start if 0 < idx_start < len(residual_load) else 0
+    idx_end = min(idx_start + s.n_intervals, len(residual_load))
+    residual_load = residual_load[idx_start:idx_end]
     curtailment = curtailment[idx_start:idx_end]
 
     # zero-pad for same length as scenario
-    netto += [0]*(s.n_intervals - len(netto))
+    residual_load += [0] * (s.n_intervals - len(residual_load))
     curtailment += [0]*(s.n_intervals - len(curtailment))
 
     # set priorities (default: 4)
@@ -451,17 +451,17 @@ def generate_schedule(args):
         if curtailment[t] > 0:
             # highest priority: curtailment (must be capped)
             priorities[t] = 1
-        elif netto[t] < cutoff_priority_1:
-            # percentile with smallest load
+        elif residual_load[t] < cutoff_priority_1:
+            # percentile with smallest residual load
             priorities[t] = 1
-        elif netto[t] > cutoff_priority_4:
-            # percentile with largest load
+        elif residual_load[t] > cutoff_priority_4:
+            # percentile with largest residual load
             priorities[t] = 4
-        elif netto[t] < 0:
-            # not in smallest or largest percentile but negative load
+        elif residual_load[t] < 0:
+            # not in smallest or largest percentile but negative residual load
             priorities[t] = 2
-        elif netto[t] >= 0:
-            # not in smallest or largest percentile but positive load
+        elif residual_load[t] >= 0:
+            # not in smallest or largest percentile but positive residual load
             priorities[t] = 3
 
     # default schedule: just basic power needs
@@ -758,8 +758,8 @@ def generate_schedule(args):
         # plot input file
         axes[1].step(
             range(s.n_intervals),
-            list(zip(netto, curtailment)),
-            label=["netto", "curtailment"])
+            list(zip(residual_load, curtailment)),
+            label=["residual load", "curtailment"])
         axes[1].legend()
         axes[1].set_xlim([0, s.n_intervals])
         axes[1].set_ylabel("power [kW]")
@@ -780,7 +780,7 @@ if __name__ == '__main__':
     parser.add_argument('scenario', nargs='?', help='Scenario input file')
     parser.add_argument('--input',
                         help='Timeseries with power and limit. '
-                        'Columns: curtailment, netto (timestamp ignored)')
+                        'Columns: "curtailment", "residual load" (timestamp ignored)')
     parser.add_argument('--output', '-o',
                         help='Specify schedule file name, '
                         'defaults to <scenario>_schedule.csv')
