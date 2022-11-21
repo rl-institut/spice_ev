@@ -391,19 +391,19 @@ def generate_schedule(args):
 
     residual_load = []
     curtailment = []
-    # Read NSM timeseries
+    # Read grid situation timeseries
     with open(args.input, 'r', newline='') as f:
         reader = csv.DictReader(f)
         for row_idx, row in enumerate(reader):
-            # get start time of NSM time series
+            # get start time of grid situation series
             if row_idx == 0:
                 try:
-                    nsm_start_time = datetime.datetime.strptime(row["timestamp"], "%Y-%m-%d %H:%M")
+                    grid_start_time = datetime.datetime.strptime(row["timestamp"], "%Y-%m-%d %H:%M")
                 except (ValueError, KeyError):
                     # if timestamp column does not exist or contains wrong format
-                    # assume NSM timeseries at the same time as simulation
-                    nsm_start_time = s.start_time.replace(tzinfo=None)
-                    warnings.warn('Time component of NSM timeseries ignored. '
+                    # assume grid situation timeseries at the same time as simulation
+                    grid_start_time = s.start_time.replace(tzinfo=None)
+                    warnings.warn('Time component of grid situation timeseries ignored. '
                                   'Must be of format YYYY.MM.DD HH:MM')
             # store residual_load value, use previous value if none provided
             try:
@@ -426,7 +426,7 @@ def generate_schedule(args):
     # (3) positive loads => discharge
     # (4) percentile with highest load => discharge
     # Note: The procedure to determine priorities for every timestep assumes that
-    # time intervals of simulation are equal to time intervals in NSM time series.
+    # time intervals of simulation are equal to time intervals in grid situation time series.
 
     # compute cutoff values for priorities 1 and 4 using all residual load values
     idx_percentile = int(len(residual_load) * args.priority_percentile)
@@ -435,7 +435,7 @@ def generate_schedule(args):
     cutoff_priority_4 = sorted_residual_load[len(residual_load) - idx_percentile]
 
     # find timesteps relevant for simulation and discard remaining
-    idx_start = (s.start_time.replace(tzinfo=None) - nsm_start_time) // s.interval
+    idx_start = (s.start_time.replace(tzinfo=None) - grid_start_time) // s.interval
     idx_start = idx_start if 0 < idx_start < len(residual_load) else 0
     idx_end = min(idx_start + s.n_intervals, len(residual_load))
     residual_load = residual_load[idx_start:idx_end]
