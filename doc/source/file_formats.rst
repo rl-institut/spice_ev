@@ -94,7 +94,7 @@ Inputs
 
 File type: csv
 
-Needed columns: curtailment (numeric), netto (numeric)
+Needed columns: curtailment (numeric), residual load (numeric)
 
 **Configuration**
 
