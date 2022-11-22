@@ -156,7 +156,7 @@ def calculate_commodity_costs(price_list, power_grid_supply_list, interval, frac
         energy_supply_per_timestep = \
             power_grid_supply_list[i] * interval.total_seconds() / 3600  # [kWh]
         commodity_costs_eur_sim = commodity_costs_eur_sim + \
-                                  (energy_supply_per_timestep * price_list[i] / 100)  # [€]
+            (energy_supply_per_timestep * price_list[i] / 100)  # [€]
     commodity_costs_eur_per_year = commodity_costs_eur_sim / fraction_year
 
     return commodity_costs_eur_per_year, commodity_costs_eur_sim

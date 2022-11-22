@@ -86,23 +86,23 @@ class TestSimulationCosts:
         result = cc.calculate_costs(supported_strategies[0], "MV", s.interval, *timeseries_lists,
                                     core_standing_time_dict=s.core_standing_time,
                                     price_sheet_json=str(price_sheet))
-        assert result["total_costs_per_year"] == 28536.79
+        assert result["total_costs_per_year"] == 78.18
         assert result["commodity_costs_eur_per_year"] == 0
         assert result["capacity_costs_eur"] == 65.7
         assert result["power_procurement_per_year"] == 0
-        assert result["levies_fees_and_taxes_per_year"] == 4556.3
+        assert result["levies_fees_and_taxes_per_year"] == 12.48
         assert result["feed_in_remuneration_per_year"] == 0
 
     def test_calculate_costs_advanced(self):
 
         scenarios = {
-            "scenario_A.json": [30981.28, 776.54, 65.7, 2.19, 5424.87, 0.0],
-            "scenario_B.json": [50256.99, 6899.83, 65.7, 19.46, 12273.91, 0.0],
-            "scenario_C1.json": [31504.26, 942.67, 65.7, 2.66, 5610.68, 0.0],
-            "scenario_C2.json": [31250.93, 862.2, 65.7, 2.43, 5520.68, 0.0],
-            "scenario_C3.json": [30346.16, 574.78, 65.7, 1.62, 5199.21, 0.0],
+            "scenario_A.json": [2522.67, 776.54, 65.7, 799.38, 881.06, 0.0],
+            "scenario_B.json": [21798.38, 6899.83, 65.7, 7102.77, 7730.09, 0.0],
+            "scenario_C1.json": [3045.64, 942.67, 65.7, 970.4, 1066.87, 0.0],
+            "scenario_C2.json": [2792.32, 862.2, 65.7, 887.56, 976.87, 0.0],
+            "scenario_C3.json": [1887.55, 574.78, 65.7, 591.69, 655.39, 0.0],
             # "bus_scenario_D.json": [0,0,0,0,0,0],  # buggy: can't charge enough
-            "scenario_PV_Bat.json": [26292.21, 0.0, 65.7, 0.0, 4556.3, 2244.59],
+            "scenario_PV_Bat.json": [-2166.41, 0.0, 65.7, 0.0, 12.48, 2244.59],
         }
 
         for scenario_name, expected in scenarios.items():
@@ -148,4 +148,4 @@ class TestPostSimulationCosts:
         with save_results.open() as f:
             results = json.load(f)
         assert "costs" in results
-        assert results["costs"]["electricity costs"]["per year"]["total (gross)"] == 28536.79
+        assert results["costs"]["electricity costs"]["per year"]["total (gross)"] == 78.18
