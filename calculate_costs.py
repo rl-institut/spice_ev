@@ -156,7 +156,7 @@ def calculate_commodity_costs(price_list, power_grid_supply_list, interval, frac
         energy_supply_per_timestep = \
             power_grid_supply_list[i] * interval.total_seconds() / 3600  # [kWh]
         commodity_costs_eur_sim = commodity_costs_eur_sim + \
-            (energy_supply_per_timestep * price_list[i] / 100)  # [€]
+                                  (energy_supply_per_timestep * price_list[i] / 100)  # [€]
     commodity_costs_eur_per_year = commodity_costs_eur_sim / fraction_year
 
     return commodity_costs_eur_per_year, commodity_costs_eur_sim
@@ -585,11 +585,11 @@ def calculate_costs(strategy, voltage_level, interval,
     offshore_costs_sim = offshore_levy * energy_supply_sim / 100  # [EUR]
     interruptible_loads_costs_sim = (interruptible_loads_levy * energy_supply_sim / 100)  # [EUR]
     levies_costs_total_sim = (
-        eeg_costs_sim
-        + chp_costs_sim
-        + individual_charge_costs_sim
-        + offshore_costs_sim
-        + interruptible_loads_costs_sim
+            eeg_costs_sim
+            + chp_costs_sim
+            + individual_charge_costs_sim
+            + offshore_costs_sim
+            + interruptible_loads_costs_sim
     )
 
     # costs per year:
@@ -648,15 +648,19 @@ def calculate_costs(strategy, voltage_level, interval,
 
     # total costs without value added tax (commodity costs and capacity costs included):
     costs_total_not_value_added_eur_sim = (
-        commodity_costs_eur_sim
-        + capacity_costs_eur
-        + power_procurement_costs_sim
-        + additional_costs_sim
-        + levies_costs_total_sim
-        + concession_fee_costs_sim
-        + electricity_tax_costs_sim
+            commodity_costs_eur_sim
+            + capacity_costs_eur
+            + power_procurement_costs_sim
+            + additional_costs_sim
+            + levies_costs_total_sim
+            + concession_fee_costs_sim
+            + electricity_tax_costs_sim
     )  # [EUR]
-    costs_total_not_value_added_eur_per_year = costs_total_not_value_added_eur_sim / fraction_year
+
+    # total costs for year (capacity costs are always given per year)
+    costs_total_not_value_added_eur_per_year = ((costs_total_not_value_added_eur_sim -
+                                                 capacity_costs_eur) / fraction_year +
+                                                capacity_costs_eur)
 
     # costs from value added tax:
     value_added_tax_costs_sim = value_added_tax * costs_total_not_value_added_eur_sim
@@ -677,7 +681,8 @@ def calculate_costs(strategy, voltage_level, interval,
     commodity_costs_eur_per_year = round(commodity_costs_eur_per_year, round_to_places)
     capacity_costs_eur = round(capacity_costs_eur, round_to_places)
 
-    power_procurement_per_year = round(power_procurement_costs_sim, round_to_places)
+    power_procurement_costs_sim = round(power_procurement_costs_sim, round_to_places)
+    power_procurement_costs_per_year = round(power_procurement_costs_per_year, round_to_places)
 
     levies_fees_and_taxes_per_year = round(
         round(eeg_costs_per_year, round_to_places) +
@@ -728,7 +733,7 @@ def calculate_costs(strategy, voltage_level, interval,
                         },
                         "additional costs": round(additional_costs_per_year, round_to_places),
                     },
-                    "power procurement": round(power_procurement_costs_per_year, round_to_places),
+                    "power procurement": power_procurement_costs_per_year,
                     "levies": {
                         "EEG-levy": round(eeg_costs_per_year, round_to_places),
                         "chp levy": round(chp_costs_per_year, round_to_places),
@@ -767,7 +772,7 @@ def calculate_costs(strategy, voltage_level, interval,
                         },
                         "additional costs": round(additional_costs_sim, round_to_places),
                     },
-                    "power procurement": power_procurement_per_year,
+                    "power procurement": power_procurement_costs_sim,
                     "levies": {
                         "EEG-levy": round(eeg_costs_sim, round_to_places),
                         "chp levy": round(chp_costs_sim, round_to_places),
@@ -804,7 +809,7 @@ def calculate_costs(strategy, voltage_level, interval,
         "total_costs_per_year": total_costs_per_year,
         "commodity_costs_eur_per_year": commodity_costs_eur_per_year,
         "capacity_costs_eur": capacity_costs_eur,
-        "power_procurement_per_year": power_procurement_per_year,
+        "power_procurement_per_year": power_procurement_costs_per_year,
         "levies_fees_and_taxes_per_year": levies_fees_and_taxes_per_year,
         "feed_in_remuneration_per_year": feed_in_remuneration_per_year,
     }
