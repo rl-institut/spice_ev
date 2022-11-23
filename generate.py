@@ -254,7 +254,7 @@ def generate(args):
         for v_id, v in vehicles.items():
             # check if day is defined as a no driving day for this vehicle_type
             try:
-                if now.weekday() in vehicle_types[v["vehicle_type"]]["no_drive_days"]:
+                if now.weekday() in vehicle_types[v["vehicle_type"]].get("no_drive_days", []):
                     break
             except KeyError:
                 raise SystemExit(f"List of 'no_drive_days' missing for vehicle type "
