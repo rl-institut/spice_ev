@@ -443,10 +443,10 @@ def generate_schedule(args):
 
     # zero-pad for same length as scenario
     residual_load += [0] * (s.n_intervals - len(residual_load))
-    curtailment += [0]*(s.n_intervals - len(curtailment))
+    curtailment += [0] * (s.n_intervals - len(curtailment))
 
     # set priorities (default: 4)
-    priorities = [4]*s.n_intervals
+    priorities = [4] * s.n_intervals
     for t in range(s.n_intervals):
         if curtailment[t] > 0:
             # highest priority: curtailment (must be capped)
@@ -467,7 +467,7 @@ def generate_schedule(args):
     # default schedule: just basic power needs
     schedule = [v for v in flex["base"]]
     vehicle_ids = sorted(s.constants.vehicles.keys())
-    vehicle_schedule = {vid: [0]*s.n_intervals for vid in vehicle_ids}
+    vehicle_schedule = {vid: [0] * s.n_intervals for vid in vehicle_ids}
 
     def distribute_energy_balanced(period, is_charge_period, energy_needed, priority_selection):
         """Distributes energy across a time period, prefering certain priorities over others.
