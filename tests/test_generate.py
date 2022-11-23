@@ -159,7 +159,8 @@ class TestGenerate(TestCaseBase):
         output_file = os.path.join(TEST_REPO_PATH,
                                    "test_data/input_test_generate/schedule_example.csv")
         current_arg_values = {
-            "input": os.path.join(TEST_REPO_PATH, "test_data/input_test_generate/nsm_00_dummy.csv"),
+            "input": os.path.join(TEST_REPO_PATH,
+                                  "test_data/input_test_generate/example_grid_situation.csv"),
             "scenario": os.path.join(TEST_REPO_PATH,
                                      "test_data/input_test_generate/scenario_C.json"),
             "output": output_file,
