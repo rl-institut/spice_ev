@@ -253,12 +253,8 @@ def generate(args):
         # create vehicle events for this day
         for v_id, v in vehicles.items():
             # check if day is defined as a no driving day for this vehicle_type
-            try:
-                if now.weekday() in vehicle_types[v["vehicle_type"]].get("no_drive_days", []):
-                    break
-            except KeyError:
-                raise SystemExit(f"List of 'no_drive_days' missing for vehicle type "
-                                 f"'{v['vehicle_type']}'. Set in json of vehicle_types.")
+            if now.weekday() in vehicle_types[v["vehicle_type"]].get("no_drive_days", []):
+                continue
             if now.date().isoformat() in vars(args).get("holidays", []):
                 break
 
@@ -420,8 +416,6 @@ if __name__ == '__main__':
                         help='Provide start time of simulation in ISO format '
                              'YYYY-MM-DDTHH:MM:SS+TZ:TZ. Precision is 1 second. E.g. '
                              '2018-01-31T01:00:00+02:00')
-    parser.add_argument('--no-drive-days', default=[6], nargs='+', type=int,
-                        help='Provide weekday of vehicles not driving (default: Sunday)')
     parser.add_argument('--min-soc', metavar='SOC', type=float, default=0.8,
                         help='set minimum desired SOC (0 - 1) for each charging process')
     parser.add_argument('--battery', '-b', default=[], nargs=2, type=float, action='append',
