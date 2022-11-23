@@ -29,16 +29,19 @@ def datetime_from_isoformat(s):
 def datetime_within_window(dt, time_windows):
     """Checks if a given datetime is within any of the given time windows.
 
+    note:
+    The times pertain to all dates within the window.
+    E.g., 14.03. 9:00 - 14.05. 11:00 means 09:00 - 11:00 for all days in two months
+    14.04. 10:00 is within this eaxmple window, 14.04. 12:00 is not
+
     :param dt: time
     :type dt: datetime
     :param time_windows: Structure of time_windows: {season: {"start": datetime with start date and\
         start time, "end": datetime with end date end end time}}
     :type time_windows: dict
+    :return: is datetime within time windows?
+    :rtype: bool
 
-    note:
-    The times pertain to all dates within the window.
-    E.g., 14.03. 9:00 - 14.05. 11:00 means 09:00 - 11:00 for all days in two months
-    14.04. 10:00 is within this eaxmple window, 14.04. 12:00 is not
     """
     for window in time_windows.values():
         start = window["start"].replace(year=dt.year)
@@ -123,6 +126,7 @@ def get_cost(x, cost_dict):
     :type x: numeric
     :param cost_dict: dictionary with costs
     :type cost_dict: dict
+    :raises NotImplementedError: if costs are neither fixed nor polynomial
     :return: cost
     :rtype: numeric
     """
@@ -143,10 +147,11 @@ def get_power(y, cost_dict):
     """
     Returns power for a given price.
 
-    :param y:
+    :param y: price
     :type y: numeric
     :param cost_dict: dictionary with costs
     :type cost_dict: dict
+    :raises NotImplementedError: if costs are neither fixed nor polynomial
     :return: power
     :rtype: numeric
     """
@@ -212,6 +217,7 @@ def set_options_from_config(args, check=False, verbose=True):
     :type check: bool
     :param verbose: gives final overview of arguments
     :type bool
+    :raises ValueError: if arguments are *check*ed and an unknown argument is encountered
     """
 
     if "config" in args and args.config is not None:

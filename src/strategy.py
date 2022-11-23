@@ -16,6 +16,7 @@ def class_from_str(strategy_name):
 class Strategy():
     """
     Parent class for the individual strategies.
+
     :param constants: class containing the constant componants
     :type constants: class
     :param start_time: start time of the simulation
@@ -60,10 +61,16 @@ class Strategy():
 
     def step(self, event_list=[]):
         """
-        Method of Strategy that sets up initial conditions for the charging strategy in each time
-        step.
+        Prepares next timestep for specific charging strategy.
+
+        Processes next events, makes some sanity checks and resets loads at grid connectors.
+
         :param event_list: List of events
         :type event_list: list
+        :raises Exception: if an unknown event type is encountered or
+            a GC has neither associated costs nor schedule at any time
+        :raises RuntimeError: if any vehicle SoC becomes negative
+            (use *ALLOW_NEGATIVE_SOC* to suppress)
         """
 
         self.current_time += self.interval

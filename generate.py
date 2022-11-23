@@ -24,8 +24,8 @@ def generate_trip(vehicle_type_info):
 
     :param vehicle_type_info: info of used vehicle_type
     :type vehicle_type_info: dict
-    :return:
-        start (datetime), duration (timedelta), distance (float)
+    :raises Exception: if the time format is not hh:mm
+    :return: start (datetime), duration (timedelta), distance (float)
     """
 
     stat_values = vehicle_type_info["statistical_values"]
@@ -94,8 +94,7 @@ def generate(args):
 
     :param args: input arguments
     :type args: argparse.Namespace
-
-    :return: None
+    :raises SystemExit: if the required argument *output* is missing
     """
     if args.output is None:
         raise SystemExit("The following argument is required: output")

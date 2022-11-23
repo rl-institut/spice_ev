@@ -345,7 +345,7 @@ def aggregate_timeseries(scenario, gcID):
     :param gcID: ID of GC for which to generate timeseries.
     :type gcID: str
     :return: header and timeseries
-    rtype: dict
+    :rtype: dict
     """
 
     cs_ids = sorted(item for item in scenario.constants.charging_stations.keys() if

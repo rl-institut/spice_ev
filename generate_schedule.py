@@ -198,8 +198,6 @@ def generate_individual_flex_band(scenario, gcID):
     :type scenario: Scenario
     :param gcID: grid connector ID for which to create this flex band
     :type gcID: string
-    :param core_standing_time: core standing time during which flexibility is guaranteed
-    :type core_standing_time: dict
     :return: flex band
     :rtype: dict
     """
@@ -368,7 +366,6 @@ def generate_schedule(args):
 
     :param args: input arguments
     :type args: argparse.Namespace
-    :return: None
     """
 
     # read in scenario

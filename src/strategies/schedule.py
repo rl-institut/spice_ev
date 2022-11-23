@@ -178,6 +178,9 @@ class Schedule(Strategy):
 
         Shortcomings of the schedule are detected early on and battery energy is allocated to
         help out when necessary.
+
+        :raises Exception: if any vehicle is not available during core standing time
+            (use *warn_core_standing_time* to suppress)
         """
         # get time paramters of next core standing time
         dt_to_end_core_standing_time = self.dt_to_end_of_time_window()
@@ -256,6 +259,9 @@ class Schedule(Strategy):
         vehicles.
         2. If the schedule provides enough energy to charge cars, cars are charged as balanced as
         possible with a higher priority on meeting the schedule requirements.
+
+        :return: charging commands
+        :rtype: dict
         """
         charging_stations = {}
         dt_to_end_core_standing_time = self.dt_to_end_of_time_window()

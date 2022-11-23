@@ -13,8 +13,7 @@ def generate_energy_price(args):
 
     :param args: input arguments
     :type args: argparse.Namespace
-
-    :return: None
+    :raises SystemExit: if required argument *output* is missing
     """
     if args.output is None:
         raise SystemExit("The following argument is required: output")

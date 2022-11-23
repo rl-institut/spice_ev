@@ -14,7 +14,10 @@ def generate_from_download(args):
 
     :param args: input arguments
     :type args: argparse.Namespace
-    :return: None
+    :raises SystemExit: if any of the required arguments are missing
+    :raises RuntimeError: if any vehicle arrives before it departs (bad data)
+    :raises KeyError: if there are charging stations not present in the allocation file
+    :raises ValueError: if capacity of vehicle types do not match or are not unique
     """
     missing = [arg for arg in ["input", "output", "car_allocation"] if vars(args).get(arg) is None]
     if missing:
