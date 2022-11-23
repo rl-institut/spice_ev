@@ -106,7 +106,7 @@ If you want to generate a grid operator schedule from an input csv and include i
 
 .. code:: bash
 
-    ./generate_schedule.py --scenario example.json --input data/timeseries/NSM_1.csv --output data/schedules/NSM_1.csv
+    ./generate_schedule.py --scenario example.json --input data/timeseries/grid_situation_1.csv --output data/schedules/grid_situation_1.csv
 
 In this case a csv time series is read in from the folder `data/timeseries/` and the created schedule is saved in `data/schedules/`. The schedule csv is automatically added to the json `example.json`.
 Note that when running the `generate_schedule.py` module, you need to already have an existing scenario.json that you want to add the schedule to.

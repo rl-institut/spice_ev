@@ -26,7 +26,8 @@
                 "min_driving": 4.28,
                 "max_driving": 12.38
             }
-        }
+        },
+        "no_drive_days": [5, 6]
     },
     "sprinter": {
         "name": "Sprinter",
@@ -55,7 +56,8 @@
                 "min_driving": 4.28,
                 "max_driving": 12.38
             }
-        }
+        },
+        "no_drive_days": [5, 6]
     },
     "golf": {
         "name": "E-Golf",
@@ -84,7 +86,8 @@
                 "min_driving": 4.28,
                 "max_driving": 12.38
             }
-        }
+        },
+        "no_drive_days": [2]
     },
     "AB-OPP": {
         "name": "articulated bus - opportunity charging",
