@@ -99,19 +99,17 @@ V2G supported: **YES**
     +-------------------+---------------+---------------------------------------------------------+
 
 
-Schedule / ScheduleForesight
+Schedule
 ============================
-Allocate power according to grid operator schedule. ScheduleForesight looks into the future (until all cars have left, at most 24h) and tries to adjust schedule so that all cars can be charged for the next trip. Implements different sub-strategies:
+Allocate power according to grid operator schedule. Implements different sub-strategies:
 
 - greedy: Cars charge as much as possible to reach the set schedule. Vehicles below desired SoC get charged first, then in order of departure.
 - needy: Cars charge in proportion to the energy required to reach their desired SoC. All cars charge at the same time to reach the desired schedule. Cars not in need of much power are handled first, as they may fall below their minimum power limit and leave more power to the rest of the fleet.
 - balanced: The scheduled power target is distributed evenly among the fleet. If this causes vehicles to fall below their minimum power limit, cars are excluded from charging in order of importance (fully charged, time of departure).
 
-If ScheduleForesight takes too long, you may try to increase the EPS parameter.
-
 Stationary batteries supported: **YES**
 
-V2G supported: (**YES**, ScheduleForesight only)
+V2G supported: (**YES**)
 
     +-------------------+---------------+---------------------------------------------------------+
     |**Strategy option**| **default**   |              **explanation**                            |

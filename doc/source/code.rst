@@ -54,18 +54,6 @@ config file see `/examples/generate_from_csv.cfg`.
     csv_to_dict
 	assign_vehicle_id
 
-Generate_from_download
-----------------------
-Generates a scenario JSON from JSON file with LIS event data. For an example
-config file see `/examples/generate_from_download.cfg`.
-
-.. currentmodule:: generate_from_download
-.. autosummary::
-    :toctree: temp/
-
-    generate_from_download
-
-
 Generate_from_simbev
 --------------------
 Generates a scenario JSON from simBEV results. For an example
@@ -239,15 +227,6 @@ Allocate power according to grid operator schedule.
     Schedule.utilize_stationary_batteries
     Schedule.step
 
-Schedule foresight
-------------------
-ScheduleForesight looks into the future (until all cars have left, at most 24h) and tries to adjust schedule so that all cars can be charged for the next trip. Implements different sub-strategies:--------
-
-.. currentmodule:: src.strategies.schedule_foresight
-.. autosummary::
-    :toctree: temp/
-
-    ScheduleForesight
 
 
 Components
