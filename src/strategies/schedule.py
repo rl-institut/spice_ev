@@ -55,7 +55,7 @@ class Schedule(Strategy):
         """Simulates a balanced charging process for a single vehicle.
 
         :param vehicle: vehicle to be charged
-        :type vehicle: object
+        :type vehicle: Vehicle
         :param dt: time period remaining until charging process should be completed
         :type dt: timedelta
         :param max_power: maximum power available during current timestep
@@ -536,19 +536,17 @@ class Schedule(Strategy):
         return commands
 
     def charge_cars_after_core_standing_time(self, charging_stations):
-        """Charges cars balanced in the time frame between the end of core standing time
-        and each vehicles departure until desired SOC is reached.
+        """Charges cars balanced between end of core standing time and departure
+
 
         :param charging_stations: Charging_commands previously allocated during this timestep
-        :type charging_stations: dict ?
-        :return: charging_stations (An updated version of the input containing total of all\
-            charging commands determined until this point.)
+        :type charging_stations: dict
+        :return: updated charging_stations
         :rtype: dict
         """
 
         gc = list(self.world_state.grid_connectors.values())[0]  # only 1 GC supported
 
-        total_power = gc.cur_max_power - gc.get_current_load()
         vehicles = self.world_state.vehicles.values()
 
         power_needed = []
@@ -563,7 +561,7 @@ class Schedule(Strategy):
             self.overcharge_necessary = False
             return charging_stations
 
-        if total_power < self.EPS:
+        if gc.cur_max_power - gc.get_current_load() < self.EPS:
             # grid connector maxed out
             return charging_stations
 
@@ -575,12 +573,13 @@ class Schedule(Strategy):
             cs = self.world_state.charging_stations[cs_id]
             time_until_departure = vehicle.estimated_time_of_departure - self.current_time
             power = self.sim_balanced_charging(
-                            vehicle, time_until_departure, total_power)['opt_power']
+                vehicle, time_until_departure,
+                gc.cur_max_power - gc.get_current_load()
+            )['opt_power']
 
             power = clamp_power(power, vehicle, cs)
-            avg_power = vehicle.battery.load(self.interval,
-                                             power,
-                                             target_soc=vehicle.desired_soc)["avg_power"]
+            avg_power = vehicle.battery.load(
+                self.interval, power, target_soc=vehicle.desired_soc)["avg_power"]
             cs_id = vehicle.connected_charging_station
             charging_stations[cs_id] = cs.current_power = gc.add_load(cs_id, avg_power)
 
