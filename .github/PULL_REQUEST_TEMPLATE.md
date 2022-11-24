@@ -1,7 +1,7 @@
-Fix #Issue
+Fixes #Issue
 
 **Changes proposed in this pull request**:
-- Your_changes
+- Your changes
 
 The following steps were realized (required):
 - [ ] Correct linting with `flake8 path_to_script`
@@ -9,5 +9,6 @@ The following steps were realized (required):
 
 Also the following steps were realized (if applies):
 - [ ] Write docstrings to your code
-- [ ] For new functionalities: Explain in readthedocs
-- [ ] Write test(s) for your new patch of code
+- [ ] Explain new functionalities in readthedocs
+- [ ] Write test(s) for new patch of code
+- [ ] Check building of documentation with `doc/make html`
