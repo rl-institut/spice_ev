@@ -115,7 +115,7 @@ class Battery():
 
         :param timedelta: time period in which battery can be loaded
         :type timedelta: timedelta
-        :param max_power: maximum charging power
+        :param max_charging_power: maximum charging power
         :type max_charging_power: numeric
         :return: average power and soc_delta
         :rtype: dict

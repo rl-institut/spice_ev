@@ -211,9 +211,9 @@ def get_schedule_from_csv(obj, dir_path):
     :type obj: dict
     :param dir_path: path to directory
     :type dir_path: str
-
+    :raises SystemExit: if specified schedule *column* is not present in input file
     :return: grid operator schedule
-        list
+    :rtype: list
     """
 
     # no CSV file/no info: skip

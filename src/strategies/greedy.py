@@ -48,9 +48,8 @@ class Greedy(Strategy):
             cs = self.world_state.charging_stations[cs_id]
             gc = self.world_state.grid_connectors[cs.parent]
 
-            charging_stations, avail_bat_power[cs.parent] = load_vehicle(self, cs, gc, vehicle,
-                                                                         cs_id, charging_stations,
-                                                                         avail_bat_power[cs.parent])
+            charging_stations, avail_bat_power[cs.parent] = load_vehicle(
+                self, cs, gc, vehicle, cs_id, charging_stations, avail_bat_power[cs.parent])
         # all vehicles loaded
         charging_stations.update(self.distribute_surplus_power())
         self.update_batteries()
@@ -58,9 +57,12 @@ class Greedy(Strategy):
         return {'current_time': self.current_time, 'commands': charging_stations}
 
 
-def load_vehicle(self, cs, gc, vehicle, cs_id, charging_stations, avail_bat_power):
+def load_vehicle(strategy, cs, gc, vehicle, cs_id, charging_stations, avail_bat_power):
     """
     Load one vehicle with greedy strategy
+
+    :param strategy: current world state
+    :type strategy: Strategy
     :param cs: charging station dict
     :type cs: dict
     :param gc: grid connector dict
@@ -80,17 +82,17 @@ def load_vehicle(self, cs, gc, vehicle, cs_id, charging_stations, avail_bat_powe
     power = 0
     avg_power = 0
     bat_power_used = False
-    if get_cost(1, gc.cost) <= self.PRICE_THRESHOLD:
+    if get_cost(1, gc.cost) <= strategy.PRICE_THRESHOLD:
         # low energy price: take max available power from GC without batteries
         power = clamp_power(gc_power_left, vehicle, cs)
-        avg_power = vehicle.battery.load(self.interval, power)['avg_power']
+        avg_power = vehicle.battery.load(strategy.interval, power)['avg_power']
     elif vehicle.get_delta_soc() > 0:
         # vehicle needs charging: take max available power (with batteries)
         # limit to desired SoC
         power = gc_power_left + avail_bat_power
         power = clamp_power(power, vehicle, cs)
         avg_power = vehicle.battery.load(
-            self.interval, power, target_soc=vehicle.desired_soc)['avg_power']
+            strategy.interval, power, target_soc=vehicle.desired_soc)['avg_power']
         bat_power_used = True
 
     # update CS and GC

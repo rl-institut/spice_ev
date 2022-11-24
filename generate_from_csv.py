@@ -33,7 +33,7 @@ def generate_from_csv(args):
 
     :param args: input arguments
     :type args: argparse.Namespace
-    :return: None
+    :raises SystemExit: if any of the required arguments (*input_file* and *output*) is missing
     """
     missing = [arg for arg in ["input_file", "output"] if vars(args).get(arg) is None]
     if missing:

@@ -1,3 +1,5 @@
 [flake8]
 max-line-length=100
-exclude=docs,examples
+exclude=docs,examples,scenarios
+#extend_ignore=DAR101,DAR201,DAR401
+docstring_style=sphinx

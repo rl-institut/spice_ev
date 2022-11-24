@@ -323,8 +323,6 @@ class FlexWindow(Strategy):
 
         :param timesteps: list of dictionaries for each timestep in horizon
         :type timesteps: list
-        :param commands: commands for charging stations (prior results)
-        :type commands: dict
         :return: commands for charging stations
         :rtype: dict
         """
@@ -686,8 +684,6 @@ class FlexWindow(Strategy):
 
         :param timesteps: list of dictionaries for each timestep in horizon
         :type timesteps: list
-        :param commands: commands for charging stations (prior results)
-        :type commands: dict
         :return: commands for charging stations
         :rtype: dict
         """
@@ -847,6 +843,7 @@ class FlexWindow(Strategy):
         :type total_power: numeric
         :param total_needed: total power needed
         :type total_needed: numeric
+        :raises NotImplementedError: if *LOAD_STRAT* is not supported
         :return: commands for charging stations
         :rtype: dict
         """
@@ -874,6 +871,9 @@ class FlexWindow(Strategy):
     def load_surplus_to_batteries(self):
         """
         Charge batteries with surplus energy
+
+        :return: energy used to charge batteries
+        :rtype: numeric
         """
         total_energy_used = 0
         for b_id, battery in self.world_state.batteries.items():

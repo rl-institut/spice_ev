@@ -49,9 +49,8 @@ class Balanced(Strategy):
             cs = self.world_state.charging_stations[cs_id]
             gc = self.world_state.grid_connectors[cs.parent]
 
-            charging_stations, avail_bat_power[cs.parent] = \
-                load_vehicle(self, cs, gc, vehicle, cs_id, charging_stations,
-                             avail_bat_power[cs.parent])
+            charging_stations, avail_bat_power[cs.parent] = load_vehicle(
+                self, cs, gc, vehicle, cs_id, charging_stations, avail_bat_power[cs.parent])
 
         # all vehicles loaded
         charging_stations.update(self.distribute_surplus_power())
@@ -60,9 +59,12 @@ class Balanced(Strategy):
         return {'current_time': self.current_time, 'commands': charging_stations}
 
 
-def load_vehicle(self, cs, gc, vehicle, cs_id, charging_stations, avail_bat_power):
+def load_vehicle(strategy, cs, gc, vehicle, cs_id, charging_stations, avail_bat_power):
     """
     Load one vehicle with balanced strategy
+
+    :param strategy: current world state
+    :type strategy: Strategy
     :param cs: charging station dict
     :type cs: dict
     :param gc: grid connector dict
@@ -84,10 +86,10 @@ def load_vehicle(self, cs, gc, vehicle, cs_id, charging_stations, avail_bat_powe
     bat_power_used = False
     delta_soc = vehicle.get_delta_soc()
 
-    if get_cost(1, gc.cost) <= self.PRICE_THRESHOLD:
+    if get_cost(1, gc.cost) <= strategy.PRICE_THRESHOLD:
         # low energy price: take max available power from GC without batteries
         power = clamp_power(gc_power_left, vehicle, cs)
-    elif delta_soc > self.EPS:
+    elif delta_soc > strategy.EPS:
         # vehicle needs charging: compute minimum required power
         bat_power_used = True
         # get limits
@@ -96,7 +98,7 @@ def load_vehicle(self, cs, gc, vehicle, cs_id, charging_stations, avail_bat_powe
         max_power = min(max_power, vehicle.vehicle_type.charging_curve.max_power)
         max_power = clamp_power(max_power, vehicle, cs)
         # time until departure
-        dt = vehicle.estimated_time_of_departure - self.current_time
+        dt = vehicle.estimated_time_of_departure - strategy.current_time
         old_soc = vehicle.battery.soc
         idx = 0
         safe = False
@@ -104,7 +106,7 @@ def load_vehicle(self, cs, gc, vehicle, cs_id, charging_stations, avail_bat_powe
         # at least ITERATIONS cycles
         # must end with slightly too much power used
         # abort if min_power == max_power (e.g. unrealistic goal)
-        while (idx < self.ITERATIONS or not safe) and max_power - min_power > self.EPS:
+        while (idx < strategy.ITERATIONS or not safe) and max_power - min_power > strategy.EPS:
             idx += 1
             # get new power value (binary search: use average)
             power = (max_power + min_power) / 2
@@ -113,7 +115,7 @@ def load_vehicle(self, cs, gc, vehicle, cs_id, charging_stations, avail_bat_powe
             # reset SOC
             vehicle.battery.soc = old_soc
 
-            if delta_soc - charged_soc > self.EPS:  # charged_soc < delta_soc
+            if delta_soc - charged_soc > strategy.EPS:  # charged_soc < delta_soc
                 # power not enough
                 safe = False
                 min_power = power
@@ -123,19 +125,19 @@ def load_vehicle(self, cs, gc, vehicle, cs_id, charging_stations, avail_bat_powe
                 max_power = power
 
     # load with power
-    avg_power = vehicle.battery.load(self.interval, power)['avg_power']
+    avg_power = vehicle.battery.load(strategy.interval, power)['avg_power']
     charging_stations[cs_id] = gc.add_load(cs_id, avg_power)
     cs.current_power += avg_power
     if bat_power_used:
         avail_bat_power = max(avail_bat_power - avg_power, 0)
 
     # can active charging station bear minimum load?
-    assert cs.max_power >= cs.current_power - self.EPS, (
+    assert cs.max_power >= cs.current_power - strategy.EPS, (
         "{} - {} over maximum load ({} > {})".format(
-            self.current_time, cs_id, cs.current_power, cs.max_power))
+            strategy.current_time, cs_id, cs.current_power, cs.max_power))
     # can grid connector bear load?
-    assert gc.cur_max_power >= gc.get_current_load() - self.EPS, (
+    assert gc.cur_max_power >= gc.get_current_load() - strategy.EPS, (
         "{} - {} over maximum load ({} > {})".format(
-            self.current_time, cs.parent, gc.get_current_load(), gc.cur_max_power))
+            strategy.current_time, cs.parent, gc.get_current_load(), gc.cur_max_power))
 
     return charging_stations, avail_bat_power

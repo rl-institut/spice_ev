@@ -17,7 +17,8 @@ def parse_vehicle_types(tech_data):
 
     :param tech_data: dictionary which containts the tech data part of a SimBEV metadata json
     :type tech_data: dict
-    :return: dict
+    :returns: vehicle types
+    :rtype: dict
     """
     vehicle_types = {}
     for name, data in tech_data.items():
@@ -37,8 +38,7 @@ def generate_from_simbev(args):
 
     :param args: input arguments
     :type args: argparse.Namespace
-    :return: None
-
+    :raises SystemExit: if required arguments (*output* and *simbev*) are missing
     """
     missing = [arg for arg in ["output", "simbev"] if vars(args).get(arg) is None]
     if missing:

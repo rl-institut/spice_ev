@@ -23,6 +23,8 @@ def simulate(args):
 
     :param args: input arguments from simulate.cfg file or command line arguments
     :type args: argparse.Namespace or dictionary
+    :raises SystemExit: if required argument *input* is missing
+    :raises NotImplementedError: if unknown strategy is given
     """
 
     if type(args) == argparse.Namespace:
