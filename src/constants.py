@@ -245,7 +245,7 @@ class StationaryBattery(battery.Battery):
             ('soc', float, 0.0),
             ('efficiency', float, 0.95),
             ('discharge_curve', loading_curve.LoadingCurve, None),
-            ('loss_rate', float, 0),
+            ('loss_rate', dict, {}),
         ]
         util.set_attr_from_dict(obj, self, keys, optional_keys)
         assert self.min_charging_power <= self.charging_curve.max_power
