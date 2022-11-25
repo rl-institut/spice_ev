@@ -1,4 +1,8 @@
 import datetime
+import json
+import os
+
+from src import util
 
 
 def aggregate_global_results(scenario):
@@ -632,3 +636,129 @@ def plot(scenario):
         plt.setp(ax.get_xticklabels(), rotation=30, ha='right')
 
     plt.show()
+
+
+def generate_reports(scenario, options):
+    """
+    Generate reports and save them.
+
+    :param scenario: scenario to create reports for
+    :type scenario: Scenario
+    :param options: command line options
+    :type options: dict
+    """
+    attach_vehicle_soc = options.get("attach_vehicle_soc")
+    cost_calculation = options.get("cost_calculation")
+    save_timeseries = options.get("save_timeseries")
+    save_results = options.get("save_results")
+    save_soc = options.get("save_soc")
+    testing = options.get("testing")
+    visual = options.get("visual")
+
+    if save_results or testing:
+        # initialize aggregation variables with empty dicts
+        for var in ["avg_drawn", "flex_bands", "total_car_cap", "avg_stand_time",
+                    "total_car_energy", "avg_needed_energy", "perc_stand_window",
+                    "avg_flex_per_window", "sum_energy_per_window", "avg_total_standing_time"]:
+            setattr(scenario, var, {})
+
+    # check file extensions
+    if save_results:
+        # general results should be JSON
+        ext = os.path.splitext(save_results)[-1]
+        if ext != ".json":
+            print("File extension mismatch: results file is of type .json")
+    if save_soc:
+        # vehicle SoC should be CSV
+        ext = os.path.splitext(save_soc)[-1]
+        if ext != ".csv":
+            print("File extension mismatch: SoC timeseries file is of type .csv")
+    if save_timeseries:
+        # timeseries data should be CSV
+        ext = os.path.splitext(save_timeseries)[-1]
+        if ext != ".csv":
+            print("File extension mismatch: timeseries file is of type .csv")
+
+    gc_ids = sorted(scenario.constants.grid_connectors.keys())
+    for gcID in gc_ids:
+        if cost_calculation or save_timeseries:
+            # aggregate timeseries info
+            agg_ts = aggregate_timeseries(scenario, gcID)
+        if save_results or testing:
+            # aggregate GC dependent info
+            results_file_content = aggregate_local_results(scenario=scenario, gcID=gcID)
+        if save_results:
+            # write general results to file
+            if len(gc_ids) == 1:
+                file_name = save_results
+            else:
+                file_name, ext = os.path.splitext(save_results)
+                file_name = f"{file_name}_{util.sanitize(gcID)}{ext}"
+            with open(file_name, 'w') as results_file:
+                json.dump(results_file_content, results_file, indent=2)
+        if save_timeseries:
+            # save power use for each timestep in file
+            file_name, ext = os.path.splitext(save_timeseries)
+            if len(gc_ids) == 1:
+                file_name = save_timeseries
+            else:
+                file_name, ext = os.path.splitext(save_timeseries)
+                file_name = f"{file_name}_{util.sanitize(gcID)}{ext}"
+            with open(file_name, 'w') as timeseries_file:
+                # write header
+                timeseries_file.write(','.join(agg_ts["header"]))
+                # write timestep data
+                for row in agg_ts["timeseries"]:
+                    timeseries_file.write('\n' + ','.join(map(lambda x: str(x), row)))
+
+    # GC-independent stuff
+
+    if attach_vehicle_soc or save_soc:
+        # generate (continuous) SoC of vehicles
+        scenario.vehicle_socs = {}
+        generate_soc_timeseries(scenario=scenario)
+    if save_soc:
+        # write vehicle SoC per timestep to file
+        vids = sorted(scenario.constants.vehicles.keys())
+        with open(save_soc, "w") as soc_file:
+            # write header
+            header = ["timestep", "time"] + vids
+            soc_file.write(','.join(header))
+            for idx, r in enumerate(scenario.results):
+                # general info: timestep index and timestamp
+                # TZ removed for spreadsheet software
+                row = [idx, r['current_time'].replace(tzinfo=None).isoformat()]
+
+                row += [scenario.vehicle_socs[vid][idx] for vid in vids]
+                # write row to file
+                soc_file.write('\n' + ','.join(map(lambda x: str(x), row)))
+
+    if visual or testing:
+        aggregate_global_results(scenario)
+    if visual:
+        # plot!
+        plot(scenario)
+    if testing:
+        # metadata, used in tests
+        scenario.testing = {
+            "timeseries": {
+                "total_load": scenario.all_totalLoad,
+                "prices": scenario.prices,
+                "schedule": scenario.gcWindowSchedule,
+                "sum_cs": scenario.sum_cs,
+                "loads": scenario.loads
+            },
+            "max_total_load": max(scenario.all_totalLoad),
+            "avg_flex_per_window": scenario.avg_flex_per_window,
+            "sum_energy_per_window": scenario.sum_energy_per_window,
+            "avg_stand_time": scenario.avg_stand_time,
+            "avg_total_standing_time": scenario.avg_total_standing_time,
+            "avg_needed_energy": scenario.avg_needed_energy,
+            "avg_drawn_power": scenario.avg_drawn,
+            "sum_feed_in_per_h": {gcID: (sum(scenario.feedInPower[gcID]) / scenario.stepsPerHour)
+                                  for gcID in gc_ids},
+            "vehicle_battery_cycles": {
+                gcID: (scenario.total_car_energy[gcID] / scenario.total_car_cap[gcID])
+                for gcID in gc_ids
+            }
+        }
