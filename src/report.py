@@ -418,8 +418,12 @@ def aggregate_timeseries(scenario, gcID):
     # batteries
     if hasBatteries:
         header += ["battery power [kW]", "bat. stored energy [kWh]"]
-    # flex + schedule
+    # flex
     header += ["flex min [kW]", "flex base [kW]", "flex max [kW]"]
+    # schedule & window
+    if hasSchedule:
+        # external loads (e.g., building)
+        header += ["schedule [kW]", "window"]
     # sum of charging power
     header.append("sum CS power")
     # charging power per use case
