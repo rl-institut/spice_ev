@@ -4,6 +4,7 @@ import argparse
 import csv
 import datetime
 import json
+import warnings
 from pathlib import Path
 import random
 
@@ -81,13 +82,30 @@ def generate_from_simbev(args):
     pathlist.sort()
 
     vehicles = {}
+    batteries = {}
     charging_stations = {}
+    for idx, (capacity, c_rate) in enumerate(args.battery):
+        if capacity > 0:
+            max_power = c_rate * capacity
+        else:
+            # unlimited battery: set power directly
+            max_power = c_rate
+        batteries["BAT{}".format(idx + 1)] = {
+            "parent": "GC1",
+            "capacity": capacity,
+            "charging_curve": [[0, max_power], [1, max_power]]
+        }
+
     events = {
         "grid_operator_signals": [],
         "external_load": {},
         "energy_feed_in": {},
         "vehicle_events": []
     }
+
+    # count number of trips for which desired_soc is above min_soc
+    trips_above_min_soc = 0
+    trips_total = 0
 
     # save path and options for CSV timeseries
     # all paths are relative to output file
@@ -252,7 +270,7 @@ def generate_from_simbev(args):
                 is_charge_event = False
                 # read info from row
                 location = row["location"]
-                capacity = float(row["station_charging_capacity"])
+                cs_power = float(row["station_charging_capacity"])
                 consumption = abs(min(float(row["energy"]), 0))
 
                 # general sanity checks
@@ -271,11 +289,11 @@ def generate_from_simbev(args):
                           .format(vehicle_name, idx + 3))
 
                 simbev_demand = max(float(row["energy"]), 0)
-                assert capacity > 0 or simbev_demand == 0, \
+                assert cs_power > 0 or simbev_demand == 0, \
                     "Charging event without charging station: {} @ row {}".format(
                         vehicle_name, idx + 3)
 
-                cs_present = capacity > 0
+                cs_present = cs_power > 0
                 assert (not cs_present) or consumption == 0, \
                     "Consumption while charging for {} @ row {}".format(
                         vehicle_name, idx + 3)
@@ -292,7 +310,7 @@ def generate_from_simbev(args):
                         # set battery SoC to level when arriving
                         battery.soc = float(row["soc_start"])
                         charge_duration = int(row["event_time"]) * interval
-                        battery.load(charge_duration, capacity)
+                        battery.load(charge_duration, cs_power)
                         if battery.soc < float(row["soc_end"]) and args.verbose > 0:
                             print("WARNING: Can't fulfill charging request for {} in ts {}. "
                                   "Desired SoC is set to {:.3f}, possible: {:.3f}"
@@ -331,14 +349,17 @@ def generate_from_simbev(args):
                             # to reach next CS (the one from current row)
                             desired_soc = max(args.min_soc, soc_needed)
 
+                            trips_above_min_soc += desired_soc > args.min_soc
+                            trips_total += 1
+
                             # this much must be charged
                             delta_soc = max(desired_soc - vehicle_soc, 0)
 
                             # check if charging is possible in ideal case
                             cs_name = last_cs_event["update"]["connected_charging_station"]
-                            cs_power = charging_stations[cs_name]["max_power"]
+                            cs_max_power = charging_stations[cs_name]["max_power"]
                             charge_duration = event_end_ts - event_start_ts
-                            possible_power = cs_power * charge_duration.seconds/3600
+                            possible_power = cs_max_power * charge_duration.seconds/3600
                             possible_soc = possible_power / vehicle_capacity
 
                             if delta_soc > possible_soc and args.verbose > 0:
@@ -352,7 +373,7 @@ def generate_from_simbev(args):
                                         desired_soc * vehicle_capacity,
                                         charge_duration.seconds/3600,
                                         charge_duration / interval,
-                                        cs_power, possible_power
+                                        cs_max_power, possible_power
                                     ))
 
                             # update last charge event info: set desired SOC
@@ -374,15 +395,14 @@ def generate_from_simbev(args):
                     # setup charging point at location
                     cs_name = "{}_{}".format(vehicle_name, location)
                     if (cs_name in charging_stations
-                            and charging_stations[cs_name]["max_power"] != capacity):
-                        # same location type, different capacity: build new CS
+                            and charging_stations[cs_name]["max_power"] != cs_power):
+                        # same location type, different cs_power: build new CS
                         cs_name = "{}_{}".format(cs_name, idx)
                     if cs_name not in charging_stations:
                         charging_stations[cs_name] = {
-                            # get max power from charging curve
-                            "max_power": capacity,
-                            "parent": "GC1",
-                            "min_power": capacity * 0.1,
+                            "max_power": cs_power,
+                            "min_power": args.cs_power_min if args.cs_power_min else 0.1 * cs_power,
+                            "parent": "GC1"
                         }
 
                     # generate vehicle events
@@ -466,25 +486,45 @@ def generate_from_simbev(args):
                                 }
                             })
 
+    if trips_above_min_soc:
+        print(f"{trips_above_min_soc} of {trips_total} trips "
+              f"use more than {args.min_soc * 100}% capacity")
+
     assert len(vehicles) > 0, "No vehicles found in {}".format(args.simbev)
 
+    # check voltage level (used in cost calculation)
+    voltage_level = vars(args).get("voltage_level")
+    if voltage_level is None:
+        warnings.warn("Voltage level is not set, please choose one when calculating costs.")
+
+    # create final dict
     j = {
         "scenario": {
             "start_time": start.isoformat(),
             "interval": args.interval,
             "n_intervals": n_intervals,
+            "discharge_limit": args.discharge_limit,
         },
         "constants": {
             "vehicle_types": vehicle_types,
             "vehicles": vehicles,
             "grid_connectors": {
                 "GC1": {
-                    "max_power": 10000
+                    "max_power": vars(args).get("gc_power", 100),
+                    "voltage_level": voltage_level,
+                    "cost": {"type": "fixed", "value": 0.3},
                 }
             },
-            "charging_stations": charging_stations
+            "charging_stations": charging_stations,
+            "batteries": batteries,
+            "photovoltaics": {
+                "PV1": {
+                    "parent": "GC1",
+                    "nominal_power": vars(args).get("pv_power", 0),
+                }
+            },
         },
-        "events": events
+        "events": events,
     }
 
     # Write JSON
@@ -499,20 +539,32 @@ if __name__ == '__main__':
     parser.add_argument('output', nargs='?', help='output file name (example.json)')
     parser.add_argument('--simbev', metavar='DIR', type=str, help='set directory with SimBEV files')
     parser.add_argument('--region', type=str, help='set name of region')
-    parser.add_argument('--interval', metavar='MIN', type=int, default=15,
-                        help='set number of minutes for each timestep (Δt)')
-    parser.add_argument('--price-seed', metavar='X', type=int, default=0,
-                        help='set seed when generating energy market prices. \
-                        Negative values for fixed price in cents')
-    parser.add_argument('--min-soc', metavar='S', type=float, default=0.5,
-                        help='Set minimum desired SoC for each charging event. Default: 0.5')
-    parser.add_argument('--min-soc-threshold', type=float, default=0.05,
-                        help='SoC below this threshold trigger a warning. Default: 0.05')
     parser.add_argument('--ignore-simbev-soc', action='store_true',
                         help='Don\'t use SoC columns from SimBEV files')
-    parser.add_argument('--verbose', '-v', action='count', default=0,
-                        help='Set verbosity level. Use this multiple times for more output. '
-                             'Default: only errors, 1: warnings, 2: debug')
+
+    # general
+    parser.add_argument('--interval', metavar='MIN', type=int, default=15,
+                        help='set number of minutes for each timestep (Δt)')
+    parser.add_argument('--min-soc', metavar='S', type=float, default=0.8,
+                        help='Set minimum desired SoC for each charging event. Default: 0.5')
+    # ToDo Needed?
+    parser.add_argument('--min-soc-threshold', type=float, default=0.05,
+                        help='SoC below this threshold trigger a warning. Default: 0.05')
+    parser.add_argument('--battery', '-b', default=[], nargs=2, type=float, action='append',
+                        help='add battery with specified capacity in kWh and C-rate \
+                            (-1 for variable capacity, second argument is fixed power))')
+    parser.add_argument('--gc-power', type=int, default=100, help='set power at grid connection '
+                                                                  'point in kW')
+    parser.add_argument('--voltage-level', '-vl', help='Choose voltage level for cost calculation')
+    parser.add_argument('--pv-power', type=int, default=0, help='set nominal power for local '
+                                                                'photovoltaic power plant in kWp')
+    parser.add_argument('--cs-power-min', type=float, default=None,
+                        help='set minimal power at charging station in kW (default: 0.1 * cs_power')
+    parser.add_argument('--discharge-limit', default=0.5,
+                        help='Minimum SoC to discharge to during V2G. [0-1]')
+    parser.add_argument('--price-seed', metavar='X', type=int, default=0,
+                        help='set seed when generating energy market prices. \
+                            Negative values for fixed price in cents')
 
     # input files (CSV, JSON)
     parser.add_argument('--vehicle-types', default=None,
@@ -535,9 +587,14 @@ if __name__ == '__main__':
     parser.add_argument('--include-price-csv-option', '-po', metavar=('KEY', 'VALUE'),
                         nargs=2, default=[], action='append',
                         help='append additional argument to price signals')
+
+    # config
     parser.add_argument('--config', help='Use config file to set arguments')
 
     # other stuff
+    parser.add_argument('--verbose', '-v', action='count', default=0,
+                        help='Set verbosity level. Use this multiple times for more output. '
+                             'Default: only errors, 1: warnings, 2: debug')
     parser.add_argument('--eps', metavar='EPS', type=float, default=1e-10,
                         help='Tolerance used for sanity checks, required due to possible '
                              'rounding differences between simBEV and spiceEV. Default: 1e-10')

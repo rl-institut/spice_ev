@@ -14,12 +14,12 @@ del sys
 TEST_REPO_PATH = os.path.dirname(__file__)
 
 ARG_VALUES1 = {
-    "cars": [[1, "golf"], [1, "sprinter"]],
+    "vehicles": [[1, "golf"], [1, "sprinter"]],
     "days": 2,
     "interval": 15,
     "min_soc": 0.8,
     "battery": [[350, 0.5]],
-    "start_time": '2018-01-01T00:15:00+00:00',
+    "start_time": '2023-01-01T00:15:00+00:00',
     "no_drive_days": [6],
     "vehicle_types": "test_data/input_test_generate/vehicle_types.json",
     "discharge_limit": 0.5,

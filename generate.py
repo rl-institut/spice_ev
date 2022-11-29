@@ -10,7 +10,7 @@ from os import path
 from src.util import set_options_from_config, datetime_from_isoformat
 
 
-DEFAULT_START_TIME = "2018-01-01T01:00:00+02:00"
+DEFAULT_START_TIME = "2023-01-01T01:00:00+02:00"
 
 
 def datetime_from_string(s):
@@ -115,8 +115,8 @@ def generate(args):
     interval = datetime.timedelta(minutes=args.interval)
 
     # VEHICLES
-    if args.cars is None:
-        args.cars = [['1', 'golf'], ['1', 'sprinter']]
+    if args.vehicles is None:
+        args.vehicles = [['1', 'golf'], ['1', 'sprinter']]
 
     if args.vehicle_types is None:
         args.vehicle_types = "examples/vehicle_types.json"
@@ -127,7 +127,7 @@ def generate(args):
     with open(args.vehicle_types) as f:
         vehicle_types = json.load(f)
 
-    for count, vehicle_type in args.cars:
+    for count, vehicle_type in args.vehicles:
         assert vehicle_type in vehicle_types, \
             'The given vehicle type "{}" is not valid. ' \
             'Should be one of {}'.format(vehicle_type, list(vehicle_types.keys()))
@@ -152,7 +152,7 @@ def generate(args):
             cs_power = max([v[1] for v in t['charging_curve']])
             charging_stations[cs_name] = {
                 "max_power": cs_power,
-                "min_power": 0,  # Could be set to "0.1 * cs_power"
+                "min_power": args.cs_power_min if args.cs_power_min else 0.1 * cs_power,
                 "parent": "GC1"
             }
 
@@ -239,7 +239,7 @@ def generate(args):
         if not path.exists(price_csv_path):
             print("Warning: price csv file '{}' does not exist yet".format(price_csv_path))
 
-    # count number of trips where desired_soc is above min_soc
+    # count number of trips for which desired_soc is above min_soc
     trips_above_min_soc = 0
     trips_total = 0
 
@@ -284,7 +284,7 @@ def generate(args):
                 # update last arrival event
                 events["vehicle_events"][v["last_arrival_idx"]]["update"].update(update)
             else:
-                # first event for this car: update directly
+                # first event for this vehicle: update directly
                 v.update(update)
 
             if now >= stop:
@@ -361,22 +361,22 @@ def generate(args):
     if voltage_level is None:
         warnings.warn("Voltage level is not set, please choose one when calculating costs.")
 
+    # create final dict
     j = {
         "scenario": {
             "start_time": start.isoformat(),
-            # "stop_time": stop.isoformat(),
             "interval": interval.days * 24 * 60 + interval.seconds // 60,
             "n_intervals": (stop - start) // interval,
-            "discharge_limit": args.discharge_limit
+            "discharge_limit": args.discharge_limit,
         },
         "constants": {
             "vehicle_types": vehicle_types_present,
             "vehicles": vehicles,
             "grid_connectors": {
                 "GC1": {
-                    "max_power": vars(args).get("gc_power", 530),
+                    "max_power": vars(args).get("gc_power", 100),
                     "voltage_level": voltage_level,
-                    "cost": {"type": "fixed", "value": 0.3}
+                    "cost": {"type": "fixed", "value": 0.3},
                 }
             },
             "charging_stations": charging_stations,
@@ -386,9 +386,9 @@ def generate(args):
                     "parent": "GC1",
                     "nominal_power": vars(args).get("pv_power", 0),
                 }
-            }
+            },
         },
-        "events": events
+        "events": events,
     }
 
     if trips_above_min_soc:
@@ -404,32 +404,40 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         description='Generate scenarios as JSON files for vehicle charging modelling')
     parser.add_argument('output', nargs='?', help='output file name (example.json)')
-    parser.add_argument('--cars', metavar=('N', 'TYPE'), nargs=2, action='append', type=str,
-                        help='set number of cars for a vehicle type, \
-                        e.g. `--cars 100 sprinter` or `--cars 13 golf`')
-    parser.add_argument('--days', metavar='N', type=int, default=30,
+    parser.add_argument('--vehicles', metavar=('N', 'TYPE'), nargs=2, action='append', type=str,
+                        help='set number of vehicles for a vehicle type, \
+                        e.g. `--vehicles 100 sprinter` or `--vehicles 13 golf`')
+    parser.add_argument('--days', metavar='N', type=int, default=7,
                         help='set duration of scenario as number of days')
-    parser.add_argument('--interval', metavar='MIN', type=int, default=15,
-                        help='set number of minutes for each timestep (Δt)')
     parser.add_argument('--start-time', default=DEFAULT_START_TIME,
                         help='Provide start time of simulation in ISO format '
                              'YYYY-MM-DDTHH:MM:SS+TZ:TZ. Precision is 1 second. E.g. '
-                             '2018-01-31T01:00:00+02:00')
+                             '2023-01-01T01:00:00+02:00')
+    parser.add_argument('--holidays', default=None,
+                        help='Provide list of specific days of no driving ISO format YYYY-MM-DD')
+
+    # general
+    parser.add_argument('--interval', metavar='MIN', type=int, default=15,
+                        help='set number of minutes for each timestep (Δt)')
     parser.add_argument('--min-soc', metavar='SOC', type=float, default=0.8,
                         help='set minimum desired SOC (0 - 1) for each charging process')
     parser.add_argument('--battery', '-b', default=[], nargs=2, type=float, action='append',
                         help='add battery with specified capacity in kWh and C-rate \
                         (-1 for variable capacity, second argument is fixed power))')
-    parser.add_argument('--gc-power', type=int, default=530, help='set power at grid connection '
+    parser.add_argument('--gc-power', type=int, default=100, help='set power at grid connection '
                                                                   'point in kW')
     parser.add_argument('--voltage-level', '-vl', help='Choose voltage level for cost calculation')
-    parser.add_argument('--seed', default=None, type=int, help='set random seed')
-    parser.add_argument('--vehicle-types', default=None,
-                        help='location of vehicle type definitions')
-    parser.add_argument('--discharge-limit', default=0.5,
-                        help='Minimum SoC to discharge to during v2g. [0-1]')
     parser.add_argument('--pv-power', type=int, default=0, help='set nominal power for local '
                                                                 'photovoltaic power plant in kWp')
+    parser.add_argument('--cs-power-min', type=float, default=None,
+                        help='set minimal power at charging station in kW (default: 0.1 * cs_power')
+    parser.add_argument('--discharge-limit', default=0.5,
+                        help='Minimum SoC to discharge to during v2g. [0-1]')
+    parser.add_argument('--seed', default=None, type=int, help='set random seed')
+
+    # input files (CSV, JSON)
+    parser.add_argument('--vehicle-types', default=None,
+                        help='location of vehicle type definitions')
     parser.add_argument('--include-ext-load-csv',
                         help='include CSV for external load. \
                         You may define custom options with --include-ext-csv-option')
@@ -447,8 +455,12 @@ if __name__ == '__main__':
     parser.add_argument('--include-price-csv-option', '-po', metavar=('KEY', 'VALUE'),
                         nargs=2, default=[], action='append',
                         help='append additional argument to price signals')
+
+    # config
     parser.add_argument('--config', help='Use config file to set arguments')
 
+    # other stuff
+    # ToDo eps?
     args = parser.parse_args()
 
     set_options_from_config(args, check=False, verbose=False)

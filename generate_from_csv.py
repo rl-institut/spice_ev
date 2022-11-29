@@ -68,7 +68,7 @@ def generate_from_csv(args):
         "vehicle_events": []
     }
 
-    # count number of trips where desired_soc is above min_soc
+    # count number of trips for which desired_soc is above min_soc
     trips_above_min_soc = 0
     trips_total = 0
 
@@ -111,7 +111,7 @@ def generate_from_csv(args):
         cs_power = max([v[1] for v in vehicle_types[vt]['charging_curve']])
         charging_stations[cs_name] = {
             "max_power": cs_power,
-            "min_power": vars(args).get("cs_power_min", 0),
+            "min_power": args.cs_power_min if args.cs_power_min else 0.1 * cs_power,
             "parent": "GC1"
         }
 
@@ -351,6 +351,12 @@ def generate_from_csv(args):
                         "value": 0.05 + random.gauss(0, 0.03)
                     }
                 }]
+
+    # check voltage level (used in cost calculation)
+    voltage_level = vars(args).get("voltage_level")
+    if voltage_level is None:
+        warnings.warn("Voltage level is not set, please choose one when calculating costs.")
+
     # create final dict
     j = {
         "scenario": {
@@ -364,14 +370,21 @@ def generate_from_csv(args):
             "vehicles": vehicles,
             "grid_connectors": {
                 "GC1": {
-                    "max_power": vars(args).get("gc_power", 530),
-                    "cost": {"type": "fixed", "value": 0.3}
+                    "max_power": vars(args).get("gc_power", 100),
+                    "voltage_level": voltage_level,
+                    "cost": {"type": "fixed", "value": 0.3},
                 }
             },
             "charging_stations": charging_stations,
-            "batteries": batteries
+            "batteries": batteries,
+            "photovoltaics": {
+                "PV1": {
+                    "parent": "GC1",
+                    "nominal_power": vars(args).get("pv_power", 0),
+                }
+            },
         },
-        "events": events
+        "events": events,
     }
 
     # Write JSON
@@ -515,8 +528,13 @@ if __name__ == '__main__':
     parser.add_argument('input_file', nargs='?',
                         help='input file name (rotations_example_table.csv)')
     parser.add_argument('output', nargs='?', help='output file name (example.json)')
-    parser.add_argument('--days', metavar='N', type=int, default=30,
+    parser.add_argument('--days', metavar='N', type=int, default=7,
                         help='set duration of scenario as number of days')
+    parser.add_argument('--recharge-fraction', type=float, default=1,
+                        help='Minimum fraction of vehicle battery capacity for recharge when '
+                             'leaving the charging station')
+
+    # general
     parser.add_argument('--interval', metavar='MIN', type=int, default=15,
                         help='set number of minutes for each timestep (Δt)')
     parser.add_argument('--min-soc', metavar='SOC', type=float, default=0.8,
@@ -524,19 +542,20 @@ if __name__ == '__main__':
     parser.add_argument('--battery', '-b', default=[], nargs=2, type=float, action='append',
                         help='add battery with specified capacity in kWh and C-rate \
                         (-1 for variable capacity, second argument is fixed power))')
-    parser.add_argument('--gc-power', type=float, default=530, help='set power at grid connection '
+    parser.add_argument('--gc-power', type=float, default=100, help='set power at grid connection '
                                                                     'point in kW')
-    parser.add_argument('--cs-power-min', type=float, default=0, help='set minimal power at '
-                                                                      'charging station in kW')
-    parser.add_argument('--seed', default=None, type=int, help='set random seed')
-    parser.add_argument('--recharge-fraction', type=float, default=1,
-                        help='Minimum fraction of vehicle battery capacity for recharge when '
-                             'leaving the charging station')
-
-    parser.add_argument('--vehicle-types', default=None,
-                        help='location of vehicle type definitions')
+    parser.add_argument('--voltage-level', '-vl', help='Choose voltage level for cost calculation')
+    parser.add_argument('--pv-power', type=int, default=0, help='set nominal power for local '
+                                                                'photovoltaic power plant in kWp')
+    parser.add_argument('--cs-power-min', type=float, default=None,
+                        help='set minimal power at charging station in kW (default: 0.1 * cs_power')
     parser.add_argument('--discharge-limit', default=0.5,
                         help='Minimum SoC to discharge to during V2G. [0-1]')
+    parser.add_argument('--seed', default=None, type=int, help='set random seed')
+
+    # input files (CSV, JSON)
+    parser.add_argument('--vehicle-types', default=None,
+                        help='location of vehicle type definitions')
     parser.add_argument('--include-ext-load-csv',
                         help='include CSV for external load. \
                         You may define custom options with --include-ext-csv-option')
@@ -556,7 +575,12 @@ if __name__ == '__main__':
                         help='append additional argument to price signals')
     parser.add_argument('--export-vehicle-id-csv', default=None,
                         help='option to export csv after assigning vehicle_id')
+
+    # config
     parser.add_argument('--config', help='Use config file to set arguments')
+
+    # other stuff
+    # ToDo eps?
 
     args = parser.parse_args()
 
