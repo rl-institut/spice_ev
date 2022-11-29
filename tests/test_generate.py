@@ -23,6 +23,7 @@ ARG_VALUES1 = {
     "no_drive_days": [6],
     "vehicle_types": "test_data/input_test_generate/vehicle_types.json",
     "discharge_limit": 0.5,
+    "cs_power_min": 0,
     "include_ext_load_csv": None,
     "include_ext_csv_option": [],
     "include_feed_in_csv": None,
