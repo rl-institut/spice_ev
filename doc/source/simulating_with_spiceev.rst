@@ -5,6 +5,7 @@ Simulating with SpiceEV
 ~~~~~~~~~~~~~~~~~~~~~~~
 
 .. _command_line_options:
+
 Command Line Options
 ====================
 
@@ -197,6 +198,7 @@ CSV file options
 +------------------+----------------------------------------+---------------------------------------------------------------------+
 
 .. _file_formats:
+
 Input and output file formats
 =============================
 
