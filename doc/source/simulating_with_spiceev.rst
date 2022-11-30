@@ -13,38 +13,6 @@ You can set parameters through the command line or from a configuration file. If
 
 Where the default is an Array (`[]`), the option can be set multiple times.
 
-simulate.py
------------
-
-Simulate different charging strategies for a given scenario.
-
-+-------------------------+------------------+------------------------+----------------------------------------------------------------------------------------------------------------------+---------------+---------------------------------+
-|**command line options** | **short form**   | **configuration file** | **description**                                                                                                      |  **default**  | **example**                     |
-+-------------------------+------------------+------------------------+----------------------------------------------------------------------------------------------------------------------+---------------+---------------------------------+
-| (positional)            |                  | input                  | scenario json file                                                                                                   | (must be set) | ./simulate.py example.json      |
-+-------------------------+------------------+------------------------+----------------------------------------------------------------------------------------------------------------------+---------------+---------------------------------+
-| --strategy              | -s               |strategy                | charging strategy                                                                                                    | greedy        |--strategy balanced              |
-+-------------------------+------------------+------------------------+----------------------------------------------------------------------------------------------------------------------+---------------+---------------------------------+
-| --visual                | -v               | visual                 | Show plots of the results.                                                                                           | None          |./simulate.py example.json -v    |
-+-------------------------+------------------+------------------------+----------------------------------------------------------------------------------------------------------------------+---------------+---------------------------------+
-| --eta                   |                  | eta                    | * Show estimated remaining time instead of progress bar.                                                             | False         |./simulate.py example.json --eta |
-|                         |                  |                        | * Not recommended for fast computations.                                                                             |               |                                 |
-+-------------------------+------------------+------------------------+----------------------------------------------------------------------------------------------------------------------+---------------+---------------------------------+
-| --margin                | -m               | margin                 |* Add margin for desired SOC [0.0 - 1.0]                                                                              | 0.05          |--margin 1                       |
-|                         |                  |                        |* margin=0.05 means the simulation will not abort if vehicles reach                                                   |               |                                 |
-|                         |                  |                        |* at least 95%% of the desired SOC before leaving.                                                                    |               |                                 |
-|                         |                  |                        |* margin=1 -> the simulation continues with every positive SOC value                                                  |               |                                 |
-+-------------------------+------------------+------------------------+----------------------------------------------------------------------------------------------------------------------+---------------+---------------------------------+
-| --strategy-option       | -so              | strategy_option        | * set charging strategy options.                                                                                     |  []           |-so CONCURRENCY 0.5              |
-|                         |                  |                        | * For configuration file, see simulate.cfg in examples directory.                                                    |               |                                 |
-|                         |                  |                        | * For supported options, refer to the [strategy page](Charging-strategies).                                          |               |                                 |
-+-------------------------+------------------+------------------------+----------------------------------------------------------------------------------------------------------------------+---------------+---------------------------------+
-| --output                | -o               | output                 | Generate output file.                                                                                                |        None   |         --output output.csv     |
-+-------------------------+------------------+------------------------+----------------------------------------------------------------------------------------------------------------------+---------------+---------------------------------+
-| --config                |                  |(no effect)             | * Use configuration file to set arguments.                                                                           |  None         | --config examples/simulate.cfg  |
-|                         |                  |                        | * Overrides command line arguments.                                                                                  |               |                                 |
-+-------------------------+------------------+------------------------+----------------------------------------------------------------------------------------------------------------------+---------------+---------------------------------+
-
 generate.py
 -----------
 Generate scenarios as JSON files for vehicle charging modelling.
@@ -196,6 +164,118 @@ CSV file options
 +------------------+----------------------------------------+---------------------------------------------------------------------+
 |column            | Column name with values of interest.   | energy                                                              |
 +------------------+----------------------------------------+---------------------------------------------------------------------+
+
+Strategy options
+----------------
+
+**Greedy**
+
+    +-------------------+---------------+---------------------------------------------------------+
+    |**Strategy option**| **default**   |              **explanation**                            |
+    +-------------------+---------------+---------------------------------------------------------+
+    |   CONCURRENCY     |     1.0       | Reduce maximum available power at each charging station.|
+    |                   |               | A value of 0.5 means only half the power is available.  |
+    +-------------------+---------------+---------------------------------------------------------+
+    |   PRICE_THRESHOLD |    0.001      | A price below this is considered cheap. Unit: € / 1 kWh |
+    +-------------------+---------------+---------------------------------------------------------+
+
+**Balanced**
+
+    +-------------------+---------------+---------------------------------------------------------+
+    |**Strategy option**| **default**   |              **explanation**                            |
+    +-------------------+---------------+---------------------------------------------------------+
+    |   ITERATIONS      |     12        | Minimum depth of binary search to find charging power   |
+    +-------------------+---------------+---------------------------------------------------------+
+    |   PRICE_THRESHOLD |    0.001      | A price below this is considered cheap. Unit: € / 1 kWh |
+    +-------------------+---------------+---------------------------------------------------------+
+
+**GreedyMarket**
+
+    +-------------------+---------------+---------------------------------------------------------+
+    |**Strategy option**| **default**   |              **explanation**                            |
+    +-------------------+---------------+---------------------------------------------------------+
+    |   CONCURRENCY     |     1.0       | Reduce maximum available power at each charging station.|
+    |                   |               | A value of 0.5 means only half the power is available.  |
+    +-------------------+---------------+---------------------------------------------------------+
+    |   HORIZON         |      24       | number of hours to look ahead                           |
+    +-------------------+---------------+---------------------------------------------------------+
+    |   PRICE_THRESHOLD |    0.001      | A price below this is considered cheap. Unit: € / 1 kWh |
+    +-------------------+---------------+---------------------------------------------------------+
+    |   DISCHARGE_LIMIT |      0        | V2G: maximum depth of discharge [0-1]                   |
+    +-------------------+---------------+---------------------------------------------------------+
+
+
+**BalancedMarket**
+
+    +-------------------+---------------+---------------------------------------------------------+
+    |**Strategy option**| **default**   |              **explanation**                            |
+    +-------------------+---------------+---------------------------------------------------------+
+    |   CONCURRENCY     |     1.0       | Reduce maximum available power at each charging station.|
+    |                   |               | A value of 0.5 means only half the power is available.  |
+    +-------------------+---------------+---------------------------------------------------------+
+    |   HORIZON         |      24       | number of hours to look ahead                           |
+    +-------------------+---------------+---------------------------------------------------------+
+    |   PRICE_THRESHOLD |    0.001      | A price below this is considered cheap. Unit: € / 1 kWh |
+    +-------------------+---------------+---------------------------------------------------------+
+    |   DISCHARGE_LIMIT |      0        | V2G: maximum depth of discharge [0-1]                   |
+    +-------------------+---------------+---------------------------------------------------------+
+    |  V2G_POWER_FACTOR |      1        | Fraction of max battery power used for discharge        |
+    |                   |               | process [0-1]                                           |
+    +-------------------+---------------+---------------------------------------------------------+
+
+**Schedule**
+
+    +-------------------+---------------+---------------------------------------------------------+
+    |**Strategy option**| **default**   |              **explanation**                            |
+    +-------------------+---------------+---------------------------------------------------------+
+    |   LOAD_STRAT      |   "needy"     | charging strategy, see above                            |
+    +-------------------+---------------+---------------------------------------------------------+
+
+**PeakLoadWindow**
+
+    +-------------------+---------------+---------------------------------------------------------+
+    |**Strategy option**| **default**   |              **explanation**                            |
+    +-------------------+---------------+---------------------------------------------------------+
+    |   LOAD_STRAT      |   "needy"     | charging strategy, see above                            |
+    +-------------------+---------------+---------------------------------------------------------+
+
+**FlexWindow**
+
+    +-------------------+---------------+---------------------------------------------------------+
+    |**Strategy option**| **default**   |              **explanation**                            |
+    +-------------------+---------------+---------------------------------------------------------+
+    |   CONCURRENCY     |     1.0       | Reduce maximum available power at each charging station.|
+    |                   |               | A value of 0.5 means only half the power is available.  |
+    +-------------------+---------------+---------------------------------------------------------+
+    |   HORIZON         |      24       | number of hours to look ahead                           |
+    +-------------------+---------------+---------------------------------------------------------+
+    |   PRICE_THRESHOLD |    0.001      | A price below this is considered cheap. Unit: € / 1 kWh |
+    +-------------------+---------------+---------------------------------------------------------+
+    |   DISCHARGE_LIMIT |      0        | V2G: maximum depth of discharge [0-1]                   |
+    +-------------------+---------------+---------------------------------------------------------+
+    |  V2G_POWER_FACTOR |      1        | Fraction of max battery power used for discharge        |
+    |                   |               | process [0-1]                                           |
+    +-------------------+---------------+---------------------------------------------------------+
+    |   LOAD_STRAT      |   "balanced   | Sub-strategies for behaviour within charging windows    |
+    |                   |               | (see description above for options and explanations)    |
+    +-------------------+---------------+---------------------------------------------------------+
+
+**Distributed**
+
+    +----------------------+---------------+---------------------------------------------------------------------+
+    |**Strategy option**   | **default**   |              **explanation**                                        |
+    +----------------------+---------------+---------------------------------------------------------------------+
+    |   ALLOW_NEGATIVE_SOC |   False       | simulation does not abort if SoC becomes negative                   |
+    +----------------------+---------------+---------------------------------------------------------------------+
+    |   C-HORIZON          |      3        | loading time in min reserved for vehicle if number of cs is limited |
+    +----------------------+---------------+---------------------------------------------------------------------+
+    |   DISCHARGE_LIMIT    |      0        | V2G: maximum depth of discharge [0-1]                               |
+    +----------------------+---------------+---------------------------------------------------------------------+
+    |  V2G_POWER_FACTOR    |      1        | Fraction of max battery power used for discharge                    |
+    |                      |               | process [0-1]                                                       |
+    +----------------------+---------------+---------------------------------------------------------------------+
+    |   PRICE_THRESHOLD    |    0.001      | A price below this is considered cheap. Unit: € / 1 kWh             |
+    +----------------------+---------------+---------------------------------------------------------------------+
 
 .. _file_formats:
 
@@ -356,3 +436,41 @@ All power values are in kWh.
 +-------------------------------------+---------------------------------------------------------------------------+
 | CS name                             |	power at each charging station                                            |
 +-------------------------------------+---------------------------------------------------------------------------+
+
+simulate.py
+-----------
+
+Simulate different charging strategies for a given scenario.
+
++-------------------------+------------------+------------------------+----------------------------------------------------------------------------------------------------------------------+---------------+---------------------------------+
+|**command line options** | **short form**   | **configuration file** | **description**                                                                                                      |  **default**  | **example**                     |
++-------------------------+------------------+------------------------+----------------------------------------------------------------------------------------------------------------------+---------------+---------------------------------+
+| (positional)            |                  | input                  | scenario json file                                                                                                   | (must be set) | ./simulate.py example.json      |
++-------------------------+------------------+------------------------+----------------------------------------------------------------------------------------------------------------------+---------------+---------------------------------+
+| --strategy              | -s               |strategy                | charging strategy                                                                                                    | greedy        |--strategy balanced              |
++-------------------------+------------------+------------------------+----------------------------------------------------------------------------------------------------------------------+---------------+---------------------------------+
+| --visual                | -v               | visual                 | Show plots of the results.                                                                                           | None          |./simulate.py example.json -v    |
++-------------------------+------------------+------------------------+----------------------------------------------------------------------------------------------------------------------+---------------+---------------------------------+
+| --eta                   |                  | eta                    | * Show estimated remaining time instead of progress bar.                                                             | False         |./simulate.py example.json --eta |
+|                         |                  |                        | * Not recommended for fast computations.                                                                             |               |                                 |
++-------------------------+------------------+------------------------+----------------------------------------------------------------------------------------------------------------------+---------------+---------------------------------+
+| --margin                | -m               | margin                 |* Add margin for desired SOC [0.0 - 1.0]                                                                              | 0.05          |--margin 1                       |
+|                         |                  |                        |* margin=0.05 means the simulation will not abort if vehicles reach                                                   |               |                                 |
+|                         |                  |                        |* at least 95%% of the desired SOC before leaving.                                                                    |               |                                 |
+|                         |                  |                        |* margin=1 -> the simulation continues with every positive SOC value                                                  |               |                                 |
++-------------------------+------------------+------------------------+----------------------------------------------------------------------------------------------------------------------+---------------+---------------------------------+
+| --strategy-option       | -so              | strategy_option        | * set charging strategy options.                                                                                     |  []           |-so CONCURRENCY 0.5              |
+|                         |                  |                        | * For configuration file, see simulate.cfg in examples directory.                                                    |               |                                 |
+|                         |                  |                        | * For supported options, refer to the [strategy page](Charging-strategies).                                          |               |                                 |
++-------------------------+------------------+------------------------+----------------------------------------------------------------------------------------------------------------------+---------------+---------------------------------+
+| --output                | -o               | output                 | Generate output file.                                                                                                |        None   |         --output output.csv     |
++-------------------------+------------------+------------------------+----------------------------------------------------------------------------------------------------------------------+---------------+---------------------------------+
+| --config                |                  |(no effect)             | * Use configuration file to set arguments.                                                                           |  None         | --config examples/simulate.cfg  |
+|                         |                  |                        | * Overrides command line arguments.                                                                                  |               |                                 |
++-------------------------+------------------+------------------------+----------------------------------------------------------------------------------------------------------------------+---------------+---------------------------------+
+
+All charging strategies support the `EPS` option, which defines the difference under which two floating point numbers are considered equal. In other words, the value chosen for `EPS` determines the precision of the simulation. The smaller it is the more precise the calculations are. The downside to this is an increase running time. For some numerical procedures the algorithm might get stuck completely if `EPS` is too small. The default is 10^-5.
+
+Every strategy also supports the strategy options `ALLOW_NEGATIVE_SOC` and `RESET_NEGATIVE_SOC`. They control how to proceed should the SoC of a vehicle become negative. Both are False by default, which means the simulation will abort in such a case. If `ALLOW_NEGATIVE_SOC` is set, the simulation continues instead of aborting. If `RESET_NEGATIVE_SOC` is set, the SoC of the vehicle is set to zero. These options are helpful when simulating plug-in hybrids.
+NOTE: For SoC<0 batteries are charged/discharge with the amount of power specified on the charging/discharging curve at SoC=0. Make sure that Power(SoC=0) > 0, in case you want use the strategy option `ALLOW_NEGATIVE_SOC`.
+NOTE: By default, discharging below SoC=0 only applies to vehicles while driving. To discharge below SoC=0 for stationary batteries or V2G, you need to set the target soc parameter of the battery.unload function accordingly.
