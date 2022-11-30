@@ -1,7 +1,10 @@
+.. _simulating_with_spiceev:
+
 ~~~~~~~~~~~~~~~~~~~~~~~
 Simulating with SpiceEV
 ~~~~~~~~~~~~~~~~~~~~~~~
 
+.. _command_line_options:
 Command Line Options
 ====================
 
@@ -193,7 +196,7 @@ CSV file options
 |column            | Column name with values of interest.   | energy                                                              |
 +------------------+----------------------------------------+---------------------------------------------------------------------+
 
-
+.. _file_formats:
 Input and output file formats
 =============================
 
