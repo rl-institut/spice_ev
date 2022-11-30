@@ -52,7 +52,7 @@ config file see `/examples/generate_from_csv.cfg`.
 
     generate_from_csv
     csv_to_dict
-	assign_vehicle_id
+    assign_vehicle_id
 
 Generate_from_simbev
 --------------------

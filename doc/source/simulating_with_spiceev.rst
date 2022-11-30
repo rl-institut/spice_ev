@@ -99,36 +99,6 @@ Generate scenarios as JSON files for vehicle charging modelling from vehicle tim
 | --config                    |                  | (no effect)                | Use configuration file to set arguments. Overrides command line arguments.                                       | None                                        |--config examples/generate.cfg                                           |
 +-----------------------------+------------------+----------------------------+------------------------------------------------------------------------------------------------------------------+---------------------------------------------+-------------------------------------------------------------------------+
 
-
-
-generate_energy_price.py
-------------------------
-
-Generate energy price as CSV. These files can be included when generating scenario JSON files.
-
-+-------------------------+---------------+------------------------+---------------------------------------------+------------------------------------------------------------------+--------------------------------------+
-|**command line options** |**short form** | **configuration file** | **description**                             |  **default**                                                     | **example**                          |
-+-------------------------+---------------+------------------------+---------------------------------------------+------------------------------------------------------------------+--------------------------------------+
-| (positional)            |               | output                 | output file name                            | (must be set)                                                    |./generate_energy_price.py price.csv  |
-+-------------------------+---------------+------------------------+---------------------------------------------+------------------------------------------------------------------+--------------------------------------+
-| --start                 |               | start                  | First start time in isoformat.              | 2021-01-04T00:00:00+01:00                                        |--start "2021-01-01T00:00:00+01:00"   |
-+-------------------------+---------------+------------------------+---------------------------------------------+------------------------------------------------------------------+--------------------------------------+
-| --interval              |               | interval               | Set number of hours for each timestep (Δt). | 1                                                                |--interval 6                          |
-+-------------------------+---------------+------------------------+---------------------------------------------+------------------------------------------------------------------+--------------------------------------+
-| --n-intervals           | -n            | n_intervals            | Number of timesteps.                        | 168                                                              |--n-intervals 744                     |
-+-------------------------+---------------+------------------------+---------------------------------------------+------------------------------------------------------------------+--------------------------------------+
-| --price-seed            |               | price_seed             | Random seed for energy market prices.       | (don't set if you want different prices each time)               |--price-seed 0                        |
-+-------------------------+---------------+------------------------+---------------------------------------------+------------------------------------------------------------------+--------------------------------------+
-|                         |               |                        | min_avg_price                               | Only from config: set minimum average daily price                | 2.7                                  |
-+-------------------------+---------------+------------------------+---------------------------------------------+------------------------------------------------------------------+--------------------------------------+
-|                         |               |                        | max_avg_price                               | Only from config: set maximum average daily price                | 4.9                                  |
-+-------------------------+---------------+------------------------+---------------------------------------------+------------------------------------------------------------------+--------------------------------------+
-|                         |               |                        | std_avg_price                               | Only from config: set standard deviation around average price    | 1.5                                  |
-+-------------------------+---------------+------------------------+---------------------------------------------+------------------------------------------------------------------+--------------------------------------+
-| --config                |               | (no effect)            | * Use configuration file to set arguments.  | None                                                             |--config examples/generate.cfg        |
-|                         |               |                        | * Overrides command line arguments.         |                                                                  |                                      |
-+-------------------------+---------------+------------------------+---------------------------------------------+------------------------------------------------------------------+--------------------------------------+
-
 generate_schedule.py
 --------------------
 Compute flexibility and schedule for a given scenario. Automatically includes schedule in scenario file.
@@ -164,6 +134,59 @@ CSV file options
 +------------------+----------------------------------------+---------------------------------------------------------------------+
 |column            | Column name with values of interest.   | energy                                                              |
 +------------------+----------------------------------------+---------------------------------------------------------------------+
+
+
+simulate.py
+-----------
+
+Simulate different charging strategies for a given scenario.
+
++-------------------------+------------------+------------------------+----------------------------------------------------------------------------------------------------------------------+---------------+---------------------------------+
+|**command line options** | **short form**   | **configuration file** | **description**                                                                                                      |  **default**  | **example**                     |
++-------------------------+------------------+------------------------+----------------------------------------------------------------------------------------------------------------------+---------------+---------------------------------+
+| (positional)            |                  | input                  | scenario json file                                                                                                   | (must be set) | ./simulate.py example.json      |
++-------------------------+------------------+------------------------+----------------------------------------------------------------------------------------------------------------------+---------------+---------------------------------+
+| --strategy              | -s               | strategy               | charging strategy                                                                                                    | greedy        |--strategy balanced              |
++-------------------------+------------------+------------------------+----------------------------------------------------------------------------------------------------------------------+---------------+---------------------------------+
+| --visual                | -v               | visual                 | Show plots of the results.                                                                                           | None          |./simulate.py example.json -v    |
++-------------------------+------------------+------------------------+----------------------------------------------------------------------------------------------------------------------+---------------+---------------------------------+
+| --eta                   |                  | eta                    | * Show estimated remaining time instead of progress bar.                                                             | False         |./simulate.py example.json --eta |
+|                         |                  |                        | * Not recommended for fast computations.                                                                             |               |                                 |
++-------------------------+------------------+------------------------+----------------------------------------------------------------------------------------------------------------------+---------------+---------------------------------+
+| --margin                | -m               | margin                 |* Add margin for desired SOC [0.0 - 1.0]                                                                              | 0.05          |--margin 1                       |
+|                         |                  |                        |* margin=0.05 means the simulation will not abort if vehicles reach                                                   |               |                                 |
+|                         |                  |                        |* at least 95%% of the desired SOC before leaving.                                                                    |               |                                 |
+|                         |                  |                        |* margin=1 -> the simulation continues with every positive SOC value                                                  |               |                                 |
++-------------------------+------------------+------------------------+----------------------------------------------------------------------------------------------------------------------+---------------+---------------------------------+
+| --strategy-option       | -so              | strategy_option        | * set charging strategy options.                                                                                     |  []           |-so CONCURRENCY 0.5              |
+|                         |                  |                        | * For configuration file, see simulate.cfg in examples directory.                                                    |               |                                 |
+|                         |                  |                        | * For supported options, refer to the :ref:`strategy options <strategy_options>`.                                    |               |                                 |
++-------------------------+------------------+------------------------+----------------------------------------------------------------------------------------------------------------------+---------------+---------------------------------+
+| --cost-calc             | -cc              | cost_calc              | Calculate electricity costs.                                                                                         | False         |                                 |
++-------------------------+------------------+------------------------+----------------------------------------------------------------------------------------------------------------------+---------------+---------------------------------+
+| --cost-parameters-file  | -cp              | cost_parameters_file   | Get cost parameters from json file                                                                                   | None          |                                 |
++-------------------------+------------------+------------------------+----------------------------------------------------------------------------------------------------------------------+---------------+---------------------------------+
+| --output                | -o               | output                 | Generate output file.                                                                                                | None          | --output output.csv             |
++-------------------------+------------------+------------------------+----------------------------------------------------------------------------------------------------------------------+---------------+---------------------------------+
+| --save-timeseries       |                  | save_timeseries        | Write timeseries to file.                                                                                            | None          | --output timeseries.csv         |
++-------------------------+------------------+------------------------+----------------------------------------------------------------------------------------------------------------------+---------------+---------------------------------+
+| --save-results          |                  | save_results           | Write general information to file.                                                                                   | None          | --save-results results.json     |
++-------------------------+------------------+------------------------+----------------------------------------------------------------------------------------------------------------------+---------------+---------------------------------+
+| --save-soc              |                  | save_soc               | Write SoCs of vehicles to file.                                                                                      | None          | --save-soc soc.csv              |
++-------------------------+------------------+------------------------+----------------------------------------------------------------------------------------------------------------------+---------------+---------------------------------+
+| --testing               |                  | testing                | Stores testing results.                                                                                              | False         |                                 |
++-------------------------+------------------+------------------------+----------------------------------------------------------------------------------------------------------------------+---------------+---------------------------------+
+| --config                |                  |(no effect)             | * Use configuration file to set arguments.                                                                           |  None         | --config examples/simulate.cfg  |
+|                         |                  |                        | * Overrides command line arguments.                                                                                  |               |                                 |
++-------------------------+------------------+------------------------+----------------------------------------------------------------------------------------------------------------------+---------------+---------------------------------+
+
+All charging strategies support the `EPS` option, which defines the difference under which two floating point numbers are considered equal. In other words, the value chosen for `EPS` determines the precision of the simulation. The smaller it is the more precise the calculations are. The downside to this is an increase running time. For some numerical procedures the algorithm might get stuck completely if `EPS` is too small. The default is 10^-5.
+
+Every strategy also supports the strategy options `ALLOW_NEGATIVE_SOC` and `RESET_NEGATIVE_SOC`. They control how to proceed should the SoC of a vehicle become negative. Both are False by default, which means the simulation will abort in such a case. If `ALLOW_NEGATIVE_SOC` is set, the simulation continues instead of aborting. If `RESET_NEGATIVE_SOC` is set, the SoC of the vehicle is set to zero. These options are helpful when simulating plug-in hybrids.
+NOTE: For SoC<0 batteries are charged/discharge with the amount of power specified on the charging/discharging curve at SoC=0. Make sure that Power(SoC=0) > 0, in case you want use the strategy option `ALLOW_NEGATIVE_SOC`.
+NOTE: By default, discharging below SoC=0 only applies to vehicles while driving. To discharge below SoC=0 for stationary batteries or V2G, you need to set the target soc parameter of the battery.unload function accordingly.
+
+.. _strategy_options:
 
 Strategy options
 ----------------
@@ -228,7 +251,7 @@ Strategy options
     +-------------------+---------------+---------------------------------------------------------+
     |**Strategy option**| **default**   |              **explanation**                            |
     +-------------------+---------------+---------------------------------------------------------+
-    |   LOAD_STRAT      |   "needy"     | charging strategy, see above                            |
+    | LOAD_STRAT        | "collective"  | charging strategy, see above                            |
     +-------------------+---------------+---------------------------------------------------------+
 
 **PeakLoadWindow**
@@ -236,7 +259,7 @@ Strategy options
     +-------------------+---------------+---------------------------------------------------------+
     |**Strategy option**| **default**   |              **explanation**                            |
     +-------------------+---------------+---------------------------------------------------------+
-    |   LOAD_STRAT      |   "needy"     | charging strategy, see above                            |
+    | LOAD_STRAT        |   "needy"     | charging strategy, see above                            |
     +-------------------+---------------+---------------------------------------------------------+
 
 **FlexWindow**
@@ -436,41 +459,3 @@ All power values are in kWh.
 +-------------------------------------+---------------------------------------------------------------------------+
 | CS name                             |	power at each charging station                                            |
 +-------------------------------------+---------------------------------------------------------------------------+
-
-simulate.py
------------
-
-Simulate different charging strategies for a given scenario.
-
-+-------------------------+------------------+------------------------+----------------------------------------------------------------------------------------------------------------------+---------------+---------------------------------+
-|**command line options** | **short form**   | **configuration file** | **description**                                                                                                      |  **default**  | **example**                     |
-+-------------------------+------------------+------------------------+----------------------------------------------------------------------------------------------------------------------+---------------+---------------------------------+
-| (positional)            |                  | input                  | scenario json file                                                                                                   | (must be set) | ./simulate.py example.json      |
-+-------------------------+------------------+------------------------+----------------------------------------------------------------------------------------------------------------------+---------------+---------------------------------+
-| --strategy              | -s               |strategy                | charging strategy                                                                                                    | greedy        |--strategy balanced              |
-+-------------------------+------------------+------------------------+----------------------------------------------------------------------------------------------------------------------+---------------+---------------------------------+
-| --visual                | -v               | visual                 | Show plots of the results.                                                                                           | None          |./simulate.py example.json -v    |
-+-------------------------+------------------+------------------------+----------------------------------------------------------------------------------------------------------------------+---------------+---------------------------------+
-| --eta                   |                  | eta                    | * Show estimated remaining time instead of progress bar.                                                             | False         |./simulate.py example.json --eta |
-|                         |                  |                        | * Not recommended for fast computations.                                                                             |               |                                 |
-+-------------------------+------------------+------------------------+----------------------------------------------------------------------------------------------------------------------+---------------+---------------------------------+
-| --margin                | -m               | margin                 |* Add margin for desired SOC [0.0 - 1.0]                                                                              | 0.05          |--margin 1                       |
-|                         |                  |                        |* margin=0.05 means the simulation will not abort if vehicles reach                                                   |               |                                 |
-|                         |                  |                        |* at least 95%% of the desired SOC before leaving.                                                                    |               |                                 |
-|                         |                  |                        |* margin=1 -> the simulation continues with every positive SOC value                                                  |               |                                 |
-+-------------------------+------------------+------------------------+----------------------------------------------------------------------------------------------------------------------+---------------+---------------------------------+
-| --strategy-option       | -so              | strategy_option        | * set charging strategy options.                                                                                     |  []           |-so CONCURRENCY 0.5              |
-|                         |                  |                        | * For configuration file, see simulate.cfg in examples directory.                                                    |               |                                 |
-|                         |                  |                        | * For supported options, refer to the [strategy page](Charging-strategies).                                          |               |                                 |
-+-------------------------+------------------+------------------------+----------------------------------------------------------------------------------------------------------------------+---------------+---------------------------------+
-| --output                | -o               | output                 | Generate output file.                                                                                                |        None   |         --output output.csv     |
-+-------------------------+------------------+------------------------+----------------------------------------------------------------------------------------------------------------------+---------------+---------------------------------+
-| --config                |                  |(no effect)             | * Use configuration file to set arguments.                                                                           |  None         | --config examples/simulate.cfg  |
-|                         |                  |                        | * Overrides command line arguments.                                                                                  |               |                                 |
-+-------------------------+------------------+------------------------+----------------------------------------------------------------------------------------------------------------------+---------------+---------------------------------+
-
-All charging strategies support the `EPS` option, which defines the difference under which two floating point numbers are considered equal. In other words, the value chosen for `EPS` determines the precision of the simulation. The smaller it is the more precise the calculations are. The downside to this is an increase running time. For some numerical procedures the algorithm might get stuck completely if `EPS` is too small. The default is 10^-5.
-
-Every strategy also supports the strategy options `ALLOW_NEGATIVE_SOC` and `RESET_NEGATIVE_SOC`. They control how to proceed should the SoC of a vehicle become negative. Both are False by default, which means the simulation will abort in such a case. If `ALLOW_NEGATIVE_SOC` is set, the simulation continues instead of aborting. If `RESET_NEGATIVE_SOC` is set, the SoC of the vehicle is set to zero. These options are helpful when simulating plug-in hybrids.
-NOTE: For SoC<0 batteries are charged/discharge with the amount of power specified on the charging/discharging curve at SoC=0. Make sure that Power(SoC=0) > 0, in case you want use the strategy option `ALLOW_NEGATIVE_SOC`.
-NOTE: By default, discharging below SoC=0 only applies to vehicles while driving. To discharge below SoC=0 for stationary batteries or V2G, you need to set the target soc parameter of the battery.unload function accordingly.
