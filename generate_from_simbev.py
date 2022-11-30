@@ -239,7 +239,7 @@ def generate_from_simbev(args):
             # take capacity from vehicle file name
             file_capacity = int(v_info[-1][:-3])
             if vehicle_capacity != file_capacity:
-                print("WARNING: capacities of car type {} don't match "
+                print("WARNING: capacities of vehicle type {} don't match "
                       "(in file name: {}, in script: {}). Using value from file.".
                       format(v_type, file_capacity, vehicle_capacity))
                 vehicle_capacity = file_capacity
@@ -386,7 +386,7 @@ def generate_from_simbev(args):
                         # reset desired SoC for next trip
                         desired_soc = None
 
-                        # update vehicle SOC: with how much SOC does car arrive at new CS?
+                        # update vehicle SOC: with how much SOC does vehicle arrive at new CS?
                         vehicle_soc -= soc_needed
 
                 if is_charge_event:

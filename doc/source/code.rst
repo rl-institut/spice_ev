@@ -221,9 +221,9 @@ Allocate power according to grid operator schedule.
     Schedule.sim_balanced_charging
     Schedule.collect_future_gc_info
     Schedule.evaluate_core_standing_time_ahead
-    Schedule.charge_cars_during_core_standing_time
-    Schedule.charge_cars_after_core_standing_time
-    Schedule.charge_cars
+    Schedule.charge_vehicles_during_core_standing_time
+    Schedule.charge_vehicles_after_core_standing_time
+    Schedule.charge_vehicles
     Schedule.utilize_stationary_batteries
     Schedule.step
 

@@ -27,7 +27,7 @@ class FlexWindow(Strategy):
                 v.battery.soc >= v.desired_soc,
                 v.estimated_time_of_departure)
         elif self.LOAD_STRAT == "needy":
-            # charge cars with not much power needed first, may leave more for others
+            # charge vehicles with not much power needed first, may leave more for others
             self.sort_key = lambda v: v.get_delta_soc() * v.battery.capacity
         elif self.LOAD_STRAT == "balanced":
             # default, simple strategy: charge vehicles balanced during windows
@@ -125,7 +125,7 @@ class FlexWindow(Strategy):
             else:
                 self.distribute_balanced_batteries(timesteps)
         else:
-            # load cars with peak shaving strategy
+            # charge vehicles with peak shaving strategy
             commands = self.distribute_peak_shaving_vehicles(timesteps)
             # check if there is surplus power available
             if -gc.get_current_load() > self.EPS:
@@ -469,7 +469,7 @@ class FlexWindow(Strategy):
                            if v.connected_charging_station is not None],
                           key=self.sort_key)
 
-        # what happens when all cars are charged with maximum power during charging windows?
+        # what happens when all vehicles are charged with maximum power during charging windows?
         sim_vehicles = deepcopy(vehicles)
         cur_vehicles = sim_vehicles
 
@@ -482,9 +482,9 @@ class FlexWindow(Strategy):
                             and (v.battery.soc < v.desired_soc)]
             # calculate total energy needed
             cur_needed = sum([v.get_energy_needed(full=True) for v in cur_vehicles])
-            # if there is no cars to charge or no energy needed
+            # if there are no vehicles to charge or no energy needed
             if not cur_vehicles or cur_needed < self.EPS:
-                # no cars or no energy need: skip check
+                # no vehicles or no energy need: skip check
                 break
 
             if ts_info["window"]:
@@ -528,7 +528,7 @@ class FlexWindow(Strategy):
                 # sum up energy needed in this timestep
                 cur_needed = sum([v.get_energy_needed(full=True) for v in cur_vehicles])
                 if not cur_vehicles or cur_needed < self.EPS:
-                    # no cars or no energy need: skip simulation
+                    # no vehicles or no energy need: skip simulation
                     break
                 self.distribute_power(cur_vehicles, total_power - ts_info["ext_load"], cur_needed)
 

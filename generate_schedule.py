@@ -94,7 +94,7 @@ def generate_flex_band(scenario, gcID, core_standing_time=None):
     flex["batteries"]["efficiency"] = \
         flex["batteries"]["efficiency"] / len(batteries) if len(batteries) else 1
 
-    cars = {vid: [0, 0, 0] for vid in s.world_state.vehicles}
+    vehicles = {vid: [0, 0, 0] for vid in s.world_state.vehicles}
     vehicles_present = False
     power_needed = 0
 
@@ -108,20 +108,20 @@ def generate_flex_band(scenario, gcID, core_standing_time=None):
         # basic value: external load, feed-in power
         base_flex = gc.get_current_load()
 
-        num_cars_present = 0
+        num_vehicles_present = 0
 
         # update vehicles
         for vid, v in s.world_state.vehicles.items():
             cs_id = v.connected_charging_station
             if cs_id is None:
                 # vehicle not present: reset info, add to power needed in last interval
-                power_needed += cars[vid][1]
-                cars[vid] = [0, 0, 0]
+                power_needed += vehicles[vid][1]
+                vehicles[vid] = [0, 0, 0]
             else:
                 cs = s.world_state.charging_stations[v.connected_charging_station]
                 if cs.parent == gcID:
-                    num_cars_present += 1
-                    if cars[vid][0] == 0:
+                    num_vehicles_present += 1
+                    if vehicles[vid][0] == 0:
                         # just arrived
                         charging_power = v.battery.loading_curve.max_power
                         delta_soc = max(v.get_delta_soc(), 0)
@@ -137,12 +137,12 @@ def generate_flex_band(scenario, gcID, core_standing_time=None):
                         v.battery.soc = max(v.battery.soc, v.desired_soc)
                         v2g = (v.battery.get_available_power(s.interval)
                                * v.vehicle_type.v2g_power_factor) if v.vehicle_type.v2g else 0
-                        cars[vid] = [charging_power, vehicle_energy_needed, v2g]
+                        vehicles[vid] = [charging_power, vehicle_energy_needed, v2g]
 
         pv_support = max(-base_flex, 0)
-        if num_cars_present:
+        if num_vehicles_present:
             # PV surplus can support vehicle charging
-            for v in cars.values():
+            for v in vehicles.values():
                 if pv_support <= EPS:
                     break
                 power = min(v[0], v[1] * ts_per_hour, pv_support)
@@ -150,18 +150,18 @@ def generate_flex_band(scenario, gcID, core_standing_time=None):
                 pv_support -= power
                 base_flex += power
 
-            # get sums from cars dict
-            vehicle_flex, needed, v2g_flex = map(sum, zip(*cars.values()))
+            # get sums from vehicles dict
+            vehicle_flex, needed, v2g_flex = map(sum, zip(*vehicles.values()))
             if not vehicles_present:
                 # new standing period
                 flex["intervals"].append({
                     "needed": 0,
                     "time": [],
-                    "num_cars_present": 0,
+                    "num_vehicles_present": 0,
                 })
             info = flex["intervals"][-1]
             info["needed"] = needed
-            info["num_cars_present"] = num_cars_present
+            info["num_vehicles_present"] = num_vehicles_present
             # only timesteps in core standing time are taken added to interval
             # if no core standing time is specified step_i is always appended
             # e.g. currently_in_core_standing_time = TRUE for all step_i
@@ -173,7 +173,7 @@ def generate_flex_band(scenario, gcID, core_standing_time=None):
                 # first TS with all vehicles left: update power needed
                 flex["intervals"][-1]["needed"] = power_needed
             vehicle_flex = power_needed = v2g_flex = 0
-        vehicles_present = num_cars_present > 0
+        vehicles_present = num_vehicles_present > 0
 
         bat_flex_discharge = bat_init_discharge_power if step_i == 0 else bat_full_discharge_power
         bat_flex_charge = flex["batteries"]["power"]
@@ -362,7 +362,7 @@ def generate_individual_flex_band(scenario, gcID):
 
 
 def generate_schedule(args):
-    """Generate schedule for grid signals based on whole car park
+    """Generate schedule for grid signals based on whole vehicle park
 
     :param args: input arguments
     :type args: argparse.Namespace
@@ -518,12 +518,12 @@ def generate_schedule(args):
                         else:
                             # power fits here
                             if is_charge_period:
-                                # increase schedule if we want to charge cars
+                                # increase schedule if we want to charge vehicles
                                 schedule[time] += power
                                 energy_distributed += \
                                     (power * flex["vehicles"]["efficiency"]) / ts_per_hour
                             else:
-                                # decrease schedule if we want to discharge cars
+                                # decrease schedule if we want to discharge vehicles
                                 schedule[time] -= power * flex["vehicles"]["efficiency"]
                                 energy_distributed -= power / ts_per_hour
                             power_needed -= power
@@ -592,7 +592,7 @@ def generate_schedule(args):
         flex["max"] = max_flex
 
     else:
-        # generate schedule for whole car park
+        # generate schedule for whole vehicle park
         for interval in flex["intervals"]:
             capacity = flex["vehicles"]["capacity"]
             energy_stored = flex["vehicles"]["desired_energy"] - interval["needed"]
@@ -782,7 +782,7 @@ if __name__ == '__main__':
                         help='Specify schedule file name, '
                         'defaults to <scenario>_schedule.csv')
     parser.add_argument('--individual', '-i', action='store_true',
-                        help='generate schedule based on individual vehicles instead of car park')
+                        help='schedule based on individual vehicles instead of vehicle park')
     parser.add_argument('--priority-percentile', default=0.25, type=float,
                         help='Percentiles for priority determination')
     parser.add_argument('--core-standing-time', default=None,

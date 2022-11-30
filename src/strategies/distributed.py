@@ -37,7 +37,7 @@ class Distributed(Strategy):
             cs.current_power = 0
 
         skip_priorization = {}
-        # rank which cars should be loaded at gc
+        # rank which vehicles should be loaded at gc
         for gcID, gc in self.world_state.grid_connectors.items():
             if gc.number_cs is None:
                 skip_priorization[gcID] = True
@@ -112,7 +112,7 @@ class Distributed(Strategy):
                     free_spots = gc.number_cs - len(self.v_connect[gcID])
                 timesteps = [i for i in timesteps if not (i['vehicle_id'] == v_id_min)]
 
-        # all cars are ranked. Load cars that are in v_connect
+        # all vehicles are ranked. Load vehicles that are in v_connect
         for gcID, gc in self.world_state.grid_connectors.items():
             if not skip_priorization[gcID]:
                 vehicle_list = self.v_connect[gcID]

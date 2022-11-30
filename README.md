@@ -20,10 +20,10 @@ Generate a scenario and store it in a JSON file:
 ./generate.py example.json
 ```
 
-Generate a 7-day scenario with 10 cars of different types and 15 minute timesteps:
+Generate a 7-day scenario with 10 vehicles of different types and 15 minute timesteps:
 
 ```sh
-./generate.py --days 7 --cars 6 golf --cars 4 sprinter --interval 15 example.json
+./generate.py --days 7 --vehicles 6 golf --vehicles 4 sprinter --interval 15 example.json
 ```
 
 Run a simulation of this scenario using the `greedy` charging strategy and show
