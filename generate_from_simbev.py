@@ -330,7 +330,7 @@ def generate_from_simbev(args):
                             "vehicle charged to {}, needs SoC of {} ({} kWh). "
                             "This might be caused by rounding differences, "
                             "consider to increase the arg '--eps'.".format(
-                                vehicle_name, idx + 3, vehicle_soc,
+                                vehicle_name, idx + 1, vehicle_soc,
                                 soc_needed, soc_needed * vehicle_capacity))
                     else:
                         # charging station present
@@ -596,7 +596,7 @@ if __name__ == '__main__':
                              'Default: only errors, 1: warnings, 2: debug')
     parser.add_argument('--eps', metavar='EPS', type=float, default=1e-5,
                         help='Tolerance used for sanity checks, required due to possible '
-                             'rounding differences between simBEV and spiceEV. Default: 1e-10')
+                             'rounding differences between SimBEV and SpiceEV. Default: 1e-5')
 
     args = parser.parse_args()
 
