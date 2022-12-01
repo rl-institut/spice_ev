@@ -145,7 +145,13 @@ def generate_from_csv(args):
             # check if column delta_soc or column soc exists
             if "delta_soc" not in row.keys():
                 if "soc" in row.keys():
-                    delta_soc = 1 - float(row["soc"])
+                    csv_start_soc = float(row["soc"])
+                    delta_soc = 1 - csv_start_soc
+                    # might want to avoid very low battery levels (configurable in config)
+                    soc_threshold = args.min_soc_threshold
+                    if csv_start_soc < soc_threshold:
+                        print("WARNING: CSV contains very low SoC for {} in row {}"
+                              .format(vehicle_id, index + 1))
                 else:
                     # get vehicle infos
                     capacity = vehicle_types[vt]["capacity"]
@@ -165,6 +171,12 @@ def generate_from_csv(args):
                     delta_soc = distance * mileage / capacity
             else:
                 delta_soc = float(row["delta_soc"])
+
+            # might want to avoid very low battery levels (configurable in config)
+            soc_threshold = args.min_soc_threshold
+            if (1 - delta_soc) < soc_threshold:
+                print("WARNING: CSV contains very high energy demand for {} in row {}"
+                      .format(vehicle_id, index + 1))
 
             sum_delta_soc += delta_soc
 
@@ -539,6 +551,8 @@ if __name__ == '__main__':
                         help='set number of minutes for each timestep (Δt)')
     parser.add_argument('--min-soc', metavar='SOC', type=float, default=0.8,
                         help='set minimum desired SOC (0 - 1) for each charging process')
+    parser.add_argument('--min-soc-threshold', type=float, default=0.05,
+                        help='SoC below this threshold trigger a warning. Default: 0.05')
     parser.add_argument('--battery', '-b', default=[], nargs=2, type=float, action='append',
                         help='add battery with specified capacity in kWh and C-rate \
                         (-1 for variable capacity, second argument is fixed power))')

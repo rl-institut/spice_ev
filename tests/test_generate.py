@@ -18,6 +18,7 @@ ARG_VALUES1 = {
     "days": 2,
     "interval": 15,
     "min_soc": 0.8,
+    "min_soc_threshold": 0.05,
     "battery": [[350, 0.5]],
     "start_time": '2023-01-01T00:15:00+00:00',
     "no_drive_days": [6],

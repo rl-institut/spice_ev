@@ -239,6 +239,12 @@ def generate(args):
         if not path.exists(price_csv_path):
             print("Warning: price csv file '{}' does not exist yet".format(price_csv_path))
 
+    # argument 'min_soc_threshold' has no relevance for generation of synthetic driving profiles
+    soc_threshold = vars(args).get("min_soc_threshold")
+    if soc_threshold:
+        print("WARNING: Argument 'min_soc_threshold' has no relevance for "
+              "generation of driving profiles.")
+
     # count number of trips for which desired_soc is above min_soc
     trips_above_min_soc = 0
     trips_total = 0

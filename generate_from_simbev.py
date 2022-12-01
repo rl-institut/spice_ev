@@ -286,7 +286,7 @@ def generate_from_simbev(args):
                         simbev_soc_start < soc_threshold
                         or simbev_soc_end < soc_threshold):
                     print("WARNING: SimBEV created very low SoC for {} in row {}"
-                          .format(vehicle_name, idx + 3))
+                          .format(vehicle_name, idx + 1))
 
                 simbev_demand = max(float(row["energy"]), 0)
                 assert cs_power > 0 or simbev_demand == 0, \
@@ -547,7 +547,6 @@ if __name__ == '__main__':
                         help='set number of minutes for each timestep (Δt)')
     parser.add_argument('--min-soc', metavar='S', type=float, default=0.8,
                         help='Set minimum desired SoC for each charging event. Default: 0.5')
-    # ToDo Needed?
     parser.add_argument('--min-soc-threshold', type=float, default=0.05,
                         help='SoC below this threshold trigger a warning. Default: 0.05')
     parser.add_argument('--battery', '-b', default=[], nargs=2, type=float, action='append',
