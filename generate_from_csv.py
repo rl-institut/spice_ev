@@ -87,8 +87,7 @@ def generate_from_csv(args):
             export_filename = path.join(target_path, args.export_vehicle_id_csv)
         else:
             export_filename = None
-        recharge_fraction = vars(args).get("recharge_fraction", 1)
-        input = assign_vehicle_id(input, vehicle_types, recharge_fraction, export_filename)
+        input = assign_vehicle_id(input, vehicle_types, export_filename)
 
     if "connect_cs" not in input[0].keys():
         warnings.warn("Column 'connect_cs' is not available. Vehicles will be connected to a "
@@ -433,7 +432,7 @@ def csv_to_dict(csv_path):
     return dict
 
 
-def assign_vehicle_id(input, vehicle_types, recharge_fraction, export=None):
+def assign_vehicle_id(input, vehicle_types, export=None):
     """
     Assigns all rotations to specific vehicles with distinct vehicle_id. The assignment follows the
     principle "first in, first out". The assignment of a minimum standing time in hours is optional.
@@ -442,9 +441,6 @@ def assign_vehicle_id(input, vehicle_types, recharge_fraction, export=None):
     :type input: dict
     :param vehicle_types: dict with vehicle types
     :type vehicle_types: dict
-    :param recharge_fraction: minimum fraction of capacity for recharge when leaving the charging
-                              station
-    :type recharge_fraction: float
     :param export: path to output file of input with vehicle_id
     :type export: str or None
     :return: schedule of rotations
@@ -463,7 +459,7 @@ def assign_vehicle_id(input, vehicle_types, recharge_fraction, export=None):
     cs_power = {vt: max([v[1] for v in vi["charging_curve"]]) for vt, vi in vehicle_types.items()}
     min_standing_times = {
         vt: datetime.timedelta(hours=(
-            vi["capacity"] / cs_power[vt] * recharge_fraction
+            vi["capacity"] / cs_power[vt]
         )) for vt, vi in vehicle_types.items()}
 
     # sort rotations by departure time
@@ -542,9 +538,6 @@ if __name__ == '__main__':
     parser.add_argument('output', nargs='?', help='output file name (example.json)')
     parser.add_argument('--days', metavar='N', type=int, default=7,
                         help='set duration of scenario as number of days')
-    parser.add_argument('--recharge-fraction', type=float, default=1,
-                        help='Minimum fraction of vehicle battery capacity for recharge when '
-                             'leaving the charging station')
 
     # general
     parser.add_argument('--interval', metavar='MIN', type=int, default=15,
