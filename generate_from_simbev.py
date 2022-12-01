@@ -184,10 +184,10 @@ def generate_from_simbev(args):
                     print("Warning: price csv file {} has no column {}".format(
                           price_csv_path, options["column"]))
 
-        if args.price_seed and args.verbose > 0:
-            # CSV and price_seed given
+        if args.seed and args.verbose > 0:
+            # CSV and seed given
             print("WARNING: Multiple price sources detected. Using CSV.")
-    elif args.price_seed is not None and args.price_seed < 0:
+    elif args.seed is not None and args.seed < 0:
         # use single, fixed price
         events["grid_operator_signals"].append({
             "signal_time": start.isoformat(),
@@ -195,13 +195,13 @@ def generate_from_simbev(args):
             "start_time": start.isoformat(),
             "cost": {
                 "type": "fixed",
-                "value": -args.price_seed
+                "value": -args.seed
             }
         })
     else:
         # random price
         # set seed from input (repeatability)
-        random.seed(args.price_seed)
+        random.seed(args.seed)
         # price remains stable for X hours
         price_stable_hours = 6
         # every X timesteps, generate new price signal
@@ -454,7 +454,7 @@ def generate_from_simbev(args):
 
                     while (
                         not args.include_price_csv
-                        and (args.price_seed is None or args.price_seed >= 0)
+                        and (args.seed is None or args.seed >= 0)
                         and n_intervals >= price_interval * len(events["grid_operator_signals"])
                     ):
                         # at which timestep is price updated?
@@ -562,7 +562,7 @@ if __name__ == '__main__':
                         help='set minimal power at charging station in kW (default: 0.1 * cs_power')
     parser.add_argument('--discharge-limit', default=0.5,
                         help='Minimum SoC to discharge to during V2G. [0-1]')
-    parser.add_argument('--price-seed', metavar='X', type=int, default=0,
+    parser.add_argument('--seed', metavar='X', type=int, default=0,
                         help='set seed when generating energy market prices. \
                             Negative values for fixed price in cents')
 
@@ -595,7 +595,7 @@ if __name__ == '__main__':
     parser.add_argument('--verbose', '-v', action='count', default=0,
                         help='Set verbosity level. Use this multiple times for more output. '
                              'Default: only errors, 1: warnings, 2: debug')
-    parser.add_argument('--eps', metavar='EPS', type=float, default=1e-10,
+    parser.add_argument('--eps', metavar='EPS', type=float, default=1e-5,
                         help='Tolerance used for sanity checks, required due to possible '
                              'rounding differences between simBEV and spiceEV. Default: 1e-10')
 
