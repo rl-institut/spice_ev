@@ -7,23 +7,35 @@ Charging strategies
 Charging
 ========
 
-The core of SpiceEV are the different charging strategies. They decide how to react to events, when to charge the cars and by how much. To see how to set strategy options, refer to [this wiki page](Command-line-options).
+The core of SpiceEV are the different charging strategies. They decide how to react to events, when to charge the cars and by how much. To see how to set strategy options, refer to [this wiki page](Command-line-options). The following table indicates whether a charging strategy considers stationary batteries and V2G.
 
-Stationary batteries supported: **YES**
-
-V2G supported: **YES**
++--------------------------+-----------------------------+-------------------------------+
+|**charging strategy**     | **stationary batteries**    | **V2G**                       |
++--------------------------+-----------------------------+-------------------------------+
+| greedy                   | x                           | x                             |
++--------------------------+-----------------------------+-------------------------------+
+| balanced                 | x                           | x                             |
++--------------------------+-----------------------------+-------------------------------+
+| greedy market            | x                           | x                             |
++--------------------------+-----------------------------+-------------------------------+
+| balanced market          | x                           | x                             |
++--------------------------+-----------------------------+-------------------------------+
+| peak load window         | x                           |                               |
++--------------------------+-----------------------------+-------------------------------+
+| flex window              | x                           | x                             |
++--------------------------+-----------------------------+-------------------------------+
+| distributes              | x                           | x                             |
++--------------------------+-----------------------------+-------------------------------+
 
 Greedy
 ------
-
-Your most basic and dumb strategy. Charges one vehicle after the next with full power until the desired state of charge (SoC) is reached. Depending on the grid connector (GC), multiple cars may be charged in one timestep.
+As soon as a vehicle is connected, it is charged at the maximum possible power until the desired SoC level is reached. Depending on the grid connector (GC), the power must be throttled in order to not exceed its maximum power.
 
 May charge above the desired SoC if there is surplus feed-in power or the energy price is cheap.
 
 Balanced
 --------
-
-Each car is charged such that it uses its complete standing time to reach the desired SoC. May charge more power (and above the desired SoC) if there is surplus feed-in power or if the energy price falls below a certain PRICE_THRESHOLD.
+Each car is charged such that it uses its complete standing time to reach the desired SoC. May charge more power (and above the desired SoC) if there is surplus feed-in power or if the energy price falls below a certain PRICE_THRESHOLD. A prerequisite for this strategy is an estimate of the standing time. In the simulation model, a perfect foresight is used for this purpose. By defining a time horizon, it is possible to specify how far in the future departure times are known.
 
 Implementation notice: uses a binary search to find the minimum viable charging power.
 
@@ -51,8 +63,6 @@ Given a time window of high load, tries to charge outside this window. Different
 - needy: power is allocated according to missing power needed to reach the desired SoC
 - balanced: power is distributed evenly among vehicles below desired SoC. Surplus is then distributed evenly among all cars
 
-V2G supported: **NO**
-
 FlexWindow
 ----------
 There are time windows during which charging is encouraged and there are those where it is discouraged. These time windows are determined by the grid operator (similar to Schedule strategy). During those windows where charging is encouraged the vehicles are charged with one of the following sub-strategies:
@@ -72,6 +82,9 @@ Prioritization of vehicles at stations with a limited number charging stations:
 
 If the number of charging stations is limited, all vehicles that want to connect in the current and future time steps (limited by C-HORIZON) are collected and ranked by their SoC. The vehicle(s) with lowest SoC are loaded first until their desired SoC is reached or the vehicle departs.
 As soon as the charging station is available again, the process is repeated.
+
+.. image:: _files/example_strategies.png
+   :width: 80 %
 
 Incentive scheme
 ================

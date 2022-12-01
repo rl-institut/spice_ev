@@ -158,7 +158,7 @@ Simulate different charging strategies for a given scenario.
 |                         |                  |                        |* at least 95%% of the desired SOC before leaving.                                                                    |               |                                 |
 |                         |                  |                        |* margin=1 -> the simulation continues with every positive SOC value                                                  |               |                                 |
 +-------------------------+------------------+------------------------+----------------------------------------------------------------------------------------------------------------------+---------------+---------------------------------+
-| --strategy-option       | -so              | strategy_option        | * set charging strategy options.                                                                                     |  []           |-so CONCURRENCY 0.5              |
+| --strategy-option       | -so              | strategy_option        | * set charging strategy options.                                                                                     |               |-so CONCURRENCY 0.5              |
 |                         |                  |                        | * For configuration file, see simulate.cfg in examples directory.                                                    |               |                                 |
 |                         |                  |                        | * For supported options, refer to the :ref:`strategy options <strategy_options>`.                                    |               |                                 |
 +-------------------------+------------------+------------------------+----------------------------------------------------------------------------------------------------------------------+---------------+---------------------------------+
@@ -197,6 +197,7 @@ Strategy options
     |**Strategy option**| **default**   |              **explanation**                            |
     +-------------------+---------------+---------------------------------------------------------+
     |   CONCURRENCY     |     1.0       | Reduce maximum available power at each charging station.|
+    |                   |               |                                                         |
     |                   |               | A value of 0.5 means only half the power is available.  |
     +-------------------+---------------+---------------------------------------------------------+
     |   PRICE_THRESHOLD |    0.001      | A price below this is considered cheap. Unit: € / 1 kWh |
@@ -218,6 +219,7 @@ Strategy options
     |**Strategy option**| **default**   |              **explanation**                            |
     +-------------------+---------------+---------------------------------------------------------+
     |   CONCURRENCY     |     1.0       | Reduce maximum available power at each charging station.|
+    |                   |               |                                                         |
     |                   |               | A value of 0.5 means only half the power is available.  |
     +-------------------+---------------+---------------------------------------------------------+
     |   HORIZON         |      24       | number of hours to look ahead                           |
@@ -233,16 +235,17 @@ Strategy options
     +-------------------+---------------+---------------------------------------------------------+
     |**Strategy option**| **default**   |              **explanation**                            |
     +-------------------+---------------+---------------------------------------------------------+
-    |   CONCURRENCY     |     1.0       | Reduce maximum available power at each charging station.|
+    | CONCURRENCY       |     1.0       | Reduce maximum available power at each charging station.|
+    |                   |               |                                                         |
     |                   |               | A value of 0.5 means only half the power is available.  |
     +-------------------+---------------+---------------------------------------------------------+
-    |   HORIZON         |      24       | number of hours to look ahead                           |
+    | HORIZON           |      24       | number of hours to look ahead                           |
     +-------------------+---------------+---------------------------------------------------------+
-    |   PRICE_THRESHOLD |    0.001      | A price below this is considered cheap. Unit: € / 1 kWh |
+    | PRICE_THRESHOLD   |    0.001      | A price below this is considered cheap. Unit: € / 1 kWh |
     +-------------------+---------------+---------------------------------------------------------+
-    |   DISCHARGE_LIMIT |      0        | V2G: maximum depth of discharge [0-1]                   |
+    | DISCHARGE_LIMIT   |      0        | V2G: maximum depth of discharge [0-1]                   |
     +-------------------+---------------+---------------------------------------------------------+
-    |  V2G_POWER_FACTOR |      1        | Fraction of max battery power used for discharge        |
+    | V2G_POWER_FACTOR  |      1        | Fraction of max battery power used for discharge        |
     |                   |               | process [0-1]                                           |
     +-------------------+---------------+---------------------------------------------------------+
 
@@ -268,6 +271,7 @@ Strategy options
     |**Strategy option**| **default**   |              **explanation**                            |
     +-------------------+---------------+---------------------------------------------------------+
     |   CONCURRENCY     |     1.0       | Reduce maximum available power at each charging station.|
+    |                   |               |                                                         |
     |                   |               | A value of 0.5 means only half the power is available.  |
     +-------------------+---------------+---------------------------------------------------------+
     |   HORIZON         |      24       | number of hours to look ahead                           |
@@ -280,6 +284,7 @@ Strategy options
     |                   |               | process [0-1]                                           |
     +-------------------+---------------+---------------------------------------------------------+
     |   LOAD_STRAT      |   "balanced   | Sub-strategies for behaviour within charging windows    |
+    |                   |               |                                                         |
     |                   |               | (see description above for options and explanations)    |
     +-------------------+---------------+---------------------------------------------------------+
 
@@ -437,7 +442,7 @@ All power values are in kWh.
 +-------------------------------------+---------------------------------------------------------------------------+
 | **Column**                          | **Description**                                                           |
 +-------------------------------------+---------------------------------------------------------------------------+
-| timestep 	                      | simulation timestep, starting at 0                                        |
+| timestep 	                          | simulation timestep, starting at 0                                        |
 +-------------------------------------+---------------------------------------------------------------------------+
 | time 	                              | datetime of timestep, isoformat                                           |
 +-------------------------------------+---------------------------------------------------------------------------+
@@ -445,9 +450,9 @@ All power values are in kWh.
 +-------------------------------------+---------------------------------------------------------------------------+
 | ext. loads	                      | sum of external loads, e.g. building power (omitted if not present)       |
 +-------------------------------------+---------------------------------------------------------------------------+
-| feed-in 	                      | sum of renewable energy sources feed-in power (omitted if not present)    |
+| feed-in 	                          | sum of renewable energy sources feed-in power (omitted if not present)    |
 +-------------------------------------+---------------------------------------------------------------------------+
-| surplus 	                      | unused power from feed-in (omitted if no feed-in present)                 |
+| surplus 	                          | unused power from feed-in (omitted if no feed-in present)                 |
 +-------------------------------------+---------------------------------------------------------------------------+
 | sum CS power                        | total of power drawn by charging stations                                 |
 +-------------------------------------+---------------------------------------------------------------------------+
