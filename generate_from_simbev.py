@@ -261,7 +261,7 @@ def generate_from_simbev(args):
                 vehicle_types[v_type]["capacity"] = file_capacity
 
             # set initial charge
-            last_cs_event = None
+            last_arrival_event = None
             soc_needed = 0.0
             event_start_ts = None
             event_end_ts = datetime_from_timestep(0)
@@ -346,7 +346,7 @@ def generate_from_simbev(args):
                         # charging station present
                         is_charge_event = True
 
-                        if not last_cs_event:
+                        if not last_arrival_event:
                             # first charge: initial must be enough
                             assert vehicle_soc >= soc_needed - tolerance, (
                                 f"Initial charge for {v_id} is not sufficient. This might "
@@ -364,7 +364,7 @@ def generate_from_simbev(args):
                             delta_soc = max(desired_soc - vehicle_soc, 0)
 
                             # check if charging is possible in ideal case
-                            cs_id = last_cs_event["update"]["connected_charging_station"]
+                            cs_id = last_arrival_event["update"]["connected_charging_station"]
                             charge_duration = event_end_ts - event_start_ts
                             possible_energy = (charging_stations[cs_id]["max_power"] *
                                                charge_duration.seconds / 3600)
@@ -380,8 +380,8 @@ def generate_from_simbev(args):
                                     f"Possible within standing time: {possible_energy} kWh.")
 
                             # update last charge event info: set desired SOC
-                            last_cs_event["update"]["desired_soc"] = desired_soc
-                            events["vehicle_events"].append(last_cs_event)
+                            last_arrival_event["update"]["desired_soc"] = desired_soc
+                            events["vehicle_events"].append(last_arrival_event)
 
                             # simulate charging
                             vehicle_soc = max(vehicle_soc, desired_soc)
@@ -430,7 +430,8 @@ def generate_from_simbev(args):
                     event_end_idx = int(row["event_start"]) + int(row["event_time"]) + 1
                     event_end_ts = datetime_from_timestep(event_end_idx)
                     delta_soc = soc_needed if args.ignore_simbev_soc else delta_soc
-                    last_cs_event = {
+                    # update last charge event info
+                    last_arrival_event = {
                         "signal_time": event_start_ts.isoformat(),
                         "start_time": event_start_ts.isoformat(),
                         "vehicle_id": v_id,
@@ -445,7 +446,7 @@ def generate_from_simbev(args):
 
                     if not args.ignore_simbev_soc:
                         # use SimBEV SoC: append charge event right away
-                        events["vehicle_events"].append(last_cs_event)
+                        events["vehicle_events"].append(last_arrival_event)
 
                     # reset distance (needed charge) to next CS
                     soc_needed = 0.0

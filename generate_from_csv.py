@@ -188,15 +188,16 @@ def generate_from_csv(args):
             if departure < arrival:
                 warnings.warn(f"{arrival}: {v_id} travelling in time (departing {departure}).")
 
-            # adjust SoC if sum_delta_soc > min_soc
+            # arrival at new CS
             if connect_cs is not None:
+                # adjust SoC if sum_delta_soc > min_soc
                 if args.min_soc < sum_delta_soc:
                     trips_above_min_soc += 1
                     if last_arrival_event is None:
                         # initially unconnected: adjust initial SoC
                         vehicles[v_id]["soc"] = sum_delta_soc
                     else:
-                        # adjust last event reference
+                        # update last charge event info: set desired SOC
                         last_arrival_event["update"]["desired_soc"] = sum_delta_soc
                 trips_total += 1
 
@@ -205,6 +206,7 @@ def generate_from_csv(args):
                         f"Problem at {arrival.isoformat()}: vehicle {v_id} of type {v_type} used "
                         f"{round(sum_delta_soc * 100, 2)} % of its battery capacity.")
 
+                # update last charge event info
                 last_arrival_event = {
                     "signal_time": arrival.isoformat(),
                     "start_time": arrival.isoformat(),
@@ -217,10 +219,10 @@ def generate_from_csv(args):
                         "desired_soc": args.min_soc,
                     }
                 }
+                events["vehicle_events"].append(last_arrival_event)
+
                 # reset sum_delta_soc to start adding up again until connected to next CS
                 sum_delta_soc = 0
-
-                events["vehicle_events"].append(last_arrival_event)
 
                 if departure_event_in_input:
                     if departure > next_arrival:
