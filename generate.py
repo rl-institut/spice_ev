@@ -154,10 +154,10 @@ def generate(args):
 
     for v_type, t in vehicle_types.items():
         for i in range(t.get("count", 0)):
-            v_name = "{}_{}".format(v_type, i)
-            cs_name = "CS_" + v_name
-            vehicles[v_name] = {
-                "connected_charging_station": cs_name,
+            v_id = "{}_{}".format(v_type, i)
+            cs_id = "CS_" + v_id
+            vehicles[v_id] = {
+                "connected_charging_station": cs_id,
                 "estimated_time_of_departure": None,
                 "desired_soc": None,
                 "soc": args.min_soc,
@@ -165,7 +165,7 @@ def generate(args):
             }
 
             cs_power = max([v[1] for v in t['charging_curve']])
-            charging_stations[cs_name] = {
+            charging_stations[cs_id] = {
                 "max_power": cs_power,
                 "min_power": args.cs_power_min if args.cs_power_min else 0.1 * cs_power,
                 "parent": "GC1"

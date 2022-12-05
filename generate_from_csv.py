@@ -95,13 +95,12 @@ def generate_from_csv(args):
                       "charging station after every trip.")
         input = [dict(item, **{'connect_cs': 1}) for item in input]
 
-    for vehicle_id in {item['vehicle_id'] for item in input}:
-        v_type = [d for d in input if d['vehicle_id'] == vehicle_id][0]["vehicle_type"]
-        v_name = vehicle_id
-        cs_name = "CS_" + v_name
+    for v_id in {item['vehicle_id'] for item in input}:
+        v_type = [d for d in input if d['vehicle_id'] == v_id][0]["vehicle_type"]
+        cs_id = "CS_" + v_id
 
         # define start conditions
-        vehicles[v_name] = {
+        vehicles[v_id] = {
             "connected_charging_station": None,
             "estimated_time_of_departure": None,
             "soc": args.min_soc,
@@ -109,7 +108,7 @@ def generate_from_csv(args):
         }
 
         cs_power = max([v[1] for v in vehicle_types[v_type]['charging_curve']])
-        charging_stations[cs_name] = {
+        charging_stations[cs_id] = {
             "max_power": cs_power,
             "min_power": args.cs_power_min if args.cs_power_min else 0.1 * cs_power,
             "parent": "GC1"
@@ -120,7 +119,7 @@ def generate_from_csv(args):
 
         # filter all trips for that vehicle
         vid_list = []
-        [vid_list.append(row) for row in input if (row["vehicle_id"] == v_name)]
+        [vid_list.append(row) for row in input if (row["vehicle_id"] == v_id)]
 
         # sort events for their departure time, so that the matching departure time of an
         # arrival event can be read out of the next element in vid_list
@@ -151,7 +150,7 @@ def generate_from_csv(args):
                     # might want to avoid very low battery levels (configurable in config)
                     soc_threshold = args.min_soc_threshold
                     if csv_start_soc < soc_threshold:
-                        warnings.warn(f"CSV contains very low SoC for '{vehicle_id}' "
+                        warnings.warn(f"CSV contains very low SoC for '{v_id}' "
                                       f"in row {idx + 1}.")
                 else:
                     # get vehicle infos
@@ -176,18 +175,18 @@ def generate_from_csv(args):
             # might want to avoid very low battery levels (configurable in config)
             soc_threshold = args.min_soc_threshold
             if (1 - delta_soc) < soc_threshold:
-                warnings.warn(f"CSV contains very high energy demand for '{vehicle_id}' "
+                warnings.warn(f"CSV contains very high energy demand for '{v_id}' "
                               f"in row {idx + 1}.")
 
             sum_delta_soc += delta_soc
 
             if int(row["connect_cs"]) == 1:
-                connect_cs = "CS_" + v_name
+                connect_cs = "CS_" + v_id
             else:
                 connect_cs = None
 
             if departure < arrival:
-                warnings.warn(f"{arrival}: {v_name} travelling in time (departing {departure}).")
+                warnings.warn(f"{arrival}: {v_id} travelling in time (departing {departure}).")
 
             # adjust SoC if sum_delta_soc > min_soc
             if connect_cs is not None:
@@ -195,7 +194,7 @@ def generate_from_csv(args):
                     trips_above_min_soc += 1
                     if last_arrival_event is None:
                         # initially unconnected: adjust initial SoC
-                        vehicles[v_name]["soc"] = sum_delta_soc
+                        vehicles[v_id]["soc"] = sum_delta_soc
                     else:
                         # adjust last event reference
                         last_arrival_event["update"]["desired_soc"] = sum_delta_soc
@@ -203,13 +202,13 @@ def generate_from_csv(args):
 
                 if sum_delta_soc > 1:
                     warnings.warn(
-                        f"Problem at {arrival.isoformat()}: vehicle {v_name} of type {v_type} used "
+                        f"Problem at {arrival.isoformat()}: vehicle {v_id} of type {v_type} used "
                         f"{round(sum_delta_soc * 100, 2)} % of its battery capacity.")
 
                 last_arrival_event = {
                     "signal_time": arrival.isoformat(),
                     "start_time": arrival.isoformat(),
-                    "vehicle_id": v_name,
+                    "vehicle_id": v_id,
                     "event_type": "arrival",
                     "update": {
                         "connected_charging_station": connect_cs,
@@ -225,13 +224,13 @@ def generate_from_csv(args):
 
                 if departure_event_in_input:
                     if departure > next_arrival:
-                        warnings.warn(f"{departure}: {v_name} travelling in time "
+                        warnings.warn(f"{departure}: {v_id} travelling in time "
                                       f"(arriving {next_arrival}).")
 
                     events["vehicle_events"].append({
                         "signal_time": departure.isoformat(),
                         "start_time": departure.isoformat(),
-                        "vehicle_id": v_name,
+                        "vehicle_id": v_id,
                         "event_type": "departure",
                         "update": {
                             "estimated_time_of_arrival":  next_arrival.isoformat(),
@@ -486,19 +485,18 @@ def assign_vehicle_id(input, vehicle_types, export=None):
                 # ordered by possible departure time: other rotations not possible as well
                 break
 
-        # find idle vehicle for rotation if exists
-        # else generate new vehicle id
+        # find idle vehicle for rotation if exists, else generate new vehicle id
         v_type = rot["vehicle_type"]
         try:
             # find idle vehicle for rotation
-            id = next(id for id in idle_vehicles if v_type in id)
-            idle_vehicles.remove(id)
+            v_id = next(v_id for v_id in idle_vehicles if v_type in v_id)
+            idle_vehicles.remove(v_id)
         except StopIteration:
             # no vehicle idle: generate new vehicle id
             v_type_counts[v_type] += 1
-            id = f"{v_type}_{v_type_counts[v_type]}"
+            v_id = f"{v_type}_{v_type_counts[v_type]}"
 
-        rot["vehicle_id"] = id
+        rot["vehicle_id"] = v_id
         # insert new rotation into list of ongoing rotations
         # calculate earliest possible new departure time
         min_departure_time = arrival_time + min_standing_times[v_type]
