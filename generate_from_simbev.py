@@ -322,29 +322,28 @@ def generate_from_simbev(args):
                                           f"{desired_soc:.3f}, possible: {battery.soc:.3f}.")
                         vehicle_soc = desired_soc
                 else:
+                    # tolerance for sanity checks, required due to possible rounding
+                    # differences between SimBEV and SpiceEV
+                    tolerance = 1e-5
                     # compute needed power and desired SoC independent of SimBEV
                     if not cs_present:
                         # no charging station or don't need to charge
                         # just increase charging demand based on consumption
                         soc_needed += consumption / vehicle_capacity
-                        assert soc_needed <= 1 + vehicle_soc + args.eps, (
-                            "Consumption too high for {} in row {}: "
-                            "vehicle charged to {}, needs SoC of {} ({} kWh). "
-                            "This might be caused by rounding differences, "
-                            "consider to increase the arg '--eps'.".format(
-                                vehicle_name, idx + 1, vehicle_soc,
-                                soc_needed, soc_needed * vehicle_capacity))
+                        assert soc_needed <= 1 + vehicle_soc + tolerance, (
+                            f"Consumption too high for {vehicle_name} in row {idx + 1}: "
+                            f"vehicle charged to {vehicle_soc}, needs SoC of {soc_needed} "
+                            f"({soc_needed * vehicle_capacity} kWh). This might be caused by "
+                            f"rounding differences between SimBEV and SpiceEV.")
                     else:
                         # charging station present
                         is_charge_event = True
 
                         if not last_cs_event:
                             # first charge: initial must be enough
-                            assert vehicle_soc >= soc_needed - args.eps, (
-                                "Initial charge for {} is not sufficient. "
-                                "This might be caused by rounding differences, "
-                                "consider to increase the arg '--eps'.".format(
-                                    vehicle_name))
+                            assert vehicle_soc >= soc_needed - tolerance, (
+                                f"Initial charge for {vehicle_name} is not sufficient. This might "
+                                f"be caused by rounding differences between SimBEV and SpiceEV.")
                         else:
                             # update desired SoC from last charging event
                             # this much charge must be in battery when leaving CS
@@ -591,9 +590,6 @@ if __name__ == '__main__':
     parser.add_argument('--verbose', '-v', action='count', default=0,
                         help='Set verbosity level. Use this multiple times for more output. '
                              'Default: only errors, 1: warnings, 2: debug')
-    parser.add_argument('--eps', metavar='EPS', type=float, default=1e-5,
-                        help='Tolerance used for sanity checks, required due to possible '
-                             'rounding differences between SimBEV and SpiceEV. Default: 1e-5')
 
     args = parser.parse_args()
 

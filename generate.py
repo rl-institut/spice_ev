@@ -468,8 +468,6 @@ if __name__ == '__main__':
     # config
     parser.add_argument('--config', help='Use config file to set arguments')
 
-    # other stuff
-    # ToDo eps?
     args = parser.parse_args()
 
     set_options_from_config(args, check=False, verbose=False)
