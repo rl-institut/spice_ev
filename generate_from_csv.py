@@ -118,25 +118,25 @@ def generate_from_csv(args):
         last_arrival_event = None
 
         # filter all trips for that vehicle
-        vid_list = []
-        [vid_list.append(row) for row in input if (row["vehicle_id"] == v_id)]
+        v_id_list = []
+        [v_id_list.append(row) for row in input if (row["vehicle_id"] == v_id)]
 
         # sort events for their departure time, so that the matching departure time of an
-        # arrival event can be read out of the next element in vid_list
-        vid_list = sorted(vid_list, key=lambda x: x["departure_time"])
+        # arrival event can be read out of the next element in v_id_list
+        v_id_list = sorted(v_id_list, key=lambda x: x["departure_time"])
 
         # initialize sum_delta_soc to add up delta_soc's of all trips until connected to a CS
         sum_delta_soc = 0
 
         # iterate over trips of vehicle
-        for idx, row in enumerate(vid_list):
+        for idx, row in enumerate(v_id_list):
             departure_event_in_input = True
             arrival = row["arrival_time"]
             arrival = datetime.datetime.strptime(arrival, DATETIME_FORMAT)
             try:
-                departure = vid_list[idx + 1]["departure_time"]
+                departure = v_id_list[idx + 1]["departure_time"]
                 departure = datetime.datetime.strptime(departure, DATETIME_FORMAT)
-                next_arrival = vid_list[idx + 1]["arrival_time"]
+                next_arrival = v_id_list[idx + 1]["arrival_time"]
                 next_arrival = datetime.datetime.strptime(next_arrival, DATETIME_FORMAT)
             except IndexError:
                 departure_event_in_input = False
