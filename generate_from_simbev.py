@@ -21,17 +21,17 @@ def parse_vehicle_types(tech_data):
     :returns: vehicle types
     :rtype: dict
     """
-    vehicle_types = {}
+    predefined_vehicle_types = {}
     for name, data in tech_data.items():
         max_charge = max(data["max_charging_capacity_slow"], data["max_charging_capacity_fast"])
-        vehicle_types[name] = {
+        predefined_vehicle_types[name] = {
             "name": name,
             "capacity": data["battery_capacity"],
             "mileage": round(data["energy_consumption"] * 100, 2),
             "charging_curve": [[0, max_charge], [1, max_charge]],
             "min_charging_power": 0.1,
         }
-    return vehicle_types
+    return predefined_vehicle_types
 
 
 def generate_from_simbev(args):
@@ -53,21 +53,21 @@ def generate_from_simbev(args):
     with open(metadata_path) as f:
         metadata = json.load(f)
 
-    # first monday of 2021
-    # SimBEV uses MiD data and creates data for an exemplary week, so there are no exact dates.
+    # take start time from SimBEV metadata
     start = datetime.datetime.strptime(metadata["config"]["basic"]["start_date"], "%Y-%m-%d")
     interval = datetime.timedelta(minutes=args.interval)
     n_intervals = 0
 
+    # get defined vehicle types
     if args.vehicle_types is None:
         print("No definition of vehicle types found, using vehicles from metadata.")
-        vehicle_types = parse_vehicle_types(metadata["tech_data"])
+        predefined_vehicle_types = parse_vehicle_types(metadata["tech_data"])
     else:
         ext = args.vehicle_types.split('.')[-1]
         if ext != "json":
             warnings.warn("File extension mismatch: vehicle type file should be '.json'.")
         with open(args.vehicle_types) as f:
-            vehicle_types = json.load(f)
+            predefined_vehicle_types = json.load(f)
 
     def datetime_from_timestep(timestep):
         assert type(timestep) == int
@@ -81,9 +81,27 @@ def generate_from_simbev(args):
         pathlist = list(region_path.rglob('*_events.csv'))
     pathlist.sort()
 
+    # INITIALIZE CONSTANTS AND EVENTS
+    vehicle_types = {}
     vehicles = {}
     batteries = {}
     charging_stations = {}
+    events = {
+        "grid_operator_signals": [],
+        "external_load": {},
+        "energy_feed_in": {},
+        "vehicle_events": []
+    }
+
+    # count number of trips for which desired_soc is above min_soc
+    trips_above_min_soc = 0
+    trips_total = 0
+
+    # update vehicle types with vehicle types actually present
+    for v_type, count in metadata['car_sum'].items():
+        if count > 0:
+            vehicle_types.update({v_type: predefined_vehicle_types[v_type]})
+
     for idx, (capacity, c_rate) in enumerate(args.battery):
         if capacity > 0:
             max_power = c_rate * capacity
@@ -95,17 +113,6 @@ def generate_from_simbev(args):
             "capacity": capacity,
             "charging_curve": [[0, max_power], [1, max_power]]
         }
-
-    events = {
-        "grid_operator_signals": [],
-        "external_load": {},
-        "energy_feed_in": {},
-        "vehicle_events": []
-    }
-
-    # count number of trips for which desired_soc is above min_soc
-    trips_above_min_soc = 0
-    trips_total = 0
 
     # save path and options for CSV timeseries
     # all paths are relative to output file

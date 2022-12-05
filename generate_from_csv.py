@@ -47,7 +47,7 @@ def generate_from_csv(args):
     # define target path for relative input or output files
     target_path = path.dirname(args.output)
 
-    # VEHICLES
+    # get defined vehicle types
     if args.vehicle_types is None:
         args.vehicle_types = "examples/vehicle_types.json"
         print(f"No definition of vehicle types found, using {args.vehicle_types}.")
@@ -57,6 +57,7 @@ def generate_from_csv(args):
     with open(args.vehicle_types) as f:
         predefined_vehicle_types = json.load(f)
 
+    # INITIALIZE CONSTANTS AND EVENTS
     vehicle_types = {}
     vehicles = {}
     batteries = {}
@@ -72,12 +73,12 @@ def generate_from_csv(args):
     trips_above_min_soc = 0
     trips_total = 0
 
-    for vehicle_type in {item['vehicle_type'] for item in input}:
-        # update vehicle types with vehicles in input csv
+    # update vehicle types with vehicle types actually present
+    for v_type in {item['vehicle_type'] for item in input}:
         try:
-            vehicle_types.update({vehicle_type: predefined_vehicle_types[vehicle_type]})
+            vehicle_types.update({v_type: predefined_vehicle_types[v_type]})
         except KeyError:
-            print(f"The vehicle type '{vehicle_type}' defined in the input csv cannot be found in "
+            print(f"The vehicle type '{v_type}' defined in the input csv cannot be found in "
                   f"vehicle_types.json. Please check for consistency.")
 
     if "vehicle_id" not in input[0].keys():
@@ -95,7 +96,7 @@ def generate_from_csv(args):
         input = [dict(item, **{'connect_cs': 1}) for item in input]
 
     for vehicle_id in {item['vehicle_id'] for item in input}:
-        vt = [d for d in input if d['vehicle_id'] == vehicle_id][0]["vehicle_type"]
+        v_type = [d for d in input if d['vehicle_id'] == vehicle_id][0]["vehicle_type"]
         v_name = vehicle_id
         cs_name = "CS_" + v_name
 
@@ -104,10 +105,10 @@ def generate_from_csv(args):
             "connected_charging_station": None,
             "estimated_time_of_departure": None,
             "soc": args.min_soc,
-            "vehicle_type": vt
+            "vehicle_type": v_type
         }
 
-        cs_power = max([v[1] for v in vehicle_types[vt]['charging_curve']])
+        cs_power = max([v[1] for v in vehicle_types[v_type]['charging_curve']])
         charging_stations[cs_name] = {
             "max_power": cs_power,
             "min_power": args.cs_power_min if args.cs_power_min else 0.1 * cs_power,
@@ -154,10 +155,10 @@ def generate_from_csv(args):
                                       f"in row {idx + 1}.")
                 else:
                     # get vehicle infos
-                    capacity = vehicle_types[vt]["capacity"]
+                    capacity = vehicle_types[v_type]["capacity"]
                     try:
                         # convert mileage per 100 km in 1 km
-                        mileage = vehicle_types[vt]["mileage"] / 100
+                        mileage = vehicle_types[v_type]["mileage"] / 100
                     except ValueError:
                         print("In order to assign the vehicle consumption, either a mileage must"
                               "be given in vehicle_types.json or a soc or delta_soc must be "
@@ -202,7 +203,7 @@ def generate_from_csv(args):
 
                 if sum_delta_soc > 1:
                     warnings.warn(
-                        f"Problem at {arrival.isoformat()}: vehicle {v_name} of type {vt} used "
+                        f"Problem at {arrival.isoformat()}: vehicle {v_name} of type {v_type} used "
                         f"{round(sum_delta_soc * 100, 2)} % of its battery capacity.")
 
                 last_arrival_event = {
@@ -449,15 +450,16 @@ def assign_vehicle_id(input, vehicle_types, export=None):
     # list of currently idle vehicles
     idle_vehicles = []
     # keep track of number of needed vehicles per type
-    vehicle_type_counts = {vehicle_type: 0 for vehicle_type in vehicle_types.keys()}
+    v_type_counts = {v_type: 0 for v_type in vehicle_types.keys()}
 
     # calculate min_standing_time at a charging station for each vehicle type
     # CS power is identical for all vehicles per type: maximum of loading curve
-    cs_power = {vt: max([v[1] for v in vi["charging_curve"]]) for vt, vi in vehicle_types.items()}
+    cs_power = {v_type: max([v[1] for v in v_info["charging_curve"]])
+                for v_type, v_info in vehicle_types.items()}
     min_standing_times = {
-        vt: datetime.timedelta(hours=(
-            vi["capacity"] / cs_power[vt]
-        )) for vt, vi in vehicle_types.items()}
+        v_type: datetime.timedelta(hours=(
+            v_info["capacity"] / cs_power[v_type]
+        )) for v_type, v_info in vehicle_types.items()}
 
     # sort rotations by departure time
     rotations = sorted(input, key=lambda d: d.get('departure_time'))
@@ -486,20 +488,20 @@ def assign_vehicle_id(input, vehicle_types, export=None):
 
         # find idle vehicle for rotation if exists
         # else generate new vehicle id
-        vt = rot["vehicle_type"]
+        v_type = rot["vehicle_type"]
         try:
             # find idle vehicle for rotation
-            id = next(id for id in idle_vehicles if vt in id)
+            id = next(id for id in idle_vehicles if v_type in id)
             idle_vehicles.remove(id)
         except StopIteration:
             # no vehicle idle: generate new vehicle id
-            vehicle_type_counts[vt] += 1
-            id = f"{vt}_{vehicle_type_counts[vt]}"
+            v_type_counts[v_type] += 1
+            id = f"{v_type}_{v_type_counts[v_type]}"
 
         rot["vehicle_id"] = id
         # insert new rotation into list of ongoing rotations
         # calculate earliest possible new departure time
-        min_departure_time = arrival_time + min_standing_times[vt]
+        min_departure_time = arrival_time + min_standing_times[v_type]
         # find place to insert
         i = 0
         for i, r in enumerate(rotations_in_progress):

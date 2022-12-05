@@ -18,17 +18,17 @@ def datetime_from_string(s):
     return datetime.datetime(1972, 1, 1, h, m)
 
 
-def generate_trip(vehicle_type_info):
+def generate_trip(v_type_info):
     """
     Creates randomly generated trips from average input arguments
 
-    :param vehicle_type_info: info of used vehicle_type
-    :type vehicle_type_info: dict
+    :param v_type_info: info of used vehicle_type
+    :type v_type_info: dict
     :raises Exception: if the time format is not hh:mm
     :return: start (datetime), duration (timedelta), distance (float)
     """
 
-    stat_values = vehicle_type_info["statistical_values"]
+    stat_values = v_type_info["statistical_values"]
 
     # create trip dictionary with statistical values for current vehicle
     trip = {"avg_distance": stat_values["distance_in_km"].get("avg_distance"),
@@ -48,7 +48,7 @@ def generate_trip(vehicle_type_info):
     for k, v in trip.items():
         # check all necessary info is given
         assert v is not None, (f"Parameter '{k}' missing for vehicle type "
-                               f"'{vehicle_type_info['name']}'. "
+                               f"'{v_type_info['name']}'. "
                                "Please provide statistical values in vehicle_type.json.")
         # parse times from string
         if k in ["avg_start", "min_start", "max_start"]:
@@ -118,6 +118,7 @@ def generate(args):
     if args.vehicles is None:
         args.vehicles = [['1', 'golf'], ['1', 'sprinter']]
 
+    # get defined vehicle types
     if args.vehicle_types is None:
         args.vehicle_types = "examples/vehicle_types.json"
         print(f"No definition of vehicle types found, using {args.vehicle_types}")
@@ -125,28 +126,42 @@ def generate(args):
     if ext != "json":
         warnings.warn("File extension mismatch: vehicle type file should be '.json'")
     with open(args.vehicle_types) as f:
-        vehicle_types = json.load(f)
+        predefined_vehicle_types = json.load(f)
 
-    for count, vehicle_type in args.vehicles:
-        assert vehicle_type in vehicle_types, \
-            f"The given vehicle type '{vehicle_type}' is not valid. " \
-            f"Should be one of {list(vehicle_types.keys())}."
-        vehicle_types[vehicle_type]["count"] = int(count)
-
-    # VEHICLES WITH THEIR CHARGING STATION
+    # INITIALIZE CONSTANTS AND EVENTS
+    vehicle_types = {}
     vehicles = {}
     batteries = {}
     charging_stations = {}
-    for name, t in vehicle_types.items():
+    events = {
+        "grid_operator_signals": [],
+        "external_load": {},
+        "energy_feed_in": {},
+        "vehicle_events": []
+    }
+
+    # count number of trips for which desired_soc is above min_soc
+    trips_above_min_soc = 0
+    trips_total = 0
+
+    # update vehicle types with vehicle types actually present
+    for count, v_type in args.vehicles:
+        assert v_type in predefined_vehicle_types, \
+            f"The given vehicle type '{v_type}' is not valid. " \
+            f"Should be one of {list(predefined_vehicle_types.keys())}."
+        vehicle_types.update({v_type: predefined_vehicle_types[v_type]})
+        vehicle_types[v_type]["count"] = int(count)
+
+    for v_type, t in vehicle_types.items():
         for i in range(t.get("count", 0)):
-            v_name = "{}_{}".format(name, i)
+            v_name = "{}_{}".format(v_type, i)
             cs_name = "CS_" + v_name
             vehicles[v_name] = {
                 "connected_charging_station": cs_name,
                 "estimated_time_of_departure": None,
                 "desired_soc": None,
                 "soc": args.min_soc,
-                "vehicle_type": name
+                "vehicle_type": v_type
             }
 
             cs_power = max([v[1] for v in t['charging_curve']])
@@ -167,13 +182,6 @@ def generate(args):
             "capacity": capacity,
             "charging_curve": [[0, max_power], [1, max_power]]
         }
-
-    events = {
-        "grid_operator_signals": [],
-        "external_load": {},
-        "energy_feed_in": {},
-        "vehicle_events": []
-    }
 
     # save path and options for CSV timeseries
     # all paths are relative to output file
@@ -247,10 +255,6 @@ def generate(args):
     if soc_threshold:
         warnings.warn("Argument 'min_soc_threshold' has no relevance for generation "
                       "of driving profiles.")
-
-    # count number of trips for which desired_soc is above min_soc
-    trips_above_min_soc = 0
-    trips_total = 0
 
     # create daily vehicle and price events
     daily = datetime.timedelta(days=1)
@@ -355,12 +359,7 @@ def generate(args):
 
     # end of scenario
 
-    # remove temporary information, only retain vehicle types that are actually present
-    vehicle_types_present = {}
-    for k, v in vehicle_types.items():
-        if "count" in v and v["count"] > 0:
-            del v["count"]
-            vehicle_types_present[k] = v
+    # remove temporary information
     for v in vehicles.values():
         del v["last_arrival_idx"]
         del v["arrival"]
@@ -379,7 +378,7 @@ def generate(args):
             "discharge_limit": args.discharge_limit,
         },
         "constants": {
-            "vehicle_types": vehicle_types_present,
+            "vehicle_types": vehicle_types,
             "vehicles": vehicles,
             "grid_connectors": {
                 "GC1": {
