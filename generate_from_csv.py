@@ -117,7 +117,7 @@ def generate_from_csv(args):
         # keep track of last arrival event to adjust desired SoC if needed
         last_arrival_event = None
 
-        # filter all rides for that vehicle
+        # filter all trips for that vehicle
         vid_list = []
         [vid_list.append(row) for row in input if (row["vehicle_id"] == v_name)]
 
@@ -128,14 +128,15 @@ def generate_from_csv(args):
         # initialize sum_delta_soc to add up delta_soc's of all trips until connected to a CS
         sum_delta_soc = 0
 
-        for index, row in enumerate(vid_list):
+        # iterate over trips of vehicle
+        for idx, row in enumerate(vid_list):
             departure_event_in_input = True
             arrival = row["arrival_time"]
             arrival = datetime.datetime.strptime(arrival, DATETIME_FORMAT)
             try:
-                departure = vid_list[index+1]["departure_time"]
+                departure = vid_list[idx + 1]["departure_time"]
                 departure = datetime.datetime.strptime(departure, DATETIME_FORMAT)
-                next_arrival = vid_list[index+1]["arrival_time"]
+                next_arrival = vid_list[idx + 1]["arrival_time"]
                 next_arrival = datetime.datetime.strptime(next_arrival, DATETIME_FORMAT)
             except IndexError:
                 departure_event_in_input = False
@@ -150,7 +151,7 @@ def generate_from_csv(args):
                     soc_threshold = args.min_soc_threshold
                     if csv_start_soc < soc_threshold:
                         warnings.warn(f"CSV contains very low SoC for '{vehicle_id}' "
-                                      f"in row {index+1}.")
+                                      f"in row {idx + 1}.")
                 else:
                     # get vehicle infos
                     capacity = vehicle_types[vt]["capacity"]
@@ -175,7 +176,7 @@ def generate_from_csv(args):
             soc_threshold = args.min_soc_threshold
             if (1 - delta_soc) < soc_threshold:
                 warnings.warn(f"CSV contains very high energy demand for '{vehicle_id}' "
-                              f"in row {index+1}.")
+                              f"in row {idx + 1}.")
 
             sum_delta_soc += delta_soc
 
@@ -247,7 +248,7 @@ def generate_from_csv(args):
         else:
             # unlimited battery: set power directly
             max_power = c_rate
-        batteries["BAT{}".format(idx+1)] = {
+        batteries["BAT{}".format(idx + 1)] = {
             "parent": "GC1",
             "capacity": capacity,
             "charging_curve": [[0, max_power], [1, max_power]]

@@ -286,21 +286,22 @@ def generate_from_simbev(args):
                 simbev_soc_end = float(row["soc_end"])
                 # SoC must not be negative
                 assert simbev_soc_start >= 0 and simbev_soc_end >= 0, \
-                    f"SimBEV created negative SoC for {vehicle_name} in row {idx+3}."
+                    f"SimBEV created negative SoC for {vehicle_name} in row {idx + 1}."
                 # might want to avoid very low battery levels (configurable in config)
                 soc_threshold = args.min_soc_threshold
                 if args.verbose > 0 and (
                         simbev_soc_start < soc_threshold
                         or simbev_soc_end < soc_threshold):
-                    warnings.warn(f"SimBEV created very low SoC for {vehicle_name} in row {idx+1}.")
+                    warnings.warn(f"SimBEV created very low SoC for {vehicle_name} "
+                                  f"in row {idx + 1}.")
 
                 simbev_demand = max(float(row["energy"]), 0)
                 assert cs_power > 0 or simbev_demand == 0, \
-                    f"Charging event without charging station: {vehicle_name} in row {idx+3}."
+                    f"Charging event without charging station: {vehicle_name} in row {idx + 1}."
 
                 cs_present = cs_power > 0
                 assert (not cs_present) or consumption == 0, \
-                    f"Consumption while charging for {vehicle_name} in row {idx+3}."
+                    f"Consumption while charging for {vehicle_name} in row {idx + 1}."
 
                 # actual driving and charging behavior
                 if not args.ignore_simbev_soc:
