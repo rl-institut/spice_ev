@@ -152,8 +152,8 @@ def generate(args):
         vehicle_types.update({v_type: predefined_vehicle_types[v_type]})
         vehicle_types[v_type]["count"] = int(count)
 
-    for v_type, t in vehicle_types.items():
-        for i in range(t.get("count", 0)):
+    for v_type, v_type_info in vehicle_types.items():
+        for i in range(v_type_info.get("count", 0)):
             v_id = "{}_{}".format(v_type, i)
             cs_id = "CS_" + v_id
             vehicles[v_id] = {
@@ -164,7 +164,7 @@ def generate(args):
                 "vehicle_type": v_type
             }
 
-            cs_power = max([v[1] for v in t['charging_curve']])
+            cs_power = max([v[1] for v in v_type_info['charging_curve']])
             charging_stations[cs_id] = {
                 "max_power": cs_power,
                 "min_power": args.cs_power_min if args.cs_power_min else 0.1 * cs_power,
@@ -263,20 +263,20 @@ def generate(args):
         now += daily
 
         # create vehicle events for this day
-        for v_id, v in vehicles.items():
+        for v_id, v_info in vehicles.items():
             # check if day is defined as a no driving day for this vehicle_type
-            if now.weekday() in vehicle_types[v["vehicle_type"]].get("no_drive_days", []):
+            if now.weekday() in vehicle_types[v_info["vehicle_type"]].get("no_drive_days", []):
                 continue
             if now.date().isoformat() in vars(args).get("holidays", []):
                 break
 
             # get vehicle infos
-            capacity = vehicle_types[v["vehicle_type"]]["capacity"]
+            capacity = vehicle_types[v_info["vehicle_type"]]["capacity"]
             # convert mileage per 100 km in 1 km
-            mileage = vehicle_types[v["vehicle_type"]]["mileage"] / 100
+            mileage = vehicle_types[v_info["vehicle_type"]]["mileage"] / 100
 
             # generate trip event
-            dep_time, duration, distance = generate_trip(vehicle_types[v["vehicle_type"]])
+            dep_time, duration, distance = generate_trip(vehicle_types[v_info["vehicle_type"]])
             departure = datetime.datetime.combine(now.date(), dep_time, now.tzinfo)
             arrival = departure + duration
             soc_delta = distance * mileage / capacity
@@ -284,21 +284,21 @@ def generate(args):
             desired_soc = soc_delta * (1 + vars(args).get("buffer", 0.1))
             desired_soc = max(args.min_soc, desired_soc)
             # update initial desired SoC
-            v["desired_soc"] = v["desired_soc"] or desired_soc
+            v_info["desired_soc"] = v_info["desired_soc"] or desired_soc
             update = {
                 "estimated_time_of_departure": departure.isoformat(),
                 "desired_soc": desired_soc
             }
 
-            if "last_arrival_idx" in v:
-                if v["arrival"] >= departure:
+            if "last_arrival_idx" in v_info:
+                if v_info["arrival"] >= departure:
                     # still on last trip, discard new trip
                     continue
                 # update last arrival event
-                events["vehicle_events"][v["last_arrival_idx"]]["update"].update(update)
+                events["vehicle_events"][v_info["last_arrival_idx"]]["update"].update(update)
             else:
                 # first event for this vehicle: update directly
-                v.update(update)
+                v_info.update(update)
 
             if now >= stop:
                 # after end of scenario: keep generating trips, but don't include in scenario
@@ -317,8 +317,8 @@ def generate(args):
                 }
             })
 
-            v["last_arrival_idx"] = len(events["vehicle_events"])
-            v["arrival"] = arrival
+            v_info["last_arrival_idx"] = len(events["vehicle_events"])
+            v_info["arrival"] = arrival
 
             events["vehicle_events"].append({
                 "signal_time": arrival.isoformat(),
@@ -360,9 +360,9 @@ def generate(args):
     # end of scenario
 
     # remove temporary information
-    for v in vehicles.values():
-        del v["last_arrival_idx"]
-        del v["arrival"]
+    for v_info in vehicles.values():
+        del v_info["last_arrival_idx"]
+        del v_info["arrival"]
 
     # check voltage level (used in cost calculation)
     voltage_level = vars(args).get("voltage_level")
