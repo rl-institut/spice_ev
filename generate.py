@@ -109,7 +109,7 @@ def generate(args):
         start = datetime_from_isoformat(DEFAULT_START_TIME)
         warnings.warn("Start time could not be parsed. "
                       "Use ISO format like YYYY-MM-DDTHH:MM:SS+TZ:TZ. "
-                      "Default start time {} will be used.".format(DEFAULT_START_TIME))
+                      f"Default start time {DEFAULT_START_TIME} will be used.")
     start = start.replace(tzinfo=datetime.timezone(datetime.timedelta(hours=2)))
     stop = start + datetime.timedelta(days=args.days)
     interval = datetime.timedelta(minutes=args.interval)
@@ -120,17 +120,17 @@ def generate(args):
 
     if args.vehicle_types is None:
         args.vehicle_types = "examples/vehicle_types.json"
-        print("No definition of vehicle types found, using {}".format(args.vehicle_types))
+        print(f"No definition of vehicle types found, using {args.vehicle_types}")
     ext = args.vehicle_types.split('.')[-1]
     if ext != "json":
-        print("File extension mismatch: vehicle type file should be .json")
+        warnings.warn("File extension mismatch: vehicle type file should be '.json'")
     with open(args.vehicle_types) as f:
         vehicle_types = json.load(f)
 
     for count, vehicle_type in args.vehicles:
         assert vehicle_type in vehicle_types, \
-            'The given vehicle type "{}" is not valid. ' \
-            'Should be one of {}'.format(vehicle_type, list(vehicle_types.keys()))
+            f"The given vehicle type '{vehicle_type}' is not valid. " \
+            f"Should be one of {list(vehicle_types.keys())}."
         vehicle_types[vehicle_type]["count"] = int(count)
 
     # VEHICLES WITH THEIR CHARGING STATION
@@ -179,6 +179,7 @@ def generate(args):
     # all paths are relative to output file
     target_path = path.dirname(args.output)
 
+    # external load CSV
     if args.include_ext_load_csv:
         filename = args.include_ext_load_csv
         basename = path.splitext(path.basename(filename))[0]
@@ -198,8 +199,9 @@ def generate(args):
         # check if CSV file exists
         ext_csv_path = path.join(target_path, filename)
         if not path.exists(ext_csv_path):
-            print("Warning: external csv file '{}' does not exist yet".format(ext_csv_path))
+            warnings.warn(f"External csv file '{ext_csv_path}' does not exist yet.")
 
+    # energy feed-in CSV (e.g. from PV)
     if args.include_feed_in_csv:
         filename = args.include_feed_in_csv
         basename = path.splitext(path.basename(filename))[0]
@@ -218,8 +220,9 @@ def generate(args):
         events['energy_feed_in'][basename] = options
         feed_in_path = path.join(target_path, filename)
         if not path.exists(feed_in_path):
-            print("Warning: feed-in csv file '{}' does not exist yet".format(feed_in_path))
+            warnings.warn(f"Feed-in csv file '{feed_in_path}' does not exist yet.")
 
+    # energy price CSV
     if args.include_price_csv:
         filename = args.include_price_csv
         # basename = path.splitext(path.basename(filename))[0]
@@ -237,13 +240,13 @@ def generate(args):
         events['energy_price_from_csv'] = options
         price_csv_path = path.join(target_path, filename)
         if not path.exists(price_csv_path):
-            print("Warning: price csv file '{}' does not exist yet".format(price_csv_path))
+            warnings.warn(f"Price csv file '{price_csv_path}' does not exist yet.")
 
     # argument 'min_soc_threshold' has no relevance for generation of synthetic driving profiles
     soc_threshold = vars(args).get("min_soc_threshold")
     if soc_threshold:
-        print("WARNING: Argument 'min_soc_threshold' has no relevance for "
-              "generation of driving profiles.")
+        warnings.warn("Argument 'min_soc_threshold' has no relevance for generation "
+                      "of driving profiles.")
 
     # count number of trips for which desired_soc is above min_soc
     trips_above_min_soc = 0
@@ -365,7 +368,7 @@ def generate(args):
     # check voltage level (used in cost calculation)
     voltage_level = vars(args).get("voltage_level")
     if voltage_level is None:
-        warnings.warn("Voltage level is not set, please choose one when calculating costs.")
+        warnings.warn("Voltage level is not set. Please choose one when calculating costs.")
 
     # create final dict
     j = {

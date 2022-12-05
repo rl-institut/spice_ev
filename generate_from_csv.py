@@ -50,10 +50,10 @@ def generate_from_csv(args):
     # VEHICLES
     if args.vehicle_types is None:
         args.vehicle_types = "examples/vehicle_types.json"
-        print("No definition of vehicle types found, using {}".format(args.vehicle_types))
+        print(f"No definition of vehicle types found, using {args.vehicle_types}.")
     ext = args.vehicle_types.split('.')[-1]
     if ext != "json":
-        print("File extension mismatch: vehicle type file should be .json")
+        warnings.warn("File extension mismatch: vehicle type file should be '.json'.")
     with open(args.vehicle_types) as f:
         predefined_vehicle_types = json.load(f)
 
@@ -77,7 +77,7 @@ def generate_from_csv(args):
         try:
             vehicle_types.update({vehicle_type: predefined_vehicle_types[vehicle_type]})
         except KeyError:
-            print(f"The vehicle type {vehicle_type} defined in the input csv cannot be found in "
+            print(f"The vehicle type '{vehicle_type}' defined in the input csv cannot be found in "
                   f"vehicle_types.json. Please check for consistency.")
 
     if "vehicle_id" not in input[0].keys():
@@ -149,8 +149,8 @@ def generate_from_csv(args):
                     # might want to avoid very low battery levels (configurable in config)
                     soc_threshold = args.min_soc_threshold
                     if csv_start_soc < soc_threshold:
-                        print("WARNING: CSV contains very low SoC for {} in row {}"
-                              .format(vehicle_id, index + 1))
+                        warnings.warn(f"CSV contains very low SoC for '{vehicle_id}' "
+                                      f"in row {index+1}.")
                 else:
                     # get vehicle infos
                     capacity = vehicle_types[vt]["capacity"]
@@ -174,8 +174,8 @@ def generate_from_csv(args):
             # might want to avoid very low battery levels (configurable in config)
             soc_threshold = args.min_soc_threshold
             if (1 - delta_soc) < soc_threshold:
-                print("WARNING: CSV contains very high energy demand for {} in row {}"
-                      .format(vehicle_id, index + 1))
+                warnings.warn(f"CSV contains very high energy demand for '{vehicle_id}' "
+                              f"in row {index+1}.")
 
             sum_delta_soc += delta_soc
 
@@ -185,8 +185,7 @@ def generate_from_csv(args):
                 connect_cs = None
 
             if departure < arrival:
-                warnings.warn("{}: {} travelling in time (departing {})".format(
-                        arrival, v_name, departure))
+                warnings.warn(f"{arrival}: {v_name} travelling in time (departing {departure}).")
 
             # adjust SoC if sum_delta_soc > min_soc
             if connect_cs is not None:
@@ -202,9 +201,8 @@ def generate_from_csv(args):
 
                 if sum_delta_soc > 1:
                     warnings.warn(
-                        "Problem at {}: vehicle {} of type {} used {}% of its battery".format(
-                            arrival.isoformat(), v_name, vt, round(sum_delta_soc * 100, 2)
-                        ))
+                        f"Problem at {arrival.isoformat()}: vehicle {v_name} of type {vt} used "
+                        f"{round(sum_delta_soc * 100, 2)} % of its battery capacity.")
 
                 last_arrival_event = {
                     "signal_time": arrival.isoformat(),
@@ -225,8 +223,8 @@ def generate_from_csv(args):
 
                 if departure_event_in_input:
                     if departure > next_arrival:
-                        warnings.warn("{}: {} travelling in time (arriving {})".format(
-                                departure, v_name, next_arrival))
+                        warnings.warn(f"{departure}: {v_name} travelling in time "
+                                      f"(arriving {next_arrival}).")
 
                     events["vehicle_events"].append({
                         "signal_time": departure.isoformat(),
@@ -263,6 +261,7 @@ def generate_from_csv(args):
     start = datetime.datetime.strptime(start, DATETIME_FORMAT)
     stop = start + datetime.timedelta(days=args.days)
 
+    # external load CSV
     if args.include_ext_load_csv:
         filename = args.include_ext_load_csv
         basename = path.splitext(path.basename(filename))[0]
@@ -282,10 +281,9 @@ def generate_from_csv(args):
         # check if CSV file exists
         ext_csv_path = path.join(target_path, filename)
         if not path.exists(ext_csv_path):
-            print(
-                "Warning: external csv file '{}' does not exist yet".format(
-                    ext_csv_path))
+            warnings.warn(f"External csv file '{ext_csv_path}' does not exist yet.")
 
+    # energy feed-in CSV (e.g. from PV)
     if args.include_feed_in_csv:
         filename = args.include_feed_in_csv
         basename = path.splitext(path.basename(filename))[0]
@@ -304,10 +302,9 @@ def generate_from_csv(args):
         events['energy_feed_in'][basename] = options
         feed_in_path = path.join(target_path, filename)
         if not path.exists(feed_in_path):
-            print(
-                "Warning: feed-in csv file '{}' does not exist yet".format(
-                    feed_in_path))
+            warnings.warn(f"Feed-in csv file '{feed_in_path}' does not exist yet.")
 
+    # energy price CSV
     if args.include_price_csv:
         filename = args.include_price_csv
         # basename = path.splitext(path.basename(filename))[0]
@@ -325,8 +322,7 @@ def generate_from_csv(args):
         events['energy_price_from_csv'] = options
         price_csv_path = path.join(target_path, filename)
         if not path.exists(price_csv_path):
-            print("Warning: price csv file '{}' does not exist yet".format(
-                price_csv_path))
+            warnings.warn(f"Price csv file '{price_csv_path}' does not exist yet.")
 
     daily = datetime.timedelta(days=1)
     # price events

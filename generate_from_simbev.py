@@ -47,9 +47,9 @@ def generate_from_simbev(args):
 
     # read simbev metadata
     simbev_path = Path(args.simbev)
-    assert simbev_path.exists(), "SimBEV directory {} does not exist".format(args.simbev)
+    assert simbev_path.exists(), f"SimBEV directory {args.simbev} does not exist."
     metadata_path = Path(simbev_path, "metadata_simbev_run.json")
-    assert metadata_path.exists(), "Metadata file does not exist in SimBEV directory"
+    assert metadata_path.exists(), "Metadata file does not exist in SimBEV directory."
     with open(metadata_path) as f:
         metadata = json.load(f)
 
@@ -60,12 +60,12 @@ def generate_from_simbev(args):
     n_intervals = 0
 
     if args.vehicle_types is None:
-        print("No definition of vehicle types found, using vehicles from metadata")
+        print("No definition of vehicle types found, using vehicles from metadata.")
         vehicle_types = parse_vehicle_types(metadata["tech_data"])
     else:
         ext = args.vehicle_types.split('.')[-1]
         if ext != "json":
-            print("File extension mismatch: vehicle type file should be .json")
+            warnings.warn("File extension mismatch: vehicle type file should be '.json'.")
         with open(args.vehicle_types) as f:
             vehicle_types = json.load(f)
 
@@ -122,19 +122,22 @@ def generate_from_simbev(args):
             "grid_connector_id": "GC1",
             "column": "energy"
         }
-        for key, value in args.include_ext_csv_option:
-            options[key] = value
+        if args.include_ext_csv_option:
+            for key, value in args.include_ext_csv_option:
+                if key == "step_duration_s":
+                    value = int(value)
+                options[key] = value
         events['external_load'][basename] = options
         # check if CSV file exists
         ext_csv_path = target_path.joinpath(filename)
         if not ext_csv_path.exists() and args.verbose > 0:
-            print("Warning: external csv file '{}' does not exist yet".format(ext_csv_path))
+            warnings.warn(f"External csv file '{ext_csv_path}' does not exist yet.")
         else:
             with open(ext_csv_path, newline='') as csvfile:
                 reader = csv.DictReader(csvfile)
                 if not options["column"] in reader.fieldnames:
-                    print("Warning: external csv file {} has no column {}".format(
-                          ext_csv_path, options["column"]))
+                    warnings.warn(f"External csv file '{ext_csv_path}' has no column "
+                                  f"'{options['column']}'.")
 
     # energy feed-in CSV (e.g. from PV)
     if args.include_feed_in_csv:
@@ -147,18 +150,21 @@ def generate_from_simbev(args):
             "grid_connector_id": "GC1",
             "column": "energy"
         }
-        for key, value in args.include_feed_in_csv_option:
-            options[key] = value
+        if args.include_feed_in_csv_option:
+            for key, value in args.include_feed_in_csv_option:
+                if key == "step_duration_s":
+                    value = int(value)
+                options[key] = value
         events['energy_feed_in'][basename] = options
         feed_in_path = target_path.joinpath(filename)
         if not feed_in_path.exists() and args.verbose > 0:
-            print("Warning: feed-in csv file '{}' does not exist yet".format(feed_in_path))
+            warnings.warn(f"Feed-in csv file '{feed_in_path}' does not exist yet.")
         else:
             with open(feed_in_path, newline='') as csvfile:
                 reader = csv.DictReader(csvfile)
                 if not options["column"] in reader.fieldnames:
-                    print("Warning: feed-in csv file {} has no column {}".format(
-                          feed_in_path, options["column"]))
+                    warnings.warn(f"Feed-in csv file '{feed_in_path}' has no column "
+                                  f"'{options['column']}'.")
 
     # energy price CSV
     if args.include_price_csv:
@@ -172,21 +178,23 @@ def generate_from_simbev(args):
             "column": "price [ct/kWh]"
         }
         for key, value in args.include_price_csv_option:
+            if key == "step_duration_s":
+                value = int(value)
             options[key] = value
         events['energy_price_from_csv'] = options
         price_csv_path = target_path.joinpath(filename)
         if not price_csv_path.exists() and args.verbose > 0:
-            print("Warning: price csv file '{}' does not exist yet".format(price_csv_path))
+            warnings.warn(f"Price csv file '{price_csv_path}' does not exist yet.")
         else:
             with open(price_csv_path, newline='') as csvfile:
                 reader = csv.DictReader(csvfile)
                 if not options["column"] in reader.fieldnames:
-                    print("Warning: price csv file {} has no column {}".format(
-                          price_csv_path, options["column"]))
+                    warnings.warn(f"Price csv file '{price_csv_path}' has no column "
+                                  f"'{options['column']}'.")
 
         if args.seed and args.verbose > 0:
             # CSV and seed given
-            print("WARNING: Multiple price sources detected. Using CSV.")
+            warnings.warn("Multiple price sources detected. Using CSV.")
     elif args.seed is not None and args.seed < 0:
         # use single, fixed price
         events["grid_operator_signals"].append({
@@ -225,13 +233,13 @@ def generate_from_simbev(args):
             v_type = '_'.join(v_info[:2])
 
             # vehicle type must be known
-            assert v_type in vehicle_types, "Unknown type for {}: {}".format(vehicle_name, v_type)
+            assert v_type in vehicle_types, f"Unknown type for {vehicle_name}: {v_type}."
             if vehicle_name in vehicles:
                 num_similar_name = sum([1 for v in vehicles.keys() if v.startswith(vehicle_name)])
                 vehicle_name_new = "{}_{}".format(vehicle_name, num_similar_name + 1)
                 if args.verbose > 0:
-                    print("WARNING: Vehicle name {} is not unique! "
-                          "Renamed to {}".format(vehicle_name, vehicle_name_new))
+                    warnings.warn(f"Vehicle name '{vehicle_name}' is not unique! "
+                                  f"Renamed to '{vehicle_name_new}'.")
                 vehicle_name = vehicle_name_new
 
             # check that capacities match
@@ -239,9 +247,9 @@ def generate_from_simbev(args):
             # take capacity from vehicle file name
             file_capacity = int(v_info[-1][:-3])
             if vehicle_capacity != file_capacity:
-                print("WARNING: capacities of vehicle type {} don't match "
-                      "(in file name: {}, in script: {}). Using value from file.".
-                      format(v_type, file_capacity, vehicle_capacity))
+                warnings.warn(f"Capacities of vehicle type '{v_type}' don't match!"
+                              f"In file name: '{file_capacity}', in script: '{vehicle_capacity}'. "
+                              "Using value from file.")
                 vehicle_capacity = file_capacity
                 vehicle_types[v_type]["capacity"] = file_capacity
 
@@ -278,25 +286,21 @@ def generate_from_simbev(args):
                 simbev_soc_end = float(row["soc_end"])
                 # SoC must not be negative
                 assert simbev_soc_start >= 0 and simbev_soc_end >= 0, \
-                    "SimBEV created negative SoC for {} in row {}".format(
-                        vehicle_name, idx + 3)
+                    f"SimBEV created negative SoC for {vehicle_name} in row {idx+3}."
                 # might want to avoid very low battery levels (configurable in config)
                 soc_threshold = args.min_soc_threshold
                 if args.verbose > 0 and (
                         simbev_soc_start < soc_threshold
                         or simbev_soc_end < soc_threshold):
-                    print("WARNING: SimBEV created very low SoC for {} in row {}"
-                          .format(vehicle_name, idx + 1))
+                    warnings.warn(f"SimBEV created very low SoC for {vehicle_name} in row {idx+1}.")
 
                 simbev_demand = max(float(row["energy"]), 0)
                 assert cs_power > 0 or simbev_demand == 0, \
-                    "Charging event without charging station: {} @ row {}".format(
-                        vehicle_name, idx + 3)
+                    f"Charging event without charging station: {vehicle_name} in row {idx+3}."
 
                 cs_present = cs_power > 0
                 assert (not cs_present) or consumption == 0, \
-                    "Consumption while charging for {} @ row {}".format(
-                        vehicle_name, idx + 3)
+                    f"Consumption while charging for {vehicle_name} in row {idx+3}."
 
                 # actual driving and charging behavior
                 if not args.ignore_simbev_soc:
@@ -312,12 +316,9 @@ def generate_from_simbev(args):
                         charge_duration = int(row["event_time"]) * interval
                         battery.load(charge_duration, cs_power)
                         if battery.soc < float(row["soc_end"]) and args.verbose > 0:
-                            print("WARNING: Can't fulfill charging request for {} in ts {}. "
-                                  "Desired SoC is set to {:.3f}, possible: {:.3f}"
-                                  .format(
-                                    vehicle_name, row["timestamp"],
-                                    desired_soc, battery.soc
-                                  ))
+                            warnings.warn(f"Can't fulfill charging request for {vehicle_name} in "
+                                          f"ts {row['timestamp']}. Desired SoC is set to "
+                                          f"{desired_soc:.3f}, possible: {battery.soc:.3f}.")
                         vehicle_soc = desired_soc
                 else:
                     # compute needed power and desired SoC independent of SimBEV
@@ -359,22 +360,17 @@ def generate_from_simbev(args):
                             cs_name = last_cs_event["update"]["connected_charging_station"]
                             cs_max_power = charging_stations[cs_name]["max_power"]
                             charge_duration = event_end_ts - event_start_ts
-                            possible_power = cs_max_power * charge_duration.seconds/3600
-                            possible_soc = possible_power / vehicle_capacity
+                            possible_energy = cs_max_power * charge_duration.seconds / 3600
+                            possible_soc = possible_energy / vehicle_capacity
 
                             if delta_soc > possible_soc and args.verbose > 0:
-                                print(
-                                    "WARNING: Can't fulfill charging request for {} in ts {:.0f}. "
-                                    "Need {:.2f} kWh in {:.2f} h ({:.0f} ts) from {} kW CS, "
-                                    "possible: {} kWh"
-                                    .format(
-                                        vehicle_name,
-                                        (event_end_ts - start)/interval,
-                                        desired_soc * vehicle_capacity,
-                                        charge_duration.seconds/3600,
-                                        charge_duration / interval,
-                                        cs_max_power, possible_power
-                                    ))
+                                warnings.warn(
+                                    f"Can't fulfill charging request for '{vehicle_name}' in ts "
+                                    f"{((event_end_ts - start) / interval):.0f}. Need "
+                                    f"{(desired_soc * vehicle_capacity):.2f} kWh in "
+                                    f"{(charge_duration.seconds / 3600):.2f} h "
+                                    f"({(charge_duration / interval):.0f} ts). "
+                                    f"Possible within standing time: {possible_energy} kWh.")
 
                             # update last charge event info: set desired SOC
                             last_cs_event["update"]["desired_soc"] = desired_soc
@@ -410,8 +406,8 @@ def generate_from_simbev(args):
                     event_start_idx = int(row["event_start"])
                     event_start_ts = datetime_from_timestep(event_start_idx)
                     assert event_start_ts >= event_end_ts, (
-                        "Order of vehicle {} wrong in timestep {}, has been standing already"
-                    ).format(vehicle_name, event_start_idx)
+                        f"Order of vehicle {vehicle_name} wrong in timestep {event_start_idx}, "
+                        f"has been standing already.")
                     if event_start_idx > 0:
                         events["vehicle_events"].append({
                             "signal_time": event_end_ts.isoformat(),
@@ -490,7 +486,7 @@ def generate_from_simbev(args):
         print(f"{trips_above_min_soc} of {trips_total} trips "
               f"use more than {args.min_soc * 100}% capacity")
 
-    assert len(vehicles) > 0, "No vehicles found in {}".format(args.simbev)
+    assert len(vehicles) > 0, f"No vehicles found in {args.simbev}."
 
     # check voltage level (used in cost calculation)
     voltage_level = vars(args).get("voltage_level")
