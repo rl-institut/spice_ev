@@ -41,6 +41,8 @@ def generate_from_simbev(args):
     :type args: argparse.Namespace
     :raises SystemExit: if required arguments (*output* and *simbev*) are missing
     """
+
+    # check for necessary arguments: simbev, output
     missing = [arg for arg in ["output", "simbev"] if vars(args).get(arg) is None]
     if missing:
         raise SystemExit("The following arguments are required: {}".format(", ".join(missing)))
@@ -53,10 +55,25 @@ def generate_from_simbev(args):
     with open(metadata_path) as f:
         metadata = json.load(f)
 
+    # get pathlist of vehicle CSV files
+    if not args.region:
+        pathlist = list(simbev_path.rglob('*_events.csv'))
+    else:
+        region_path = Path(simbev_path, args.region)
+        pathlist = list(region_path.rglob('*_events.csv'))
+    pathlist.sort()
+
+    def datetime_from_timestep(timestep):
+        assert type(timestep) == int
+        return start + (interval * timestep)
+
     # take start time from SimBEV metadata
     start = datetime.datetime.strptime(metadata["config"]["basic"]["start_date"], "%Y-%m-%d")
+    # define interval for simulation
     interval = datetime.timedelta(minutes=args.interval)
     n_intervals = 0
+    # define target path for relative output files
+    target_path = Path(args.output).parent
 
     # get defined vehicle types
     if args.vehicle_types is None:
@@ -68,18 +85,6 @@ def generate_from_simbev(args):
             warnings.warn("File extension mismatch: vehicle type file should be '.json'.")
         with open(args.vehicle_types) as f:
             predefined_vehicle_types = json.load(f)
-
-    def datetime_from_timestep(timestep):
-        assert type(timestep) == int
-        return start + (interval * timestep)
-
-    # vehicle CSV files
-    if not args.region:
-        pathlist = list(simbev_path.rglob('*_events.csv'))
-    else:
-        region_path = Path(simbev_path, args.region)
-        pathlist = list(region_path.rglob('*_events.csv'))
-    pathlist.sort()
 
     # INITIALIZE CONSTANTS AND EVENTS
     vehicle_types = {}
@@ -101,22 +106,6 @@ def generate_from_simbev(args):
     for v_type, count in metadata['car_sum'].items():
         if count > 0:
             vehicle_types.update({v_type: predefined_vehicle_types[v_type]})
-
-    for idx, (capacity, c_rate) in enumerate(args.battery):
-        if capacity > 0:
-            max_power = c_rate * capacity
-        else:
-            # unlimited battery: set power directly
-            max_power = c_rate
-        batteries["BAT{}".format(idx + 1)] = {
-            "parent": "GC1",
-            "capacity": capacity,
-            "charging_curve": [[0, max_power], [1, max_power]]
-        }
-
-    # save path and options for CSV timeseries
-    # all paths are relative to output file
-    target_path = Path(args.output).parent
 
     # external load CSV
     if args.include_ext_load_csv:
@@ -222,7 +211,7 @@ def generate_from_simbev(args):
         # every X timesteps, generate new price signal
         price_interval = datetime.timedelta(hours=price_stable_hours) / interval
 
-    # generate vehicle events: iterate over input files
+    # GENERATE VEHICLE EVENTS: iterate over input files
     for csv_path in pathlist:
         # get vehicle id from file name
         v_id = str(csv_path.stem)[:-7]
@@ -490,11 +479,25 @@ def generate_from_simbev(args):
                                 }
                             })
 
+    # number of trips for which desired_soc is above min_soc
     if trips_above_min_soc:
         print(f"{trips_above_min_soc} of {trips_total} trips "
               f"use more than {args.min_soc * 100}% capacity")
 
     assert len(vehicles) > 0, f"No vehicles found in {args.simbev}."
+
+    # add stationary battery
+    for idx, (capacity, c_rate) in enumerate(args.battery):
+        if capacity > 0:
+            max_power = c_rate * capacity
+        else:
+            # unlimited battery: set power directly
+            max_power = c_rate
+        batteries["BAT{}".format(idx + 1)] = {
+            "parent": "GC1",
+            "capacity": capacity,
+            "charging_curve": [[0, max_power], [1, max_power]]
+        }
 
     # check voltage level (used in cost calculation)
     voltage_level = vars(args).get("voltage_level")

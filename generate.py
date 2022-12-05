@@ -96,9 +96,18 @@ def generate(args):
     :type args: argparse.Namespace
     :raises SystemExit: if the required argument *output* is missing
     """
+
+    # check for necessary argument: output
     if args.output is None:
         raise SystemExit("The following argument is required: output")
 
+    # argument 'min_soc_threshold' has no relevance for generation of synthetic driving profiles
+    soc_threshold = vars(args).get("min_soc_threshold")
+    if soc_threshold:
+        warnings.warn("Argument 'min_soc_threshold' has no relevance for generation "
+                      "of driving profiles.")
+
+    # set seed
     random.seed(args.seed)
 
     # SIMULATION TIME
@@ -112,9 +121,12 @@ def generate(args):
                       f"Default start time {DEFAULT_START_TIME} will be used.")
     start = start.replace(tzinfo=datetime.timezone(datetime.timedelta(hours=2)))
     stop = start + datetime.timedelta(days=args.days)
+    # define interval for simulation
     interval = datetime.timedelta(minutes=args.interval)
+    # define target path for relative output files
+    target_path = path.dirname(args.output)
 
-    # VEHICLES
+    # use default vehicles, if args.vehicles does not exist
     if args.vehicles is None:
         args.vehicles = [['1', 'golf'], ['1', 'sprinter']]
 
@@ -171,92 +183,7 @@ def generate(args):
                 "parent": "GC1"
             }
 
-    for idx, (capacity, c_rate) in enumerate(args.battery):
-        if capacity > 0:
-            max_power = c_rate * capacity
-        else:
-            # unlimited battery: set power directly
-            max_power = c_rate
-        batteries["BAT{}".format(idx + 1)] = {
-            "parent": "GC1",
-            "capacity": capacity,
-            "charging_curve": [[0, max_power], [1, max_power]]
-        }
-
-    # save path and options for CSV timeseries
-    # all paths are relative to output file
-    target_path = path.dirname(args.output)
-
-    # external load CSV
-    if args.include_ext_load_csv:
-        filename = args.include_ext_load_csv
-        basename = path.splitext(path.basename(filename))[0]
-        options = {
-            "csv_file": filename,
-            "start_time": start.isoformat(),
-            "step_duration_s": 900,  # 15 minutes
-            "grid_connector_id": "GC1",
-            "column": "energy"
-        }
-        if args.include_ext_csv_option:
-            for key, value in args.include_ext_csv_option:
-                if key == "step_duration_s":
-                    value = int(value)
-                options[key] = value
-        events['external_load'][basename] = options
-        # check if CSV file exists
-        ext_csv_path = path.join(target_path, filename)
-        if not path.exists(ext_csv_path):
-            warnings.warn(f"External csv file '{ext_csv_path}' does not exist yet.")
-
-    # energy feed-in CSV (e.g. from PV)
-    if args.include_feed_in_csv:
-        filename = args.include_feed_in_csv
-        basename = path.splitext(path.basename(filename))[0]
-        options = {
-            "csv_file": filename,
-            "start_time": start.isoformat(),
-            "step_duration_s": 3600,  # 60 minutes
-            "grid_connector_id": "GC1",
-            "column": "energy"
-        }
-        if args.include_feed_in_csv_option:
-            for key, value in args.include_feed_in_csv_option:
-                if key == "step_duration_s":
-                    value = int(value)
-                options[key] = value
-        events['energy_feed_in'][basename] = options
-        feed_in_path = path.join(target_path, filename)
-        if not path.exists(feed_in_path):
-            warnings.warn(f"Feed-in csv file '{feed_in_path}' does not exist yet.")
-
-    # energy price CSV
-    if args.include_price_csv:
-        filename = args.include_price_csv
-        # basename = path.splitext(path.basename(filename))[0]
-        options = {
-            "csv_file": filename,
-            "start_time": start.isoformat(),
-            "step_duration_s": 3600,  # 60 minutes
-            "grid_connector_id": "GC1",
-            "column": "price [ct/kWh]"
-        }
-        for key, value in args.include_price_csv_option:
-            if key == "step_duration_s":
-                value = int(value)
-            options[key] = value
-        events['energy_price_from_csv'] = options
-        price_csv_path = path.join(target_path, filename)
-        if not path.exists(price_csv_path):
-            warnings.warn(f"Price csv file '{price_csv_path}' does not exist yet.")
-
-    # argument 'min_soc_threshold' has no relevance for generation of synthetic driving profiles
-    soc_threshold = vars(args).get("min_soc_threshold")
-    if soc_threshold:
-        warnings.warn("Argument 'min_soc_threshold' has no relevance for generation "
-                      "of driving profiles.")
-
-    # create daily vehicle and price events
+    # GENERATE VEHICLE EVENTS: daily
     daily = datetime.timedelta(days=1)
     now = start - daily
     while now < stop + 2 * daily:
@@ -332,37 +259,119 @@ def generate(args):
                     "soc_delta": -soc_delta
                 }
             })
-
-        # generate prices for the day
-        if not args.include_price_csv and now < stop:
-            morning = now + datetime.timedelta(hours=6)
-            evening_by_month = now + datetime.timedelta(hours=22 - abs(6 - now.month))
-            events['grid_operator_signals'] += [{
-                # day (6-evening): 15ct
-                "signal_time": max(start, now - daily).isoformat(),
-                "grid_connector_id": "GC1",
-                "start_time": morning.isoformat(),
-                "cost": {
-                    "type": "fixed",
-                    "value": 0.15 + random.gauss(0, 0.05)
-                }
-            }, {
-                # night (depending on month - 6): 5ct
-                "signal_time": max(start, now - daily).isoformat(),
-                "grid_connector_id": "GC1",
-                "start_time": evening_by_month.isoformat(),
-                "cost": {
-                    "type": "fixed",
-                    "value": 0.05 + random.gauss(0, 0.03)
-                }
-            }]
-
-    # end of scenario
-
     # remove temporary information
     for v_info in vehicles.values():
         del v_info["last_arrival_idx"]
         del v_info["arrival"]
+
+    # number of trips for which desired_soc is above min_soc
+    if trips_above_min_soc:
+        print(f"{trips_above_min_soc} of {trips_total} trips "
+              f"use more than {args.min_soc * 100}% capacity")
+
+    # add stationary battery
+    for idx, (capacity, c_rate) in enumerate(args.battery):
+        if capacity > 0:
+            max_power = c_rate * capacity
+        else:
+            # unlimited battery: set power directly
+            max_power = c_rate
+        batteries["BAT{}".format(idx + 1)] = {
+            "parent": "GC1",
+            "capacity": capacity,
+            "charging_curve": [[0, max_power], [1, max_power]]
+        }
+
+    # external load CSV
+    if args.include_ext_load_csv:
+        filename = args.include_ext_load_csv
+        basename = path.splitext(path.basename(filename))[0]
+        options = {
+            "csv_file": filename,
+            "start_time": start.isoformat(),
+            "step_duration_s": 900,  # 15 minutes
+            "grid_connector_id": "GC1",
+            "column": "energy"
+        }
+        if args.include_ext_csv_option:
+            for key, value in args.include_ext_csv_option:
+                if key == "step_duration_s":
+                    value = int(value)
+                options[key] = value
+        events['external_load'][basename] = options
+        # check if CSV file exists
+        ext_csv_path = path.join(target_path, filename)
+        if not path.exists(ext_csv_path):
+            warnings.warn(f"External csv file '{ext_csv_path}' does not exist yet.")
+
+    # energy feed-in CSV (e.g. from PV)
+    if args.include_feed_in_csv:
+        filename = args.include_feed_in_csv
+        basename = path.splitext(path.basename(filename))[0]
+        options = {
+            "csv_file": filename,
+            "start_time": start.isoformat(),
+            "step_duration_s": 3600,  # 60 minutes
+            "grid_connector_id": "GC1",
+            "column": "energy"
+        }
+        if args.include_feed_in_csv_option:
+            for key, value in args.include_feed_in_csv_option:
+                if key == "step_duration_s":
+                    value = int(value)
+                options[key] = value
+        events['energy_feed_in'][basename] = options
+        feed_in_path = path.join(target_path, filename)
+        if not path.exists(feed_in_path):
+            warnings.warn(f"Feed-in csv file '{feed_in_path}' does not exist yet.")
+
+    # energy price CSV
+    if args.include_price_csv:
+        filename = args.include_price_csv
+        # basename = path.splitext(path.basename(filename))[0]
+        options = {
+            "csv_file": filename,
+            "start_time": start.isoformat(),
+            "step_duration_s": 3600,  # 60 minutes
+            "grid_connector_id": "GC1",
+            "column": "price [ct/kWh]"
+        }
+        for key, value in args.include_price_csv_option:
+            if key == "step_duration_s":
+                value = int(value)
+            options[key] = value
+        events['energy_price_from_csv'] = options
+        price_csv_path = path.join(target_path, filename)
+        if not path.exists(price_csv_path):
+            warnings.warn(f"Price csv file '{price_csv_path}' does not exist yet.")
+    else:
+        # generate prices for the day
+        now = start - daily
+        while now < stop + 2 * daily:
+            now += daily
+
+            if now < stop:
+                morning = now + datetime.timedelta(hours=6)
+                evening_by_month = now + datetime.timedelta(hours=22 - abs(6 - now.month))
+                events['grid_operator_signals'] += [{
+                    # day (6-evening): 15ct
+                    "signal_time": max(start, now - daily).isoformat(),
+                    "grid_connector_id": "GC1",
+                    "start_time": morning.isoformat(),
+                    "cost": {
+                        "type": "fixed",
+                        "value": 0.15 + random.gauss(0, 0.05)
+                    }
+                }, {
+                    # night (depending on month - 6): 5ct
+                    "signal_time": max(start, now - daily).isoformat(),
+                    "grid_connector_id": "GC1",
+                    "start_time": evening_by_month.isoformat(),
+                    "cost": {
+                        "type": "fixed",
+                        "value": 0.05 + random.gauss(0, 0.03)
+                    }
+                }]
 
     # check voltage level (used in cost calculation)
     voltage_level = vars(args).get("voltage_level")
@@ -398,10 +407,6 @@ def generate(args):
         },
         "events": events,
     }
-
-    if trips_above_min_soc:
-        print(f"{trips_above_min_soc} of {trips_total} trips "
-              f"use more than {args.min_soc * 100}% capacity")
 
     # Write JSON
     with open(args.output, 'w') as f:

@@ -35,12 +35,16 @@ def generate_from_csv(args):
     :type args: argparse.Namespace
     :raises SystemExit: if any of the required arguments (*input_file* and *output*) is missing
     """
+
+    # check for necessary arguments: input, output
     missing = [arg for arg in ["input_file", "output"] if vars(args).get(arg) is None]
     if missing:
         raise SystemExit("The following arguments are required: {}".format(", ".join(missing)))
 
+    # set seed
     random.seed(args.seed)
 
+    # define interval for simulation
     interval = datetime.timedelta(minutes=args.interval)
     # read csv input file
     input = csv_to_dict(args.input_file)
@@ -81,6 +85,7 @@ def generate_from_csv(args):
             print(f"The vehicle type '{v_type}' defined in the input csv cannot be found in "
                   f"vehicle_types.json. Please check for consistency.")
 
+    # check input file for column 'vehicle_id'
     if "vehicle_id" not in input[0].keys():
         warnings.warn("Column 'vehicle_id' missing, vehicles are assigned by the principle first in"
                       ", first out.")
@@ -90,11 +95,13 @@ def generate_from_csv(args):
             export_filename = None
         input = assign_vehicle_id(input, vehicle_types, export_filename)
 
+    # check input file for column 'connect_cs'
     if "connect_cs" not in input[0].keys():
         warnings.warn("Column 'connect_cs' is not available. Vehicles will be connected to a "
                       "charging station after every trip.")
         input = [dict(item, **{'connect_cs': 1}) for item in input]
 
+    # GENERATE VEHICLE EVENTS: iterate over input file
     for v_id in {item['vehicle_id'] for item in input}:
         v_type = [d for d in input if d['vehicle_id'] == v_id][0]["vehicle_type"]
         cs_id = "CS_" + v_id
@@ -239,6 +246,7 @@ def generate_from_csv(args):
                         }
                     })
 
+    # number of trips for which desired_soc is above min_soc
     if trips_above_min_soc:
         print(f"{trips_above_min_soc} of {trips_total} trips "
               f"use more than {args.min_soc * 100}% capacity")
@@ -255,6 +263,7 @@ def generate_from_csv(args):
             "capacity": capacity,
             "charging_curve": [[0, max_power], [1, max_power]]
         }
+
     # save path and options for CSV timeseries
     times = []
     for row in input:
@@ -326,10 +335,9 @@ def generate_from_csv(args):
         price_csv_path = path.join(target_path, filename)
         if not path.exists(price_csv_path):
             warnings.warn(f"Price csv file '{price_csv_path}' does not exist yet.")
-
-    daily = datetime.timedelta(days=1)
-    # price events
-    if not args.include_price_csv:
+    else:
+        # generate daily price evens
+        daily = datetime.timedelta(days=1)
         now = start - daily
         while now < stop + 2 * daily:
             now += daily
