@@ -183,6 +183,10 @@ def generate(args):
                 "parent": "GC1"
             }
 
+    # remove temporary information
+    for v_id, v_info in vehicle_types.items():
+        del v_info["count"]
+
     # GENERATE VEHICLE EVENTS: daily
     daily = datetime.timedelta(days=1)
     now = start - daily
