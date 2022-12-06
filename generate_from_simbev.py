@@ -4,9 +4,9 @@ import argparse
 import csv
 import datetime
 import json
-import warnings
 from pathlib import Path
 import random
+import warnings
 
 from src.util import set_options_from_config
 from src.battery import Battery
@@ -126,7 +126,7 @@ def generate_from_simbev(args):
         events['external_load'][basename] = options
         # check if CSV file exists
         ext_csv_path = target_path.joinpath(filename)
-        if not ext_csv_path.exists() and args.verbose > 0:
+        if not ext_csv_path.exists():
             warnings.warn(f"External csv file '{ext_csv_path}' does not exist yet.")
         else:
             with open(ext_csv_path, newline='') as csvfile:
@@ -153,7 +153,7 @@ def generate_from_simbev(args):
                 options[key] = value
         events['energy_feed_in'][basename] = options
         feed_in_path = target_path.joinpath(filename)
-        if not feed_in_path.exists() and args.verbose > 0:
+        if not feed_in_path.exists():
             warnings.warn(f"Feed-in csv file '{feed_in_path}' does not exist yet.")
         else:
             with open(feed_in_path, newline='') as csvfile:
@@ -179,7 +179,7 @@ def generate_from_simbev(args):
             options[key] = value
         events['energy_price_from_csv'] = options
         price_csv_path = target_path.joinpath(filename)
-        if not price_csv_path.exists() and args.verbose > 0:
+        if not price_csv_path.exists():
             warnings.warn(f"Price csv file '{price_csv_path}' does not exist yet.")
         else:
             with open(price_csv_path, newline='') as csvfile:
@@ -215,9 +215,6 @@ def generate_from_simbev(args):
     for csv_path in pathlist:
         # get vehicle id from file name
         v_id = str(csv_path.stem)[:-7]
-        if args.verbose >= 2:
-            # debug
-            print("Next vehicle: {}".format(csv_path))
 
         with open(csv_path, newline='') as csvfile:
             reader = csv.DictReader(csvfile)
@@ -242,7 +239,7 @@ def generate_from_simbev(args):
             vehicle_capacity = vehicle_types[v_type]["capacity"]
             # take capacity from vehicle file name
             file_capacity = int(v_info[-1][:-3])
-            if vehicle_capacity != file_capacity:
+            if vehicle_capacity != file_capacity and args.verbose > 0:
                 warnings.warn(f"Capacities of vehicle type '{v_type}' don't match!"
                               f"In file name: '{file_capacity}', in script: '{vehicle_capacity}'. "
                               "Using value from file.")
@@ -359,7 +356,7 @@ def generate_from_simbev(args):
                                                charge_duration.seconds / 3600)
                             possible_soc = possible_energy / vehicle_capacity
 
-                            if delta_soc > possible_soc and args.verbose > 0:
+                            if delta_soc > possible_soc:
                                 warnings.warn(
                                     f"Can't fulfill charging request for '{v_id}' in ts "
                                     f"{((departure - start) / interval):.0f}. Need "
@@ -480,7 +477,7 @@ def generate_from_simbev(args):
                             })
 
     # number of trips for which desired_soc is above min_soc
-    if trips_above_min_soc:
+    if trips_above_min_soc and args.verbose > 0:
         print(f"{trips_above_min_soc} of {trips_total} trips "
               f"use more than {args.min_soc * 100}% capacity")
 
@@ -597,13 +594,14 @@ if __name__ == '__main__':
     # config
     parser.add_argument('--config', help='Use config file to set arguments')
 
-    # other stuff
+    # errors and warnings
     parser.add_argument('--verbose', '-v', action='count', default=0,
                         help='Set verbosity level. Use this multiple times for more output. '
-                             'Default: only errors, 1: warnings, 2: debug')
+                             'Default: only errors and important warnings, '
+                             '1: additional warnings and info')
 
     args = parser.parse_args()
 
-    set_options_from_config(args, check=True, verbose=args.verbose >= 2)
+    set_options_from_config(args, check=True, verbose=args.verbose >= 1)
 
     generate_from_simbev(args)

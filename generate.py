@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 
 import argparse
+import csv
 import datetime
 import json
+from os import path
 import random
 import warnings
-from os import path
 
 from src.util import set_options_from_config, datetime_from_isoformat
 
@@ -103,7 +104,7 @@ def generate(args):
 
     # argument 'min_soc_threshold' has no relevance for generation of synthetic driving profiles
     soc_threshold = vars(args).get("min_soc_threshold")
-    if soc_threshold:
+    if soc_threshold and args.verbose > 0:
         warnings.warn("Argument 'min_soc_threshold' has no relevance for generation "
                       "of driving profiles.")
 
@@ -269,7 +270,7 @@ def generate(args):
         del v_info["arrival"]
 
     # number of trips for which desired_soc is above min_soc
-    if trips_above_min_soc:
+    if trips_above_min_soc and args.verbose > 0:
         print(f"{trips_above_min_soc} of {trips_total} trips "
               f"use more than {args.min_soc * 100}% capacity")
 
@@ -307,6 +308,12 @@ def generate(args):
         ext_csv_path = path.join(target_path, filename)
         if not path.exists(ext_csv_path):
             warnings.warn(f"External csv file '{ext_csv_path}' does not exist yet.")
+        else:
+            with open(ext_csv_path, newline='') as csvfile:
+                reader = csv.DictReader(csvfile)
+                if not options["column"] in reader.fieldnames:
+                    warnings.warn(f"External csv file '{ext_csv_path}' has no column "
+                                  f"'{options['column']}'.")
 
     # energy feed-in CSV (e.g. from PV)
     if args.include_feed_in_csv:
@@ -328,6 +335,12 @@ def generate(args):
         feed_in_path = path.join(target_path, filename)
         if not path.exists(feed_in_path):
             warnings.warn(f"Feed-in csv file '{feed_in_path}' does not exist yet.")
+        else:
+            with open(feed_in_path, newline='') as csvfile:
+                reader = csv.DictReader(csvfile)
+                if not options["column"] in reader.fieldnames:
+                    warnings.warn(f"Feed-in csv file '{feed_in_path}' has no column "
+                                  f"'{options['column']}'.")
 
     # energy price CSV
     if args.include_price_csv:
@@ -348,12 +361,17 @@ def generate(args):
         price_csv_path = path.join(target_path, filename)
         if not path.exists(price_csv_path):
             warnings.warn(f"Price csv file '{price_csv_path}' does not exist yet.")
+        else:
+            with open(price_csv_path, newline='') as csvfile:
+                reader = csv.DictReader(csvfile)
+                if not options["column"] in reader.fieldnames:
+                    warnings.warn(f"Price csv file '{price_csv_path}' has no column "
+                                  f"'{options['column']}'.")
     else:
         # generate prices for the day
         now = start - daily
         while now < stop + 2 * daily:
             now += daily
-
             if now < stop:
                 morning = now + datetime.timedelta(hours=6)
                 evening_by_month = now + datetime.timedelta(hours=22 - abs(6 - now.month))
@@ -476,8 +494,14 @@ if __name__ == '__main__':
     # config
     parser.add_argument('--config', help='Use config file to set arguments')
 
+    # errors and warnings
+    parser.add_argument('--verbose', '-v', action='count', default=0,
+                        help='Set verbosity level. Use this multiple times for more output. '
+                             'Default: only errors and important warnings, '
+                             '1: additional warnings and info')
+
     args = parser.parse_args()
 
-    set_options_from_config(args, check=False, verbose=False)
+    set_options_from_config(args, check=True, verbose=args.verbose >= 1)
 
     generate(args)

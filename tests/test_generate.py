@@ -31,7 +31,8 @@ ARG_VALUES1 = {
     "include_feed_in_csv-option": [],
     "seed": None,
     "include_price_csv": None,
-    "include_price_csv_option": []
+    "include_price_csv_option": [],
+    "verbose": 0,
 }
 
 
@@ -51,8 +52,6 @@ class TestGenerate(TestCaseBase):
             "vehicle_types":
                 os.path.join(TEST_REPO_PATH,
                              "test_data/input_test_generate/vehicle_types.json")})
-        current_arg_values.update({
-            "discharge_limit": 0.5})
         generate.generate(Namespace(**current_arg_values))
         self.assertIsFile(output_file)
         # remove output file
@@ -119,7 +118,6 @@ class TestGenerate(TestCaseBase):
              "input_file": os.path.join(TEST_REPO_PATH, input_csv),
              "vehicle_types": os.path.join(TEST_REPO_PATH,
                                            "test_data/input_test_generate/vehicle_types.json"),
-             "recharge_fraction": 1,
              "export_vehicle_id_csv": None})
         generate_from_csv.generate_from_csv(Namespace(**current_arg_values))
         self.assertIsFile(output_file)

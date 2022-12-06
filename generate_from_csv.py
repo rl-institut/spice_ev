@@ -87,8 +87,9 @@ def generate_from_csv(args):
 
     # check input file for column 'vehicle_id'
     if "vehicle_id" not in input[0].keys():
-        warnings.warn("Column 'vehicle_id' missing, vehicles are assigned by the principle first in"
-                      ", first out.")
+        if args.verbose > 0:
+            warnings.warn("Column 'vehicle_id' missing, vehicles are assigned by the principle "
+                          "first in, first out.")
         if args.export_vehicle_id_csv != "None" and args.export_vehicle_id_csv is not None:
             export_filename = path.join(target_path, args.export_vehicle_id_csv)
         else:
@@ -97,8 +98,9 @@ def generate_from_csv(args):
 
     # check input file for column 'connect_cs'
     if "connect_cs" not in input[0].keys():
-        warnings.warn("Column 'connect_cs' is not available. Vehicles will be connected to a "
-                      "charging station after every trip.")
+        if args.verbose > 0:
+            warnings.warn("Column 'connect_cs' is not available. Vehicles will be connected to a "
+                          "charging station after every trip.")
         input = [dict(item, **{'connect_cs': 1}) for item in input]
 
     # GENERATE VEHICLE EVENTS: iterate over input file
@@ -155,8 +157,7 @@ def generate_from_csv(args):
                     csv_start_soc = float(row["soc"])
                     delta_soc = 1 - csv_start_soc
                     # might want to avoid very low battery levels (configurable in config)
-                    soc_threshold = args.min_soc_threshold
-                    if csv_start_soc < soc_threshold:
+                    if csv_start_soc < args.min_soc_threshold and args.verbose > 0:
                         warnings.warn(f"CSV contains very low SoC for '{v_id}' "
                                       f"in row {idx + 1}.")
                 else:
@@ -180,8 +181,7 @@ def generate_from_csv(args):
                 delta_soc = float(row["delta_soc"])
 
             # might want to avoid very low battery levels (configurable in config)
-            soc_threshold = args.min_soc_threshold
-            if (1 - delta_soc) < soc_threshold:
+            if (1 - delta_soc) < args.min_soc_threshold and args.verbose > 0:
                 warnings.warn(f"CSV contains very high energy demand for '{v_id}' "
                               f"in row {idx + 1}.")
 
@@ -247,7 +247,7 @@ def generate_from_csv(args):
                     })
 
     # number of trips for which desired_soc is above min_soc
-    if trips_above_min_soc:
+    if trips_above_min_soc and args.verbose > 0:
         print(f"{trips_above_min_soc} of {trips_total} trips "
               f"use more than {args.min_soc * 100}% capacity")
 
@@ -294,6 +294,12 @@ def generate_from_csv(args):
         ext_csv_path = path.join(target_path, filename)
         if not path.exists(ext_csv_path):
             warnings.warn(f"External csv file '{ext_csv_path}' does not exist yet.")
+        else:
+            with open(ext_csv_path, newline='') as csvfile:
+                reader = csv.DictReader(csvfile)
+                if not options["column"] in reader.fieldnames:
+                    warnings.warn(f"External csv file '{ext_csv_path}' has no column "
+                                  f"'{options['column']}'.")
 
     # energy feed-in CSV (e.g. from PV)
     if args.include_feed_in_csv:
@@ -315,6 +321,12 @@ def generate_from_csv(args):
         feed_in_path = path.join(target_path, filename)
         if not path.exists(feed_in_path):
             warnings.warn(f"Feed-in csv file '{feed_in_path}' does not exist yet.")
+        else:
+            with open(feed_in_path, newline='') as csvfile:
+                reader = csv.DictReader(csvfile)
+                if not options["column"] in reader.fieldnames:
+                    warnings.warn(f"Feed-in csv file '{feed_in_path}' has no column "
+                                  f"'{options['column']}'.")
 
     # energy price CSV
     if args.include_price_csv:
@@ -335,6 +347,12 @@ def generate_from_csv(args):
         price_csv_path = path.join(target_path, filename)
         if not path.exists(price_csv_path):
             warnings.warn(f"Price csv file '{price_csv_path}' does not exist yet.")
+        else:
+            with open(price_csv_path, newline='') as csvfile:
+                reader = csv.DictReader(csvfile)
+                if not options["column"] in reader.fieldnames:
+                    warnings.warn(f"Price csv file '{price_csv_path}' has no column "
+                                  f"'{options['column']}'.")
     else:
         # generate daily price evens
         daily = datetime.timedelta(days=1)
@@ -593,8 +611,14 @@ if __name__ == '__main__':
     # config
     parser.add_argument('--config', help='Use config file to set arguments')
 
+    # errors and warnings
+    parser.add_argument('--verbose', '-v', action='count', default=0,
+                        help='Set verbosity level. Use this multiple times for more output. '
+                             'Default: only errors and important warnings, '
+                             '1: additional warnings and info')
+
     args = parser.parse_args()
 
-    set_options_from_config(args, check=False, verbose=False)
+    set_options_from_config(args, check=True, verbose=args.verbose >= 1)
 
     generate_from_csv(args)
