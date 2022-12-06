@@ -16,7 +16,7 @@ from src.loading_curve import LoadingCurve
 def parse_vehicle_types(tech_data):
     """Get vehicle data from SimBEV metadata
 
-    :param tech_data: dictionary which containts the tech data part of a SimBEV metadata json
+    :param tech_data: dictionary which contains the tech data part of a SimBEV metadata json
     :type tech_data: dict
     :returns: vehicle types
     :rtype: dict
@@ -47,7 +47,7 @@ def generate_from_simbev(args):
     if missing:
         raise SystemExit("The following arguments are required: {}".format(", ".join(missing)))
 
-    # read simbev metadata
+    # read SimBEV metadata
     simbev_path = Path(args.simbev)
     assert simbev_path.exists(), f"SimBEV directory {args.simbev} does not exist."
     metadata_path = Path(simbev_path, "metadata_simbev_run.json")
