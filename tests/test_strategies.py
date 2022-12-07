@@ -266,7 +266,7 @@ class TestScenarios(TestCaseBase):
         # only one cs at a time
         assert [x[1] == 0 for x in cs_1]
         assert [x[0] == 0 for x in cs_2]
-        # assert that cars are loaded balanced
+        # assert that vehicles are charged balanced
         assert len(set([round(x[0], 2) for x in cs_1])) == 1
         assert len(set([round(x[1], 2) for x in cs_2])) == 1
 

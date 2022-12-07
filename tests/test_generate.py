@@ -14,22 +14,25 @@ del sys
 TEST_REPO_PATH = os.path.dirname(__file__)
 
 ARG_VALUES1 = {
-    "cars": [[1, "golf"], [1, "sprinter"]],
+    "vehicles": [[1, "golf"], [1, "sprinter"]],
     "days": 2,
     "interval": 15,
     "min_soc": 0.8,
+    "min_soc_threshold": 0.05,
     "battery": [[350, 0.5]],
-    "start_time": '2018-01-01T00:15:00+00:00',
+    "start_time": '2023-01-01T00:15:00+00:00',
     "no_drive_days": [6],
     "vehicle_types": "test_data/input_test_generate/vehicle_types.json",
     "discharge_limit": 0.5,
+    "cs_power_min": 0,
     "include_ext_load_csv": None,
     "include_ext_csv_option": [],
     "include_feed_in_csv": None,
     "include_feed_in_csv-option": [],
     "seed": None,
     "include_price_csv": None,
-    "include_price_csv_option": []
+    "include_price_csv_option": [],
+    "verbose": 0,
 }
 
 
@@ -49,8 +52,6 @@ class TestGenerate(TestCaseBase):
             "vehicle_types":
                 os.path.join(TEST_REPO_PATH,
                              "test_data/input_test_generate/vehicle_types.json")})
-        current_arg_values.update({
-            "discharge_limit": 0.5})
         generate.generate(Namespace(**current_arg_values))
         self.assertIsFile(output_file)
         # remove output file
@@ -117,7 +118,6 @@ class TestGenerate(TestCaseBase):
              "input_file": os.path.join(TEST_REPO_PATH, input_csv),
              "vehicle_types": os.path.join(TEST_REPO_PATH,
                                            "test_data/input_test_generate/vehicle_types.json"),
-             "recharge_fraction": 1,
              "export_vehicle_id_csv": None})
         generate_from_csv.generate_from_csv(Namespace(**current_arg_values))
         self.assertIsFile(output_file)
