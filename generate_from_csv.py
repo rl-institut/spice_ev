@@ -77,7 +77,7 @@ def generate_from_csv(args):
     trips_above_min_soc = 0
     trips_total = 0
 
-    # update vehicle types with vehicle types actually present
+    # set vehicle type if present in vehicle_types.json
     for v_type in {item['vehicle_type'] for item in input}:
         try:
             vehicle_types.update({v_type: predefined_vehicle_types[v_type]})
@@ -119,7 +119,7 @@ def generate_from_csv(args):
         cs_power = max([v[1] for v in vehicle_types[v_type]['charging_curve']])
         charging_stations[cs_id] = {
             "max_power": cs_power,
-            "min_power": args.cs_power_min if args.cs_power_min else 0.1 * cs_power,
+            "min_power": args.cs_power_min if args.cs_power_min is not None else 0.1 * cs_power,
             "parent": "GC1"
         }
 
@@ -167,15 +167,16 @@ def generate_from_csv(args):
                         # convert mileage per 100 km in 1 km
                         mileage = vehicle_types[v_type]["mileage"] / 100
                     except ValueError:
-                        print("In order to assign the vehicle consumption, either a mileage must"
-                              "be given in vehicle_types.json or a soc or delta_soc must be "
-                              "given in the input file. Please check for consistency.")
+                        warnings.warn("In order to assign the vehicle consumption, either a "
+                                      "mileage must be given in vehicle_types.json or a soc or "
+                                      "delta_soc must be given in the input file. "
+                                      "Please check for consistency.")
                     try:
                         distance = float(row["distance"])
                     except ValueError:
-                        print("In order to assign the vehicle consumption via the mileage, the "
-                              "column 'distance' must be given in the input csv. Please check "
-                              "for consistency.")
+                        warnings.warn("In order to assign the vehicle consumption via the mileage, "
+                                      "the column 'distance' must be given in the input csv. "
+                                      "Please check for consistency.")
                     delta_soc = distance * mileage / capacity
             else:
                 delta_soc = float(row["delta_soc"])
@@ -619,6 +620,6 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    set_options_from_config(args, check=True, verbose=args.verbose >= 1)
+    set_options_from_config(args, check=True, verbose=args.verbose > 1)
 
     generate_from_csv(args)

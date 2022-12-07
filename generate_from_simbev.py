@@ -102,7 +102,7 @@ def generate_from_simbev(args):
     trips_above_min_soc = 0
     trips_total = 0
 
-    # update vehicle types with vehicle types actually present
+    # set vehicle type if present in vehicle_types.json
     for v_type, count in metadata['car_sum'].items():
         if count > 0:
             vehicle_types.update({v_type: predefined_vehicle_types[v_type]})
@@ -390,7 +390,8 @@ def generate_from_simbev(args):
                     if cs_id not in charging_stations:
                         charging_stations[cs_id] = {
                             "max_power": cs_power,
-                            "min_power": args.cs_power_min if args.cs_power_min else 0.1 * cs_power,
+                            "min_power": (args.cs_power_min if args.cs_power_min is not None
+                                          else 0.1 * cs_power),
                             "parent": "GC1"
                         }
 
@@ -602,6 +603,6 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    set_options_from_config(args, check=True, verbose=args.verbose >= 1)
+    set_options_from_config(args, check=True, verbose=args.verbose > 1)
 
     generate_from_simbev(args)
