@@ -417,14 +417,6 @@ def generate_schedule(args):
                 replace_unknown = curtailment[-1] if row_idx > 0 else 0
                 curtailment.append(replace_unknown)
 
-    # priorities:
-    # (1) times of curtailment + percentile with lowest load => charge
-    # (2) negative loads => charge
-    # (3) positive loads => discharge
-    # (4) percentile with highest load => discharge
-    # Note: The procedure to determine priorities for every timestep assumes that
-    # time intervals of simulation are equal to time intervals in grid situation time series.
-
     # compute cutoff values for priorities 1 and 4 using all residual load values
     idx_percentile = int(len(residual_load) * args.priority_percentile)
     sorted_residual_load = sorted(residual_load)
@@ -442,29 +434,52 @@ def generate_schedule(args):
     residual_load += [0] * (s.n_intervals - len(residual_load))
     curtailment += [0] * (s.n_intervals - len(curtailment))
 
-    # set priorities (default: 4)
-    priorities = [4] * s.n_intervals
-    for t in range(s.n_intervals):
-        if curtailment[t] > 0:
-            # highest priority: curtailment (must be capped)
-            priorities[t] = 1
-        elif residual_load[t] < cutoff_priority_1:
-            # percentile with smallest residual load
-            priorities[t] = 1
-        elif residual_load[t] > cutoff_priority_4:
-            # percentile with largest residual load
-            priorities[t] = 4
-        elif residual_load[t] < 0:
-            # not in smallest or largest percentile but negative residual load
-            priorities[t] = 2
-        elif residual_load[t] >= 0:
-            # not in smallest or largest percentile but positive residual load
-            priorities[t] = 3
+    # save original curtailment and residual load
+    original_curtailment = deepcopy(curtailment)
+    original_residual_load = deepcopy(residual_load)
 
     # default schedule: just basic power needs
     schedule = [v for v in flex["base"]]
     vehicle_ids = sorted(s.constants.vehicles.keys())
     vehicle_schedule = {vid: [0] * s.n_intervals for vid in vehicle_ids}
+
+    # set priorities
+    priorities = [None] * s.n_intervals
+
+    def assign_priorities(rng=range(len(priorities))):
+        """
+        Set priority for timesteps within range
+
+        priorities:
+        (0) times of curtailment
+        (1) percentile with lowest load => charge
+        (2) negative loads => charge
+        (3) positive loads => discharge
+        (4) percentile with highest load => discharge
+        Note: The procedure to determine priorities for every timestep assumes that
+        time intervals of simulation are equal to time intervals in grid situation time series.
+        Priorities might also change with power allocation.
+
+        :param rng: timestep range to update. Defaults to whole scenario.
+        :type rng: iterable
+        """
+        for t in rng:
+            if curtailment[t] > 0:
+                # highest priority: curtailment
+                priorities[t] = 0
+            elif residual_load[t] < cutoff_priority_1:
+                # percentile with smallest residual load
+                priorities[t] = 1
+            elif residual_load[t] > cutoff_priority_4:
+                # percentile with largest residual load
+                priorities[t] = 4
+            elif residual_load[t] < 0:
+                # not in smallest or largest percentile but negative
+                priorities[t] = 2
+            elif residual_load[t] > 0:
+                # not in smallest or largest percentile but positive residual load
+                priorities[t] = 3
+    assign_priorities()
 
     def distribute_energy_balanced(period, is_charge_period, energy_needed, priority_selection):
         """Distributes energy across a time period, prefering certain priorities over others.
@@ -493,6 +508,9 @@ def generate_schedule(args):
                 # demanded amount of energy has been distributed
                 break
 
+            # re-assign priorities (residual load might have changed)
+            assign_priorities(period)
+
             # count timesteps with current priority in period
             priority_timesteps = 0
             for time in period:
@@ -500,35 +518,73 @@ def generate_schedule(args):
                     priority_timesteps += 1
 
             # distribute remaining power needed over priority timesteps
-            saturated = 0
-            while priority_timesteps > saturated and power_needed > EPS:
-                power_per_ts = power_needed / (priority_timesteps - saturated)
-                saturated = 0
+            saturated = []
+            while priority_timesteps > len(saturated) and power_needed > EPS:
+                power_per_ts = power_needed / (priority_timesteps - len(saturated))
                 for time in period:
-                    if priorities[time] == priority:
-                        # calculate amount of power that can still be (dis-)charged
-                        if is_charge_period:
-                            flexibility = flex["max"][time] - schedule[time]
-                        else:
-                            flexibility = schedule[time] - flex["min"][time]
-                        power = min(power_per_ts, flexibility)
-                        if power < EPS:
-                            # schedule at limit: can't charge
-                            saturated += 1
-                        else:
-                            # power fits here
-                            if is_charge_period:
-                                # increase schedule if we want to charge vehicles
-                                schedule[time] += power
-                                energy_distributed += \
-                                    (power * flex["vehicles"]["efficiency"]) / ts_per_hour
-                            else:
-                                # decrease schedule if we want to discharge vehicles
-                                schedule[time] -= power * flex["vehicles"]["efficiency"]
-                                energy_distributed -= power / ts_per_hour
-                            power_needed -= power
+                    if priorities[time] != priority:
+                        # different priority: ignore
+                        continue
+                    if time in saturated:
+                        # power already saturated for this timestep and priority
+                        continue
 
+                    # get available power
+                    # power based on flexibility, already allocated power and priority boundaries
+                    prio_charging_flex = [
+                        curtailment[time],  # prio 0: curtailment
+                        cutoff_priority_1 - residual_load[time],  # prio 1: lowest perc
+                        min(  # prio 2: neg. res. load and below highest percentile
+                            -residual_load[time],
+                            cutoff_priority_4 - residual_load[time]
+                        ),
+                        cutoff_priority_4 - residual_load[time],  # prio 3: below highest perc
+                        max(residual_load)  # prio 4: unconstrained
+                    ]
+                    prio_discharging_flex = [
+                        None,  # prio 0: curtailment -> don't discharge
+                        min(residual_load),  # prio 1: unconstrained
+                        cutoff_priority_1 - residual_load[time],  # prio 2: above lowest perc
+                        max(0, cutoff_priority_1 - residual_load[time]),  # prio 3: above 0
+                        cutoff_priority_4 - residual_load[time]  # prio 4: above highest perc
+                    ]
+
+                    if is_charge_period:
+                        flexibility = min(
+                            flex["max"][time] - schedule[time],
+                            prio_charging_flex[priority])
+                    else:
+                        flexibility = max(
+                            schedule[time] - flex["min"][time],
+                            prio_discharging_flex[priority])
+
+                    power = min(power_per_ts, flexibility)
+                    if power < EPS:
+                        # schedule at limit: can't charge
+                        saturated.append(time)
+                    else:
+                        # power fits here
+                        if is_charge_period:
+                            # increase schedule if we want to charge vehicles
+                            schedule[time] += power
+                            energy_distributed += \
+                                (power * flex["vehicles"]["efficiency"]) / ts_per_hour
+                            # use curtailment power first
+                            assert power >= 0
+                            curtailment_power = min(curtailment[time], power)
+                            curtailment[time] -= curtailment_power
+                            residual_load[time] += power - curtailment_power
+                        else:
+                            # decrease schedule if we want to discharge vehicles
+                            grid_power = power * flex["vehicles"]["efficiency"]
+                            schedule[time] -= grid_power
+                            residual_load[time] += grid_power
+                            energy_distributed -= power / ts_per_hour
+
+                        power_needed -= power
         return energy_distributed
+
+    assign_priorities()
 
     if args.individual:
         # generate schedule for each individual vehicle
@@ -550,30 +606,63 @@ def generate_schedule(args):
 
                 # distribute energy
                 energy_needed = vinfo["energy"]
-                for prio in [1, 2, 3, 4]:
+                priority_order = [0, 1, 2, 3, 4]
+
+                for prio in priority_order:
                     if energy_needed < EPS:
                         break
-                    energy_prio_avail = sum(
-                        [flex["max"][j] if priorities[j] == prio else 0 for j in standing_range]
-                    ) / ts_per_hour
-                    if energy_prio_avail > EPS:
-                        # energy available in priority interval: distribute balanced
-                        # naive: balance vehicle only
-                        # advanced: balance GC power
-                        factor = min(energy_needed / energy_prio_avail, 1)
-                        for j in standing_range:
-                            if energy_needed < EPS:
-                                break
-                            if priorities[j] != prio:
-                                continue
-                            power = min(max(
-                                flex["max"][j] * factor, vinfo["p_min"]), vinfo["p_max"])
-                            schedule[j] += power
-                            energy_needed -= power / ts_per_hour
-                            flex["max"][j] -= power
-                            # only one schedule per timestep
-                            assert vehicle_schedule[vinfo["vid"]][j] == 0
-                            vehicle_schedule[vinfo["vid"]][j] = power
+                    # re-assign priorities
+                    assign_priorities(standing_range)
+                    # find power at timesteps of current priority within standing range
+                    power_avail = [0]*len(standing_range)
+
+                    for j, k in enumerate(standing_range):
+                        if prio != priorities[k]:
+                            continue
+                        if prio == 0:
+                            # use curtailment power
+                            power_avail[j] = min(flex["max"][k], curtailment[k])
+                        elif prio == 1:
+                            # don't exceed percentile
+                            power_avail[j] = min(
+                                flex["max"][k], cutoff_priority_1 - residual_load[k])
+                        elif prio == 2:
+                            # load must remain negative and below highest perc
+                            power_avail[j] = min(
+                                flex["max"][k],
+                                -residual_load[k],
+                                cutoff_priority_4 - residual_load[k])
+                        elif prio == 3:
+                            # don't cross percentile
+                            power_avail[j] = min(
+                                flex["max"][k], cutoff_priority_4 - residual_load[k])
+                        elif prio == 4:
+                            # already in highest percentile: charge unrestricted
+                            power_avail[j] = flex["max"][k]
+
+                    for j in standing_range:
+                        # energy left within standing time
+                        sum_energy_avail = sum(power_avail) / ts_per_hour
+                        if sum_energy_avail < EPS:
+                            # no energy left
+                            break
+                        factor = min(energy_needed / sum_energy_avail, 1)
+                        power = power_avail.pop(0) * factor
+                        # clamp power
+                        if power < vinfo["p_min"]:
+                            continue
+                        power = min(power, vinfo["p_max"])
+                        schedule[j] += power
+                        energy_needed -= power / ts_per_hour
+                        flex["max"][j] -= power
+
+                        # use curtailment power first
+                        assert power >= 0
+                        curtailment_power = min(curtailment[j], power)
+                        curtailment[j] -= curtailment_power
+                        residual_load[j] += power - curtailment_power
+                        # no V2G: charge only
+                        vehicle_schedule[vinfo["vid"]][j] += power
 
                 # add to flex
                 for j in standing_range:
@@ -590,14 +679,14 @@ def generate_schedule(args):
 
         flex["min"] = min_flex
         flex["max"] = max_flex
-
+        # end generate schedule for individual vehicles
     else:
         # generate schedule for whole vehicle park
         for interval in flex["intervals"]:
             capacity = flex["vehicles"]["capacity"]
             energy_stored = flex["vehicles"]["desired_energy"] - interval["needed"]
 
-            # brake up interval into charging (prio 1,2) and discharging (prio 3,4) periods
+            # break up interval into charging (prio 0,1,2) and discharging (prio 3,4) periods
             periods = [[]]
             if flex["vehicles"]["v2g"]:
                 prev_prio = priorities[interval["time"][0]]
@@ -621,7 +710,7 @@ def generate_schedule(args):
                     charge_period = priorities[period[0]] <= 2
                     last_period = (i == len(periods))
                     if charge_period:
-                        priority_selection = [1, 2]
+                        priority_selection = [0, 1, 2]
                         if not last_period:
                             desired_energy_stored = capacity
                     else:
@@ -630,7 +719,7 @@ def generate_schedule(args):
                             desired_energy_stored = flex["vehicles"]["discharge_limit"] * capacity
                 else:
                     charge_period = True
-                    priority_selection = [1, 2, 3, 4]
+                    priority_selection = [0, 1, 2, 3, 4]
 
                 energy_needed = desired_energy_stored - energy_stored
 
@@ -644,7 +733,7 @@ def generate_schedule(args):
             # go through all periods again, this time from latest to earliest and raise the schedule
             # as much as possible until enough energy is allocated to charge vehicles to desired SOC
             charge_period = True
-            priority_selection = [1, 2, 3, 4]
+            priority_selection = [0, 1, 2, 3, 4]
             for period in reversed(periods):
                 if energy_stored >= desired_energy_stored:
                     break
@@ -658,6 +747,7 @@ def generate_schedule(args):
     # find periods of same priority
     t_start = 0
     t_end = 0
+    assign_priorities()
     while t_end < len(priorities):
         if priorities[t_end] != priorities[t_start]:
             # different priority started
@@ -669,22 +759,40 @@ def generate_schedule(args):
             else:
                 # prio 3/4: discharge
                 energy = -batteries["stored"] * batteries["efficiency"]
+
             # distribute energy over period of same priority
             for t in range(t_start, t_end):
+
+                if priorities[t_start] == 0:
+                    # use curtailment to charge
+                    power = min(flex["max"][t] - schedule[t], curtailment[t])
+                elif priorities[t_start] == 1:
+                    # don't exceed percentile
+                    power = min(flex["max"][t] - schedule[t], cutoff_priority_1 - residual_load[t])
+                elif priorities[t_start] == 2:
+                    # load must remain negative
+                    power = min(flex["max"][t] - schedule[t], -residual_load[t])
+                elif priorities[t_start] == 3:
+                    # discharge: load must remain positive
+                    power = min(schedule[t] - flex["min"][t], residual_load[t])
+                elif priorities[t_start] == 4:
+                    # discharge in highest percentile: as much as possible
+                    power = schedule[t] - flex["min"][t]
+
                 t_left = duration - (t - t_start)
                 if energy > EPS:
                     # charge
                     e = min(
                         batteries["power"] / ts_per_hour,
                         energy / t_left,
-                        (flex["max"][t] - schedule[t]) / ts_per_hour)
+                        power / ts_per_hour)
                     e_bat_change = e * batteries["efficiency"]
                 elif energy < -EPS:
                     # discharge
                     e = -min(
                         (batteries["power"] * batteries["efficiency"]) / ts_per_hour,
                         -energy / t_left,
-                        (schedule[t] - flex["min"][t]) / ts_per_hour)
+                        power / ts_per_hour)
                     e_bat_change = e / batteries["efficiency"]
                 else:
                     e = 0
@@ -692,8 +800,13 @@ def generate_schedule(args):
 
                 batteries["stored"] += e_bat_change
                 batteries["free"] -= e_bat_change
-                schedule[t] += e * ts_per_hour
+                bat_power = e * ts_per_hour
+                schedule[t] += bat_power
                 energy -= e
+                # charging: use curtailment power first
+                curtailment_power = max(min(curtailment[t], bat_power), 0)
+                curtailment[t] -= curtailment_power
+                residual_load[t] += bat_power - curtailment_power
                 assert batteries["stored"] >= -EPS and batteries["free"] >= -EPS, (
                    "Battery fail: negative energy")
                 assert flex["min"][t] - EPS <= schedule[t] <= flex["max"][t] + EPS, (
@@ -742,7 +855,7 @@ def generate_schedule(args):
         # plot flex with schedule, input and priorities
         import matplotlib.pyplot as plt
 
-        fig, axes = plt.subplots(3, 1)
+        fig, axes = plt.subplots(2, 1)
         # plot flex and schedule
         axes[0].step(
             range(s.n_intervals),
@@ -757,17 +870,18 @@ def generate_schedule(args):
             range(s.n_intervals),
             list(zip(residual_load, curtailment)),
             label=["residual load", "curtailment"])
+        # reset color cycle, so lines of original data have same color
+        axes[1].set_prop_cycle(None)
+        axes[1].step(
+            range(s.n_intervals),
+            list(zip(original_residual_load, original_curtailment)),
+            linestyle='--')
+        # show cutoffs
+        axes[1].axhline(cutoff_priority_1, color='k', linestyle='--', linewidth=1)
+        axes[1].axhline(cutoff_priority_4, color='k', linestyle='--', linewidth=1)
         axes[1].legend()
         axes[1].set_xlim([0, s.n_intervals])
         axes[1].set_ylabel("power [kW]")
-        # plot priorities
-        axes[2].step(
-            range(s.n_intervals),
-            priorities,
-            label="priorities")
-        axes[2].legend()
-        axes[2].set_xlim([0, s.n_intervals])
-        axes[2].set_yticks([1, 2, 3, 4])
         plt.show()
 
 
