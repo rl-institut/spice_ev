@@ -35,28 +35,33 @@ def generate_from_csv(args):
     :type args: argparse.Namespace
     :raises SystemExit: if any of the required arguments (*input_file* and *output*) is missing
     """
+
+    # check for necessary arguments: input, output
     missing = [arg for arg in ["input_file", "output"] if vars(args).get(arg) is None]
     if missing:
         raise SystemExit("The following arguments are required: {}".format(", ".join(missing)))
 
+    # set seed
     random.seed(args.seed)
 
+    # define interval for simulation
     interval = datetime.timedelta(minutes=args.interval)
     # read csv input file
     input = csv_to_dict(args.input_file)
     # define target path for relative input or output files
     target_path = path.dirname(args.output)
 
-    # VEHICLES
+    # get defined vehicle types
     if args.vehicle_types is None:
         args.vehicle_types = "examples/vehicle_types.json"
-        print("No definition of vehicle types found, using {}".format(args.vehicle_types))
+        print(f"No definition of vehicle types found, using {args.vehicle_types}.")
     ext = args.vehicle_types.split('.')[-1]
     if ext != "json":
-        print("File extension mismatch: vehicle type file should be .json")
+        warnings.warn("File extension mismatch: vehicle type file should be '.json'.")
     with open(args.vehicle_types) as f:
         predefined_vehicle_types = json.load(f)
 
+    # INITIALIZE CONSTANTS AND EVENTS
     vehicle_types = {}
     vehicles = {}
     batteries = {}
@@ -68,75 +73,79 @@ def generate_from_csv(args):
         "vehicle_events": []
     }
 
-    # count number of trips where desired_soc is above min_soc
+    # count number of trips for which desired_soc is above min_soc
     trips_above_min_soc = 0
     trips_total = 0
 
-    for vehicle_type in {item['vehicle_type'] for item in input}:
-        # update vehicle types with vehicles in input csv
+    # set vehicle type if present in vehicle_types.json
+    for v_type in {item['vehicle_type'] for item in input}:
         try:
-            vehicle_types.update({vehicle_type: predefined_vehicle_types[vehicle_type]})
+            vehicle_types.update({v_type: predefined_vehicle_types[v_type]})
         except KeyError:
-            print(f"The vehicle type {vehicle_type} defined in the input csv cannot be found in "
+            print(f"The vehicle type '{v_type}' defined in the input csv cannot be found in "
                   f"vehicle_types.json. Please check for consistency.")
 
+    # check input file for column 'vehicle_id'
     if "vehicle_id" not in input[0].keys():
-        warnings.warn("Column 'vehicle_id' missing, vehicles are assigned by the principle first in"
-                      ", first out.")
+        if args.verbose > 0:
+            warnings.warn("Column 'vehicle_id' missing, vehicles are assigned by the principle "
+                          "first in, first out.")
         if args.export_vehicle_id_csv != "None" and args.export_vehicle_id_csv is not None:
             export_filename = path.join(target_path, args.export_vehicle_id_csv)
         else:
             export_filename = None
-        recharge_fraction = vars(args).get("recharge_fraction", 1)
-        input = assign_vehicle_id(input, vehicle_types, recharge_fraction, export_filename)
+        input = assign_vehicle_id(input, vehicle_types, export_filename)
 
+    # check input file for column 'connect_cs'
     if "connect_cs" not in input[0].keys():
-        warnings.warn("Column 'connect_cs' is not available. Vehicles will be connected to a "
-                      "charging station after every trip.")
+        if args.verbose > 0:
+            warnings.warn("Column 'connect_cs' is not available. Vehicles will be connected to a "
+                          "charging station after every trip.")
         input = [dict(item, **{'connect_cs': 1}) for item in input]
 
-    for vehicle_id in {item['vehicle_id'] for item in input}:
-        vt = [d for d in input if d['vehicle_id'] == vehicle_id][0]["vehicle_type"]
-        v_name = vehicle_id
-        cs_name = "CS_" + v_name
+    # GENERATE VEHICLE EVENTS: iterate over input file
+    for v_id in {item['vehicle_id'] for item in input}:
+        v_type = [d for d in input if d['vehicle_id'] == v_id][0]["vehicle_type"]
+        cs_id = "CS_" + v_id
 
         # define start conditions
-        vehicles[v_name] = {
+        vehicles[v_id] = {
             "connected_charging_station": None,
             "estimated_time_of_departure": None,
             "soc": args.min_soc,
-            "vehicle_type": vt
+            "vehicle_type": v_type
         }
 
-        cs_power = max([v[1] for v in vehicle_types[vt]['charging_curve']])
-        charging_stations[cs_name] = {
+        cs_power = max([v[1] for v in vehicle_types[v_type]['charging_curve']])
+        charging_stations[cs_id] = {
             "max_power": cs_power,
-            "min_power": vars(args).get("cs_power_min", 0),
+            "min_power": args.cs_power_min if args.cs_power_min is not None else 0.1 * cs_power,
             "parent": "GC1"
         }
 
         # keep track of last arrival event to adjust desired SoC if needed
         last_arrival_event = None
 
-        # filter all rides for that vehicle
-        vid_list = []
-        [vid_list.append(row) for row in input if (row["vehicle_id"] == v_name)]
+        # filter all trips for that vehicle
+        v_id_list = []
+        [v_id_list.append(row) for row in input if (row["vehicle_id"] == v_id)]
 
         # sort events for their departure time, so that the matching departure time of an
-        # arrival event can be read out of the next element in vid_list
-        vid_list = sorted(vid_list, key=lambda x: x["departure_time"])
+        # arrival event can be read out of the next element in v_id_list
+        v_id_list = sorted(v_id_list, key=lambda x: x["departure_time"])
 
         # initialize sum_delta_soc to add up delta_soc's of all trips until connected to a CS
         sum_delta_soc = 0
 
-        for index, row in enumerate(vid_list):
+        # iterate over trips of vehicle
+        for idx, row in enumerate(v_id_list):
             departure_event_in_input = True
             arrival = row["arrival_time"]
             arrival = datetime.datetime.strptime(arrival, DATETIME_FORMAT)
             try:
-                departure = vid_list[index+1]["departure_time"]
+                departure = v_id_list[idx + 1]["departure_time"]
                 departure = datetime.datetime.strptime(departure, DATETIME_FORMAT)
-                next_arrival = vid_list[index+1]["arrival_time"]
+                next_arrival = v_id_list[idx + 1]["arrival_time"]
                 next_arrival = datetime.datetime.strptime(next_arrival, DATETIME_FORMAT)
             except IndexError:
                 departure_event_in_input = False
@@ -145,60 +154,71 @@ def generate_from_csv(args):
             # check if column delta_soc or column soc exists
             if "delta_soc" not in row.keys():
                 if "soc" in row.keys():
-                    delta_soc = 1 - float(row["soc"])
+                    csv_start_soc = float(row["soc"])
+                    delta_soc = 1 - csv_start_soc
+                    # might want to avoid very low battery levels (configurable in config)
+                    if csv_start_soc < args.min_soc_threshold and args.verbose > 0:
+                        warnings.warn(f"CSV contains very low SoC for '{v_id}' "
+                                      f"in row {idx + 1}.")
                 else:
                     # get vehicle infos
-                    capacity = vehicle_types[vt]["capacity"]
+                    capacity = vehicle_types[v_type]["capacity"]
                     try:
                         # convert mileage per 100 km in 1 km
-                        mileage = vehicle_types[vt]["mileage"] / 100
+                        mileage = vehicle_types[v_type]["mileage"] / 100
                     except ValueError:
-                        print("In order to assign the vehicle consumption, either a mileage must"
-                              "be given in vehicle_types.json or a soc or delta_soc must be "
-                              "given in the input file. Please check for consistency.")
+                        warnings.warn("In order to assign the vehicle consumption, either a "
+                                      "mileage must be given in vehicle_types.json or a soc or "
+                                      "delta_soc must be given in the input file. "
+                                      "Please check for consistency.")
                     try:
                         distance = float(row["distance"])
                     except ValueError:
-                        print("In order to assign the vehicle consumption via the mileage, the "
-                              "column 'distance' must be given in the input csv. Please check "
-                              "for consistency.")
+                        warnings.warn("In order to assign the vehicle consumption via the mileage, "
+                                      "the column 'distance' must be given in the input csv. "
+                                      "Please check for consistency.")
                     delta_soc = distance * mileage / capacity
             else:
                 delta_soc = float(row["delta_soc"])
 
+            # might want to avoid very low battery levels (configurable in config)
+            if (1 - delta_soc) < args.min_soc_threshold and args.verbose > 0:
+                warnings.warn(f"CSV contains very high energy demand for '{v_id}' "
+                              f"in row {idx + 1}.")
+
             sum_delta_soc += delta_soc
 
             if int(row["connect_cs"]) == 1:
-                connect_cs = "CS_" + v_name
+                connect_cs = "CS_" + v_id
             else:
                 connect_cs = None
 
             if departure < arrival:
-                warnings.warn("{}: {} travelling in time (departing {})".format(
-                        arrival, v_name, departure))
+                warnings.warn(f"{arrival}: {v_id} travelling in time (departing {departure}).")
 
-            # adjust SoC if sum_delta_soc > min_soc
+            # arrival at new CS
             if connect_cs is not None:
+                # adjust SoC if sum_delta_soc > min_soc
                 if args.min_soc < sum_delta_soc:
                     trips_above_min_soc += 1
                     if last_arrival_event is None:
                         # initially unconnected: adjust initial SoC
-                        vehicles[v_name]["soc"] = sum_delta_soc
+                        vehicles[v_id]["soc"] = sum_delta_soc
                     else:
-                        # adjust last event reference
+                        # update last charge event info: set desired SOC
                         last_arrival_event["update"]["desired_soc"] = sum_delta_soc
                 trips_total += 1
 
                 if sum_delta_soc > 1:
                     warnings.warn(
-                        "Problem at {}: vehicle {} of type {} used {}% of its battery".format(
-                            arrival.isoformat(), v_name, vt, round(sum_delta_soc * 100, 2)
-                        ))
+                        f"Problem at {arrival.isoformat()}: vehicle {v_id} of type {v_type} used "
+                        f"{round(sum_delta_soc * 100, 2)} % of its battery capacity.")
 
+                # update last charge event info
                 last_arrival_event = {
                     "signal_time": arrival.isoformat(),
                     "start_time": arrival.isoformat(),
-                    "vehicle_id": v_name,
+                    "vehicle_id": v_id,
                     "event_type": "arrival",
                     "update": {
                         "connected_charging_station": connect_cs,
@@ -207,27 +227,28 @@ def generate_from_csv(args):
                         "desired_soc": args.min_soc,
                     }
                 }
+                events["vehicle_events"].append(last_arrival_event)
+
                 # reset sum_delta_soc to start adding up again until connected to next CS
                 sum_delta_soc = 0
 
-                events["vehicle_events"].append(last_arrival_event)
-
                 if departure_event_in_input:
                     if departure > next_arrival:
-                        warnings.warn("{}: {} travelling in time (arriving {})".format(
-                                departure, v_name, next_arrival))
+                        warnings.warn(f"{departure}: {v_id} travelling in time "
+                                      f"(arriving {next_arrival}).")
 
                     events["vehicle_events"].append({
                         "signal_time": departure.isoformat(),
                         "start_time": departure.isoformat(),
-                        "vehicle_id": v_name,
+                        "vehicle_id": v_id,
                         "event_type": "departure",
                         "update": {
                             "estimated_time_of_arrival":  next_arrival.isoformat(),
                         }
                     })
 
-    if trips_above_min_soc:
+    # number of trips for which desired_soc is above min_soc
+    if trips_above_min_soc and args.verbose > 0:
         print(f"{trips_above_min_soc} of {trips_total} trips "
               f"use more than {args.min_soc * 100}% capacity")
 
@@ -238,11 +259,12 @@ def generate_from_csv(args):
         else:
             # unlimited battery: set power directly
             max_power = c_rate
-        batteries["BAT{}".format(idx+1)] = {
+        batteries["BAT{}".format(idx + 1)] = {
             "parent": "GC1",
             "capacity": capacity,
             "charging_curve": [[0, max_power], [1, max_power]]
         }
+
     # save path and options for CSV timeseries
     times = []
     for row in input:
@@ -252,6 +274,7 @@ def generate_from_csv(args):
     start = datetime.datetime.strptime(start, DATETIME_FORMAT)
     stop = start + datetime.timedelta(days=args.days)
 
+    # external load CSV
     if args.include_ext_load_csv:
         filename = args.include_ext_load_csv
         basename = path.splitext(path.basename(filename))[0]
@@ -271,10 +294,15 @@ def generate_from_csv(args):
         # check if CSV file exists
         ext_csv_path = path.join(target_path, filename)
         if not path.exists(ext_csv_path):
-            print(
-                "Warning: external csv file '{}' does not exist yet".format(
-                    ext_csv_path))
+            warnings.warn(f"External csv file '{ext_csv_path}' does not exist yet.")
+        else:
+            with open(ext_csv_path, newline='') as csvfile:
+                reader = csv.DictReader(csvfile)
+                if not options["column"] in reader.fieldnames:
+                    warnings.warn(f"External csv file '{ext_csv_path}' has no column "
+                                  f"'{options['column']}'.")
 
+    # energy feed-in CSV (e.g. from PV)
     if args.include_feed_in_csv:
         filename = args.include_feed_in_csv
         basename = path.splitext(path.basename(filename))[0]
@@ -293,10 +321,15 @@ def generate_from_csv(args):
         events['energy_feed_in'][basename] = options
         feed_in_path = path.join(target_path, filename)
         if not path.exists(feed_in_path):
-            print(
-                "Warning: feed-in csv file '{}' does not exist yet".format(
-                    feed_in_path))
+            warnings.warn(f"Feed-in csv file '{feed_in_path}' does not exist yet.")
+        else:
+            with open(feed_in_path, newline='') as csvfile:
+                reader = csv.DictReader(csvfile)
+                if not options["column"] in reader.fieldnames:
+                    warnings.warn(f"Feed-in csv file '{feed_in_path}' has no column "
+                                  f"'{options['column']}'.")
 
+    # energy price CSV
     if args.include_price_csv:
         filename = args.include_price_csv
         # basename = path.splitext(path.basename(filename))[0]
@@ -314,12 +347,16 @@ def generate_from_csv(args):
         events['energy_price_from_csv'] = options
         price_csv_path = path.join(target_path, filename)
         if not path.exists(price_csv_path):
-            print("Warning: price csv file '{}' does not exist yet".format(
-                price_csv_path))
-
-    daily = datetime.timedelta(days=1)
-    # price events
-    if not args.include_price_csv:
+            warnings.warn(f"Price csv file '{price_csv_path}' does not exist yet.")
+        else:
+            with open(price_csv_path, newline='') as csvfile:
+                reader = csv.DictReader(csvfile)
+                if not options["column"] in reader.fieldnames:
+                    warnings.warn(f"Price csv file '{price_csv_path}' has no column "
+                                  f"'{options['column']}'.")
+    else:
+        # generate daily price evens
+        daily = datetime.timedelta(days=1)
         now = start - daily
         while now < stop + 2 * daily:
             now += daily
@@ -351,6 +388,12 @@ def generate_from_csv(args):
                         "value": 0.05 + random.gauss(0, 0.03)
                     }
                 }]
+
+    # check voltage level (used in cost calculation)
+    voltage_level = vars(args).get("voltage_level")
+    if voltage_level is None:
+        warnings.warn("Voltage level is not set, please choose one when calculating costs.")
+
     # create final dict
     j = {
         "scenario": {
@@ -364,14 +407,21 @@ def generate_from_csv(args):
             "vehicles": vehicles,
             "grid_connectors": {
                 "GC1": {
-                    "max_power": vars(args).get("gc_power", 530),
-                    "cost": {"type": "fixed", "value": 0.3}
+                    "max_power": vars(args).get("gc_power", 100),
+                    "voltage_level": voltage_level,
+                    "cost": {"type": "fixed", "value": 0.3},
                 }
             },
             "charging_stations": charging_stations,
-            "batteries": batteries
+            "batteries": batteries,
+            "photovoltaics": {
+                "PV1": {
+                    "parent": "GC1",
+                    "nominal_power": vars(args).get("pv_power", 0),
+                }
+            },
         },
-        "events": events
+        "events": events,
     }
 
     # Write JSON
@@ -408,7 +458,7 @@ def csv_to_dict(csv_path):
     return dict
 
 
-def assign_vehicle_id(input, vehicle_types, recharge_fraction, export=None):
+def assign_vehicle_id(input, vehicle_types, export=None):
     """
     Assigns all rotations to specific vehicles with distinct vehicle_id. The assignment follows the
     principle "first in, first out". The assignment of a minimum standing time in hours is optional.
@@ -417,9 +467,6 @@ def assign_vehicle_id(input, vehicle_types, recharge_fraction, export=None):
     :type input: dict
     :param vehicle_types: dict with vehicle types
     :type vehicle_types: dict
-    :param recharge_fraction: minimum fraction of capacity for recharge when leaving the charging
-                              station
-    :type recharge_fraction: float
     :param export: path to output file of input with vehicle_id
     :type export: str or None
     :return: schedule of rotations
@@ -431,15 +478,16 @@ def assign_vehicle_id(input, vehicle_types, recharge_fraction, export=None):
     # list of currently idle vehicles
     idle_vehicles = []
     # keep track of number of needed vehicles per type
-    vehicle_type_counts = {vehicle_type: 0 for vehicle_type in vehicle_types.keys()}
+    v_type_counts = {v_type: 0 for v_type in vehicle_types.keys()}
 
     # calculate min_standing_time at a charging station for each vehicle type
     # CS power is identical for all vehicles per type: maximum of loading curve
-    cs_power = {vt: max([v[1] for v in vi["charging_curve"]]) for vt, vi in vehicle_types.items()}
+    cs_power = {v_type: max([v[1] for v in v_info["charging_curve"]])
+                for v_type, v_info in vehicle_types.items()}
     min_standing_times = {
-        vt: datetime.timedelta(hours=(
-            vi["capacity"] / cs_power[vt] * recharge_fraction
-        )) for vt, vi in vehicle_types.items()}
+        v_type: datetime.timedelta(hours=(
+            v_info["capacity"] / cs_power[v_type]
+        )) for v_type, v_info in vehicle_types.items()}
 
     # sort rotations by departure time
     rotations = sorted(input, key=lambda d: d.get('departure_time'))
@@ -466,22 +514,21 @@ def assign_vehicle_id(input, vehicle_types, recharge_fraction, export=None):
                 # ordered by possible departure time: other rotations not possible as well
                 break
 
-        # find idle vehicle for rotation if exists
-        # else generate new vehicle id
-        vt = rot["vehicle_type"]
+        # find idle vehicle for rotation if exists, else generate new vehicle id
+        v_type = rot["vehicle_type"]
         try:
             # find idle vehicle for rotation
-            id = next(id for id in idle_vehicles if vt in id)
-            idle_vehicles.remove(id)
+            v_id = next(v_id for v_id in idle_vehicles if v_type in v_id)
+            idle_vehicles.remove(v_id)
         except StopIteration:
             # no vehicle idle: generate new vehicle id
-            vehicle_type_counts[vt] += 1
-            id = f"{vt}_{vehicle_type_counts[vt]}"
+            v_type_counts[v_type] += 1
+            v_id = f"{v_type}_{v_type_counts[v_type]}"
 
-        rot["vehicle_id"] = id
+        rot["vehicle_id"] = v_id
         # insert new rotation into list of ongoing rotations
         # calculate earliest possible new departure time
-        min_departure_time = arrival_time + min_standing_times[vt]
+        min_departure_time = arrival_time + min_standing_times[v_type]
         # find place to insert
         i = 0
         for i, r in enumerate(rotations_in_progress):
@@ -515,28 +562,33 @@ if __name__ == '__main__':
     parser.add_argument('input_file', nargs='?',
                         help='input file name (rotations_example_table.csv)')
     parser.add_argument('output', nargs='?', help='output file name (example.json)')
-    parser.add_argument('--days', metavar='N', type=int, default=30,
+    parser.add_argument('--days', metavar='N', type=int, default=7,
                         help='set duration of scenario as number of days')
+
+    # general
     parser.add_argument('--interval', metavar='MIN', type=int, default=15,
                         help='set number of minutes for each timestep (Δt)')
     parser.add_argument('--min-soc', metavar='SOC', type=float, default=0.8,
                         help='set minimum desired SOC (0 - 1) for each charging process')
+    parser.add_argument('--min-soc-threshold', type=float, default=0.05,
+                        help='SoC below this threshold trigger a warning. Default: 0.05')
     parser.add_argument('--battery', '-b', default=[], nargs=2, type=float, action='append',
                         help='add battery with specified capacity in kWh and C-rate \
                         (-1 for variable capacity, second argument is fixed power))')
-    parser.add_argument('--gc-power', type=float, default=530, help='set power at grid connection '
+    parser.add_argument('--gc-power', type=float, default=100, help='set power at grid connection '
                                                                     'point in kW')
-    parser.add_argument('--cs-power-min', type=float, default=0, help='set minimal power at '
-                                                                      'charging station in kW')
-    parser.add_argument('--seed', default=None, type=int, help='set random seed')
-    parser.add_argument('--recharge-fraction', type=float, default=1,
-                        help='Minimum fraction of vehicle battery capacity for recharge when '
-                             'leaving the charging station')
-
-    parser.add_argument('--vehicle-types', default=None,
-                        help='location of vehicle type definitions')
+    parser.add_argument('--voltage-level', '-vl', help='Choose voltage level for cost calculation')
+    parser.add_argument('--pv-power', type=int, default=0, help='set nominal power for local '
+                                                                'photovoltaic power plant in kWp')
+    parser.add_argument('--cs-power-min', type=float, default=None,
+                        help='set minimal power at charging station in kW (default: 0.1 * cs_power')
     parser.add_argument('--discharge-limit', default=0.5,
                         help='Minimum SoC to discharge to during V2G. [0-1]')
+    parser.add_argument('--seed', default=None, type=int, help='set random seed')
+
+    # input files (CSV, JSON)
+    parser.add_argument('--vehicle-types', default=None,
+                        help='location of vehicle type definitions')
     parser.add_argument('--include-ext-load-csv',
                         help='include CSV for external load. \
                         You may define custom options with --include-ext-csv-option')
@@ -556,10 +608,18 @@ if __name__ == '__main__':
                         help='append additional argument to price signals')
     parser.add_argument('--export-vehicle-id-csv', default=None,
                         help='option to export csv after assigning vehicle_id')
+
+    # config
     parser.add_argument('--config', help='Use config file to set arguments')
+
+    # errors and warnings
+    parser.add_argument('--verbose', '-v', action='count', default=0,
+                        help='Set verbosity level. Use this multiple times for more output. '
+                             'Default: only errors and important warnings, '
+                             '1: additional warnings and info')
 
     args = parser.parse_args()
 
-    set_options_from_config(args, check=False, verbose=False)
+    set_options_from_config(args, check=True, verbose=args.verbose > 1)
 
     generate_from_csv(args)

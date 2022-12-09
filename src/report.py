@@ -200,7 +200,7 @@ def aggregate_local_results(scenario, gcID):
     else:
         avg_stand_time[gcID] = 0
     # avg total standing time
-    # count per car: list(zip(*count_window))
+    # count per vehicle: list(zip(*count_window))
     total_standing = sum(map(sum, count_window))
     # avoid div0 if there are no vehicles
     num_vehicles = max(len(scenario.constants.vehicles), 1)
@@ -229,7 +229,7 @@ def aggregate_local_results(scenario, gcID):
     # avg needed energy per standing period
     intervals = scenario.flex_bands[gcID].get("intervals")
     if intervals:
-        scenario.avg_needed_energy[gcID] = sum([i["needed"] / i["num_cars_present"]
+        scenario.avg_needed_energy[gcID] = sum([i["needed"] / i["num_vehicles_present"]
                                                 for i in intervals]) / len(intervals)
     else:
         scenario.avg_needed_energy[gcID] = 0
@@ -304,12 +304,12 @@ def aggregate_local_results(scenario, gcID):
             "info": "Number of load cycles of stationary batteries (averaged)"
         }
     # vehicles
-    car_cap = sum([v.battery.capacity for v in scenario.constants.vehicles.values()])
-    car_energy = sum([sum(map(lambda v: max(v, 0), r["commands"].values()))
-                      for r in scenario.results])
-    scenario.total_car_cap[gcID] = car_cap
-    scenario.total_car_energy[gcID] = car_energy
-    battery_cycles = car_energy / car_cap if car_cap > 0 else 0
+    vehicle_cap = sum([v.battery.capacity for v in scenario.constants.vehicles.values()])
+    vehicle_energy = sum([sum(map(lambda v: max(v, 0), r["commands"].values()))
+                          for r in scenario.results])
+    scenario.total_vehicle_cap[gcID] = vehicle_cap
+    scenario.total_vehicle_energy[gcID] = vehicle_energy
+    battery_cycles = vehicle_energy / vehicle_cap if vehicle_cap > 0 else 0
     json_results["all vehicle battery cycles"] = {
         "value": battery_cycles,
         "unit": None,
@@ -661,8 +661,8 @@ def generate_reports(scenario, options):
 
     if save_results or testing:
         # initialize aggregation variables with empty dicts
-        for var in ["avg_drawn", "flex_bands", "total_car_cap", "avg_stand_time",
-                    "total_car_energy", "avg_needed_energy", "perc_stand_window",
+        for var in ["avg_drawn", "flex_bands", "total_vehicle_cap", "avg_stand_time",
+                    "total_vehicle_energy", "avg_needed_energy", "perc_stand_window",
                     "avg_flex_per_window", "sum_energy_per_window", "avg_total_standing_time"]:
             setattr(scenario, var, {})
 
@@ -762,7 +762,7 @@ def generate_reports(scenario, options):
             "sum_feed_in_per_h": {gcID: (sum(scenario.feedInPower[gcID]) / scenario.stepsPerHour)
                                   for gcID in gc_ids},
             "vehicle_battery_cycles": {
-                gcID: (scenario.total_car_energy[gcID] / scenario.total_car_cap[gcID])
+                gcID: (scenario.total_vehicle_energy[gcID] / scenario.total_vehicle_cap[gcID])
                 for gcID in gc_ids
             }
         }
