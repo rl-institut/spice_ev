@@ -388,6 +388,8 @@ def generate_schedule(args):
 
     residual_load = []
     curtailment = []
+    curtailment_is_positive = False
+    curtailment_is_negative = False
     # Read grid situation timeseries
     with open(args.input, 'r', newline='') as f:
         reader = csv.DictReader(f)
@@ -411,7 +413,13 @@ def generate_schedule(args):
                 residual_load.append(replace_unknown)
             # store curtailment info
             try:
-                curtailment.append(-float(row["curtailment"]))
+                # sign of curtailment not clear
+                curtailment_value = float(row["curtailment"])
+                # at least make sure it is consistent
+                curtailment_is_negative |= curtailment_value < 0
+                curtailment_is_positive |= curtailment_value > 0
+                assert not (curtailment_is_negative and curtailment_is_positive)
+                curtailment.append(abs(curtailment_value))
             except ValueError:
                 warnings.warn("Curtailment timeseries contains non-numeric values.")
                 replace_unknown = curtailment[-1] if row_idx > 0 else 0
@@ -476,7 +484,7 @@ def generate_schedule(args):
             elif residual_load[t] < 0:
                 # not in smallest or largest percentile but negative
                 priorities[t] = 2
-            elif residual_load[t] > 0:
+            elif residual_load[t] >= 0:
                 # not in smallest or largest percentile but positive residual load
                 priorities[t] = 3
     assign_priorities()
@@ -603,6 +611,8 @@ def generate_schedule(args):
                     continue
 
                 standing_range = range(vinfo["idx_start"], vinfo["idx_end"])
+                # keep track of max available charging power of vehicle per TS
+                p_max_avail = [vinfo["p_max"]] * len(standing_range)
 
                 # distribute energy
                 energy_needed = vinfo["energy"]
@@ -640,7 +650,7 @@ def generate_schedule(args):
                             # already in highest percentile: charge unrestricted
                             power_avail[j] = flex["max"][k]
 
-                    for j in standing_range:
+                    for j, k in enumerate(standing_range):
                         # energy left within standing time
                         sum_energy_avail = sum(power_avail) / ts_per_hour
                         if sum_energy_avail < EPS:
@@ -651,18 +661,19 @@ def generate_schedule(args):
                         # clamp power
                         if power < vinfo["p_min"]:
                             continue
-                        power = min(power, vinfo["p_max"])
-                        schedule[j] += power
+                        power = min(power, p_max_avail[j])
+                        schedule[k] += power
                         energy_needed -= power / ts_per_hour
-                        flex["max"][j] -= power
+                        flex["max"][k] -= power
+                        p_max_avail[j] -= power
 
                         # use curtailment power first
                         assert power >= 0
-                        curtailment_power = min(curtailment[j], power)
-                        curtailment[j] -= curtailment_power
-                        residual_load[j] += power - curtailment_power
+                        curtailment_power = min(curtailment[k], power)
+                        curtailment[k] -= curtailment_power
+                        residual_load[k] += power - curtailment_power
                         # no V2G: charge only
-                        vehicle_schedule[vinfo["vid"]][j] += power
+                        vehicle_schedule[vinfo["vid"]][k] += power
 
                 # add to flex
                 for j in standing_range:
@@ -748,7 +759,7 @@ def generate_schedule(args):
     t_start = 0
     t_end = 0
     assign_priorities()
-    while t_end < len(priorities):
+    while t_end < len(priorities) and batteries["power"] != 0:
         if priorities[t_end] != priorities[t_start]:
             # different priority started
             duration = t_end - t_start
