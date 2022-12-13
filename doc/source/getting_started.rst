@@ -4,12 +4,6 @@ Getting started
 
 SpiceEV is a tool to generate scenarios of electric-vehicle fleets and simulate different charging strategies.
 
-
-Documentation
-=============
-
-Full documentation can be found `here <https://spice_ev.readthedocs.io/en/latest/>`_
-
 Installing SpiceEV
 ===================
 
@@ -31,11 +25,11 @@ e.g. generate trips for certain vehicles by random functions or load your vehicl
 should be defined in a `vehicle_type.json` and be added to your input arguments. See `examples/vehicle_types.json` for some exemplary vehicles.
 You can define your input arguments in the command line or open a config file (e.g. `examples/generate.cfg`) to set your variables. For an overview over all command line options see section :ref:`command line options <command_line_options>`.
 
-In order to generate a 7-day scenario with 10 cars of different types and 15 minute timesteps with command line options, type:
+In order to generate a 7-day scenario with 10 vehicles of different types and 15 minute timesteps with command line options, type:
 
 .. code:: bash
 
-    ./generate.py --days 7 --cars 6 golf --cars 4 sprinter --interval 15 --vehicle-types examples/vehicle_types.json  scenario.json
+    ./generate.py --days 7 --vehicles 6 golf --vehicles 4 sprinter --interval 15 --vehicle-types examples/vehicle_types.json  scenario.json
 
 In order to generate a scenario with input arguments from a config file type:
 

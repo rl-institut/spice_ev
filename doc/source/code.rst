@@ -116,7 +116,7 @@ Wrapper / Parent class for the individual strategies.
 
 Balanced
 --------
-Each car is charged such that it uses its complete standing time to reach the
+Each vehicle is charged such that it uses its complete standing time to reach the
 desired SoC. May charge more power (and above the desired SoC) if there is
 surplus feed-in power or if the energy price falls below a certain PRICE_THRESHOLD.
 
@@ -160,7 +160,7 @@ There are time windows during which charging is encouraged and there are those w
 Greedy
 ------
 Charges one vehicle after the next with full power until the desired state of
-charge (SoC) is reached. Depending on the grid connector (GC), multiple cars
+charge (SoC) is reached. Depending on the grid connector (GC), multiple vehicles
 may be charged in one timestep.
 
 .. currentmodule:: src.strategies.greedy

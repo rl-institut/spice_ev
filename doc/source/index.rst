@@ -1,8 +1,8 @@
 
 .. _welcome:
 
-Welcome to the documentation of SpiceEV!
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Welcome to the documentation of SpiceEV - Simulation Program for Individual Charging Events of Electric Vehicles!
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 SpiceEV is a tool to simulate different charging strategies for a defined set of vehicles and corresponding trips to and from charging stations. The output shows load profiles of the vehicle battery, the
 corresponding charging station, the grid connector as well as the electricity price and, if applicable, the stationary batteries. Each vehicle is by default connected to a separate charging station.
