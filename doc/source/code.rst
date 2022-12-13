@@ -12,11 +12,8 @@ Generate inputs
 The generate scripts prepare input files for the simulation with SpiceEV. Most
 generate scripts create a scenario json, containing information about the vehicles, the trips,
 the charging stations, grid connectors as well as optional inputs such as
-stationary batteries, external load, feed-in or grid signal time series. The modules
-'generate_schedule' and 'generate_fixed_schedule_for_scenario' prepare csv files
-of grid operator schedules and add this schedule to an existing input json. The
-'generate_energy_price' function creates a dummy energy_price csv input file
-with randomly generated values.
+stationary batteries, external load, feed-in or grid signal time series. The module
+'generate_schedule' prepares a csv file of grid operator schedules and adds this schedule to an existing input json.
 
 Generate
 --------
@@ -91,7 +88,7 @@ config file see `/examples/simulate.cfg`.
 
 Scenario
 ========
-Sets up constants, events, start time, interval of the simlation. Runs simulation
+Sets up constants, events, start time, interval of the simulation. Runs simulation
 stepwise and calls charging strategy for each timestep.
 
 .. currentmodule:: src.scenario
@@ -173,7 +170,7 @@ may be charged in one timestep.
 Greedy Market
 -------------
 This algorithm first determines the cheapest group of time intervals sufficient to charge all vehicles according to their needs.
-Moves all charging events to those time intervals and charges them with full power, similar to the greedy strategy. Only one grid connector supported.
+Moves all charging events to those time intervals and charges them with full power, similar to the greedy strategy.
 
 .. currentmodule:: src.strategies.greedy_market
 .. autosummary::

@@ -32,23 +32,21 @@ The core of SpiceEV are the different charging strategies. They decide how to re
 Greedy
 ------
 As soon as a vehicle is connected, it is charged at the maximum possible power until the desired SoC level is reached.
-Depending on the grid connector (GC), the power must be throttled in order to not exceed its maximum power. The vehicle
-may be charged above the desired SoC if there is surplus feed-in power or the energy price is cheap.
+Depending on the grid connector (GC), the power must be throttled in order to not exceed its maximum power. A vehicle
+may be charged above the desired SoC if there is surplus feed-in power or the energy price falls below the set price threshold.
 
 Balanced
 --------
-Each vehicle is charged such that it uses its complete standing time to reach the desired SoC. May charge more power
-(and above the desired SoC) if there is surplus feed-in power or if the energy price falls below a certain
-PRICE_THRESHOLD. A prerequisite for this strategy is an estimate of the standing time. In the simulation model, a
-perfect foresight is used for this purpose. By defining a time horizon, it is possible to specify how far in the future
-departure times are known.
+Each vehicle is charged with the minimal possible power over its standing time to reach the desired SoC. A vehicle
+may be charged above the desired SoC if there is surplus feed-in power or the energy price falls below the set price threshold.
+A prerequisite for this strategy is an estimate of the standing time. In the simulation model, a perfect foresight is used for
+this purpose. By defining a time horizon, it is possible to specify how far in the future departure times are known.
 
 GreedyMarket
 ------------
 Depending on a given price time series, this algorithm first determines the cheapest group of time intervals sufficient
 to charge all vehicles according to their needs. All charging events are moved to those time intervals in which the
-vehicles are charges with full power, similar to the greedy strategy. With this strategy only one grid connector is
-supported.
+vehicles are charges with full power at the first cheapest price signal, similar to the greedy strategy.
 
 BalancedMarket
 --------------
@@ -63,12 +61,13 @@ Schedule
 --------
 The distribution network operator sends an individual "charging schedule" to the connection users which contains the
 time and amount of the total power to be called up for the grid connection. The charging schedule is based on the
-flexibility potential of the connection users (core standing time of the vehicle fleet, total demand for electrical
-energy, maximum total power of the location) and the expected grid situation. The core standing time is a fixed period
-of time during which all vehicles are available. Two different sub-strategies can be used:
+flexibility potential of the connection users (total demand for electrical energy, maximum total power of the location
+and the core standing time of the vehicle fleet (only for "collective") as well as the expected grid situation.
+The core standing time is a fixed period of time during which all vehicles are guaranteed to be available.
+Two different sub-strategies can be used:
 
 - collective: All vehicles are controlled as a unit.
-- individual: All vehicles are controlles individually can be assumed, in which case the core standing time can be left out.
+- individual: All vehicles are controlled individually.
 
 PeakLoadWindow
 --------------
@@ -81,7 +80,7 @@ supported:
 
 FlexWindow
 ----------
-There are time windows during which charging is encouraged and there are those where it is discouraged. These time windows are determined by the grid operator (similar to Schedule strategy). During those windows where charging is encouraged the vehicles are charged with one of the following sub-strategies:
+This strategy uses time windows during which charging is encouraged and there are those where it is discouraged. These time windows are determined by the grid operator (similar to Schedule strategy). During those windows where charging is encouraged the vehicles are charged with one of the following sub-strategies:
 
 - greedy: charge vehicles that are below their desired SOC level one after the other, the rest is ordered by time of departure (earlier departures charged first)
 - needy: charge vehicles with little power missing to desired SoC first, vehicles are charged one after the other
@@ -91,10 +90,9 @@ If not all vehicles can be charged during the time windows where charging is enc
 
 Distributed
 -----------
-
-Distributed is a strategy that supports multiple grid connectors. A differentiation is made between depot or opportunity
-charging stations. Vehicles connected to opp grid connectors are charged according to the 'greedy' strategy. Vehicles
-connected to depot grid connectors are charged according to the 'balanced' strategy. At stations with a limited number
+Distributed is a strategy that uses different strategies at different grid connectors. A differentiation is made between depot or opportunity
+charging stations. Vehicles connected to opportunity charging stations are charged according to the 'greedy' strategy. Vehicles
+connected to depot charging stations are charged according to the 'balanced' strategy. At stations with a limited number
 of charging stations the vehicles are prioritized as follows: All vehicles that want to connect in the current and
 future time steps are collected and ranked by their SoC. The vehicle(s) with lowest SoC are loaded first until their
 desired SoC is reached or the vehicle departs. As soon as the charging station is available again, the process is
@@ -134,7 +132,7 @@ The following table gives an overview of the possible combinations.
 State of the art
 ----------------
 The electricity costs consist of the grid fees (sells included), taxes, levies and power
-procurement. In case of V2G or feed-in by a PV power plant the feed-in remuneration is substracted. The difference
+procurement. In case of V2G or feed-in by a PV power plant the feed-in remuneration is subtracted. The difference
 between the incentive schemes lies in the the way grid fees are handled. Therefore the other cost components are spared
 out in the following. In all of the incentive schemes the calculation of the grid fee is based on the price sheet of the
 distribution grid operator.
@@ -181,7 +179,7 @@ Schedule-based grid fees
 ------------------------
 
 Similar to the flexible time windows, the tariff for grid friendly charging is applied on the flexible loads such as
-electric vehicles when using schdule-based grid fees. In case off a core standing time, only the load peak outside the
+electric vehicles when using schedule-based grid fees. In case off a core standing time, only the load peak outside the
 core standing time is relevant for the capacity charge, since this grid supply was not scheduled by the grid operator.
 
 The schedule-based grid fees are only applied on flexible loads. The fixed load of a location is charged according to
