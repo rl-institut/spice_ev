@@ -379,7 +379,7 @@ def generate_schedule(args):
     assert len(s.constants.grid_connectors) == 1, "Only one grid connector supported"
 
     # compute flexibility potential (min/max) of single grid connector for each timestep
-    gcID = list(s.constants.grid_connectors.keys())[0]
+    gcID, gc = list(s.constants.grid_connectors.items())[0]
     # use different function depending on "inidivual" argument
     if args.individual:
         flex = generate_individual_flex_band(s, gcID)
@@ -510,7 +510,7 @@ def generate_schedule(args):
         """
         power_needed = energy_needed * ts_per_hour
         energy_distributed = 0
-        for priority in priority_selection:
+        for prio_idx, priority in enumerate(priority_selection):
 
             if power_needed < EPS:
                 # demanded amount of energy has been distributed
@@ -519,10 +519,10 @@ def generate_schedule(args):
             # re-assign priorities (residual load might have changed)
             assign_priorities(period)
 
-            # count timesteps with current priority in period
+            # count timesteps with current (or higher) priority in period
             priority_timesteps = 0
             for time in period:
-                if priorities[time] == priority:
+                if priorities[time] in priority_selection[:(prio_idx+1)]:
                     priority_timesteps += 1
 
             # distribute remaining power needed over priority timesteps
@@ -530,8 +530,8 @@ def generate_schedule(args):
             while priority_timesteps > len(saturated) and power_needed > EPS:
                 power_per_ts = power_needed / (priority_timesteps - len(saturated))
                 for time in period:
-                    if priorities[time] != priority:
-                        # different priority: ignore
+                    if priorities[time] not in priority_selection[:(prio_idx+1)]:
+                        # lower priority: ignore
                         continue
                     if time in saturated:
                         # power already saturated for this timestep and priority
@@ -547,11 +547,11 @@ def generate_schedule(args):
                             cutoff_priority_4 - residual_load[time]
                         ),
                         cutoff_priority_4 - residual_load[time],  # prio 3: below highest perc
-                        max(residual_load)  # prio 4: unconstrained
+                        gc.max_power  # prio 4: unconstrained
                     ]
                     prio_discharging_flex = [
                         None,  # prio 0: curtailment -> don't discharge
-                        min(residual_load),  # prio 1: unconstrained
+                        -gc.max_power,  # prio 1: unconstrained
                         cutoff_priority_1 - residual_load[time],  # prio 2: above lowest perc
                         max(0, cutoff_priority_1 - residual_load[time]),  # prio 3: above 0
                         cutoff_priority_4 - residual_load[time]  # prio 4: above highest perc
@@ -618,7 +618,7 @@ def generate_schedule(args):
                 energy_needed = vinfo["energy"]
                 priority_order = [0, 1, 2, 3, 4]
 
-                for prio in priority_order:
+                for prio_idx, prio in enumerate(priority_order):
                     if energy_needed < EPS:
                         break
                     # re-assign priorities
@@ -627,7 +627,7 @@ def generate_schedule(args):
                     power_avail = [0]*len(standing_range)
 
                     for j, k in enumerate(standing_range):
-                        if prio != priorities[k]:
+                        if priorities[k] not in priority_order[:(prio_idx + 1)]:
                             continue
                         if prio == 0:
                             # use curtailment power
