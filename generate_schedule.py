@@ -575,8 +575,8 @@ def generate_schedule(args):
                         if is_charge_period:
                             # increase schedule if we want to charge vehicles
                             schedule[time] += power
-                            energy_distributed += \
-                                (power * flex["vehicles"]["efficiency"]) / ts_per_hour
+                            # efficiency already in generate_flex_band
+                            energy_distributed += power / ts_per_hour
                             # use curtailment power first
                             assert power >= 0
                             curtailment_power = min(curtailment[time], power)
@@ -584,7 +584,7 @@ def generate_schedule(args):
                             residual_load[time] += power - curtailment_power
                         else:
                             # decrease schedule if we want to discharge vehicles
-                            grid_power = power * flex["vehicles"]["efficiency"]
+                            grid_power = power  # no efficiency penalty
                             schedule[time] -= grid_power
                             residual_load[time] += grid_power
                             energy_distributed -= power / ts_per_hour
