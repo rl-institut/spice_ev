@@ -2,6 +2,7 @@ import csv
 from math import ceil
 import os
 import datetime
+from warnings import warn
 
 from src import util
 
@@ -59,8 +60,7 @@ class Events:
             index = ceil((event.signal_time - start_time) / interval)
 
             if index < 0:
-                print('Warning: Event is before start of scenario, \
-                placing at first time step:', event)
+                warn('Event is before start of scenario, placing at first time step: ' + str(event))
                 steps[0].append(event)
             elif index >= n_intervals:
                 ignored += 1
@@ -68,7 +68,7 @@ class Events:
                 steps[index].append(event)
 
         if ignored:
-            print('Warning: {} events ignored after end of scenario'.format(ignored))
+            warn('{} events ignored after end of scenario'.format(ignored))
 
         return steps
 
