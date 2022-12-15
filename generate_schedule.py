@@ -448,6 +448,14 @@ def generate_schedule(args):
 
     # default schedule: just basic power needs
     schedule = [v for v in flex["base"]]
+
+    # adjust curtailment and residual load based on base flex (feed-in / ext. load)
+    for i, power in enumerate(flex["base"]):
+        curtailment_power = min(curtailment[i], power)
+        curtailment[i] -= curtailment_power
+        residual_load[i] += power - curtailment_power
+        flex["base"][i] = 0
+
     vehicle_ids = sorted(s.constants.vehicles.keys())
     vehicle_schedule = {vid: [0] * s.n_intervals for vid in vehicle_ids}
 
@@ -649,6 +657,8 @@ def generate_schedule(args):
                         elif prio == 4:
                             # already in highest percentile: charge unrestricted
                             power_avail[j] = flex["max"][k]
+                        # clamp to vehicle power
+                        power_avail[j] = min(power_avail[j], vinfo["p_max"])
 
                     for j, k in enumerate(standing_range):
                         # energy left within standing time
@@ -773,7 +783,6 @@ def generate_schedule(args):
 
             # distribute energy over period of same priority
             for t in range(t_start, t_end):
-
                 if priorities[t_start] == 0:
                     # use curtailment to charge
                     power = min(flex["max"][t] - schedule[t], curtailment[t])
