@@ -6,7 +6,7 @@ Simulating with SpiceEV
 
 .. _command_line_options:
 
-Command Line Options
+Command line options
 ====================
 
 You can set parameters through the command line or from a configuration file. If unsure, you can type `python script.py --help` to get detailed information.
@@ -259,7 +259,7 @@ Strategy options
     +-------------------+---------------+---------------------------------------------------------+
     |**Strategy option**| **default**   |              **explanation**                            |
     +-------------------+---------------+---------------------------------------------------------+
-    | LOAD_STRAT        | "collective"  | charging strategy, see above                            |
+    | LOAD_STRAT        | "collective"  | choose between individual and collective                |
     +-------------------+---------------+---------------------------------------------------------+
 
 **PeakLoadWindow**
@@ -325,19 +325,19 @@ Inputs
 
 **External load**
 
-File type: CSV
+File type: csv
 
-Needs one column with the drawn energy in kWh (can have more columns, but only one is relevant). The file is read line-by-line, with events starting at start_time and updating every interval (configurable).
+Needs one column with the drawn power in kW (can have more columns, but only one is relevant). The file is read line-by-line, with events starting at start_time and updating every interval (configurable).
 
 **Feed-in**
 
-File type: CSV
+File type: csv
 
-Needs one column with the energy produced in kWh (can have more columns, but only one is relevant). The file is read line-by-line, with events starting at start_time and updating every interval (configurable).
+Needs one column with the power generation kW (can have more columns, but only one is relevant). The file is read line-by-line, with events starting at start_time and updating every interval (configurable).
 
 **Energy price**
 
-File type: CSV
+File type: csv
 
 Needs one column with the energy price in ct/kWh (can have more columns, but only one is relevant). The file is read line-by-line, with events starting at start_time and updating every interval (configurable). Can be created with generate_energy_price.py.
 
@@ -349,7 +349,7 @@ Refer to generate.cfg and generate_from_simbev.cfg in examples folder.
 
 Output
 ......
-File type: JSON
+File type: json
 
 To be used in simulate.py. Defines general info (start_time, interval, n_intervals), constants (vehicle types, vehicles, grid connectors, charging stations, batteries) and events (external loads, feed-in, grid operator signals and vehicle events).
 
@@ -359,10 +359,9 @@ Inputs
 ......
 **Trips_schedule**
 
-File type: CSV
+File type: csv
 
 Each row in csv file represents one trip. The following columns are needed:
-
 departure time (datetime), arrival time (datetime), vehicle_type (str), soc (numeric) / delta_soc (numeric) / distance (numeric)
 optional columns: vehicle_id (str)
 
@@ -374,25 +373,13 @@ Refer to generate_from_csv.cfg in examples folder or the generate_from_csv_templ
 
 Output
 ......
-File type: JSON
+File type: json
 
-Scenario JSON
-
-generate_energy_price.py
-------------------------
-
-Inputs
-......
-
-**Configuration**
-
-File type: text
-
-Refer to price.cfg in examples folder.
+Scenario.json
 
 Output
 ......
-File type: CSV
+File type: csv
 
 To be used in generate-scripts. Columns date, time and price [ct/kWh].
 
@@ -402,21 +389,21 @@ generate_schedule.py
 
 Inputs
 ......
-** Grid operator schedule**
+** Grid situation **
 
 File type: csv
 
 Needed columns: curtailment (numeric), residual load (numeric)
 
-**Configuration**
+** Scenario **
 
-File type: text
+File type: json
 
-Refer to price.cfg in examples folder.
+Is created by generate scripts.
 
 Output
 ......
-File type: CSV
+File type: csv
 
 To be used in generate-scripts. Columns timestamp, schedule [kW], charge (0 or 1).
 
@@ -427,22 +414,16 @@ Inputs
 ......
 **Scenario (required)**
 
-File type: JSON
+File type: json
 
-Is created by generate.py or generate_from_simbev.py.
-
-**Configuration**
-
-File type: text
-
-Refer to simulate.cfg in examples folder.
+Is created by generate scripts.
 
 Output (optional)
 .................
 
-File type: CSV
+File type: csv
 
-All power values are in kWh.
+All power values are in kW.
 
 +-------------------------------------+---------------------------------------------------------------------------+
 | **Column**                          | **Description**                                                           |
@@ -453,11 +434,11 @@ All power values are in kWh.
 +-------------------------------------+---------------------------------------------------------------------------+
 | grid power	                      | power drawn from grid                                                     |
 +-------------------------------------+---------------------------------------------------------------------------+
-| ext. loads	                      | sum of external loads, e.g. building power (omitted if not present)       |
+| ext. load 	                      | sum of external loads, e.g. building power (omitted if not present)       |
 +-------------------------------------+---------------------------------------------------------------------------+
-| feed-in 	                      | sum of renewable energy sources feed-in power (omitted if not present)    |
+| feed-in    	                      | sum of renewable energy sources feed-in power (omitted if not present)    |
 +-------------------------------------+---------------------------------------------------------------------------+
-| surplus 	                      | unused power from feed-in (omitted if no feed-in present)                 |
+| flex min and max 	              | minimum and maximum flexibility per timestep                              |
 +-------------------------------------+---------------------------------------------------------------------------+
 | sum CS power                        | total of power drawn by charging stations                                 |
 +-------------------------------------+---------------------------------------------------------------------------+
@@ -465,7 +446,7 @@ All power values are in kWh.
 +-------------------------------------+---------------------------------------------------------------------------+
 | # occupied CS                       |	number of charging stations with a vehicle connected to it                |
 +-------------------------------------+---------------------------------------------------------------------------+
-| #occupied for each SimBEV use-cases |	SimBEV only                                                               |
+| # occupied for each SimBEV use-cases|	SimBEV only                                                               |
 +-------------------------------------+---------------------------------------------------------------------------+
 | CS name                             |	power at each charging station                                            |
 +-------------------------------------+---------------------------------------------------------------------------+

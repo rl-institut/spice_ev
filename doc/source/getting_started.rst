@@ -20,10 +20,10 @@ First steps
 Run SpiceEV
 -----------
 
-In order to run a simulation with SpiceEV you need to first generate your `scenario.json`, which then serves as the input for your simulation. There are several exemplary :ref:`generate <generate>` -scripts where you can,
+In order to run a simulation with SpiceEV you need to first generate your `scenario.json`, which then serves as the input for your simulation. There are several exemplary :ref:`Generate <generate>` -scripts where you can,
 e.g. generate trips for certain vehicles by random functions or load your vehicle schedules from a csv file. For now we use the `generate.py` script to create random trips for a number of predefined vehicles. Vehicles
 should be defined in a `vehicle_type.json` and be added to your input arguments. See `examples/vehicle_types.json` for some exemplary vehicles.
-You can define your input arguments in the command line or open a config file (e.g. `examples/generate.cfg`) to set your variables. For an overview over all command line options see section :ref:`command line options <command_line_options>`.
+You can define your input arguments in the command line or open a config file (e.g. `examples/generate.cfg`) to set your variables. For an overview over all command line options see section :ref:`Command line options <command_line_options>`.
 
 In order to generate a 7-day scenario with 10 vehicles of different types and 15 minute timesteps with command line options, type:
 

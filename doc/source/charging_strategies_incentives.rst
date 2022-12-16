@@ -1,13 +1,13 @@
 .. _charging_strategies:
 
-~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Charging strategies and incentives
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 Charging strategies
-~~~~~~~~~~~~~~~~~~~
+===================
 
-Charging
-========
-
-The core of SpiceEV are the different charging strategies. They decide how to react to events, when to charge the vehicles and by how much. To see how to set strategy options, refer to [this wiki page](Command-line-options). The following table indicates whether a charging strategy considers stationary batteries and V2G.
+The core of SpiceEV are the different charging strategies. They decide how to react to events, when to charge the vehicles and by how much. To see how to set strategy options, refer to :ref:`Command line options <command_line_options>`. The following table indicates whether a charging strategy considers stationary batteries and V2G.
 
 +--------------------------+-----------------------------+-------------------------------+-------------------------------+
 |**charging strategy**     | **stationary batteries**    | **V2G**                       |  **local feed-in**            |
