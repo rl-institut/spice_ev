@@ -879,8 +879,8 @@ def generate_schedule(args):
         # plot flex and schedule
         axes[0].step(
             range(s.n_intervals),
-            list(zip(flex["min"], flex["base"], flex["max"], schedule)),
-            label=["min", "base", "max", "schedule"])
+            list(zip(flex["min"], flex["max"], schedule)),
+            label=["min", "max", "schedule"])
         axes[0].axhline(color='k', linestyle='--', linewidth=1)
         axes[0].set_xlim([0, s.n_intervals])
         axes[0].legend()
