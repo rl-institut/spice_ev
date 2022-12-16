@@ -5,7 +5,7 @@ strategies.
 
 # Documentation
 
-Full documentation can be found [here](https://spice_ev.readthedocs.io/en/latest/)
+Full documentation can be found [here](https://spice-ev.readthedocs.io/en/latest/index.html)
 
 ## Installation
 
