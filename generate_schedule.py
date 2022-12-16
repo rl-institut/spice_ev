@@ -27,13 +27,13 @@ def generate_flex_band(scenario, gcID, core_standing_time=None):
     :return: flex band
     :rtype: dict
     """
-    gc = scenario.constants.grid_connectors[gcID]
     s = strategy.Strategy(
         scenario.constants, scenario.start_time, **{
             "interval": scenario.interval,
             "margin": 1,
             "ALLOW_NEGATIVE_SOC": True
         })
+    gc = s.world_state.grid_connectors[gcID]
     event_steps = scenario.events.get_event_steps(
         scenario.start_time, scenario.n_intervals, scenario.interval)
 
@@ -604,8 +604,8 @@ def generate_schedule(args):
 
     if args.individual:
         # generate schedule for each individual vehicle
-        min_flex = deepcopy(flex["base"])
-        max_flex = deepcopy(flex["base"])
+        min_flex = deepcopy(schedule)
+        max_flex = deepcopy(schedule)
 
         for i in range(s.n_intervals):
             # sort arrivals by energy needed and standing time
