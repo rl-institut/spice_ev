@@ -213,6 +213,7 @@ def generate(args):
             arrival = departure + duration
             soc_delta = distance * mileage / capacity
 
+            # add buffer on top of soc_delta
             desired_soc = soc_delta * (1 + vars(args).get("buffer", 0.1))
             desired_soc = max(args.min_soc, desired_soc)
             # update initial desired SoC
@@ -445,12 +446,13 @@ if __name__ == '__main__':
     parser.add_argument('--days', metavar='N', type=int, default=7,
                         help='set duration of scenario as number of days')
     parser.add_argument('--start-time', default=DEFAULT_START_TIME,
-                        help='Provide start time of simulation in ISO format '
+                        help='provide start time of simulation in ISO format '
                              'YYYY-MM-DDTHH:MM:SS+TZ:TZ. Precision is 1 second. E.g. '
                              '2023-01-01T01:00:00+02:00')
-    parser.add_argument('--holidays', default=None,
-                        help='Provide list of specific days of no driving ISO format YYYY-MM-DD')
-
+    parser.add_argument('--holidays', default=[],
+                        help='provide list of specific days of no driving ISO format YYYY-MM-DD')
+    parser.add_argument('--buffer', type=float, default=0.1,
+                        help='set buffer on top of needed SoC for next trip')
     # general
     parser.add_argument('--interval', metavar='MIN', type=int, default=15,
                         help='set number of minutes for each timestep (Δt)')
