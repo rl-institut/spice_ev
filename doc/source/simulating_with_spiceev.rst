@@ -339,13 +339,13 @@ Needs one column with the power generation kW (can have more columns, but only o
 
 File type: csv
 
-Needs one column with the energy price in ct/kWh (can have more columns, but only one is relevant). The file is read line-by-line, with events starting at start_time and updating every interval (configurable). Can be created with generate_energy_price.py.
+Needs one column with the energy price in €/kWh (can have more columns, but only one is relevant). The file is read line-by-line, with events starting at start_time and updating every interval (configurable).
 
 **Configuration**
 
 File type: text
 
-Refer to generate.cfg and generate_from_simbev.cfg in examples folder.
+Refer to generate.cfg in examples folder.
 
 Output
 ......

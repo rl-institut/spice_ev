@@ -27,17 +27,6 @@ arguments. For an example config file see `/examples/generate.cfg`.
     generate_trip
     generate
 
-Generate_energy_price
----------------------
-Generates energy price CSV with random values. For an example config file see
-`/examples/generate_energy_price.cfg`.
-
-.. currentmodule:: generate_energy_price
-.. autosummary::
-    :toctree: temp/
-
-    generate_energy_price
-
 Generate_from_csv
 -----------------
 Generates a scenario JSON from csv rotation schedule of fleets. For an example
