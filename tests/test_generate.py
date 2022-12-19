@@ -6,7 +6,6 @@ import pytest
 
 import generate
 import generate_from_csv
-import generate_energy_price
 import generate_schedule
 from src import scenario
 
@@ -112,18 +111,6 @@ class TestGenerate(TestCaseBase):
         generate_from_csv.generate_from_csv(Namespace(**current_arg_values))
         self.assertIsFile(output_file)
         self.assertIsFile(vehicle_id_file)
-
-    def test_generate_energy_price(self, tmp_path):
-        output_file = tmp_path / "price.csv"
-        current_arg_values = {
-            "output": output_file,
-            "start": "2020-12-31T00:00:00+01:00",
-            "n_intervals": 336,
-            "interval": 1,
-            "price_seed": 0,
-        }
-        generate_energy_price.generate_energy_price(Namespace(**current_arg_values))
-        self.assertIsFile(output_file)
 
 
 class TestGenerateSchedule(TestCaseBase):

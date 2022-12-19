@@ -33,11 +33,6 @@ plots of the results:
 ./simulate.py example.json --strategy greedy --visual
 ```
 
-Generate a timeseries of an energy price:
-```sh
-./generate_energy_price.py price.csv
-```
-
 Include this energy price in scenario:
 ```sh
 ./generate.py --include-price-csv price.csv example.json
