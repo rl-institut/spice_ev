@@ -23,7 +23,7 @@ def read_simulation_csv(csv_file):
     :param csv_file: csv file with simulation results
     :type csv_file: str
     :return: timestamps, prices, power supplied from the grid, power fed into the grid, needed power
-    of fixed load, charging signals
+        of fixed load, charging signals
     :rtype: dict of lists
     """
 
@@ -95,7 +95,7 @@ def find_prices(price_sheet_path, strategy, voltage_level, utilization_time_per_
     :param energy_supply_per_year: total energy supply from the power grid per year
     :type energy_supply_per_year: float
     :param utilization_time_per_year_ec: minimum value of the utilization time per year in order to
-    use the right column of the price sheet (ec: edge condition)
+        use the right column of the price sheet (ec: edge condition)
     :type utilization_time_per_year_ec: int
     :return: commodity charge, capacity charge, fee type
     :rtype: float, float, str
@@ -198,7 +198,7 @@ def calculate_costs(strategy, voltage_level, interval,
     :param power_fix_load_list: power supplied from the grid for the fixed load
     :type power_fix_load_list list
     :param charging_signal_list: charging signal given by the distribution system operator
-    (1: charge, 0: don't charge)
+        (1: charge, 0: don't charge)
     :type charging_signal_list: list
     :param core_standing_time_dict: defined core standing time of the fleet
     :type core_standing_time_dict: dict
