@@ -208,6 +208,9 @@ def calculate_costs(strategy, voltage_level, interval,
     :type results_json: str
     :param power_pv_nominal: nominal power of pv power plant
     :type power_pv_nominal: int
+    :raises Exception: if charging strategy is not supported
+    :raises ValueError: if nominal PV power exceeds maximum power for feed-in remuneration in price
+        sheet
     :return: total costs per year and simulation period (fees and taxes included)
     :rtype: float
     """
@@ -420,7 +423,7 @@ def calculate_costs(strategy, voltage_level, interval,
         # capacity costs for flexible load:
         power_flex_load_window_list = []
         for i in range(len(power_flex_load_list)):
-            if charging_signal_list[i] == 0.0:
+            if (charging_signal_list[i] == 0.0) or (charging_signal_list[i] is None):
                 power_flex_load_window_list.append(power_flex_load_list[i])
         # no flexible capacity costs if charging takes place only when signal = 1
         if power_flex_load_window_list == []:
@@ -812,10 +815,12 @@ if __name__ == "__main__":
     # strategy:
     strategy = simulation_json.get("charging_strategy", {}).get("strategy")
     assert strategy is not None, "Charging strategy not set in results file"
+    #strategy = 'flex_window'
 
     # simulation interval in minutes:
     interval_min = simulation_json.get("temporal_parameters", {}).get("interval")
     assert interval_min is not None, "Simulation interval length not set in results file"
+    #interval_min = 15
 
     # core standing time for fleet:
     core_standing_time_dict = simulation_json.get("core_standing_time")
