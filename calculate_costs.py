@@ -286,11 +286,9 @@ def calculate_costs(strategy, voltage_level, interval,
         (as usual). For the utilization time the maximum fixed load and the fixed energy supply per
         year is used. Then the fixed costs are calculated as usual.
         Commodity and capacity costs flexible: For the flexible load all prices are based on the
-        prices for a utilization time <2500 hours in the price sheet (prices for grid friendly power
-        supply). For the commodity charge the generated price time series is adjusted to the prices
-        for a utilization time >=2500 hours. Then the flexible commodity costs are calculated as
-        usual. The flexible capacity costs are calculated only for grid supply in the high tariff
-        window.
+        prices for a utilization time >=2500 hours in the price sheet (prices for grid friendly
+        power supply). Then the flexible commodity costs are calculated as usual. The flexible
+        capacity costs are calculated only for grid supply in the high tariff window.
         """
 
         # COSTS FOR FIXED LOAD
@@ -367,9 +365,9 @@ def calculate_costs(strategy, voltage_level, interval,
         utilization time the maximum fixed load and the fixed energy supply per year is used. Then
         the fixed costs are calculated as usual.
         Commodity and capacity costs flexible: For the flexible load all prices are based on the
-        right column of the price sheet (prices for grid friendly power supply). Then the flexible
-        commodity costs are calculated as usual. The flexible capacity costs are calculated only for
-        grid supply in the high tariff window (signal = 0).
+        prices for a grid utilization time >=2500 h of the price sheet (prices for grid friendly
+        power supply). Then the flexible commodity costs are calculated as usual. The flexible
+        capacity costs are calculated only for grid supply in the high tariff window (signal = 0).
         """
 
         # COSTS FOR FIXED LOAD
@@ -818,12 +816,10 @@ if __name__ == "__main__":
     # strategy:
     strategy = simulation_json.get("charging_strategy", {}).get("strategy")
     assert strategy is not None, "Charging strategy not set in results file"
-    #strategy = 'flex_window'
 
     # simulation interval in minutes:
     interval_min = simulation_json.get("temporal_parameters", {}).get("interval")
     assert interval_min is not None, "Simulation interval length not set in results file"
-    #interval_min = 15
 
     # core standing time for fleet:
     core_standing_time_dict = simulation_json.get("core_standing_time")

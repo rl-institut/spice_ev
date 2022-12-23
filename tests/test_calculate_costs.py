@@ -2,6 +2,7 @@ import json
 import pytest
 from pathlib import Path
 import subprocess
+import os
 
 from src import scenario
 import calculate_costs as cc
@@ -9,9 +10,6 @@ import calculate_costs as cc
 TEST_REPO_PATH = Path(__file__).parent
 supported_strategies = ["greedy", "balanced", "distributed", "balanced_market",
                         "schedule", "flex_window"]
-
-def main():
-    TestSimulationCosts().test_calculate_costs_flex_window()
 
 def get_test_json():
     # get minimum working json example
@@ -125,7 +123,7 @@ class TestSimulationCosts:
             for i, value in enumerate(result.values()):
                 assert value == expected[i]
 
-    def test_calculate_costs_balanced(self):
+    def test_calculate_costs_balanced_A(self):
         scen_path = TEST_REPO_PATH / 'test_data/input_test_strategies/scenario_A.json'
         with scen_path.open() as f:
             j = json.load(f)
@@ -149,11 +147,12 @@ class TestSimulationCosts:
         assert result["levies_fees_and_taxes_per_year"] == 95.08
         assert result["feed_in_remuneration_per_year"] == 0
 
-    def test_calculate_costs_balanced_market(self):
+    def test_calculate_costs_balanced_market_A(self):
         scen_path = TEST_REPO_PATH / 'test_data/input_test_strategies/scenario_A.json'
         with scen_path.open() as f:
             j = json.load(f)
         s = scenario.Scenario(j)
+
         s.run('balanced_market', {"cost_calculation": True})
         timeseries = s.GC1_timeseries
         timeseries_lists = [timeseries.get(k, [0] * s.n_intervals) for k in [
@@ -173,7 +172,7 @@ class TestSimulationCosts:
         assert result["levies_fees_and_taxes_per_year"] == 149.1
         assert result["feed_in_remuneration_per_year"] == 0
 
-    def test_calculate_costs_flex_window(self):
+    def test_calculate_costs_flex_window_A(self):
         scen_path = TEST_REPO_PATH / 'test_data/input_test_strategies/scenario_A.json'
         with scen_path.open() as f:
             j = json.load(f)
@@ -195,6 +194,31 @@ class TestSimulationCosts:
         assert result["capacity_costs_eur"] == 1543.08
         assert result["power_procurement_costs_per_year"] == 927.46
         assert result["levies_fees_and_taxes_per_year"] == 1182.84
+        assert result["feed_in_remuneration_per_year"] == 0
+
+    def test_calculate_costs_balanced_market_C(self):
+        scen_path = TEST_REPO_PATH / 'test_data/input_test_strategies/scenario_C1.json'
+
+        with scen_path.open() as f:
+            j = json.load(f)
+        s = scenario.Scenario(j, os.path.dirname(scen_path))
+        s.run('balanced_market', {"cost_calculation": True})
+        timeseries = s.GC1_timeseries
+        timeseries_lists = [timeseries.get(k, [0] * s.n_intervals) for k in [
+            "time", "grid power [kW]", "price [EUR/kWh]",
+            "ext.load [kW]", "window"]]
+        price_sheet = TEST_REPO_PATH / 'test_data/input_test_cost_calculation/price_sheet.json'
+
+        pv = sum([pv.nominal_power for pv in s.constants.photovoltaics.values()])
+
+        # check returned values
+        result = cc.calculate_costs("balanced_market", "MV", s.interval, *timeseries_lists,
+                                    s.core_standing_time, str(price_sheet), None, pv)
+        assert result["total_costs_per_year"] == 507.19
+        assert result["commodity_costs_eur_per_year"] == 32.03
+        assert result["capacity_costs_eur"] == 0
+        assert result["power_procurement_costs_per_year"] == 246.62
+        assert result["levies_fees_and_taxes_per_year"] == 228.55
         assert result["feed_in_remuneration_per_year"] == 0
 
 class TestPostSimulationCosts:
@@ -222,6 +246,3 @@ class TestPostSimulationCosts:
             results = json.load(f)
         assert "costs" in results
         assert results["costs"]["electricity costs"]["per year"]["total (gross)"] == 78.18
-
-if __name__ == "__main__":
-    main()
