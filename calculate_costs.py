@@ -74,8 +74,11 @@ def get_flexible_load(power_grid_supply_list, power_fix_load_list):
     :rtype: list
     """
 
-    return [power_grid_supply_list[i] - power_fix_load_list[i]
-            for i in range(len(power_grid_supply_list))]
+    power_flex_load_list = [power_grid_supply_list[i] - power_fix_load_list[i]
+                            for i in range(len(power_grid_supply_list))]
+    power_flex_load_list = [max(v, 0) for v in power_flex_load_list]
+
+    return power_flex_load_list
 
 
 def find_prices(price_sheet_path, strategy, voltage_level, utilization_time_per_year,
