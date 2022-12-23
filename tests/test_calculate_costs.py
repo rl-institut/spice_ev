@@ -11,6 +11,7 @@ TEST_REPO_PATH = Path(__file__).parent
 supported_strategies = ["greedy", "balanced", "distributed", "balanced_market",
                         "schedule", "flex_window"]
 
+
 def get_test_json():
     # get minimum working json example
     return {
@@ -220,6 +221,7 @@ class TestSimulationCosts:
         assert result["power_procurement_costs_per_year"] == 246.62
         assert result["levies_fees_and_taxes_per_year"] == 228.55
         assert result["feed_in_remuneration_per_year"] == 0
+
 
 class TestPostSimulationCosts:
     def test_calculate_costs_post_sim(self, tmp_path):
