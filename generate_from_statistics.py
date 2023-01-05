@@ -183,10 +183,6 @@ def generate_from_statistics(args):
                 "parent": "GC1"
             }
 
-    # remove temporary information
-    for v_id, v_info in vehicle_types.items():
-        del v_info["count"]
-
     # GENERATE VEHICLE EVENTS: daily
     daily = datetime.timedelta(days=1)
     now = start - daily
@@ -268,6 +264,9 @@ def generate_from_statistics(args):
     for v_info in vehicles.values():
         del v_info["last_arrival_idx"]
         del v_info["arrival"]
+    for v_info in vehicle_types.values():
+        del v_info["count"]
+        del v_info["statistical_values"]
 
     # number of trips for which desired_soc is above min_soc
     if trips_above_min_soc and args.verbose > 0:
