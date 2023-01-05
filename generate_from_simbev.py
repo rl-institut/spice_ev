@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-import argparse
 import csv
 import datetime
 import json
@@ -8,7 +7,6 @@ from pathlib import Path
 import random
 import warnings
 
-from src.util import set_options_from_config
 from src.battery import Battery
 from src.loading_curve import LoadingCurve
 
@@ -535,74 +533,3 @@ def generate_from_simbev(args):
     # Write JSON
     with open(args.output, 'w') as f:
         json.dump(j, f, indent=2)
-
-
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser(
-        description='Generate scenarios as JSON files for vehicle charging modelling \
-        from vehicle timeseries (e.g. SimBEV output).')
-    parser.add_argument('output', nargs='?', help='output file name (example.json)')
-    parser.add_argument('--simbev', metavar='DIR', type=str, help='set directory with SimBEV files')
-    parser.add_argument('--region', type=str, help='set name of region')
-    parser.add_argument('--ignore-simbev-soc', action='store_true',
-                        help='Don\'t use SoC columns from SimBEV files')
-
-    # general
-    parser.add_argument('--interval', metavar='MIN', type=int, default=15,
-                        help='set number of minutes for each timestep (Δt)')
-    parser.add_argument('--min-soc', metavar='S', type=float, default=0.8,
-                        help='Set minimum desired SoC for each charging event. Default: 0.5')
-    parser.add_argument('--min-soc-threshold', type=float, default=0.05,
-                        help='SoC below this threshold trigger a warning. Default: 0.05')
-    parser.add_argument('--battery', '-b', default=[], nargs=2, type=float, action='append',
-                        help='add battery with specified capacity in kWh and C-rate \
-                            (-1 for variable capacity, second argument is fixed power))')
-    parser.add_argument('--gc-power', type=int, default=100, help='set power at grid connection '
-                                                                  'point in kW')
-    parser.add_argument('--voltage-level', '-vl', help='Choose voltage level for cost calculation')
-    parser.add_argument('--pv-power', type=int, default=0, help='set nominal power for local '
-                                                                'photovoltaic power plant in kWp')
-    parser.add_argument('--cs-power-min', type=float, default=None,
-                        help='set minimal power at charging station in kW (default: 0.1 * cs_power')
-    parser.add_argument('--discharge-limit', default=0.5,
-                        help='Minimum SoC to discharge to during V2G. [0-1]')
-    parser.add_argument('--seed', metavar='X', type=int, default=0,
-                        help='set seed when generating energy market prices. \
-                            Negative values for fixed price in cents')
-
-    # input files (CSV, JSON)
-    parser.add_argument('--vehicle-types', default=None,
-                        help='location of vehicle type definitions')
-    parser.add_argument('--include-ext-load-csv',
-                        help='include CSV for external load. \
-                        You may define custom options with --include-ext-csv-option')
-    parser.add_argument('--include-ext-csv-option', '-eo', metavar=('KEY', 'VALUE'),
-                        nargs=2, default=[], action='append',
-                        help='append additional argument to external load')
-    parser.add_argument('--include-feed-in-csv',
-                        help='include CSV for energy feed-in, e.g., local PV. \
-                        You may define custom options with --include-feed-in-csv-option')
-    parser.add_argument('--include-feed-in-csv-option', '-fo', metavar=('KEY', 'VALUE'),
-                        nargs=2, default=[], action='append',
-                        help='append additional argument to feed-in load')
-    parser.add_argument('--include-price-csv',
-                        help='include CSV for energy price. \
-                        You may define custom options with --include-price-csv-option')
-    parser.add_argument('--include-price-csv-option', '-po', metavar=('KEY', 'VALUE'),
-                        nargs=2, default=[], action='append',
-                        help='append additional argument to price signals')
-
-    # config
-    parser.add_argument('--config', help='Use config file to set arguments')
-
-    # errors and warnings
-    parser.add_argument('--verbose', '-v', action='count', default=0,
-                        help='Set verbosity level. Use this multiple times for more output. '
-                             'Default: only errors and important warnings, '
-                             '1: additional warnings and info')
-
-    args = parser.parse_args()
-
-    set_options_from_config(args, check=True, verbose=args.verbose > 1)
-
-    generate_from_simbev(args)

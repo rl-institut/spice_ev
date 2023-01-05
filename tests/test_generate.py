@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 import pytest
 
-import generate
+import generate_from_statistics
 import generate_from_csv
 import generate_schedule
 from src import scenario
@@ -48,10 +48,10 @@ class TestCaseBase:
 
 class TestGenerate(TestCaseBase):
 
-    def test_generate(self, tmp_path):
+    def test_generate_from_statistics(self, tmp_path):
         current_arg_values = deepcopy(ARG_VALUES1)
         current_arg_values.update({"output": tmp_path / "generate.json"})
-        generate.generate(Namespace(**current_arg_values))
+        generate_from_statistics.generate_from_statistics(Namespace(**current_arg_values))
         self.assertIsFile(tmp_path / "generate.json")
 
     def test_generate_from_csv_1_soc(self, tmp_path):
