@@ -70,8 +70,6 @@ def generate_from_simbev(args):
     # define interval for simulation
     interval = datetime.timedelta(minutes=args.interval)
     n_intervals = 0
-    # define target path for relative output files
-    target_path = Path(args.output).parent
 
     # get defined vehicle types
     if args.vehicle_types is None:
@@ -105,109 +103,38 @@ def generate_from_simbev(args):
         if count > 0:
             vehicle_types.update({v_type: predefined_vehicle_types[v_type]})
 
-    # external load CSV
-    if args.include_ext_load_csv:
-        filename = args.include_ext_load_csv
-        basename = Path(filename).stem
-        options = {
-            "csv_file": filename,
-            "start_time": start.isoformat(),
-            "step_duration_s": 900,  # 15 minutes
-            "grid_connector_id": "GC1",
-            "column": "energy"
-        }
-        if args.include_ext_csv_option:
-            for key, value in args.include_ext_csv_option:
-                if key == "step_duration_s":
-                    value = int(value)
-                options[key] = value
-        events['external_load'][basename] = options
-        # check if CSV file exists
-        ext_csv_path = target_path.joinpath(filename)
-        if not ext_csv_path.exists():
-            warnings.warn(f"External csv file '{ext_csv_path}' does not exist yet.")
-        else:
-            with open(ext_csv_path, newline='') as csvfile:
-                reader = csv.DictReader(csvfile)
-                if not options["column"] in reader.fieldnames:
-                    warnings.warn(f"External csv file '{ext_csv_path}' has no column "
-                                  f"'{options['column']}'.")
+    # update info of external CSV files
+    ext_info = {
+        "external_load": "include_ext_load_csv",
+        "energy_feed_in": "include_feed_in_csv",
+        "energy_price_from_csv": "include_price_csv",
+    }
+    for info, field in ext_info.items():
+        option = field + "_option"
+        if vars(args)[field] and vars(args)[option]["start_time"] is None:
+            vars(args)[option]["start_time"] = start.isoformat()
+        events[info] = vars(args)[option]
 
-    # energy feed-in CSV (e.g. from PV)
-    if args.include_feed_in_csv:
-        filename = args.include_feed_in_csv
-        basename = Path(filename).stem
-        options = {
-            "csv_file": filename,
-            "start_time": start.isoformat(),
-            "step_duration_s": 3600,  # 60 minutes
-            "grid_connector_id": "GC1",
-            "column": "energy"
-        }
-        if args.include_feed_in_csv_option:
-            for key, value in args.include_feed_in_csv_option:
-                if key == "step_duration_s":
-                    value = int(value)
-                options[key] = value
-        events['energy_feed_in'][basename] = options
-        feed_in_path = target_path.joinpath(filename)
-        if not feed_in_path.exists():
-            warnings.warn(f"Feed-in csv file '{feed_in_path}' does not exist yet.")
+    if args.include_price_csv is None:
+        if args.seed is not None and args.seed < 0:
+            # use single, fixed price
+            events["grid_operator_signals"].append({
+                "signal_time": start.isoformat(),
+                "grid_connector_id": "GC1",
+                "start_time": start.isoformat(),
+                "cost": {
+                    "type": "fixed",
+                    "value": -args.seed
+                }
+            })
         else:
-            with open(feed_in_path, newline='') as csvfile:
-                reader = csv.DictReader(csvfile)
-                if not options["column"] in reader.fieldnames:
-                    warnings.warn(f"Feed-in csv file '{feed_in_path}' has no column "
-                                  f"'{options['column']}'.")
-
-    # energy price CSV
-    if args.include_price_csv:
-        filename = args.include_price_csv
-        # basename = Path(filename).stem
-        options = {
-            "csv_file": filename,
-            "start_time": start.isoformat(),
-            "step_duration_s": 3600,  # 60 minutes
-            "grid_connector_id": "GC1",
-            "column": "price [ct/kWh]"
-        }
-        for key, value in args.include_price_csv_option:
-            if key == "step_duration_s":
-                value = int(value)
-            options[key] = value
-        events['energy_price_from_csv'] = options
-        price_csv_path = target_path.joinpath(filename)
-        if not price_csv_path.exists():
-            warnings.warn(f"Price csv file '{price_csv_path}' does not exist yet.")
-        else:
-            with open(price_csv_path, newline='') as csvfile:
-                reader = csv.DictReader(csvfile)
-                if not options["column"] in reader.fieldnames:
-                    warnings.warn(f"Price csv file '{price_csv_path}' has no column "
-                                  f"'{options['column']}'.")
-
-        if args.seed and args.verbose > 0:
-            # CSV and seed given
-            warnings.warn("Multiple price sources detected. Using CSV.")
-    elif args.seed is not None and args.seed < 0:
-        # use single, fixed price
-        events["grid_operator_signals"].append({
-            "signal_time": start.isoformat(),
-            "grid_connector_id": "GC1",
-            "start_time": start.isoformat(),
-            "cost": {
-                "type": "fixed",
-                "value": -args.seed
-            }
-        })
-    else:
-        # random price
-        # set seed from input (repeatability)
-        random.seed(args.seed)
-        # price remains stable for X hours
-        price_stable_hours = 6
-        # every X timesteps, generate new price signal
-        price_interval = datetime.timedelta(hours=price_stable_hours) / interval
+            # random price
+            # set seed from input (repeatability)
+            random.seed(args.seed)
+            # price remains stable for X hours
+            price_stable_hours = 6
+            # every X timesteps, generate new price signal
+            price_interval = datetime.timedelta(hours=price_stable_hours) / interval
 
     # GENERATE VEHICLE EVENTS: iterate over input files
     for csv_path in pathlist:

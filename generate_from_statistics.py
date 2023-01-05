@@ -1,9 +1,7 @@
 #!/usr/bin/env python3
 
-import csv
 import datetime
 import json
-from os import path
 import random
 import warnings
 
@@ -123,8 +121,6 @@ def generate_from_statistics(args):
     stop = start + datetime.timedelta(days=args.days)
     # define interval for simulation
     interval = datetime.timedelta(minutes=args.interval)
-    # define target path for relative output files
-    target_path = path.dirname(args.output)
 
     # use default vehicles, if args.vehicles does not exist
     if args.vehicles is None:
@@ -286,87 +282,19 @@ def generate_from_statistics(args):
             "charging_curve": [[0, max_power], [1, max_power]]
         }
 
-    # external load CSV
-    if args.include_ext_load_csv:
-        filename = args.include_ext_load_csv
-        basename = path.splitext(path.basename(filename))[0]
-        options = {
-            "csv_file": filename,
-            "start_time": start.isoformat(),
-            "step_duration_s": 900,  # 15 minutes
-            "grid_connector_id": "GC1",
-            "column": "energy"
-        }
-        if args.include_ext_csv_option:
-            for key, value in args.include_ext_csv_option:
-                if key == "step_duration_s":
-                    value = int(value)
-                options[key] = value
-        events['external_load'][basename] = options
-        # check if CSV file exists
-        ext_csv_path = path.join(target_path, filename)
-        if not path.exists(ext_csv_path):
-            warnings.warn(f"External csv file '{ext_csv_path}' does not exist yet.")
-        else:
-            with open(ext_csv_path, newline='') as csvfile:
-                reader = csv.DictReader(csvfile)
-                if not options["column"] in reader.fieldnames:
-                    warnings.warn(f"External csv file '{ext_csv_path}' has no column "
-                                  f"'{options['column']}'.")
+    # update info of external CSV files
+    ext_info = {
+        "external_load": "include_ext_load_csv",
+        "energy_feed_in": "include_feed_in_csv",
+        "energy_price_from_csv": "include_price_csv",
+    }
+    for info, field in ext_info.items():
+        option = field + "_option"
+        if vars(args)[field] and vars(args)[option]["start_time"] is None:
+            vars(args)[option]["start_time"] = start.isoformat()
+        events[info] = vars(args)[option]
 
-    # energy feed-in CSV (e.g. from PV)
-    if args.include_feed_in_csv:
-        filename = args.include_feed_in_csv
-        basename = path.splitext(path.basename(filename))[0]
-        options = {
-            "csv_file": filename,
-            "start_time": start.isoformat(),
-            "step_duration_s": 3600,  # 60 minutes
-            "grid_connector_id": "GC1",
-            "column": "energy"
-        }
-        if args.include_feed_in_csv_option:
-            for key, value in args.include_feed_in_csv_option:
-                if key == "step_duration_s":
-                    value = int(value)
-                options[key] = value
-        events['energy_feed_in'][basename] = options
-        feed_in_path = path.join(target_path, filename)
-        if not path.exists(feed_in_path):
-            warnings.warn(f"Feed-in csv file '{feed_in_path}' does not exist yet.")
-        else:
-            with open(feed_in_path, newline='') as csvfile:
-                reader = csv.DictReader(csvfile)
-                if not options["column"] in reader.fieldnames:
-                    warnings.warn(f"Feed-in csv file '{feed_in_path}' has no column "
-                                  f"'{options['column']}'.")
-
-    # energy price CSV
-    if args.include_price_csv:
-        filename = args.include_price_csv
-        # basename = path.splitext(path.basename(filename))[0]
-        options = {
-            "csv_file": filename,
-            "start_time": start.isoformat(),
-            "step_duration_s": 3600,  # 60 minutes
-            "grid_connector_id": "GC1",
-            "column": "price [ct/kWh]"
-        }
-        for key, value in args.include_price_csv_option:
-            if key == "step_duration_s":
-                value = int(value)
-            options[key] = value
-        events['energy_price_from_csv'] = options
-        price_csv_path = path.join(target_path, filename)
-        if not path.exists(price_csv_path):
-            warnings.warn(f"Price csv file '{price_csv_path}' does not exist yet.")
-        else:
-            with open(price_csv_path, newline='') as csvfile:
-                reader = csv.DictReader(csvfile)
-                if not options["column"] in reader.fieldnames:
-                    warnings.warn(f"Price csv file '{price_csv_path}' has no column "
-                                  f"'{options['column']}'.")
-    else:
+    if args.include_price_csv is None:
         # generate prices for the day
         now = start - daily
         while now < stop + 2 * daily:

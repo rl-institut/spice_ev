@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 
 import argparse
+import csv
+from pathlib import Path
+import warnings
+
 from src.util import set_options_from_config
 import generate_from_csv
 import generate_from_simbev
@@ -49,15 +53,16 @@ if __name__ == '__main__':
                         help='location of vehicle type definitions')
     parser.add_argument('--include-ext-load-csv',
                         help='include CSV for external load. \
-                        You may define custom options with --include-ext-csv-option')
-    parser.add_argument('--include-ext-csv-option', '-eo', metavar=('KEY', 'VALUE'),
-                        nargs=2, action='append',
+                        You may define custom options with --include-ext-load-csv-option')
+    parser.add_argument('--include-ext-load-csv-option', '-eo', metavar=('KEY', 'VALUE'),
+                        nargs=2, default=[], action='append',
                         help='append additional argument to external load')
     parser.add_argument('--include-feed-in-csv',
                         help='include CSV for energy feed-in, e.g., local PV. \
                         You may define custom options with --include-feed-in-csv-option')
     parser.add_argument('--include-feed-in-csv-option', '-fo', metavar=('KEY', 'VALUE'),
-                        nargs=2, action='append', help='append additional argument to feed-in load')
+                        nargs=2, default=[], action='append',
+                        help='append additional argument to feed-in load')
     parser.add_argument('--include-price-csv',
                         help='include CSV for energy price. \
                         You may define custom options with --include-price-csv-option')
@@ -73,8 +78,18 @@ if __name__ == '__main__':
     parser.add_argument('--config', help='Use config file to set arguments')
 
     # csv options
-    parser.add_argument('input_file', nargs='?',
+    parser.add_argument('input-file', nargs='?',
                         help='input file name (rotations_example_table.csv)')
+    parser.add_argument('--export-vehicle-id-csv', default=None,
+                        help='option to export csv after assigning vehicle_id')
+
+    # simbev options
+    parser.add_argument('--simbev', metavar='DIR', type=str, help='set directory with SimBEV files')
+    parser.add_argument('--region', type=str, help='set name of region')
+    parser.add_argument('--ignore-simbev-soc', action='store_true',
+                        help='Don\'t use SoC columns from SimBEV files')
+    parser.add_argument('--min-soc-threshold', type=float, default=0.05,
+                        help='SoC below this threshold trigger a warning. Default: 0.05')
 
     # statistics options
     parser.add_argument('--vehicles', metavar=('N', 'TYPE'), nargs=2, action='append', type=str,
@@ -89,22 +104,63 @@ if __name__ == '__main__':
     parser.add_argument('--buffer', type=float, default=0.1,
                         help='set buffer on top of needed SoC for next trip')
 
-    # simbev options
-    parser.add_argument('--simbev', metavar='DIR', type=str, help='set directory with SimBEV files')
-    parser.add_argument('--region', type=str, help='set name of region')
-    parser.add_argument('--ignore-simbev-soc', action='store_true',
-                        help='Don\'t use SoC columns from SimBEV files')
-    parser.add_argument('--min-soc-threshold', type=float, default=0.05,
-                        help='SoC below this threshold trigger a warning. Default: 0.05')
-    parser.add_argument('--export-vehicle-id-csv', default=None,
-                        help='option to export csv after assigning vehicle_id')
-
     args = parser.parse_args()
 
     set_options_from_config(args, check=True, verbose=args.verbose > 1)
 
     if not args.output:
         raise Exception("Output name must be given")
+
+    # external input CSV files
+    csv_files = {
+        "external load": {
+            "filename": args.include_ext_load_csv,
+            "options": "include_ext_load_csv_option",
+            "default_step_duration_s": 900,  # 15 minutes
+            "default_column": "energy",
+        },
+        "feed-in": {
+            "filename": args.include_feed_in_csv,
+            "options": "include_feed_in_csv_option",
+            "default_step_duration_s": 3600,  # 60 minutes
+            "default_column": "energy",
+        },
+        "price": {
+            "filename": args.include_price_csv,
+            "options": "include_price_csv_option",
+            "default_step_duration_s": 3600,  # 60 minutes
+            "default_column": "price [ct/kWh]",
+        },
+    }
+    # define target path for relative output files
+    target_path = Path(args.output).parent
+
+    for file_type, file_info in csv_files.items():
+        if file_info["filename"]:
+            options = {
+                "csv_file": file_info["filename"],
+                "start_time": None,
+                "step_duration_s": file_info["default_step_duration_s"],
+                "grid_connector_id": "GC1",
+                "column": file_info["default_column"],
+            }
+            for key, value in vars(args)[file_info["options"]]:
+                if key == "step_duration_s":
+                    value = int(value)
+                options[key] = value
+            vars(args)[file_info["options"]] = options
+
+            # check if CSV file exists
+            ext_csv_path = target_path.joinpath(file_info["filename"])
+            if not ext_csv_path.exists():
+                warnings.warn(f"{file_type} csv file '{ext_csv_path}' does not exist yet.")
+            else:
+                # check if given column exists in file
+                with open(ext_csv_path, newline='') as csvfile:
+                    reader = csv.DictReader(csvfile)
+                    if not options["column"] in reader.fieldnames:
+                        warnings.warn(f"{file_type} csv file '{ext_csv_path} "
+                                      f"has no column {options['column']}'.")
 
     # call generate function
     mode_choices[args.mode](args)
