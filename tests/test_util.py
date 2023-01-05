@@ -6,6 +6,18 @@ from src import constants, util
 
 class UtilTest(unittest.TestCase):
 
+    def test_datetime_from_isoformat(self):
+        # no data
+        assert util.datetime_from_isoformat(None) is None
+        # naive datetime
+        dt = datetime.datetime(2023, 1, 1, 13, 37, 0)
+        dt_str = dt.isoformat()
+        assert dt == util.datetime_from_isoformat(dt_str)
+        # timezone-aware
+        dt = dt.replace(tzinfo=datetime.timezone(datetime.timedelta(hours=1)))
+        dt_str = dt.isoformat()
+        assert dt == util.datetime_from_isoformat(dt_str)
+
     def test_time_window(self):
 
         time_windows = {
