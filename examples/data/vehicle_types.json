@@ -1,34 +1,4 @@
 {
-    "sprinter_small": {
-        "name": "Sprinter (small)",
-        "capacity": 38,
-        "mileage": 25,
-        "charging_curve": [[0, 11], [0.8, 11], [1, 11]],
-        "min_charging_power": 0.2,
-        "v2g": false,
-        "v2g_power_factor": 0.5,
-        "statistical_values":{
-            "distance_in_km": {
-                "avg_distance": 47.13,
-                "std_distance": 19.89,
-                "min_distance": 27.23,
-                "max_distance": 67.02
-            },
-            "departure": {
-                "avg_start": "08:15",
-                "std_start_in_hours": 0.42,
-                "min_start": "07:00",
-                "max_start": "09:30"
-            },
-            "duration_in_hours": {
-                "avg_driving": 8.33,
-                "std_driving": 1.35,
-                "min_driving": 4.28,
-                "max_driving": 12.38
-            }
-        },
-        "no_drive_days": [5, 6]
-    },
     "sprinter": {
         "name": "Sprinter",
         "capacity": 76,
@@ -64,7 +34,7 @@
         "capacity": 50,
         "mileage": 16,
         "charging_curve": [[0, 22], [0.8, 22], [1, 22]],
-        "min_charging_power": 0,
+        "min_charging_power": 0.2,
         "v2g": false,
         "v2g_power_factor": 0.5,
         "statistical_values":{
@@ -89,14 +59,6 @@
         },
         "no_drive_days": [2]
     },
-    "AB-OPP": {
-        "name": "articulated bus - opportunity charging",
-        "capacity": 50,
-        "charging_curve": [[0, 150], [0.8, 150], [1, 150]],
-        "min_charging_power": 0,
-        "v2g": false,
-        "v2g_power_factor": 0.5
-    },
     "minimum_information": {
         "name": "Displayed name",
         "capacity": 0,
@@ -116,6 +78,27 @@
             "relative": 0,
             "fixed_relative": 0,
             "fixed_absolute": 0
-        }
+        },
+		"statistical_values":{
+            "distance_in_km": {
+                "avg_distance": 30.00,
+                "std_distance": 10.00,
+                "min_distance": 10.00,
+                "max_distance": 50.00
+            },
+            "departure": {
+                "avg_start": "08:00",
+                "std_start_in_hours": 0.45,
+                "min_start": "07:15",
+                "max_start": "09:30"
+            },
+            "duration_in_hours": {
+                "avg_driving": 7.00,
+                "std_driving": 2.50,
+                "min_driving": 4.00,
+                "max_driving": 9.50
+            }
+        },
+        "no_drive_days": [6]
     }
 }
