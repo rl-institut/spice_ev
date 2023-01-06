@@ -174,7 +174,7 @@ class Scenario:
                     res = strat.step()
             except Exception:
                 # error during strategy: add dummy result and abort
-                error = traceback.format_exc()
+                error = traceback.format_exc() if error is None else error
             results.append(res)
 
             # apply battery losses at end of timestep
@@ -204,13 +204,13 @@ class Scenario:
                 gc_load = max(-gc.max_power, gc_load - curFeedIn)
 
                 # safety check: GC load within bounds?
-                gcWithinPowerLimit &= -gc.max_power-strat.EPS <= gc_load <= gc.max_power+strat.EPS
+                gcWithinPowerLimit = -gc.max_power-strat.EPS <= gc_load <= gc.max_power+strat.EPS
                 try:
                     assert gcWithinPowerLimit, (
                         "{} maximum load exceeded: {} / {}".format(gcID, gc_load, gc.max_power))
                 except AssertionError:
                     # abort if GC power limit exceeded
-                    error = traceback.format_exc()
+                    error = traceback.format_exc() if error is None else error
 
                 # compute cost: price in ct/kWh -> get price in EUR
                 if gc.cost:
