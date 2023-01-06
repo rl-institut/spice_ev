@@ -109,6 +109,32 @@ class Battery():
 
         return {'avg_power': avg_power, 'soc_delta':  old_soc - self.soc}
 
+    def unload_power(self, timedelta, target_power, max_power=None):
+        """
+        Unload battery, such that a given amount of power is discharged.
+
+        :param timedelta: time period in which battery can be discharged
+        :type timedelta: timedelta
+        :param target_power: desired discharged power
+        :type target_power: numeric
+        :param max_power: maximum power connected device can receive
+        :type max_power: numeric
+        :return: average discharged power and soc_delta
+        :rtype: dict
+        """
+        if max_power is None:
+            max_power = self.unloading_curve.max_power
+        old_soc = self.soc
+        clamped = self.unloading_curve.clamped(max_power, post_scale=1/self.efficiency)
+        total_time = timedelta.total_seconds() / 3600
+        energy_delta = target_power / self.efficiency * total_time
+        soc_delta = energy_delta / self.capacity
+        avg_power = self._adjust_soc(charging_curve=clamped,
+                                     target_soc=self.soc - soc_delta,
+                                     timedelta=timedelta)
+        avg_power *= self.efficiency
+        return {'avg_power': avg_power, 'soc_delta':  old_soc - self.soc}
+
     def load_iterative(self, timedelta, max_charging_power):
         """Adjust SOC and return average charging power for a given timedelta
         and maximum charging power.

@@ -1,5 +1,5 @@
 import datetime
-import unittest
+import pytest
 
 from src import battery, loading_curve
 
@@ -8,7 +8,7 @@ def approx_eq(x, y, eps=1e-3):
     return abs(x - y) < eps
 
 
-class TestLoadingCurve(unittest.TestCase):
+class TestLoadingCurve:
     def test_creation(self):
         # basic loading curve
         points = [(0.5, 42), (0, 42), (1, 0)]
@@ -48,7 +48,7 @@ class TestLoadingCurve(unittest.TestCase):
             assert approx_eq(min(32, lc.power_from_soc(x/100)), lc2.power_from_soc(x/100))
 
 
-class TestBattery(unittest.TestCase):
+class TestBattery:
     def test_creation(self):
         # basic battery instance
         points = [(0, 42), (0.5, 42), (1, 0)]
@@ -188,6 +188,12 @@ class TestBattery(unittest.TestCase):
         b = battery.Battery(capacity, lc, initial_soc, efficiency, lc)
         b.unload(datetime.timedelta(hours=1))
 
-
-if __name__ == '__main__':
-    unittest.main()
+    def test_unload_power(self):
+        points = [(0, 0), (1, 10)]
+        lc = loading_curve.LoadingCurve(points)
+        capacity = 10
+        efficiency = 1
+        initial_soc = 0.5
+        b = battery.Battery(capacity, lc, initial_soc, efficiency, lc)
+        pwr = b.unload_power(datetime.timedelta(hours=1), target_power=1)['avg_power']
+        assert pytest.approx(pwr) == 1
