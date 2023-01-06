@@ -1,10 +1,9 @@
 import datetime
-import unittest
 
 from src import constants, util
 
 
-class UtilTest(unittest.TestCase):
+class UtilTest:
 
     def test_datetime_from_isoformat(self):
         # no data
@@ -137,7 +136,3 @@ class UtilTest(unittest.TestCase):
         self.assertEqual(util.clamp_power(9, v, cs), 9)
         self.assertEqual(util.clamp_power(10, v, cs), 9)
         self.assertEqual(util.clamp_power(20, v, cs), 9)
-
-
-if __name__ == '__main__':
-    unittest.main()
