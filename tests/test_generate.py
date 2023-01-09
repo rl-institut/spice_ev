@@ -4,8 +4,7 @@ import json
 from pathlib import Path
 import pytest
 
-import generate_from_statistics
-import generate_from_csv
+from src.generate import generate_from_csv, generate_from_simbev, generate_from_statistics
 import generate_schedule
 from src import scenario
 

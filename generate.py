@@ -6,9 +6,7 @@ from pathlib import Path
 import warnings
 
 from src.util import set_options_from_config
-import generate_from_csv
-import generate_from_simbev
-import generate_from_statistics
+from src.generate import generate_from_csv, generate_from_simbev, generate_from_statistics
 
 
 if __name__ == '__main__':
