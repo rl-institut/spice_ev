@@ -188,12 +188,26 @@ class TestBattery:
         b = battery.Battery(capacity, lc, initial_soc, efficiency, lc)
         b.unload(datetime.timedelta(hours=1))
 
-    def test_unload_power(self):
+    def test_unload(self):
         points = [(0, 0), (1, 10)]
         lc = loading_curve.LoadingCurve(points)
         capacity = 10
-        efficiency = 1
+        efficiency = 0.75
         initial_soc = 0.5
         b = battery.Battery(capacity, lc, initial_soc, efficiency, lc)
-        pwr = b.unload_power(datetime.timedelta(hours=1), target_power=1)['avg_power']
+        td = datetime.timedelta(hours=1)
+        # simple unloading
+        pwr = b.unload(td)['avg_power']
+        assert pytest.approx(pwr, 2) == 2.76
+        b.soc = 0.5
+        # target soc
+        pwr = b.unload(td, target_soc=0.4)['avg_power']
+        assert pytest.approx(pwr) == 0.75
+        assert b.soc == 0.4
+        b.soc = 0.5
+        # target power
+        pwr = b.unload(td, target_power=1)['avg_power']
         assert pytest.approx(pwr) == 1
+        # target soc and power not allowed
+        with pytest.raises(AssertionError):
+            b.unload(td, target_soc=1, target_power=1)
