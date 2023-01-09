@@ -164,7 +164,7 @@ class Distributed(Strategy):
                 # current load > max load, use battery to support GC
                 # current load never rises above sum of max load of GC and available battery power
                 power_needed = gc_current_load - gc.cur_max_power
-                bat_power = battery.unload_power(self.interval, target_power=power_needed)
+                bat_power = battery.unload(self.interval, target_power=power_needed)
                 gc.add_load(b_id, -bat_power['avg_power'])
 
         return {'current_time': self.current_time, 'commands': charging_stations}
