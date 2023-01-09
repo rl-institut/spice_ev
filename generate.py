@@ -2,6 +2,7 @@
 
 import argparse
 import csv
+import json
 from pathlib import Path
 import warnings
 
@@ -9,20 +10,162 @@ from src.util import set_options_from_config
 from src.generate import generate_from_csv, generate_from_simbev, generate_from_statistics
 
 
-if __name__ == '__main__':
-    mode_choices = {
-        "csv": generate_from_csv.generate_from_csv,
-        "simbev": generate_from_simbev.generate_from_simbev,
-        "statistics": generate_from_statistics.generate_from_statistics,
+MODE_CHOICES = {
+    "csv": generate_from_csv.generate_from_csv,
+    "simbev": generate_from_simbev.generate_from_simbev,
+    "statistics": generate_from_statistics.generate_from_statistics,
+}
+
+
+def update_namespace(args):
+    """
+    Prepare generate-arguments for function call. Various checks and preparations.
+    :param args: argparse arguments
+    :type args: Namespace
+    """
+    # handle vehicle types file (except simbev, which uses metadata)
+    if args.mode != "simbev":
+        if args.vehicle_types is None:
+            args.vehicle_types = "examples/data/vehicle_types.json"
+            print(f"No definition of vehicle types found, using {args.vehicle_types}.")
+        ext = args.vehicle_types.split('.')[-1]
+        if ext != "json":
+            warnings.warn("File extension mismatch: vehicle type file should be '.json'")
+        with open(args.vehicle_types) as f:
+            args.predefined_vehicle_types = json.load(f)
+
+    # check voltage level (used in cost calculation)
+    voltage_level = vars(args).get("voltage_level")
+    if voltage_level is None:
+        warnings.warn("Voltage level is not set, please choose one when calculating costs.")
+
+    # prepare GC
+    args.gc = {
+        "GC1": {
+            "max_power": vars(args).get("gc_power", 100),
+            "voltage_level": voltage_level,
+            "cost": {"type": "fixed", "value": 0.3},
+        }
     }
+
+    # prepare PV
+    pv_power = vars(args).get("pv_power", 0)
+    if pv_power:
+        args.pv = {
+            "PV1": {
+                "parent": "GC1",
+                "nominal_power": pv_power,
+            }
+        }
+    else:
+        args.pv = {}
+
+    # prepare stationary battery
+    batteries = {}
+    for idx, (capacity, c_rate) in enumerate(args.battery):
+        if capacity > 0:
+            max_power = c_rate * capacity
+        else:
+            # unlimited battery: set power directly
+            max_power = c_rate
+        batteries["BAT{}".format(idx + 1)] = {
+            "parent": "GC1",
+            "capacity": capacity,
+            "charging_curve": [[0, max_power], [1, max_power]]
+        }
+    args.battery = batteries
+
+    # external input CSV files
+    csv_files = {
+        "external load": {
+            "filename": args.include_ext_load_csv,
+            "options": "include_ext_load_csv_option",
+            "default_step_duration_s": 900,  # 15 minutes
+            "default_column": "energy",
+        },
+        "feed-in": {
+            "filename": args.include_feed_in_csv,
+            "options": "include_feed_in_csv_option",
+            "default_step_duration_s": 3600,  # 60 minutes
+            "default_column": "energy",
+        },
+        "price": {
+            "filename": args.include_price_csv,
+            "options": "include_price_csv_option",
+            "default_step_duration_s": 3600,  # 60 minutes
+            "default_column": "price [ct/kWh]",
+        },
+    }
+    # define target path for relative output files
+    target_path = Path(args.output).parent
+
+    for file_type, file_info in csv_files.items():
+        if file_info["filename"]:
+            options = {
+                "csv_file": file_info["filename"],
+                "start_time": None,
+                "step_duration_s": file_info["default_step_duration_s"],
+                "grid_connector_id": "GC1",
+                "column": file_info["default_column"],
+            }
+            for key, value in vars(args)[file_info["options"]]:
+                if key == "step_duration_s":
+                    value = int(value)
+                options[key] = value
+            vars(args)[file_info["options"]] = options
+
+            # check if CSV file exists
+            ext_csv_path = target_path.joinpath(file_info["filename"])
+            if not ext_csv_path.exists():
+                warnings.warn(f"{file_type} csv file '{ext_csv_path}' does not exist yet.")
+            else:
+                # check if given column exists in file
+                with open(ext_csv_path, newline='') as csvfile:
+                    reader = csv.DictReader(csvfile)
+                    if not options["column"] in reader.fieldnames:
+                        warnings.warn(f"{file_type} csv file '{ext_csv_path} "
+                                      f"has no column {options['column']}'.")
+
+
+def generate(args):
+    """
+    Generate scenario JSON.
+
+    Own function for testing.
+    :param args: argparse arguments
+    :type args: Namespace
+    :raises SystemExit: if required arguments are missing
+    """
+    # check for necessary arguments
+    required = {
+        "csv": ["input_file", "output"],
+        "simbev": ["simbev", "output"],
+        "statistics": ["output"],
+    }
+    missing = [arg for arg in required[args.mode] if vars(args).get(arg) is None]
+    if missing:
+        raise SystemExit("The following arguments are required: {}".format(", ".join(missing)))
+
+    update_namespace(args)
+
+    # call generate function
+    scenario = MODE_CHOICES[args.mode](args)
+
+    # write JSON
+    with open(args.output, 'w') as f:
+        json.dump(scenario, f, indent=2)
+
+
+if __name__ == '__main__':
+
     DEFAULT_START_TIME = "2023-01-01T01:00:00+02:00"
 
     parser = argparse.ArgumentParser(
         description='Generate scenarios as JSON files for vehicle charging modelling')
     # select generate mode
     parser.add_argument('mode', nargs='?',
-                        choices=mode_choices.keys(), default="statistics",
-                        help=f"select input type ({', '.join(mode_choices.keys())})")
+                        choices=MODE_CHOICES.keys(), default="statistics",
+                        help=f"select input type ({', '.join(MODE_CHOICES.keys())})")
 
     # general options
     parser.add_argument('--output', '-o', help='output file name (example.json)')
@@ -106,59 +249,4 @@ if __name__ == '__main__':
 
     set_options_from_config(args, check=True, verbose=args.verbose > 1)
 
-    if not args.output:
-        raise Exception("Output name must be given")
-
-    # external input CSV files
-    csv_files = {
-        "external load": {
-            "filename": args.include_ext_load_csv,
-            "options": "include_ext_load_csv_option",
-            "default_step_duration_s": 900,  # 15 minutes
-            "default_column": "energy",
-        },
-        "feed-in": {
-            "filename": args.include_feed_in_csv,
-            "options": "include_feed_in_csv_option",
-            "default_step_duration_s": 3600,  # 60 minutes
-            "default_column": "energy",
-        },
-        "price": {
-            "filename": args.include_price_csv,
-            "options": "include_price_csv_option",
-            "default_step_duration_s": 3600,  # 60 minutes
-            "default_column": "price [ct/kWh]",
-        },
-    }
-    # define target path for relative output files
-    target_path = Path(args.output).parent
-
-    for file_type, file_info in csv_files.items():
-        if file_info["filename"]:
-            options = {
-                "csv_file": file_info["filename"],
-                "start_time": None,
-                "step_duration_s": file_info["default_step_duration_s"],
-                "grid_connector_id": "GC1",
-                "column": file_info["default_column"],
-            }
-            for key, value in vars(args)[file_info["options"]]:
-                if key == "step_duration_s":
-                    value = int(value)
-                options[key] = value
-            vars(args)[file_info["options"]] = options
-
-            # check if CSV file exists
-            ext_csv_path = target_path.joinpath(file_info["filename"])
-            if not ext_csv_path.exists():
-                warnings.warn(f"{file_type} csv file '{ext_csv_path}' does not exist yet.")
-            else:
-                # check if given column exists in file
-                with open(ext_csv_path, newline='') as csvfile:
-                    reader = csv.DictReader(csvfile)
-                    if not options["column"] in reader.fieldnames:
-                        warnings.warn(f"{file_type} csv file '{ext_csv_path} "
-                                      f"has no column {options['column']}'.")
-
-    # call generate function
-    mode_choices[args.mode](args)
+    generate(args)

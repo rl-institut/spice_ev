@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 import datetime
-import json
 import random
 import warnings
 
@@ -92,18 +91,9 @@ def generate_from_statistics(args):
 
     :param args: input arguments
     :type args: argparse.Namespace
-    :raises SystemExit: if the required argument *output* is missing
+    :return: scenario
+    :rtype: dict
     """
-
-    # check for necessary argument: output
-    if args.output is None:
-        raise SystemExit("The following argument is required: output")
-
-    # argument 'min_soc_threshold' has no relevance for generation of synthetic driving profiles
-    soc_threshold = vars(args).get("min_soc_threshold")
-    if soc_threshold and args.verbose > 0:
-        warnings.warn("Argument 'min_soc_threshold' has no relevance for generation "
-                      "of driving profiles.")
 
     # set seed
     random.seed(args.seed)
@@ -126,20 +116,9 @@ def generate_from_statistics(args):
     if args.vehicles is None:
         args.vehicles = [['1', 'golf'], ['1', 'sprinter']]
 
-    # get defined vehicle types
-    if args.vehicle_types is None:
-        args.vehicle_types = "examples/data/vehicle_types.json"
-        print(f"No definition of vehicle types found, using {args.vehicle_types}")
-    ext = args.vehicle_types.split('.')[-1]
-    if ext != "json":
-        warnings.warn("File extension mismatch: vehicle type file should be '.json'")
-    with open(args.vehicle_types) as f:
-        predefined_vehicle_types = json.load(f)
-
     # INITIALIZE CONSTANTS AND EVENTS
     vehicle_types = {}
     vehicles = {}
-    batteries = {}
     charging_stations = {}
     events = {
         "grid_operator_signals": [],
@@ -154,10 +133,10 @@ def generate_from_statistics(args):
 
     # set vehicle type if present in vehicle_types.json
     for count, v_type in args.vehicles:
-        assert v_type in predefined_vehicle_types, \
+        assert v_type in args.predefined_vehicle_types, \
             f"The given vehicle type '{v_type}' is not valid. " \
-            f"Should be one of {list(predefined_vehicle_types.keys())}."
-        vehicle_types.update({v_type: predefined_vehicle_types[v_type]})
+            f"Should be one of {list(args.predefined_vehicle_types.keys())}."
+        vehicle_types.update({v_type: args.predefined_vehicle_types[v_type]})
         vehicle_types[v_type]["count"] = int(count)
 
     for v_type, v_type_info in vehicle_types.items():
@@ -264,24 +243,6 @@ def generate_from_statistics(args):
         del v_info["count"]
         del v_info["statistical_values"]
 
-    # number of trips for which desired_soc is above min_soc
-    if trips_above_min_soc and args.verbose > 0:
-        print(f"{trips_above_min_soc} of {trips_total} trips "
-              f"use more than {args.min_soc * 100}% capacity")
-
-    # add stationary battery
-    for idx, (capacity, c_rate) in enumerate(args.battery):
-        if capacity > 0:
-            max_power = c_rate * capacity
-        else:
-            # unlimited battery: set power directly
-            max_power = c_rate
-        batteries["BAT{}".format(idx + 1)] = {
-            "parent": "GC1",
-            "capacity": capacity,
-            "charging_curve": [[0, max_power], [1, max_power]]
-        }
-
     # update info of external CSV files
     ext_info = {
         "external_load": "include_ext_load_csv",
@@ -322,41 +283,25 @@ def generate_from_statistics(args):
                     }
                 }]
 
-    # check voltage level (used in cost calculation)
-    voltage_level = vars(args).get("voltage_level")
-    if voltage_level is None:
-        warnings.warn("Voltage level is not set. Please choose one when calculating costs.")
+    # number of trips for which desired_soc is above min_soc
+    if trips_above_min_soc and args.verbose > 0:
+        print(f"{trips_above_min_soc} of {trips_total} trips "
+              f"use more than {args.min_soc * 100}% capacity")
 
-    # create final dict
-    j = {
+    return {
         "scenario": {
             "start_time": start.isoformat(),
-            "interval": interval.days * 24 * 60 + interval.seconds // 60,
+            "interval": interval.total_seconds() // 60,
             "n_intervals": (stop - start) // interval,
             "discharge_limit": args.discharge_limit,
         },
         "constants": {
             "vehicle_types": vehicle_types,
             "vehicles": vehicles,
-            "grid_connectors": {
-                "GC1": {
-                    "max_power": vars(args).get("gc_power", 100),
-                    "voltage_level": voltage_level,
-                    "cost": {"type": "fixed", "value": 0.3},
-                }
-            },
+            "grid_connectors": args.gc,
             "charging_stations": charging_stations,
-            "batteries": batteries,
-            "photovoltaics": {
-                "PV1": {
-                    "parent": "GC1",
-                    "nominal_power": vars(args).get("pv_power", 0),
-                }
-            },
+            "batteries": args.battery,
+            "photovoltaics": args.pv,
         },
         "events": events,
     }
-
-    # Write JSON
-    with open(args.output, 'w') as f:
-        json.dump(j, f, indent=2)

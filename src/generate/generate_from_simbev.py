@@ -37,13 +37,9 @@ def generate_from_simbev(args):
 
     :param args: input arguments
     :type args: argparse.Namespace
-    :raises SystemExit: if required arguments (*output* and *simbev*) are missing
+    :return: scenario
+    :rtype: dict
     """
-
-    # check for necessary arguments: simbev, output
-    missing = [arg for arg in ["output", "simbev"] if vars(args).get(arg) is None]
-    if missing:
-        raise SystemExit("The following arguments are required: {}".format(", ".join(missing)))
 
     # read SimBEV metadata
     simbev_path = Path(args.simbev)
@@ -85,7 +81,6 @@ def generate_from_simbev(args):
     # INITIALIZE CONSTANTS AND EVENTS
     vehicle_types = {}
     vehicles = {}
-    batteries = {}
     charging_stations = {}
     events = {
         "grid_operator_signals": [],
@@ -402,33 +397,15 @@ def generate_from_simbev(args):
                                 }
                             })
 
+    assert len(vehicles) > 0, f"No vehicles found in {args.simbev}."
+
     # number of trips for which desired_soc is above min_soc
     if trips_above_min_soc and args.verbose > 0:
         print(f"{trips_above_min_soc} of {trips_total} trips "
               f"use more than {args.min_soc * 100}% capacity")
 
-    assert len(vehicles) > 0, f"No vehicles found in {args.simbev}."
-
-    # add stationary battery
-    for idx, (capacity, c_rate) in enumerate(args.battery):
-        if capacity > 0:
-            max_power = c_rate * capacity
-        else:
-            # unlimited battery: set power directly
-            max_power = c_rate
-        batteries["BAT{}".format(idx + 1)] = {
-            "parent": "GC1",
-            "capacity": capacity,
-            "charging_curve": [[0, max_power], [1, max_power]]
-        }
-
-    # check voltage level (used in cost calculation)
-    voltage_level = vars(args).get("voltage_level")
-    if voltage_level is None:
-        warnings.warn("Voltage level is not set, please choose one when calculating costs.")
-
     # create final dict
-    j = {
+    return {
         "scenario": {
             "start_time": start.isoformat(),
             "interval": args.interval,
@@ -438,25 +415,10 @@ def generate_from_simbev(args):
         "constants": {
             "vehicle_types": vehicle_types,
             "vehicles": vehicles,
-            "grid_connectors": {
-                "GC1": {
-                    "max_power": vars(args).get("gc_power", 100),
-                    "voltage_level": voltage_level,
-                    "cost": {"type": "fixed", "value": 0.3},
-                }
-            },
+            "grid_connectors": args.gc,
             "charging_stations": charging_stations,
-            "batteries": batteries,
-            "photovoltaics": {
-                "PV1": {
-                    "parent": "GC1",
-                    "nominal_power": vars(args).get("pv_power", 0),
-                }
-            },
+            "batteries": args.battery,
+            "photovoltaics": args.pv,
         },
         "events": events,
     }
-
-    # Write JSON
-    with open(args.output, 'w') as f:
-        json.dump(j, f, indent=2)

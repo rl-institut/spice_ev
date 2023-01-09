@@ -2,7 +2,6 @@
 
 import csv
 import datetime
-import json
 from pathlib import Path
 import random
 import warnings
@@ -31,13 +30,9 @@ def generate_from_csv(args):
 
     :param args: input arguments
     :type args: argparse.Namespace
-    :raises SystemExit: if any of the required arguments (*input_file* and *output*) is missing
+    :return: scenario
+    :rtype: dict
     """
-
-    # check for necessary arguments: input, output
-    missing = [arg for arg in ["input_file", "output"] if vars(args).get(arg) is None]
-    if missing:
-        raise SystemExit("The following arguments are required: {}".format(", ".join(missing)))
 
     # set seed
     random.seed(args.seed)
@@ -47,20 +42,9 @@ def generate_from_csv(args):
     # read csv input file
     input = csv_to_dict(args.input_file)
 
-    # get defined vehicle types
-    if args.vehicle_types is None:
-        args.vehicle_types = "examples/vehicle_types.json"
-        print(f"No definition of vehicle types found, using {args.vehicle_types}.")
-    ext = args.vehicle_types.split('.')[-1]
-    if ext != "json":
-        warnings.warn("File extension mismatch: vehicle type file should be '.json'.")
-    with open(args.vehicle_types) as f:
-        predefined_vehicle_types = json.load(f)
-
     # INITIALIZE CONSTANTS AND EVENTS
     vehicle_types = {}
     vehicles = {}
-    batteries = {}
     charging_stations = {}
     events = {
         "grid_operator_signals": [],
@@ -76,7 +60,7 @@ def generate_from_csv(args):
     # set vehicle type if present in vehicle_types.json
     for v_type in {item['vehicle_type'] for item in input}:
         try:
-            vehicle_types.update({v_type: predefined_vehicle_types[v_type]})
+            vehicle_types.update({v_type: args.predefined_vehicle_types[v_type]})
         except KeyError:
             print(f"The vehicle type '{v_type}' defined in the input csv cannot be found in "
                   f"vehicle_types.json. Please check for consistency.")
@@ -243,24 +227,6 @@ def generate_from_csv(args):
                         }
                     })
 
-    # number of trips for which desired_soc is above min_soc
-    if trips_above_min_soc and args.verbose > 0:
-        print(f"{trips_above_min_soc} of {trips_total} trips "
-              f"use more than {args.min_soc * 100}% capacity")
-
-    # add stationary battery
-    for idx, (capacity, c_rate) in enumerate(args.battery):
-        if capacity > 0:
-            max_power = c_rate * capacity
-        else:
-            # unlimited battery: set power directly
-            max_power = c_rate
-        batteries["BAT{}".format(idx + 1)] = {
-            "parent": "GC1",
-            "capacity": capacity,
-            "charging_curve": [[0, max_power], [1, max_power]]
-        }
-
     # save path and options for CSV timeseries
     times = []
     for row in input:
@@ -317,44 +283,28 @@ def generate_from_csv(args):
                     }
                 }]
 
-    # check voltage level (used in cost calculation)
-    voltage_level = vars(args).get("voltage_level")
-    if voltage_level is None:
-        warnings.warn("Voltage level is not set, please choose one when calculating costs.")
+    # number of trips for which desired_soc is above min_soc
+    if trips_above_min_soc and args.verbose > 0:
+        print(f"{trips_above_min_soc} of {trips_total} trips "
+              f"use more than {args.min_soc * 100}% capacity")
 
-    # create final dict
-    j = {
+    return {
         "scenario": {
             "start_time": start.isoformat(),
-            "interval": interval.days * 24 * 60 + interval.seconds // 60,
+            "interval": interval.total_seconds() // 60,
             "n_intervals": (stop - start) // interval,
             "discharge_limit": args.discharge_limit,
         },
         "constants": {
             "vehicle_types": vehicle_types,
             "vehicles": vehicles,
-            "grid_connectors": {
-                "GC1": {
-                    "max_power": vars(args).get("gc_power", 100),
-                    "voltage_level": voltage_level,
-                    "cost": {"type": "fixed", "value": 0.3},
-                }
-            },
+            "grid_connectors": args.gc,
             "charging_stations": charging_stations,
-            "batteries": batteries,
-            "photovoltaics": {
-                "PV1": {
-                    "parent": "GC1",
-                    "nominal_power": vars(args).get("pv_power", 0),
-                }
-            },
+            "batteries": args.battery,
+            "photovoltaics": args.pv,
         },
         "events": events,
     }
-
-    # Write JSON
-    with open(args.output, 'w') as f:
-        json.dump(j, f, indent=2)
 
 
 def csv_to_dict(csv_path):
