@@ -15,24 +15,24 @@ the charging stations, grid connectors as well as optional inputs such as
 stationary batteries, external load, feed-in or grid signal time series. The module
 'generate_schedule' prepares a csv file of grid operator schedules and adds this schedule to an existing input json.
 
-Generate
---------
+Generate_from_statistics
+------------------------
 Generates a scenario JSON with random dummy trips for a set up defined by input
-arguments. For an example config file see `/examples/generate.cfg`.
+arguments. For an example config file see `/examples/generate_from_statistics.cfg`.
 
-.. currentmodule:: generate
+.. currentmodule:: src.generate.generate_from_statistics
 .. autosummary::
     :toctree: temp/
 
     generate_trip
-    generate
+    generate_from_statistics
 
 Generate_from_csv
 -----------------
 Generates a scenario JSON from csv rotation schedule of fleets. For an example
 config file see `/examples/generate_from_csv.cfg`.
 
-.. currentmodule:: generate_from_csv
+.. currentmodule:: src.generate.generate_from_csv
 .. autosummary::
     :toctree: temp/
 
@@ -45,7 +45,7 @@ Generate_from_simbev
 Generates a scenario JSON from simBEV results. For an example
 config file see `/examples/generate_from_simbev.cfg`.
 
-.. currentmodule:: generate_from_simbev
+.. currentmodule:: src.generate.generate_from_simbev
 .. autosummary::
     :toctree: temp/
 

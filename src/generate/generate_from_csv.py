@@ -1,14 +1,11 @@
 #!/usr/bin/env python3
 
-import argparse
 import csv
 import datetime
-import json
-from os import path
+from pathlib import Path
 import random
 import warnings
 
-from src.util import set_options_from_config
 
 DATETIME_FORMAT = '%Y-%m-%d %H:%M:%S'
 
@@ -33,13 +30,9 @@ def generate_from_csv(args):
 
     :param args: input arguments
     :type args: argparse.Namespace
-    :raises SystemExit: if any of the required arguments (*input_file* and *output*) is missing
+    :return: scenario
+    :rtype: dict
     """
-
-    # check for necessary arguments: input, output
-    missing = [arg for arg in ["input_file", "output"] if vars(args).get(arg) is None]
-    if missing:
-        raise SystemExit("The following arguments are required: {}".format(", ".join(missing)))
 
     # set seed
     random.seed(args.seed)
@@ -48,23 +41,10 @@ def generate_from_csv(args):
     interval = datetime.timedelta(minutes=args.interval)
     # read csv input file
     input = csv_to_dict(args.input_file)
-    # define target path for relative input or output files
-    target_path = path.dirname(args.output)
-
-    # get defined vehicle types
-    if args.vehicle_types is None:
-        args.vehicle_types = "examples/vehicle_types.json"
-        print(f"No definition of vehicle types found, using {args.vehicle_types}.")
-    ext = args.vehicle_types.split('.')[-1]
-    if ext != "json":
-        warnings.warn("File extension mismatch: vehicle type file should be '.json'.")
-    with open(args.vehicle_types) as f:
-        predefined_vehicle_types = json.load(f)
 
     # INITIALIZE CONSTANTS AND EVENTS
     vehicle_types = {}
     vehicles = {}
-    batteries = {}
     charging_stations = {}
     events = {
         "grid_operator_signals": [],
@@ -80,7 +60,7 @@ def generate_from_csv(args):
     # set vehicle type if present in vehicle_types.json
     for v_type in {item['vehicle_type'] for item in input}:
         try:
-            vehicle_types.update({v_type: predefined_vehicle_types[v_type]})
+            vehicle_types.update({v_type: args.predefined_vehicle_types[v_type]})
         except KeyError:
             print(f"The vehicle type '{v_type}' defined in the input csv cannot be found in "
                   f"vehicle_types.json. Please check for consistency.")
@@ -90,8 +70,8 @@ def generate_from_csv(args):
         if args.verbose > 0:
             warnings.warn("Column 'vehicle_id' missing, vehicles are assigned by the principle "
                           "first in, first out.")
-        if args.export_vehicle_id_csv != "None" and args.export_vehicle_id_csv is not None:
-            export_filename = path.join(target_path, args.export_vehicle_id_csv)
+        if args.export_vehicle_id_csv is not None:
+            export_filename = Path(args.output).parent / args.export_vehicle_id_csv
         else:
             export_filename = None
         input = assign_vehicle_id(input, vehicle_types, export_filename)
@@ -247,24 +227,6 @@ def generate_from_csv(args):
                         }
                     })
 
-    # number of trips for which desired_soc is above min_soc
-    if trips_above_min_soc and args.verbose > 0:
-        print(f"{trips_above_min_soc} of {trips_total} trips "
-              f"use more than {args.min_soc * 100}% capacity")
-
-    # add stationary battery
-    for idx, (capacity, c_rate) in enumerate(args.battery):
-        if capacity > 0:
-            max_power = c_rate * capacity
-        else:
-            # unlimited battery: set power directly
-            max_power = c_rate
-        batteries["BAT{}".format(idx + 1)] = {
-            "parent": "GC1",
-            "capacity": capacity,
-            "charging_curve": [[0, max_power], [1, max_power]]
-        }
-
     # save path and options for CSV timeseries
     times = []
     for row in input:
@@ -274,87 +236,19 @@ def generate_from_csv(args):
     start = datetime.datetime.strptime(start, DATETIME_FORMAT)
     stop = start + datetime.timedelta(days=args.days)
 
-    # external load CSV
-    if args.include_ext_load_csv:
-        filename = args.include_ext_load_csv
-        basename = path.splitext(path.basename(filename))[0]
-        options = {
-            "csv_file": filename,
-            "start_time": start.isoformat(),
-            "step_duration_s": 900,  # 15 minutes
-            "grid_connector_id": "GC1",
-            "column": "energy"
-        }
-        if args.include_ext_csv_option:
-            for key, value in args.include_ext_csv_option:
-                if key == "step_duration_s":
-                    value = int(value)
-                options[key] = value
-        events['external_load'][basename] = options
-        # check if CSV file exists
-        ext_csv_path = path.join(target_path, filename)
-        if not path.exists(ext_csv_path):
-            warnings.warn(f"External csv file '{ext_csv_path}' does not exist yet.")
-        else:
-            with open(ext_csv_path, newline='') as csvfile:
-                reader = csv.DictReader(csvfile)
-                if not options["column"] in reader.fieldnames:
-                    warnings.warn(f"External csv file '{ext_csv_path}' has no column "
-                                  f"'{options['column']}'.")
+    # update info of external CSV files
+    ext_info = {
+        "external_load": "include_ext_load_csv",
+        "energy_feed_in": "include_feed_in_csv",
+        "energy_price_from_csv": "include_price_csv",
+    }
+    for info, field in ext_info.items():
+        option = field + "_option"
+        if vars(args)[field] and vars(args)[option]["start_time"] is None:
+            vars(args)[option]["start_time"] = start.isoformat()
+        events[info] = vars(args)[option]
 
-    # energy feed-in CSV (e.g. from PV)
-    if args.include_feed_in_csv:
-        filename = args.include_feed_in_csv
-        basename = path.splitext(path.basename(filename))[0]
-        options = {
-            "csv_file": filename,
-            "start_time": start.replace(microsecond=0).isoformat(),
-            "step_duration_s": 3600,  # 60 minutes
-            "grid_connector_id": "GC1",
-            "column": "energy"
-        }
-        if args.include_feed_in_csv_option:
-            for key, value in args.include_feed_in_csv_option:
-                if key == "step_duration_s":
-                    value = int(value)
-                options[key] = value
-        events['energy_feed_in'][basename] = options
-        feed_in_path = path.join(target_path, filename)
-        if not path.exists(feed_in_path):
-            warnings.warn(f"Feed-in csv file '{feed_in_path}' does not exist yet.")
-        else:
-            with open(feed_in_path, newline='') as csvfile:
-                reader = csv.DictReader(csvfile)
-                if not options["column"] in reader.fieldnames:
-                    warnings.warn(f"Feed-in csv file '{feed_in_path}' has no column "
-                                  f"'{options['column']}'.")
-
-    # energy price CSV
-    if args.include_price_csv:
-        filename = args.include_price_csv
-        # basename = path.splitext(path.basename(filename))[0]
-        options = {
-            "csv_file": filename,
-            "start_time": start.replace(microsecond=0).isoformat(),
-            "step_duration_s": 3600,  # 60 minutes
-            "grid_connector_id": "GC1",
-            "column": "price [ct/kWh]"
-        }
-        for key, value in args.include_price_csv_option:
-            if key == "step_duration_s":
-                value = int(value)
-            options[key] = value
-        events['energy_price_from_csv'] = options
-        price_csv_path = path.join(target_path, filename)
-        if not path.exists(price_csv_path):
-            warnings.warn(f"Price csv file '{price_csv_path}' does not exist yet.")
-        else:
-            with open(price_csv_path, newline='') as csvfile:
-                reader = csv.DictReader(csvfile)
-                if not options["column"] in reader.fieldnames:
-                    warnings.warn(f"Price csv file '{price_csv_path}' has no column "
-                                  f"'{options['column']}'.")
-    else:
+    if args.include_price_csv is None:
         # generate daily price evens
         daily = datetime.timedelta(days=1)
         now = start - daily
@@ -389,44 +283,28 @@ def generate_from_csv(args):
                     }
                 }]
 
-    # check voltage level (used in cost calculation)
-    voltage_level = vars(args).get("voltage_level")
-    if voltage_level is None:
-        warnings.warn("Voltage level is not set, please choose one when calculating costs.")
+    # number of trips for which desired_soc is above min_soc
+    if trips_above_min_soc and args.verbose > 0:
+        print(f"{trips_above_min_soc} of {trips_total} trips "
+              f"use more than {args.min_soc * 100}% capacity")
 
-    # create final dict
-    j = {
+    return {
         "scenario": {
             "start_time": start.isoformat(),
-            "interval": interval.days * 24 * 60 + interval.seconds // 60,
+            "interval": interval.total_seconds() // 60,
             "n_intervals": (stop - start) // interval,
             "discharge_limit": args.discharge_limit,
         },
         "constants": {
             "vehicle_types": vehicle_types,
             "vehicles": vehicles,
-            "grid_connectors": {
-                "GC1": {
-                    "max_power": vars(args).get("gc_power", 100),
-                    "voltage_level": voltage_level,
-                    "cost": {"type": "fixed", "value": 0.3},
-                }
-            },
+            "grid_connectors": args.gc,
             "charging_stations": charging_stations,
-            "batteries": batteries,
-            "photovoltaics": {
-                "PV1": {
-                    "parent": "GC1",
-                    "nominal_power": vars(args).get("pv_power", 0),
-                }
-            },
+            "batteries": args.battery,
+            "photovoltaics": args.pv,
         },
         "events": events,
     }
-
-    # Write JSON
-    with open(args.output, 'w') as f:
-        json.dump(j, f, indent=2)
 
 
 def csv_to_dict(csv_path):
@@ -554,72 +432,3 @@ def assign_vehicle_id(input, vehicle_types, export=None):
             writer.writerows(all_rotations)
 
     return input
-
-
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser(
-        description='Generate scenarios as JSON files for vehicle charging modelling')
-    parser.add_argument('input_file', nargs='?',
-                        help='input file name (rotations_example_table.csv)')
-    parser.add_argument('output', nargs='?', help='output file name (example.json)')
-    parser.add_argument('--days', metavar='N', type=int, default=7,
-                        help='set duration of scenario as number of days')
-
-    # general
-    parser.add_argument('--interval', metavar='MIN', type=int, default=15,
-                        help='set number of minutes for each timestep (Δt)')
-    parser.add_argument('--min-soc', metavar='SOC', type=float, default=0.8,
-                        help='set minimum desired SOC (0 - 1) for each charging process')
-    parser.add_argument('--min-soc-threshold', type=float, default=0.05,
-                        help='SoC below this threshold trigger a warning. Default: 0.05')
-    parser.add_argument('--battery', '-b', default=[], nargs=2, type=float, action='append',
-                        help='add battery with specified capacity in kWh and C-rate \
-                        (-1 for variable capacity, second argument is fixed power))')
-    parser.add_argument('--gc-power', type=float, default=100, help='set power at grid connection '
-                                                                    'point in kW')
-    parser.add_argument('--voltage-level', '-vl', help='Choose voltage level for cost calculation')
-    parser.add_argument('--pv-power', type=int, default=0, help='set nominal power for local '
-                                                                'photovoltaic power plant in kWp')
-    parser.add_argument('--cs-power-min', type=float, default=None,
-                        help='set minimal power at charging station in kW (default: 0.1 * cs_power')
-    parser.add_argument('--discharge-limit', default=0.5,
-                        help='Minimum SoC to discharge to during V2G. [0-1]')
-    parser.add_argument('--seed', default=None, type=int, help='set random seed')
-
-    # input files (CSV, JSON)
-    parser.add_argument('--vehicle-types', default=None,
-                        help='location of vehicle type definitions')
-    parser.add_argument('--include-ext-load-csv',
-                        help='include CSV for external load. \
-                        You may define custom options with --include-ext-csv-option')
-    parser.add_argument('--include-ext-csv-option', '-eo', metavar=('KEY', 'VALUE'),
-                        nargs=2, action='append',
-                        help='append additional argument to external load')
-    parser.add_argument('--include-feed-in-csv',
-                        help='include CSV for energy feed-in, e.g., local PV. \
-                        You may define custom options with --include-feed-in-csv-option')
-    parser.add_argument('--include-feed-in-csv-option', '-fo', metavar=('KEY', 'VALUE'),
-                        nargs=2, action='append', help='append additional argument to feed-in load')
-    parser.add_argument('--include-price-csv',
-                        help='include CSV for energy price. \
-                        You may define custom options with --include-price-csv-option')
-    parser.add_argument('--include-price-csv-option', '-po', metavar=('KEY', 'VALUE'),
-                        nargs=2, default=[], action='append',
-                        help='append additional argument to price signals')
-    parser.add_argument('--export-vehicle-id-csv', default=None,
-                        help='option to export csv after assigning vehicle_id')
-
-    # config
-    parser.add_argument('--config', help='Use config file to set arguments')
-
-    # errors and warnings
-    parser.add_argument('--verbose', '-v', action='count', default=0,
-                        help='Set verbosity level. Use this multiple times for more output. '
-                             'Default: only errors and important warnings, '
-                             '1: additional warnings and info')
-
-    args = parser.parse_args()
-
-    set_options_from_config(args, check=True, verbose=args.verbose > 1)
-
-    generate_from_csv(args)

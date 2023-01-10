@@ -199,17 +199,19 @@ def clamp_power(power, vehicle, cs):
 
 
 def set_options_from_config(args, check=False, verbose=True):
-    """Read options from config file, update given args, try to parse options
-    , ignore comment lines (begin with #)
+    """
+    Update given options from config file.
+
+    Read config file, try to parse options, ignore comment lines (begin with #)
+
     :param args: input arguments
     :type args: argparse.Namespace
     :param check: raise ValueError on unknown options
     :type check: bool
     :param verbose: gives final overview of arguments
-    :type bool
-    :raises ValueError: if arguments are *check*ed and an unknown argument is encountered
+    :type verbose: bool
+    :raises ValueError: if arguments are checked and an unknown argument is encountered
     """
-
     if "config" in args and args.config is not None:
         # read options from config file
         with open(args.config, 'r') as f:
