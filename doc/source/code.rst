@@ -20,7 +20,7 @@ Generate_from_statistics
 Generates a scenario JSON with random dummy trips for a set up defined by input
 arguments. For an example config file see `/examples/generate_from_statistics.cfg`.
 
-.. currentmodule:: generate_from_statistics
+.. currentmodule:: src.generate.generate_from_statistics
 .. autosummary::
     :toctree: temp/
 
@@ -32,7 +32,7 @@ Generate_from_csv
 Generates a scenario JSON from csv rotation schedule of fleets. For an example
 config file see `/examples/generate_from_csv.cfg`.
 
-.. currentmodule:: generate_from_csv
+.. currentmodule:: src.generate.generate_from_csv
 .. autosummary::
     :toctree: temp/
 
@@ -45,7 +45,7 @@ Generate_from_simbev
 Generates a scenario JSON from simBEV results. For an example
 config file see `/examples/generate_from_simbev.cfg`.
 
-.. currentmodule:: generate_from_simbev
+.. currentmodule:: src.generate.generate_from_simbev
 .. autosummary::
     :toctree: temp/
 
