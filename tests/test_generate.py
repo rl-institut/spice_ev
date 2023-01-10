@@ -116,6 +116,21 @@ class TestGenerate(TestCaseBase):
         self.assertIsFile(output_file)
         self.assertIsFile(vehicle_id_file)
 
+    def test_generate_from_simbev(self, tmp_path):
+        simbev_dir = TEST_REPO_PATH / "test_data/input_test_generate/example_simbev_run"
+        output_file = tmp_path / "generate_from_simbev.json"
+        current_arg_values = ARG_VALUES1.copy()
+        current_arg_values.update({
+            "mode": "simbev",
+            "simbev": simbev_dir,
+            "output": str(output_file),
+            "region": None,
+            "vehicle_types": None,
+            "ignore_simbev_soc": False,
+        })
+        generate(Namespace(**current_arg_values))
+        self.assertIsFile(output_file)
+
 
 class TestGenerateSchedule(TestCaseBase):
     def test_generate_flex_collective(self):
