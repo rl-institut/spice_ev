@@ -226,12 +226,12 @@ class Scenario:
 
                 # get SOC and connected CS of all connected vehicles at gc
 
-                cur_cs = []
+                cur_cs = {}
                 for vidx, vid in enumerate(sorted(strat.world_state.vehicles.keys())):
                     vehicle = strat.world_state.vehicles[vid]
-                    if vehicle.connected_charging_station and (strat.world_state.charging_stations[
-                            vehicle.connected_charging_station].parent == gcID):
-                        cur_cs.append(vehicle.connected_charging_station)
+                    cs_id = vehicle.connected_charging_station
+                    if cs_id and (strat.world_state.charging_stations[cs_id].parent == gcID):
+                        cur_cs[cs_id] = gc.current_loads.get(cs_id, 0)
 
                 # append accumulated info
                 prices[gcID].append(price)
