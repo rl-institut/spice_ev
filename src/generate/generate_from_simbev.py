@@ -334,7 +334,7 @@ def generate_from_simbev(args):
                         })
 
                     # arrival at new CS
-                    departure_idx = int(row["event_start"]) + int(row["event_time"]) + 1
+                    departure_idx = int(row["event_start"]) + int(row["event_time"])
                     departure = datetime_from_timestep(departure_idx)
                     delta_soc = soc_needed if args.ignore_simbev_soc else delta_soc
                     # update last charge event info
@@ -396,6 +396,17 @@ def generate_from_simbev(args):
                                     "value": 0.15 + random.gauss(0, 0.05)
                                 }
                             })
+                elif idx == reader.line_num - 2:
+                    # last event is not arrival: add departure event
+                    events["vehicle_events"].append({
+                        "signal_time": departure.isoformat(),
+                        "start_time": departure.isoformat(),
+                        "vehicle_id": v_id,
+                        "event_type": "departure",
+                        "update": {
+                            "estimated_time_of_arrival": None  # does not arrive within scenario
+                        }
+                    })
 
     assert len(vehicles) > 0, f"No vehicles found in {args.simbev}."
 
