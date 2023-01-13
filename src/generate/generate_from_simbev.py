@@ -171,7 +171,7 @@ def generate_from_simbev(args):
                 vehicle_types[v_type]["capacity"] = file_capacity
 
             # set initial charge
-            last_arrival_event = None
+            last_arrival_idx = None
             soc_needed = 0.0
             arrival = None
             departure = datetime_from_timestep(0)
@@ -220,6 +220,10 @@ def generate_from_simbev(args):
                 assert (not cs_present) or consumption == 0, \
                     f"Consumption while charging for {v_id} in row {idx + 1}."
 
+                # get maximum length of timesteps
+                departure_idx = int(row["event_start"]) + int(row["event_time"])
+                n_intervals = max(n_intervals, departure_idx)
+
                 # actual driving and charging behavior
                 if not args.ignore_simbev_soc:
                     if cs_present and float(row["energy"]) > 0:
@@ -256,7 +260,7 @@ def generate_from_simbev(args):
                         # charging station present
                         is_charge_event = True
 
-                        if not last_arrival_event:
+                        if last_arrival_idx is None:
                             # first charge: initial must be enough
                             assert vehicle_soc >= soc_needed - tolerance, (
                                 f"Initial charge for {v_id} is not sufficient. This might "
@@ -274,30 +278,32 @@ def generate_from_simbev(args):
                             delta_soc = max(desired_soc - vehicle_soc, 0)
 
                             # check if charging is possible in ideal case
+                            last_arrival_event = events["vehicle_events"][last_arrival_idx]
                             cs_id = last_arrival_event["update"]["connected_charging_station"]
                             charge_duration = departure - arrival
                             possible_energy = (charging_stations[cs_id]["max_power"] *
-                                               charge_duration.seconds / 3600)
+                                               charge_duration.total_seconds() / 3600)
                             possible_soc = possible_energy / vehicle_capacity
 
                             if delta_soc > possible_soc:
                                 warnings.warn(
                                     f"Can't fulfill charging request for '{v_id}' in ts "
-                                    f"{((departure - start) / interval):.0f}. Need "
+                                    f"{((arrival - start) / interval):.0f}. Need "
                                     f"{(desired_soc * vehicle_capacity):.2f} kWh in "
-                                    f"{(charge_duration.seconds / 3600):.2f} h "
+                                    f"{(charge_duration.total_seconds() / 3600):.2f} h "
                                     f"({(charge_duration / interval):.0f} ts). "
                                     f"Possible within standing time: {possible_energy} kWh.")
 
                             # update last charge event info: set desired SOC
-                            last_arrival_event["update"]["desired_soc"] = desired_soc
-                            events["vehicle_events"].append(last_arrival_event)
+                            if last_arrival_idx is not None:
+                                events["vehicle_events"][last_arrival_idx]["update"]["desired_soc"]\
+                                    = desired_soc
 
                             # simulate charging
                             vehicle_soc = max(vehicle_soc, desired_soc)
 
                         # reset desired SoC for next trip
-                        desired_soc = None
+                        desired_soc = 0
 
                         # update vehicle SOC: with how much SOC does vehicle arrive at new CS?
                         vehicle_soc -= soc_needed
@@ -320,29 +326,15 @@ def generate_from_simbev(args):
                         }
 
                     # generate vehicle events
-                    # departure from old CS
+                    # arrival at new CS
                     arrival_idx = int(row["event_start"])
                     arrival = datetime_from_timestep(arrival_idx)
                     assert arrival >= departure, (
                         f"Order of vehicle {v_id} wrong in timestep {arrival_idx}, "
                         f"has been standing already.")
-                    if arrival_idx > 0:
-                        events["vehicle_events"].append({
-                            "signal_time": departure.isoformat(),
-                            "start_time": departure.isoformat(),
-                            "vehicle_id": v_id,
-                            "event_type": "departure",
-                            "update": {
-                                "estimated_time_of_arrival": arrival.isoformat()
-                            }
-                        })
-
-                    # arrival at new CS
-                    departure_idx = int(row["event_start"]) + int(row["event_time"])
                     departure = datetime_from_timestep(departure_idx)
                     delta_soc = soc_needed if args.ignore_simbev_soc else delta_soc
-                    # update last charge event info
-                    last_arrival_event = {
+                    events["vehicle_events"].append({
                         "signal_time": arrival.isoformat(),
                         "start_time": arrival.isoformat(),
                         "vehicle_id": v_id,
@@ -351,66 +343,63 @@ def generate_from_simbev(args):
                             "connected_charging_station": cs_id,
                             "estimated_time_of_departure": departure.isoformat(),
                             "desired_soc": desired_soc,  # may be None, updated later
-                            "soc_delta": - delta_soc
+                            "soc_delta": -delta_soc
                         }
-                    }
+                    })
+                    # update last departure
+                    if last_arrival_idx is not None:
+                        events["vehicle_events"][last_arrival_idx+1]["update"][
+                            "estimated_time_of_arrival"] = arrival.isoformat()
+                    last_arrival_idx = len(events["vehicle_events"]) - 1
 
-                    if not args.ignore_simbev_soc:
-                        # use SimBEV SoC: append charge event right away
-                        events["vehicle_events"].append(last_arrival_event)
-
-                    # reset distance (needed charge) to next CS
-                    soc_needed = 0.0
-
-                    # get maximum length of timesteps (only end of last charge relevant)
-                    n_intervals = max(n_intervals, departure_idx)
-
-                    # random price: each price interval, generate new price
-
-                    while (
-                        not args.include_price_csv
-                        and (args.seed is None or args.seed >= 0)
-                        and n_intervals >= price_interval * len(events["grid_operator_signals"])
-                    ):
-                        # at which timestep is price updated?
-                        price_update_idx = int(
-                            len(events["grid_operator_signals"]) * price_interval)
-                        start_time = datetime_from_timestep(price_update_idx)
-                        # price signal known one day ahead
-                        signal_time = max(start, start_time - datetime.timedelta(days=1))
-                        if 6 < start_time.hour < 18:
-                            # daytime: ~15ct
-                            events['grid_operator_signals'].append({
-                                "signal_time": signal_time.isoformat(),
-                                "grid_connector_id": "GC1",
-                                "start_time": start_time.isoformat(),
-                                "cost": {
-                                    "type": "fixed",
-                                    "value": 0.15 + random.gauss(0, 0.05)
-                                }
-                            })
-                        else:
-                            # nighttime: ~5ct
-                            events['grid_operator_signals'].append({
-                                "signal_time": signal_time.isoformat(),
-                                "grid_connector_id": "GC1",
-                                "start_time": start_time.isoformat(),
-                                "cost": {
-                                    "type": "fixed",
-                                    "value": 0.15 + random.gauss(0, 0.05)
-                                }
-                            })
-                elif idx == reader.line_num - 2:
-                    # last event is not arrival: add departure event
+                    # departure from CS
                     events["vehicle_events"].append({
                         "signal_time": departure.isoformat(),
                         "start_time": departure.isoformat(),
                         "vehicle_id": v_id,
                         "event_type": "departure",
                         "update": {
-                            "estimated_time_of_arrival": None  # does not arrive within scenario
+                            "estimated_time_of_arrival": None  # updated at next arrival
                         }
                     })
+
+                    # reset distance (needed charge) to next CS
+                    soc_needed = 0.0
+
+    # random price: each price interval, generate new price
+    while (
+        not args.include_price_csv
+        and (args.seed is None or args.seed >= 0)
+        and n_intervals >= price_interval * len(events["grid_operator_signals"])
+    ):
+        # at which timestep is price updated?
+        price_update_idx = int(
+            len(events["grid_operator_signals"]) * price_interval)
+        start_time = datetime_from_timestep(price_update_idx)
+        # price signal known one day ahead
+        signal_time = max(start, start_time - datetime.timedelta(days=1))
+        if 6 < start_time.hour < 18:
+            # daytime: ~15ct
+            events['grid_operator_signals'].append({
+                "signal_time": signal_time.isoformat(),
+                "grid_connector_id": "GC1",
+                "start_time": start_time.isoformat(),
+                "cost": {
+                    "type": "fixed",
+                    "value": 0.15 + random.gauss(0, 0.05)
+                }
+            })
+        else:
+            # nighttime: ~5ct
+            events['grid_operator_signals'].append({
+                "signal_time": signal_time.isoformat(),
+                "grid_connector_id": "GC1",
+                "start_time": start_time.isoformat(),
+                "cost": {
+                    "type": "fixed",
+                    "value": 0.15 + random.gauss(0, 0.05)
+                }
+            })
 
     assert len(vehicles) > 0, f"No vehicles found in {args.simbev}."
 
