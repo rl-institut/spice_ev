@@ -89,7 +89,7 @@ class TestSimulationCosts:
         assert result["total_costs_per_year"] == 78.18
         assert result["commodity_costs_eur_per_year"] == 0
         assert result["capacity_costs_eur"] == 65.7
-        assert result["power_procurement_per_year"] == 0
+        assert result["power_procurement_costs_per_year"] == 0
         assert result["levies_fees_and_taxes_per_year"] == 12.48
         assert result["feed_in_remuneration_per_year"] == 0
 
@@ -112,7 +112,7 @@ class TestSimulationCosts:
             s = scenario.Scenario(j, str(scen_path.parent))
             s.run("greedy", {"cost_calculation": True})
             timeseries = s.GC1_timeseries
-            timeseries_lists = [timeseries.get(k, [0]*s.n_intervals) for k in [
+            timeseries_lists = [timeseries.get(k, [0] * s.n_intervals) for k in [
                             "time", "grid power [kW]", "price [EUR/kWh]",
                             "ext.load [kW]", "window"]]
             price_sheet = TEST_REPO_PATH / 'test_data/input_test_cost_calculation/price_sheet.json'
@@ -122,6 +122,104 @@ class TestSimulationCosts:
 
             for i, value in enumerate(result.values()):
                 assert value == expected[i]
+
+    def test_calculate_costs_balanced_A(self):
+        scen_path = TEST_REPO_PATH / 'test_data/input_test_strategies/scenario_A.json'
+        with scen_path.open() as f:
+            j = json.load(f)
+        s = scenario.Scenario(j)
+        s.run('balanced', {"cost_calculation": True})
+        timeseries = s.GC1_timeseries
+        timeseries_lists = [timeseries.get(k, [0] * s.n_intervals) for k in [
+                            "time", "grid power [kW]", "price [EUR/kWh]",
+                            "ext.load [kW]", "window"]]
+        price_sheet = TEST_REPO_PATH / 'test_data/input_test_cost_calculation/price_sheet.json'
+
+        pv = sum([pv.nominal_power for pv in s.constants.photovoltaics.values()])
+
+        # check returned values
+        result = cc.calculate_costs("balanced", "MV", s.interval, *timeseries_lists,
+                                    s.core_standing_time, str(price_sheet), None, pv)
+        assert result["total_costs_per_year"] == 309.4
+        assert result["commodity_costs_eur_per_year"] == 73.45
+        assert result["capacity_costs_eur"] == 65.7
+        assert result["power_procurement_costs_per_year"] == 75.61
+        assert result["levies_fees_and_taxes_per_year"] == 94.63
+        assert result["feed_in_remuneration_per_year"] == 0
+
+    def test_calculate_costs_balanced_market_A(self):
+        scen_path = TEST_REPO_PATH / 'test_data/input_test_strategies/scenario_A.json'
+        with scen_path.open() as f:
+            j = json.load(f)
+        s = scenario.Scenario(j)
+
+        s.run('balanced_market', {"cost_calculation": True})
+        timeseries = s.GC1_timeseries
+        timeseries_lists = [timeseries.get(k, [0] * s.n_intervals) for k in [
+            "time", "grid power [kW]", "price [EUR/kWh]",
+            "ext.load [kW]", "window"]]
+        price_sheet = TEST_REPO_PATH / 'test_data/input_test_cost_calculation/price_sheet.json'
+
+        pv = sum([pv.nominal_power for pv in s.constants.photovoltaics.values()])
+
+        # check returned values
+        result = cc.calculate_costs("balanced_market", "MV", s.interval, *timeseries_lists,
+                                    s.core_standing_time, str(price_sheet), None, pv)
+        assert result["total_costs_per_year"] == 323.14
+        assert result["commodity_costs_eur_per_year"] == 14.41
+        assert result["capacity_costs_eur"] == 0
+        assert result["power_procurement_costs_per_year"] == 160.88
+        assert result["levies_fees_and_taxes_per_year"] == 147.84
+        assert result["feed_in_remuneration_per_year"] == 0
+
+    def test_calculate_costs_flex_window_A(self):
+        scen_path = TEST_REPO_PATH / 'test_data/input_test_strategies/scenario_A.json'
+        with scen_path.open() as f:
+            j = json.load(f)
+        s = scenario.Scenario(j)
+        s.run('flex_window', {"cost_calculation": True})
+        timeseries = s.GC1_timeseries
+        timeseries_lists = [timeseries.get(k, [0] * s.n_intervals) for k in [
+            "time", "grid power [kW]", "price [EUR/kWh]",
+            "ext.load [kW]", "window"]]
+        price_sheet = TEST_REPO_PATH / 'test_data/input_test_cost_calculation/price_sheet.json'
+
+        pv = sum([pv.nominal_power for pv in s.constants.photovoltaics.values()])
+
+        # check returned values
+        result = cc.calculate_costs("flex_window", "MV", s.interval, *timeseries_lists,
+                                    s.core_standing_time, str(price_sheet), None, pv)
+        assert result["total_costs_per_year"] == 3932.83
+        assert result["commodity_costs_eur_per_year"] == 279.44
+        assert result["capacity_costs_eur"] == 1543.08
+        assert result["power_procurement_costs_per_year"] == 927.46
+        assert result["levies_fees_and_taxes_per_year"] == 1182.84
+        assert result["feed_in_remuneration_per_year"] == 0
+
+    def test_calculate_costs_balanced_market_C(self):
+        scen_path = TEST_REPO_PATH / 'test_data/input_test_strategies/scenario_C1.json'
+
+        with scen_path.open() as f:
+            j = json.load(f)
+        s = scenario.Scenario(j, str(scen_path.parent))
+        s.run('balanced_market', {"cost_calculation": True})
+        timeseries = s.GC1_timeseries
+        timeseries_lists = [timeseries.get(k, [0] * s.n_intervals) for k in [
+            "time", "grid power [kW]", "price [EUR/kWh]",
+            "ext.load [kW]", "window"]]
+        price_sheet = TEST_REPO_PATH / 'test_data/input_test_cost_calculation/price_sheet.json'
+
+        pv = sum([pv.nominal_power for pv in s.constants.photovoltaics.values()])
+
+        # check returned values
+        result = cc.calculate_costs("balanced_market", "MV", s.interval, *timeseries_lists,
+                                    s.core_standing_time, str(price_sheet), None, pv)
+        assert result["total_costs_per_year"] == 495.31
+        assert result["commodity_costs_eur_per_year"] == 22.08
+        assert result["capacity_costs_eur"] == 0
+        assert result["power_procurement_costs_per_year"] == 246.6
+        assert result["levies_fees_and_taxes_per_year"] == 226.63
+        assert result["feed_in_remuneration_per_year"] == 0
 
 
 class TestPostSimulationCosts:
