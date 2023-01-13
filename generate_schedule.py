@@ -123,7 +123,7 @@ def generate_flex_band(scenario, gcID, core_standing_time=None):
                     num_vehicles_present += 1
                     if vehicles[vid][0] == 0:
                         # just arrived
-                        charging_power = v.battery.loading_curve.max_power
+                        charging_power = min(v.battery.loading_curve.max_power, cs.max_power)
                         delta_soc = max(v.get_delta_soc(), 0)
                         # scale with remaining steps
                         if v.estimated_time_of_departure is not None:
@@ -140,7 +140,7 @@ def generate_flex_band(scenario, gcID, core_standing_time=None):
                         vehicles[vid] = [charging_power, vehicle_energy_needed, v2g]
 
         pv_support = max(-base_flex, 0)
-        if num_vehicles_present:
+        if num_vehicles_present and currently_in_core_standing_time:
             # PV surplus can support vehicle charging
             for v in vehicles.values():
                 if pv_support <= EPS:
@@ -173,7 +173,7 @@ def generate_flex_band(scenario, gcID, core_standing_time=None):
                 # first TS with all vehicles left: update power needed
                 flex["intervals"][-1]["needed"] = power_needed
             vehicle_flex = power_needed = v2g_flex = 0
-        vehicles_present = num_vehicles_present > 0
+        vehicles_present = currently_in_core_standing_time and num_vehicles_present > 0
 
         bat_flex_discharge = bat_init_discharge_power if step_i == 0 else bat_full_discharge_power
         bat_flex_charge = flex["batteries"]["power"]
@@ -277,7 +277,7 @@ def generate_individual_flex_band(scenario, gcID):
             "desired_soc": v.desired_soc,
             "efficiency": v.battery.efficiency,
             "p_min": max(cs.min_power, v.vehicle_type.min_charging_power),
-            "p_max": cs.max_power,
+            "p_max": min(cs.max_power, v.battery.loading_curve.max_power),
         })
 
     # update flex based on events
@@ -337,7 +337,7 @@ def generate_individual_flex_band(scenario, gcID):
                         "desired_soc": event.update["desired_soc"],
                         "efficiency": v.battery.efficiency,
                         "p_min": max(cs.min_power, v.vehicle_type.min_charging_power),
-                        "p_max": cs.max_power,
+                        "p_max": min(cs.max_power, v.battery.loading_curve.max_power),
                     })
                     vehicle.battery.soc = event.update["desired_soc"]
                 else:
@@ -706,6 +706,9 @@ def generate_schedule(args):
         for interval in flex["intervals"]:
             capacity = flex["vehicles"]["capacity"]
             energy_stored = flex["vehicles"]["desired_energy"] - interval["needed"]
+            if not interval["time"]:
+                # empty interval
+                continue
 
             # break up interval into charging (prio 0,1,2) and discharging (prio 3,4) periods
             periods = [[]]
