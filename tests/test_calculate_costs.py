@@ -113,7 +113,7 @@ class TestSimulationCosts:
             s = scenario.Scenario(j, str(scen_path.parent))
             s.run("greedy", {"cost_calculation": True})
             timeseries = s.GC1_timeseries
-            timeseries_lists = [timeseries.get(k, [0]*s.n_intervals) for k in [
+            timeseries_lists = [timeseries.get(k, [0] * s.n_intervals) for k in [
                             "time", "grid power [kW]", "price [EUR/kWh]",
                             "ext.load [kW]", "window"]]
             price_sheet = TEST_REPO_PATH / 'test_data/input_test_cost_calculation/price_sheet.json'
@@ -131,7 +131,7 @@ class TestSimulationCosts:
         s = scenario.Scenario(j)
         s.run('balanced', {"cost_calculation": True})
         timeseries = s.GC1_timeseries
-        timeseries_lists = [timeseries.get(k, [0]*s.n_intervals) for k in [
+        timeseries_lists = [timeseries.get(k, [0] * s.n_intervals) for k in [
                             "time", "grid power [kW]", "price [EUR/kWh]",
                             "ext.load [kW]", "window"]]
         price_sheet = TEST_REPO_PATH / 'test_data/input_test_cost_calculation/price_sheet.json'

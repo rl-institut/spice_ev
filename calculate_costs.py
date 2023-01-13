@@ -74,9 +74,8 @@ def get_flexible_load(power_grid_supply_list, power_fix_load_list):
     :rtype: list
     """
 
-    power_flex_load_list = [power_grid_supply_list[i] - power_fix_load_list[i]
-                            for i in range(len(power_grid_supply_list))]
-    power_flex_load_list = [max(v, 0) for v in power_flex_load_list]
+    power_flex_load_list = [max(supply - power_fix_load_list[i], 0) for i, supply in
+                            enumerate(power_grid_supply_list)]
 
     return power_flex_load_list
 
@@ -106,7 +105,7 @@ def find_prices(price_sheet_path, strategy, voltage_level, utilization_time_per_
 
     with open(price_sheet_path, "r", newline="") as ps:
         price_sheet = json.load(ps)
-    if (strategy == "greedy" or strategy == "balanced") \
+    if (strategy == "greedy" or strategy == "balanced" or strategy == "distributed") \
             and abs(energy_supply_per_year) <= MAX_ENERGY_SUPPLY_PER_YEAR_SLP:
         # customer type 'SLP'
         fee_type = "SLP"
