@@ -199,8 +199,7 @@ def calculate_costs(strategy, voltage_level, interval,
     :type price_list: list
     :param power_fix_load_list: power supplied from the grid for the fixed load
     :type power_fix_load_list list
-    :param charging_signal_list: charging signal given by the distribution system operator
-        (1: charge, 0: don't charge)
+    :param charging_signal_list: charging signal (True (1): charge, False (0): don't charge)
     :type charging_signal_list: list
     :param core_standing_time_dict: defined core standing time of the fleet
     :type core_standing_time_dict: dict
@@ -211,8 +210,7 @@ def calculate_costs(strategy, voltage_level, interval,
     :param power_pv_nominal: nominal power of pv power plant
     :type power_pv_nominal: int
     :raises Exception: if charging strategy is not supported
-    :raises ValueError: if nominal PV power exceeds maximum power for feed-in remuneration in price
-        sheet
+    :raises ValueError: if nom. PV power exceeds max. power for feed-in remuneration in price sheet
     :return: total costs per year and simulation period (fees and taxes included)
     :rtype: float
     """
@@ -233,8 +231,8 @@ def calculate_costs(strategy, voltage_level, interval,
     power_feed_in_list = [max(v, 0) for v in power_grid_supply_list]
     power_grid_supply_list = [max(-v, 0) for v in power_grid_supply_list]
 
-    # adjust algebraic signs of power of fixed load for cost calculation (only positive signs)
-    power_fix_load_list = [-v for v in power_fix_load_list]
+    # only consider positive values of fixed load for cost calculation
+    power_fix_load_list = [0.0 if v < 0 else v for v in power_fix_load_list]
 
     # ENERGY SUPPLY:
     energy_supply_sim = sum(power_grid_supply_list) * interval.total_seconds() / 3600
@@ -423,7 +421,7 @@ def calculate_costs(strategy, voltage_level, interval,
         # capacity costs for flexible load:
         power_flex_load_window_list = []
         for i in range(len(power_flex_load_list)):
-            if (charging_signal_list[i] == 0.0) or (charging_signal_list[i] is None):
+            if not int(charging_signal_list[i]):
                 power_flex_load_window_list.append(power_flex_load_list[i])
         # no flexible capacity costs if charging takes place only when signal = 1
         if power_flex_load_window_list == []:
