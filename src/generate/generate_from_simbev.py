@@ -108,7 +108,11 @@ def generate_from_simbev(args):
         option = field + "_option"
         if vars(args)[field] and vars(args)[option]["start_time"] is None:
             vars(args)[option]["start_time"] = start.isoformat()
-        events[info] = vars(args)[option]
+        if vars(args)[option]:
+            if info == "energy_price_from_csv":
+                events[info] = vars(args)[option]
+            else:
+                events[info][vars(args)[field]] = vars(args)[option]
 
     if args.include_price_csv is None:
         if args.seed is not None and args.seed < 0:

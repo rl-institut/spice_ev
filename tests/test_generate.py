@@ -52,6 +52,40 @@ class TestGenerate(TestCaseBase):
         current_arg_values.update({"mode": "statistics", "output": tmp_path / "generate.json"})
         generate(Namespace(**current_arg_values))
         self.assertIsFile(tmp_path / "generate.json")
+        # try to create scenario from generated file
+        with open(tmp_path / "generate.json") as f:
+            j = json.load(f)
+            scenario.Scenario(j)
+
+    def test_generate_from_statistics_external_files(self, tmp_path):
+        output_file = tmp_path / "generate.json"
+        current_arg_values = ARG_VALUES1.copy()
+        current_arg_values.update({
+            "mode": "statistics",
+            "output": output_file,
+            "include_ext_load_csv": str(
+                TEST_REPO_PATH / "test_data/input_test_generate/example_load.csv"),
+            "include_ext_load_csv_option": [("column", "value"), ("factor", 0.0001)],
+            "include_feed_in_csv": str(
+                TEST_REPO_PATH / "test_data/input_test_generate/example_pv_feedin.csv"),
+            "include_feed_in_csv_option": [
+                ("column", "Feed-in Total (kW)"), ("step_duration_s", 60)],
+            "include_price_csv": str(
+                TEST_REPO_PATH / "test_data/input_test_generate/example_load.csv"),
+            "include_price_csv_option": [("column", "value")],
+        })
+        generate(Namespace(**current_arg_values))
+        self.assertIsFile(tmp_path / "generate.json")
+        # try to create scenario from generated file
+        with open(output_file) as f:
+            j = json.load(f)
+            s = scenario.Scenario(j)
+            s.n_intervals = 5
+            s.run("greedy", {})
+            assert sum(s.feedInPower["GC1"]) != 0
+            assert pytest.approx(sum(s.extLoads["GC1"][-1].values())) == -33
+            assert s.prices["GC1"][-2] == 11319.32
+            assert pytest.approx(s.prices["GC1"][-1]) == 11585.256
 
     def test_generate_from_csv_1_soc(self, tmp_path):
         input_csv = "test_data/input_test_generate/generate_from_csv_template1.csv"
@@ -64,6 +98,10 @@ class TestGenerate(TestCaseBase):
         })
         generate(Namespace(**current_arg_values))
         self.assertIsFile(output_file)
+        # try to create scenario from generated file
+        with open(output_file) as f:
+            j = json.load(f)
+            scenario.Scenario(j)
 
     def test_generate_from_csv_2_delta_soc(self, tmp_path):
         input_csv = "test_data/input_test_generate/generate_from_csv_template2.csv"
@@ -130,6 +168,10 @@ class TestGenerate(TestCaseBase):
         })
         generate(Namespace(**current_arg_values))
         self.assertIsFile(output_file)
+        # try to create scenario from generated file
+        with open(output_file) as f:
+            j = json.load(f)
+            scenario.Scenario(j)
 
     def test_generate_from_simbev_ignore_soc(self, tmp_path):
         simbev_dir = TEST_REPO_PATH / "test_data/input_test_generate/example_simbev_run"

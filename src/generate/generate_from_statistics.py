@@ -253,7 +253,11 @@ def generate_from_statistics(args):
         option = field + "_option"
         if vars(args)[field] and vars(args)[option]["start_time"] is None:
             vars(args)[option]["start_time"] = start.isoformat()
-        events[info] = vars(args)[option]
+        if vars(args)[option]:
+            if info == "energy_price_from_csv":
+                events[info] = vars(args)[option]
+            else:
+                events[info][vars(args)[field]] = vars(args)[option]
 
     if args.include_price_csv is None:
         # generate prices for the day
