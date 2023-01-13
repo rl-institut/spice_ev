@@ -2,7 +2,6 @@ import json
 import pytest
 from pathlib import Path
 import subprocess
-import os
 
 from src import scenario
 import calculate_costs as cc
@@ -202,7 +201,7 @@ class TestSimulationCosts:
 
         with scen_path.open() as f:
             j = json.load(f)
-        s = scenario.Scenario(j, os.path.dirname(scen_path))
+        s = scenario.Scenario(j, str(scen_path.parent))
         s.run('balanced_market', {"cost_calculation": True})
         timeseries = s.GC1_timeseries
         timeseries_lists = [timeseries.get(k, [0] * s.n_intervals) for k in [
