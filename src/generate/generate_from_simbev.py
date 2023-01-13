@@ -216,6 +216,10 @@ def generate_from_simbev(args):
                 assert (not cs_present) or consumption == 0, \
                     f"Consumption while charging for {v_id} in row {idx + 1}."
 
+                # get maximum length of timesteps
+                departure_idx = int(row["event_start"]) + int(row["event_time"])
+                n_intervals = max(n_intervals, departure_idx)
+
                 # actual driving and charging behavior
                 if not args.ignore_simbev_soc:
                     if cs_present and float(row["energy"]) > 0:
@@ -324,7 +328,6 @@ def generate_from_simbev(args):
                     assert arrival >= departure, (
                         f"Order of vehicle {v_id} wrong in timestep {arrival_idx}, "
                         f"has been standing already.")
-                    departure_idx = int(row["event_start"]) + int(row["event_time"])
                     departure = datetime_from_timestep(departure_idx)
                     delta_soc = soc_needed if args.ignore_simbev_soc else delta_soc
                     events["vehicle_events"].append({
@@ -359,44 +362,40 @@ def generate_from_simbev(args):
                     # reset distance (needed charge) to next CS
                     soc_needed = 0.0
 
-                    # get maximum length of timesteps (only end of last charge relevant)
-                    n_intervals = max(n_intervals, departure_idx)
-
-                    # random price: each price interval, generate new price
-
-                    while (
-                        not args.include_price_csv
-                        and (args.seed is None or args.seed >= 0)
-                        and n_intervals >= price_interval * len(events["grid_operator_signals"])
-                    ):
-                        # at which timestep is price updated?
-                        price_update_idx = int(
-                            len(events["grid_operator_signals"]) * price_interval)
-                        start_time = datetime_from_timestep(price_update_idx)
-                        # price signal known one day ahead
-                        signal_time = max(start, start_time - datetime.timedelta(days=1))
-                        if 6 < start_time.hour < 18:
-                            # daytime: ~15ct
-                            events['grid_operator_signals'].append({
-                                "signal_time": signal_time.isoformat(),
-                                "grid_connector_id": "GC1",
-                                "start_time": start_time.isoformat(),
-                                "cost": {
-                                    "type": "fixed",
-                                    "value": 0.15 + random.gauss(0, 0.05)
-                                }
-                            })
-                        else:
-                            # nighttime: ~5ct
-                            events['grid_operator_signals'].append({
-                                "signal_time": signal_time.isoformat(),
-                                "grid_connector_id": "GC1",
-                                "start_time": start_time.isoformat(),
-                                "cost": {
-                                    "type": "fixed",
-                                    "value": 0.15 + random.gauss(0, 0.05)
-                                }
-                            })
+    # random price: each price interval, generate new price
+    while (
+        not args.include_price_csv
+        and (args.seed is None or args.seed >= 0)
+        and n_intervals >= price_interval * len(events["grid_operator_signals"])
+    ):
+        # at which timestep is price updated?
+        price_update_idx = int(
+            len(events["grid_operator_signals"]) * price_interval)
+        start_time = datetime_from_timestep(price_update_idx)
+        # price signal known one day ahead
+        signal_time = max(start, start_time - datetime.timedelta(days=1))
+        if 6 < start_time.hour < 18:
+            # daytime: ~15ct
+            events['grid_operator_signals'].append({
+                "signal_time": signal_time.isoformat(),
+                "grid_connector_id": "GC1",
+                "start_time": start_time.isoformat(),
+                "cost": {
+                    "type": "fixed",
+                    "value": 0.15 + random.gauss(0, 0.05)
+                }
+            })
+        else:
+            # nighttime: ~5ct
+            events['grid_operator_signals'].append({
+                "signal_time": signal_time.isoformat(),
+                "grid_connector_id": "GC1",
+                "start_time": start_time.isoformat(),
+                "cost": {
+                    "type": "fixed",
+                    "value": 0.15 + random.gauss(0, 0.05)
+                }
+            })
 
     assert len(vehicles) > 0, f"No vehicles found in {args.simbev}."
 
