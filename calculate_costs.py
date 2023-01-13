@@ -49,7 +49,7 @@ def read_simulation_csv(csv_file):
             power_fix_load_list.append(power_fix_load)
 
             try:
-                charging_signal = float(row["window"])
+                charging_signal = bool(int(row["window"]))
             except KeyError:
                 charging_signal = None
             charging_signal_list.append(charging_signal)
@@ -105,8 +105,8 @@ def find_prices(price_sheet_path, strategy, voltage_level, utilization_time_per_
 
     with open(price_sheet_path, "r", newline="") as ps:
         price_sheet = json.load(ps)
-    if (strategy == "greedy" or strategy == "balanced" or strategy == "distributed") \
-            and abs(energy_supply_per_year) <= MAX_ENERGY_SUPPLY_PER_YEAR_SLP:
+    energy_below_slp = abs(energy_supply_per_year) <= MAX_ENERGY_SUPPLY_PER_YEAR_SLP
+    if strategy in ["greedy", "balanced", "distributed"] and energy_below_slp:
         # customer type 'SLP'
         fee_type = "SLP"
         commodity_charge = price_sheet["grid_fee"]["SLP"]["commodity_charge_ct/kWh"]["net_price"]
@@ -232,7 +232,7 @@ def calculate_costs(strategy, voltage_level, interval,
     power_grid_supply_list = [max(-v, 0) for v in power_grid_supply_list]
 
     # only consider positive values of fixed load for cost calculation
-    power_fix_load_list = [0.0 if v < 0 else v for v in power_fix_load_list]
+    power_fix_load_list = [max(v, 0) for v in power_fix_load_list]
 
     # ENERGY SUPPLY:
     energy_supply_sim = sum(power_grid_supply_list) * interval.total_seconds() / 3600
@@ -421,7 +421,7 @@ def calculate_costs(strategy, voltage_level, interval,
         # capacity costs for flexible load:
         power_flex_load_window_list = []
         for i in range(len(power_flex_load_list)):
-            if not int(charging_signal_list[i]):
+            if not charging_signal_list[i]:
                 power_flex_load_window_list.append(power_flex_load_list[i])
         # no flexible capacity costs if charging takes place only when signal = 1
         if power_flex_load_window_list == []:
