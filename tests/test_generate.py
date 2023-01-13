@@ -155,7 +155,7 @@ class TestGenerate(TestCaseBase):
         self.assertIsFile(vehicle_id_file)
 
     def test_generate_from_simbev(self, tmp_path):
-        simbev_dir = TEST_REPO_PATH / "test_data/input_test_generate/example_simbev_run"
+        simbev_dir = TEST_REPO_PATH / "../examples/example_simbev_run"
         output_file = tmp_path / "generate_from_simbev.json"
         current_arg_values = ARG_VALUES1.copy()
         current_arg_values.update({
@@ -174,7 +174,7 @@ class TestGenerate(TestCaseBase):
             scenario.Scenario(j)
 
     def test_generate_from_simbev_ignore_soc(self, tmp_path):
-        simbev_dir = TEST_REPO_PATH / "test_data/input_test_generate/example_simbev_run"
+        simbev_dir = TEST_REPO_PATH / "../examples/example_simbev_run"
         output_file = tmp_path / "generate_from_simbev.json"
         current_arg_values = ARG_VALUES1.copy()
         current_arg_values.update({
