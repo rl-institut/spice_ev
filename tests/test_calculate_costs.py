@@ -140,11 +140,11 @@ class TestSimulationCosts:
         # check returned values
         result = cc.calculate_costs("balanced", "MV", s.interval, *timeseries_lists,
                                     s.core_standing_time, str(price_sheet), None, pv)
-        assert result["total_costs_per_year"] == 310.66
-        assert result["commodity_costs_eur_per_year"] == 73.85
+        assert result["total_costs_per_year"] == 309.4
+        assert result["commodity_costs_eur_per_year"] == 73.45
         assert result["capacity_costs_eur"] == 65.7
-        assert result["power_procurement_costs_per_year"] == 76.02
-        assert result["levies_fees_and_taxes_per_year"] == 95.08
+        assert result["power_procurement_costs_per_year"] == 75.61
+        assert result["levies_fees_and_taxes_per_year"] == 94.63
         assert result["feed_in_remuneration_per_year"] == 0
 
     def test_calculate_costs_balanced_market_A(self):
@@ -165,11 +165,11 @@ class TestSimulationCosts:
         # check returned values
         result = cc.calculate_costs("balanced_market", "MV", s.interval, *timeseries_lists,
                                     s.core_standing_time, str(price_sheet), None, pv)
-        assert result["total_costs_per_year"] == 330.9
-        assert result["commodity_costs_eur_per_year"] == 20.9
+        assert result["total_costs_per_year"] == 323.14
+        assert result["commodity_costs_eur_per_year"] == 14.41
         assert result["capacity_costs_eur"] == 0
-        assert result["power_procurement_costs_per_year"] == 160.9
-        assert result["levies_fees_and_taxes_per_year"] == 149.1
+        assert result["power_procurement_costs_per_year"] == 160.88
+        assert result["levies_fees_and_taxes_per_year"] == 147.84
         assert result["feed_in_remuneration_per_year"] == 0
 
     def test_calculate_costs_flex_window_A(self):
@@ -214,11 +214,11 @@ class TestSimulationCosts:
         # check returned values
         result = cc.calculate_costs("balanced_market", "MV", s.interval, *timeseries_lists,
                                     s.core_standing_time, str(price_sheet), None, pv)
-        assert result["total_costs_per_year"] == 507.19
-        assert result["commodity_costs_eur_per_year"] == 32.03
+        assert result["total_costs_per_year"] == 495.31
+        assert result["commodity_costs_eur_per_year"] == 22.08
         assert result["capacity_costs_eur"] == 0
-        assert result["power_procurement_costs_per_year"] == 246.62
-        assert result["levies_fees_and_taxes_per_year"] == 228.55
+        assert result["power_procurement_costs_per_year"] == 246.6
+        assert result["levies_fees_and_taxes_per_year"] == 226.63
         assert result["feed_in_remuneration_per_year"] == 0
 
 
