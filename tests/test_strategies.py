@@ -1,5 +1,4 @@
 import json
-import unittest
 import os
 import pytest
 
@@ -36,7 +35,7 @@ def load_json(filename):
         return json.load(f)
 
 
-class TestCaseBase(unittest.TestCase):
+class TestCaseBase:
     def assertIsFile(self, path):
         if not os.path.isfile(path):
             raise AssertionError("File does not exist: %s" % str(path))
@@ -48,17 +47,17 @@ class TestScenarios(TestCaseBase):
         # correct number of timesteps?
         j = get_test_json()
         s = scenario.Scenario(j)
-        self.assertEqual(s.n_intervals, 96)
+        assert s.n_intervals == 96
 
         # either n_intervals or stop time, not both
         j['scenario']['stop_time'] = "2020-01-01T01:00:00+02:00"
-        with self.assertRaises(AssertionError):
+        with pytest.raises(AssertionError):
             s = scenario.Scenario(j)
 
         # remove n_intervals, stop time remains: success, four timesteps
         del j['scenario']['n_intervals']
         s = scenario.Scenario(j)
-        self.assertEqual(s.n_intervals, 4)
+        assert s.n_intervals == 4
 
     def test_file(self):
         # open from file
@@ -387,7 +386,3 @@ def test_apply_battery_losses():
     strat.apply_battery_losses()
     # new soc: 1.0 - (50%*1.0) - (5%) - (3kWh/100kWh) = 0.42
     assert pytest.approx(battery.soc) == 0.42
-
-
-if __name__ == '__main__':
-    unittest.main()

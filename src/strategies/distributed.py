@@ -23,12 +23,9 @@ class Distributed(Strategy):
     def step(self):
 
         # get power that can be drawn from battery in this timestep
-        avail_bat_power = {}
-        for gcID, gc in self.world_state.grid_connectors.items():
-            avail_bat_power[gcID] = 0
-            for bat in self.world_state.batteries.values():
-                if bat.parent == gcID:
-                    avail_bat_power[gcID] += bat.get_available_power(self.interval)
+        avail_bat_power = {gcID: 0 for gcID in self.world_state.grid_connectors}
+        for bat in self.world_state.batteries.values():
+            avail_bat_power[bat.parent] += bat.get_available_power(self.interval)
 
         # dict to hold charging commands
         charging_stations = {}
@@ -166,7 +163,8 @@ class Distributed(Strategy):
             else:
                 # current load > max load, use battery to support GC
                 # current load never rises above sum of max load of GC and available battery power
-                bat_power = battery.unload(self.interval, gc_current_load)['avg_power']
-                gc.add_load(b_id, -bat_power)
+                power_needed = gc_current_load - gc.cur_max_power
+                bat_power = battery.unload(self.interval, target_power=power_needed)
+                gc.add_load(b_id, -bat_power['avg_power'])
 
         return {'current_time': self.current_time, 'commands': charging_stations}

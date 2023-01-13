@@ -1,0 +1,7 @@
+departure_time,arrival_time,vehicle_type,soc,vehicle_id
+2021-09-16 04:22:18,2021-09-16 19:45:41,sprinter,0.3,sprinter_1
+2021-09-17 02:59:49,2021-09-17 22:43:10,sprinter,0.5,sprinter_1
+2021-09-18 04:51:34,2021-09-18 20:52:25,sprinter,0.2,sprinter_1
+2021-09-16 04:23:23,2021-09-16 20:05:36,sprinter,0.6,sprinter_2
+2021-09-17 03:37:27,2021-09-17 20:45:32,sprinter,0.7,sprinter_2
+2021-09-18 03:50:13,2021-09-18 22:38:46,sprinter,0.8,sprinter_2

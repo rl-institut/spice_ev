@@ -1,11 +1,9 @@
 from argparse import Namespace
-from copy import deepcopy
 import json
 from pathlib import Path
 import pytest
 
-import generate
-import generate_from_csv
+from generate import generate
 import generate_schedule
 from src import scenario
 
@@ -25,9 +23,9 @@ ARG_VALUES1 = {
     "cs_power_min": 0,
     "export_vehicle_id_csv": None,
     "include_ext_load_csv": None,
-    "include_ext_csv_option": [],
+    "include_ext_load_csv_option": [],
     "include_feed_in_csv": None,
-    "include_feed_in_csv-option": [],
+    "include_feed_in_csv_option": [],
     "seed": None,
     "include_price_csv": None,
     "include_price_csv_option": [],
@@ -41,6 +39,7 @@ ARG_VALUES1 = {
 
 
 class TestCaseBase:
+
     def assertIsFile(self, path):
         assert path.exists()
         assert path.is_file()
@@ -48,69 +47,146 @@ class TestCaseBase:
 
 class TestGenerate(TestCaseBase):
 
-    def test_generate(self, tmp_path):
-        current_arg_values = deepcopy(ARG_VALUES1)
-        current_arg_values.update({"output": tmp_path / "generate.json"})
-        generate.generate(Namespace(**current_arg_values))
+    def test_generate_from_statistics(self, tmp_path):
+        current_arg_values = ARG_VALUES1.copy()
+        current_arg_values.update({"mode": "statistics", "output": tmp_path / "generate.json"})
+        generate(Namespace(**current_arg_values))
         self.assertIsFile(tmp_path / "generate.json")
+        # try to create scenario from generated file
+        with open(tmp_path / "generate.json") as f:
+            j = json.load(f)
+            scenario.Scenario(j)
+
+    def test_generate_from_statistics_external_files(self, tmp_path):
+        output_file = tmp_path / "generate.json"
+        current_arg_values = ARG_VALUES1.copy()
+        current_arg_values.update({
+            "mode": "statistics",
+            "output": output_file,
+            "include_ext_load_csv": str(
+                TEST_REPO_PATH / "test_data/input_test_generate/example_load.csv"),
+            "include_ext_load_csv_option": [("column", "value"), ("factor", 0.0001)],
+            "include_feed_in_csv": str(
+                TEST_REPO_PATH / "test_data/input_test_generate/example_pv_feedin.csv"),
+            "include_feed_in_csv_option": [
+                ("column", "Feed-in Total (kW)"), ("step_duration_s", 60)],
+            "include_price_csv": str(
+                TEST_REPO_PATH / "test_data/input_test_generate/example_load.csv"),
+            "include_price_csv_option": [("column", "value")],
+        })
+        generate(Namespace(**current_arg_values))
+        self.assertIsFile(tmp_path / "generate.json")
+        # try to create scenario from generated file
+        with open(output_file) as f:
+            j = json.load(f)
+            s = scenario.Scenario(j)
+            s.n_intervals = 5
+            s.run("greedy", {})
+            assert sum(s.feedInPower["GC1"]) != 0
+            assert pytest.approx(sum(s.extLoads["GC1"][-1].values())) == -33
+            assert s.prices["GC1"][-2] == 11319.32
+            assert pytest.approx(s.prices["GC1"][-1]) == 11585.256
 
     def test_generate_from_csv_1_soc(self, tmp_path):
         input_csv = "test_data/input_test_generate/generate_from_csv_template1.csv"
         output_file = tmp_path / "generate_from_csv.json"
-        current_arg_values = deepcopy(ARG_VALUES1)
+        current_arg_values = ARG_VALUES1.copy()
         current_arg_values.update({
+            "mode": "csv",
             "input_file": TEST_REPO_PATH / input_csv,
             "output": output_file,
         })
-        generate_from_csv.generate_from_csv(Namespace(**current_arg_values))
+        generate(Namespace(**current_arg_values))
         self.assertIsFile(output_file)
+        # try to create scenario from generated file
+        with open(output_file) as f:
+            j = json.load(f)
+            scenario.Scenario(j)
 
     def test_generate_from_csv_2_delta_soc(self, tmp_path):
         input_csv = "test_data/input_test_generate/generate_from_csv_template2.csv"
         output_file = tmp_path / "generate_from_csv.json"
-        current_arg_values = deepcopy(ARG_VALUES1)
+        current_arg_values = ARG_VALUES1.copy()
         current_arg_values.update({
+            "mode": "csv",
             "input_file": TEST_REPO_PATH / input_csv,
             "output": output_file,
         })
-        generate_from_csv.generate_from_csv(Namespace(**current_arg_values))
+        generate(Namespace(**current_arg_values))
         self.assertIsFile(output_file)
 
     def test_generate_from_csv_3_distance(self, tmp_path):
         input_csv = "test_data/input_test_generate/generate_from_csv_template3.csv"
         output_file = tmp_path / "generate_from_csv.json"
-        current_arg_values = deepcopy(ARG_VALUES1)
+        current_arg_values = ARG_VALUES1.copy()
         current_arg_values.update({
+            "mode": "csv",
             "input_file": TEST_REPO_PATH / input_csv,
             "output": output_file,
         })
-        generate_from_csv.generate_from_csv(Namespace(**current_arg_values))
+        generate(Namespace(**current_arg_values))
         self.assertIsFile(output_file)
 
     def test_generate_from_csv_4_vehicle_id(self, tmp_path):
         input_csv = "test_data/input_test_generate/generate_from_csv_template4.csv"
         output_file = tmp_path / "generate_from_csv.json"
-        current_arg_values = deepcopy(ARG_VALUES1)
+        current_arg_values = ARG_VALUES1.copy()
         current_arg_values.update({
+            "mode": "csv",
             "input_file": TEST_REPO_PATH / input_csv,
             "output": output_file,
         })
-        generate_from_csv.generate_from_csv(Namespace(**current_arg_values))
+        generate(Namespace(**current_arg_values))
         self.assertIsFile(output_file)
 
     def test_generate_from_csv_5_min_standing_time(self, tmp_path):
         input_csv = "test_data/input_test_generate/generate_from_csv_template4.csv"
         output_file = tmp_path / "generate_from_csv.json"
         vehicle_id_file = tmp_path / "vehicle_id.csv"
-        current_arg_values = deepcopy(ARG_VALUES1)
+        current_arg_values = ARG_VALUES1.copy()
         current_arg_values.update({
+            "mode": "csv",
             "input_file": TEST_REPO_PATH / input_csv,
             "output": tmp_path / "generate_from_csv.json",
             "export_vehicle_id_csv": vehicle_id_file,
         })
-        generate_from_csv.generate_from_csv(Namespace(**current_arg_values))
+        generate(Namespace(**current_arg_values))
         self.assertIsFile(output_file)
         self.assertIsFile(vehicle_id_file)
+
+    def test_generate_from_simbev(self, tmp_path):
+        simbev_dir = TEST_REPO_PATH / "test_data/input_test_generate/example_simbev_run"
+        output_file = tmp_path / "generate_from_simbev.json"
+        current_arg_values = ARG_VALUES1.copy()
+        current_arg_values.update({
+            "mode": "simbev",
+            "simbev": simbev_dir,
+            "output": str(output_file),
+            "region": None,
+            "vehicle_types": None,
+            "ignore_simbev_soc": False,
+        })
+        generate(Namespace(**current_arg_values))
+        self.assertIsFile(output_file)
+        # try to create scenario from generated file
+        with open(output_file) as f:
+            j = json.load(f)
+            scenario.Scenario(j)
+
+    def test_generate_from_simbev_ignore_soc(self, tmp_path):
+        simbev_dir = TEST_REPO_PATH / "test_data/input_test_generate/example_simbev_run"
+        output_file = tmp_path / "generate_from_simbev.json"
+        current_arg_values = ARG_VALUES1.copy()
+        current_arg_values.update({
+            "mode": "simbev",
+            "simbev": simbev_dir,
+            "output": str(output_file),
+            "region": "region_1",
+            "vehicle_types": None,
+            "ignore_simbev_soc": True,
+        })
+        generate(Namespace(**current_arg_values))
+        self.assertIsFile(output_file)
 
 
 class TestGenerateSchedule(TestCaseBase):
@@ -139,7 +215,7 @@ class TestGenerateSchedule(TestCaseBase):
         dst = tmp_path / input_json
         dst.write_text(src.read_text())
         schedule_file = tmp_path / "schedule.json"
-        current_arg_values = deepcopy(ARG_VALUES1)
+        current_arg_values = ARG_VALUES1.copy()
         current_arg_values.update({
             "input": TEST_REPO_PATH / "test_data/input_test_generate/grid_situation_2vehicles.csv",
             "scenario": str(dst),
@@ -194,7 +270,7 @@ class TestGenerateSchedule(TestCaseBase):
         dst = tmp_path / input_json
         dst.write_text(src.read_text())
         schedule_file = tmp_path / "schedule.json"
-        current_arg_values = deepcopy(ARG_VALUES1)
+        current_arg_values = ARG_VALUES1.copy()
         current_arg_values.update({
             "input": TEST_REPO_PATH / "test_data/input_test_generate/grid_situation_2vehicles.csv",
             "scenario": dst,

@@ -1,10 +1,21 @@
 import datetime
-import unittest
 
 from src import constants, util
 
 
-class UtilTest(unittest.TestCase):
+class TestUtil:
+
+    def test_datetime_from_isoformat(self):
+        # no data
+        assert util.datetime_from_isoformat(None) is None
+        # naive datetime
+        dt = datetime.datetime(2023, 1, 1, 13, 37, 0)
+        dt_str = dt.isoformat()
+        assert dt == util.datetime_from_isoformat(dt_str)
+        # timezone-aware
+        dt = dt.replace(tzinfo=datetime.timezone(datetime.timedelta(hours=1)))
+        dt_str = dt.isoformat()
+        assert dt == util.datetime_from_isoformat(dt_str)
 
     def test_time_window(self):
 
@@ -46,29 +57,29 @@ class UtilTest(unittest.TestCase):
 
     def test_core_window(self):
         dt = datetime.datetime(day=1, month=1, year=2020)
-        self.assertTrue(util.dt_within_core_standing_time(dt, None))
+        assert util.dt_within_core_standing_time(dt, None)
 
         # 2020/1/1 is Wednesday (3)
-        self.assertTrue(util.dt_within_core_standing_time(dt, {"no_drive_days": [2]}))
-        self.assertTrue(util.dt_within_core_standing_time(dt, {"no_drive_days": [0, 2]}))
-        self.assertTrue(util.dt_within_core_standing_time(dt, {"no_drive_days": [2, 3]}))
-        self.assertFalse(util.dt_within_core_standing_time(dt, {"no_drive_days": [3]}))
-        self.assertFalse(util.dt_within_core_standing_time(dt, {"no_drive_days": []}))
+        assert util.dt_within_core_standing_time(dt, {"no_drive_days": [2]})
+        assert util.dt_within_core_standing_time(dt, {"no_drive_days": [0, 2]})
+        assert util.dt_within_core_standing_time(dt, {"no_drive_days": [2, 3]})
+        assert not util.dt_within_core_standing_time(dt, {"no_drive_days": [3]})
+        assert not util.dt_within_core_standing_time(dt, {"no_drive_days": []})
 
-        self.assertFalse(util.dt_within_core_standing_time(dt, {"holidays": []}))
-        self.assertFalse(util.dt_within_core_standing_time(dt, {"holidays": ["2021-01-01"]}))
-        self.assertTrue(util.dt_within_core_standing_time(dt, {"holidays": ["2020-01-01"]}))
+        assert not util.dt_within_core_standing_time(dt, {"holidays": []})
+        assert not util.dt_within_core_standing_time(dt, {"holidays": ["2021-01-01"]})
+        assert util.dt_within_core_standing_time(dt, {"holidays": ["2020-01-01"]})
 
-        self.assertFalse(util.dt_within_core_standing_time(dt, {}))
+        assert not util.dt_within_core_standing_time(dt, {})
         core = {"times": [{"start": (10, 0), "end": (12, 30)}]}
         for h, m, e in [(0, 0, False), (12, 0, True), (12, 45, False)]:
             b = util.dt_within_core_standing_time(dt.replace(hour=h, minute=m), core)
-            self.assertEqual(b, e, "{}:{} is {}".format(h, m, b))
+            assert b == e, "{}:{} is {}".format(h, m, b)
 
         core = {"times": [{"start": (22, 0), "end": (5, 30)}]}
         for h, m, e in [(18, 0, False), (23, 0, True), (0, 0, True), (5, 0, True), (5, 45, False)]:
             b = util.dt_within_core_standing_time(dt.replace(hour=h, minute=m), core)
-            self.assertEqual(b, e, "{}:{} is {}".format(h, m, b))
+            assert b == e, "{}:{} is {}".format(h, m, b)
 
         core = {"times": [
             {"start": (22, 30), "end": (5, 30)},
@@ -80,7 +91,7 @@ class UtilTest(unittest.TestCase):
         for h in range(24):
             e = ((e_vec >> h) & 1) == 1
             b = util.dt_within_core_standing_time(dt.replace(hour=h, minute=0), core)
-            self.assertEqual(b, e, "{}:{} is {}".format(h, 0, b))
+            assert b == e, "{}:{} is {}".format(h, 0, b)
 
     def test_clamp_power(self):
         cs = constants.ChargingStation({
@@ -99,33 +110,29 @@ class UtilTest(unittest.TestCase):
             "vehicle_type": "test",
         }, {"test": vtype})
 
-        self.assertEqual(util.clamp_power(0, v, cs), 0)
-        self.assertEqual(util.clamp_power(-1, v, cs), 0)
-        self.assertEqual(util.clamp_power(0.5, v, cs), 0)
-        self.assertEqual(util.clamp_power(1, v, cs), 1)
-        self.assertEqual(util.clamp_power(2, v, cs), 2)
-        self.assertEqual(util.clamp_power(11, v, cs), 10)
+        assert util.clamp_power(0, v, cs) == 0
+        assert util.clamp_power(-1, v, cs) == 0
+        assert util.clamp_power(0.5, v, cs) == 0
+        assert util.clamp_power(1, v, cs) == 1
+        assert util.clamp_power(2, v, cs) == 2
+        assert util.clamp_power(11, v, cs) == 10
 
         vtype.min_charging_power = 2
 
-        self.assertEqual(util.clamp_power(1, v, cs), 0)
-        self.assertEqual(util.clamp_power(1.5, v, cs), 0)
-        self.assertEqual(util.clamp_power(2, v, cs), 2)
-        self.assertEqual(util.clamp_power(3, v, cs), 3)
-        self.assertEqual(util.clamp_power(11, v, cs), 10)
+        assert util.clamp_power(1, v, cs) == 0
+        assert util.clamp_power(1.5, v, cs) == 0
+        assert util.clamp_power(2, v, cs) == 2
+        assert util.clamp_power(3, v, cs) == 3
+        assert util.clamp_power(11, v, cs) == 10
 
         cs.current_power = 1
 
-        self.assertEqual(util.clamp_power(0, v, cs), 0)
+        assert util.clamp_power(0, v, cs) == 0
         # still below vehicle min_power
-        self.assertEqual(util.clamp_power(0.9, v, cs), 0)
+        assert util.clamp_power(0.9, v, cs) == 0
         # not below vehicle min_power as already charging 1 kWh
-        self.assertEqual(util.clamp_power(1.5, v, cs), 1.5)
-        self.assertEqual(util.clamp_power(3, v, cs), 3)
-        self.assertEqual(util.clamp_power(9, v, cs), 9)
-        self.assertEqual(util.clamp_power(10, v, cs), 9)
-        self.assertEqual(util.clamp_power(20, v, cs), 9)
-
-
-if __name__ == '__main__':
-    unittest.main()
+        assert util.clamp_power(1.5, v, cs) == 1.5
+        assert util.clamp_power(3, v, cs) == 3
+        assert util.clamp_power(9, v, cs) == 9
+        assert util.clamp_power(10, v, cs) == 9
+        assert util.clamp_power(20, v, cs) == 9

@@ -97,12 +97,12 @@ class TestSimulationCosts:
 
         scenarios = {
             "scenario_A.json": [2522.67, 776.54, 65.7, 799.38, 881.06, 0.0],
-            "scenario_B.json": [21798.38, 6899.83, 65.7, 7102.77, 7730.09, 0.0],
-            "scenario_C1.json": [3045.64, 942.67, 65.7, 970.4, 1066.87, 0.0],
-            "scenario_C2.json": [2792.32, 862.2, 65.7, 887.56, 976.87, 0.0],
-            "scenario_C3.json": [1887.55, 574.78, 65.7, 591.69, 655.39, 0.0],
+            "scenario_B.json": [21798.48, 6899.86, 65.7, 7102.8, 7730.12, 0.0],
+            "scenario_C1.json": [3045.54, 942.64, 65.7, 970.36, 1066.84, 0.0],
+            "scenario_C2.json": [2792.23, 862.17, 65.7, 887.53, 976.85, 0.0],
+            "scenario_C3.json": [1887.55, 574.78, 65.7, 591.68, 655.39, 0.0],
             # "bus_scenario_D.json": [0,0,0,0,0,0],  # buggy: can't charge enough
-            "scenario_PV_Bat.json": [-2166.41, 0.0, 65.7, 0.0, 12.48, 2244.59],
+            "scenario_PV_Bat.json": [-2166.39, 0.0, 65.7, 0.0, 12.48, 2244.58],
         }
 
         for scenario_name, expected in scenarios.items():

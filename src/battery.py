@@ -72,9 +72,14 @@ class Battery():
 
         return {'avg_power': avg_power, 'soc_delta': self.soc - old_soc}
 
-    def unload(self, timedelta, max_power=None, target_soc=0):
-        """ Adjust SOC and return average power provided for a given timedelta and
+    def unload(self, timedelta, max_power=None, target_soc=None, target_power=None):
+        """
+        Discharge battery.
+
+        Adjust SOC and return average power provided for a given timedelta and
         a maximum of power that can be handled by connected device.
+        A target SoC or target output power may be given, but not both.
+        If neither is provided, the battery just discharges.
 
         :param timedelta: time period in which battery can be discharged
         :type timedelta: timedelta
@@ -82,12 +87,28 @@ class Battery():
         :type max_power: numeric
         :param target_soc: desired soc
         :type target_soc: numeric
+        :param target_power: desired output power
+        :type target_power: numeric
         :return: average power and soc_delta
         :rtype: dict
-
-        notes:
-        * can set target SOC (don't discharge below this threshold)
         """
+        if max_power is None:
+            max_power = self.unloading_curve.max_power
+
+        if target_soc is None:
+            if target_power is None:
+                # nothing set: just unload
+                target_soc = 0
+            else:
+                # target power given -> compute energy difference and delta soc
+                total_time = timedelta.total_seconds() / 3600
+                energy_delta = target_power / self.efficiency * total_time
+                soc_delta = energy_delta / self.capacity
+                target_soc = self.soc - soc_delta
+        else:
+            # target soc given: target power must not be set
+            assert target_power is None, "Unload battery: choose either target power or SoC"
+
         if target_soc - self.soc > self.EPS:
             # target SoC already reached: skip unloading
             return {'avg_power': 0, 'soc_delta':  0}

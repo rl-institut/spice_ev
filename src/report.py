@@ -366,8 +366,8 @@ def aggregate_timeseries(scenario, gcID):
         "hub"
     ]
 
-    # round energy values to 2 decimal places
-    round_to_places = 2
+    # round power and energy values to Watt and Watthours
+    round_to_places = 3
 
     # which SimBEV-Use Cases are in this scenario?
     # group CS by UC name
@@ -430,6 +430,8 @@ def aggregate_timeseries(scenario, gcID):
     header += ["sum UC {}".format(uc) for uc in uc_keys_present]
     # total number of occupied charging stations
     header.append("# occupied CS")
+    # number of CS in use (delivering power)
+    header.append("CS in use")
     # number of occupied CS per UC
     header += ["# occupied UC {}".format(uc) for uc in uc_keys_present]
     # charging power per CS
@@ -443,7 +445,7 @@ def aggregate_timeseries(scenario, gcID):
         row = [idx, r['current_time'].replace(tzinfo=None)]
         # price
         if any(scenario.prices[gcID]):
-            row.append(round(scenario.prices[gcID][idx], round_to_places))
+            row.append(scenario.prices[gcID][idx])
         # grid power (negative since grid power is fed into system)
         row.append(-1 * round(scenario.totalLoad[gcID][idx], round_to_places))
         # external loads
@@ -506,6 +508,8 @@ def aggregate_timeseries(scenario, gcID):
                 round_to_places) for uc_key in uc_keys_present]
         # get total number of occupied CS that are connected to gc
         row.append(len(scenario.connChargeByTS[gcID][idx]))
+        # get number of CS that actually deliver power
+        row.append(sum(map(bool, scenario.connChargeByTS[gcID][idx].values())))
         # get number of occupied CS at gc for each use case
         row += [
             sum([1 if uc_key in cs_id else 0

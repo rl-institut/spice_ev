@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-import argparse
 import csv
 import datetime
 import json
@@ -8,7 +7,6 @@ from pathlib import Path
 import random
 import warnings
 
-from src.util import set_options_from_config
 from src.battery import Battery
 from src.loading_curve import LoadingCurve
 
@@ -39,13 +37,9 @@ def generate_from_simbev(args):
 
     :param args: input arguments
     :type args: argparse.Namespace
-    :raises SystemExit: if required arguments (*output* and *simbev*) are missing
+    :return: scenario
+    :rtype: dict
     """
-
-    # check for necessary arguments: simbev, output
-    missing = [arg for arg in ["output", "simbev"] if vars(args).get(arg) is None]
-    if missing:
-        raise SystemExit("The following arguments are required: {}".format(", ".join(missing)))
 
     # read SimBEV metadata
     simbev_path = Path(args.simbev)
@@ -72,8 +66,6 @@ def generate_from_simbev(args):
     # define interval for simulation
     interval = datetime.timedelta(minutes=args.interval)
     n_intervals = 0
-    # define target path for relative output files
-    target_path = Path(args.output).parent
 
     # get defined vehicle types
     if args.vehicle_types is None:
@@ -89,7 +81,6 @@ def generate_from_simbev(args):
     # INITIALIZE CONSTANTS AND EVENTS
     vehicle_types = {}
     vehicles = {}
-    batteries = {}
     charging_stations = {}
     events = {
         "grid_operator_signals": [],
@@ -107,109 +98,42 @@ def generate_from_simbev(args):
         if count > 0:
             vehicle_types.update({v_type: predefined_vehicle_types[v_type]})
 
-    # external load CSV
-    if args.include_ext_load_csv:
-        filename = args.include_ext_load_csv
-        basename = Path(filename).stem
-        options = {
-            "csv_file": filename,
-            "start_time": start.isoformat(),
-            "step_duration_s": 900,  # 15 minutes
-            "grid_connector_id": "GC1",
-            "column": "energy"
-        }
-        if args.include_ext_csv_option:
-            for key, value in args.include_ext_csv_option:
-                if key == "step_duration_s":
-                    value = int(value)
-                options[key] = value
-        events['external_load'][basename] = options
-        # check if CSV file exists
-        ext_csv_path = target_path.joinpath(filename)
-        if not ext_csv_path.exists():
-            warnings.warn(f"External csv file '{ext_csv_path}' does not exist yet.")
-        else:
-            with open(ext_csv_path, newline='') as csvfile:
-                reader = csv.DictReader(csvfile)
-                if not options["column"] in reader.fieldnames:
-                    warnings.warn(f"External csv file '{ext_csv_path}' has no column "
-                                  f"'{options['column']}'.")
+    # update info of external CSV files
+    ext_info = {
+        "external_load": "include_ext_load_csv",
+        "energy_feed_in": "include_feed_in_csv",
+        "energy_price_from_csv": "include_price_csv",
+    }
+    for info, field in ext_info.items():
+        option = field + "_option"
+        if vars(args)[field] and vars(args)[option]["start_time"] is None:
+            vars(args)[option]["start_time"] = start.isoformat()
+        if vars(args)[option]:
+            if info == "energy_price_from_csv":
+                events[info] = vars(args)[option]
+            else:
+                events[info][vars(args)[field]] = vars(args)[option]
 
-    # energy feed-in CSV (e.g. from PV)
-    if args.include_feed_in_csv:
-        filename = args.include_feed_in_csv
-        basename = Path(filename).stem
-        options = {
-            "csv_file": filename,
-            "start_time": start.isoformat(),
-            "step_duration_s": 3600,  # 60 minutes
-            "grid_connector_id": "GC1",
-            "column": "energy"
-        }
-        if args.include_feed_in_csv_option:
-            for key, value in args.include_feed_in_csv_option:
-                if key == "step_duration_s":
-                    value = int(value)
-                options[key] = value
-        events['energy_feed_in'][basename] = options
-        feed_in_path = target_path.joinpath(filename)
-        if not feed_in_path.exists():
-            warnings.warn(f"Feed-in csv file '{feed_in_path}' does not exist yet.")
+    if args.include_price_csv is None:
+        if args.seed is not None and args.seed < 0:
+            # use single, fixed price
+            events["grid_operator_signals"].append({
+                "signal_time": start.isoformat(),
+                "grid_connector_id": "GC1",
+                "start_time": start.isoformat(),
+                "cost": {
+                    "type": "fixed",
+                    "value": -args.seed
+                }
+            })
         else:
-            with open(feed_in_path, newline='') as csvfile:
-                reader = csv.DictReader(csvfile)
-                if not options["column"] in reader.fieldnames:
-                    warnings.warn(f"Feed-in csv file '{feed_in_path}' has no column "
-                                  f"'{options['column']}'.")
-
-    # energy price CSV
-    if args.include_price_csv:
-        filename = args.include_price_csv
-        # basename = Path(filename).stem
-        options = {
-            "csv_file": filename,
-            "start_time": start.isoformat(),
-            "step_duration_s": 3600,  # 60 minutes
-            "grid_connector_id": "GC1",
-            "column": "price [ct/kWh]"
-        }
-        for key, value in args.include_price_csv_option:
-            if key == "step_duration_s":
-                value = int(value)
-            options[key] = value
-        events['energy_price_from_csv'] = options
-        price_csv_path = target_path.joinpath(filename)
-        if not price_csv_path.exists():
-            warnings.warn(f"Price csv file '{price_csv_path}' does not exist yet.")
-        else:
-            with open(price_csv_path, newline='') as csvfile:
-                reader = csv.DictReader(csvfile)
-                if not options["column"] in reader.fieldnames:
-                    warnings.warn(f"Price csv file '{price_csv_path}' has no column "
-                                  f"'{options['column']}'.")
-
-        if args.seed and args.verbose > 0:
-            # CSV and seed given
-            warnings.warn("Multiple price sources detected. Using CSV.")
-    elif args.seed is not None and args.seed < 0:
-        # use single, fixed price
-        events["grid_operator_signals"].append({
-            "signal_time": start.isoformat(),
-            "grid_connector_id": "GC1",
-            "start_time": start.isoformat(),
-            "cost": {
-                "type": "fixed",
-                "value": -args.seed
-            }
-        })
-    else:
-        # random price
-        # set seed from input (repeatability)
-        random.seed(args.seed)
-        # price remains stable for X hours
-        price_stable_hours = 6
-        # every X timesteps, generate new price signal
-        price_interval = datetime.timedelta(hours=price_stable_hours) / interval
+            # random price
+            # set seed from input (repeatability)
+            random.seed(args.seed)
+            # price remains stable for X hours
+            price_stable_hours = 6
+            # every X timesteps, generate new price signal
+            price_interval = datetime.timedelta(hours=price_stable_hours) / interval
 
     # GENERATE VEHICLE EVENTS: iterate over input files
     for csv_path in pathlist:
@@ -414,7 +338,7 @@ def generate_from_simbev(args):
                         })
 
                     # arrival at new CS
-                    departure_idx = int(row["event_start"]) + int(row["event_time"]) + 1
+                    departure_idx = int(row["event_start"]) + int(row["event_time"])
                     departure = datetime_from_timestep(departure_idx)
                     delta_soc = soc_needed if args.ignore_simbev_soc else delta_soc
                     # update last charge event info
@@ -476,34 +400,27 @@ def generate_from_simbev(args):
                                     "value": 0.15 + random.gauss(0, 0.05)
                                 }
                             })
+                elif idx == reader.line_num - 2:
+                    # last event is not arrival: add departure event
+                    events["vehicle_events"].append({
+                        "signal_time": departure.isoformat(),
+                        "start_time": departure.isoformat(),
+                        "vehicle_id": v_id,
+                        "event_type": "departure",
+                        "update": {
+                            "estimated_time_of_arrival": None  # does not arrive within scenario
+                        }
+                    })
+
+    assert len(vehicles) > 0, f"No vehicles found in {args.simbev}."
 
     # number of trips for which desired_soc is above min_soc
     if trips_above_min_soc and args.verbose > 0:
         print(f"{trips_above_min_soc} of {trips_total} trips "
               f"use more than {args.min_soc * 100}% capacity")
 
-    assert len(vehicles) > 0, f"No vehicles found in {args.simbev}."
-
-    # add stationary battery
-    for idx, (capacity, c_rate) in enumerate(args.battery):
-        if capacity > 0:
-            max_power = c_rate * capacity
-        else:
-            # unlimited battery: set power directly
-            max_power = c_rate
-        batteries["BAT{}".format(idx + 1)] = {
-            "parent": "GC1",
-            "capacity": capacity,
-            "charging_curve": [[0, max_power], [1, max_power]]
-        }
-
-    # check voltage level (used in cost calculation)
-    voltage_level = vars(args).get("voltage_level")
-    if voltage_level is None:
-        warnings.warn("Voltage level is not set, please choose one when calculating costs.")
-
     # create final dict
-    j = {
+    return {
         "scenario": {
             "start_time": start.isoformat(),
             "interval": args.interval,
@@ -513,96 +430,10 @@ def generate_from_simbev(args):
         "constants": {
             "vehicle_types": vehicle_types,
             "vehicles": vehicles,
-            "grid_connectors": {
-                "GC1": {
-                    "max_power": vars(args).get("gc_power", 100),
-                    "voltage_level": voltage_level,
-                    "cost": {"type": "fixed", "value": 0.3},
-                }
-            },
+            "grid_connectors": args.gc,
             "charging_stations": charging_stations,
-            "batteries": batteries,
-            "photovoltaics": {
-                "PV1": {
-                    "parent": "GC1",
-                    "nominal_power": vars(args).get("pv_power", 0),
-                }
-            },
+            "batteries": args.battery,
+            "photovoltaics": args.pv,
         },
         "events": events,
     }
-
-    # Write JSON
-    with open(args.output, 'w') as f:
-        json.dump(j, f, indent=2)
-
-
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser(
-        description='Generate scenarios as JSON files for vehicle charging modelling \
-        from vehicle timeseries (e.g. SimBEV output).')
-    parser.add_argument('output', nargs='?', help='output file name (example.json)')
-    parser.add_argument('--simbev', metavar='DIR', type=str, help='set directory with SimBEV files')
-    parser.add_argument('--region', type=str, help='set name of region')
-    parser.add_argument('--ignore-simbev-soc', action='store_true',
-                        help='Don\'t use SoC columns from SimBEV files')
-
-    # general
-    parser.add_argument('--interval', metavar='MIN', type=int, default=15,
-                        help='set number of minutes for each timestep (Δt)')
-    parser.add_argument('--min-soc', metavar='S', type=float, default=0.8,
-                        help='Set minimum desired SoC for each charging event. Default: 0.5')
-    parser.add_argument('--min-soc-threshold', type=float, default=0.05,
-                        help='SoC below this threshold trigger a warning. Default: 0.05')
-    parser.add_argument('--battery', '-b', default=[], nargs=2, type=float, action='append',
-                        help='add battery with specified capacity in kWh and C-rate \
-                            (-1 for variable capacity, second argument is fixed power))')
-    parser.add_argument('--gc-power', type=int, default=100, help='set power at grid connection '
-                                                                  'point in kW')
-    parser.add_argument('--voltage-level', '-vl', help='Choose voltage level for cost calculation')
-    parser.add_argument('--pv-power', type=int, default=0, help='set nominal power for local '
-                                                                'photovoltaic power plant in kWp')
-    parser.add_argument('--cs-power-min', type=float, default=None,
-                        help='set minimal power at charging station in kW (default: 0.1 * cs_power')
-    parser.add_argument('--discharge-limit', default=0.5,
-                        help='Minimum SoC to discharge to during V2G. [0-1]')
-    parser.add_argument('--seed', metavar='X', type=int, default=0,
-                        help='set seed when generating energy market prices. \
-                            Negative values for fixed price in cents')
-
-    # input files (CSV, JSON)
-    parser.add_argument('--vehicle-types', default=None,
-                        help='location of vehicle type definitions')
-    parser.add_argument('--include-ext-load-csv',
-                        help='include CSV for external load. \
-                        You may define custom options with --include-ext-csv-option')
-    parser.add_argument('--include-ext-csv-option', '-eo', metavar=('KEY', 'VALUE'),
-                        nargs=2, default=[], action='append',
-                        help='append additional argument to external load')
-    parser.add_argument('--include-feed-in-csv',
-                        help='include CSV for energy feed-in, e.g., local PV. \
-                        You may define custom options with --include-feed-in-csv-option')
-    parser.add_argument('--include-feed-in-csv-option', '-fo', metavar=('KEY', 'VALUE'),
-                        nargs=2, default=[], action='append',
-                        help='append additional argument to feed-in load')
-    parser.add_argument('--include-price-csv',
-                        help='include CSV for energy price. \
-                        You may define custom options with --include-price-csv-option')
-    parser.add_argument('--include-price-csv-option', '-po', metavar=('KEY', 'VALUE'),
-                        nargs=2, default=[], action='append',
-                        help='append additional argument to price signals')
-
-    # config
-    parser.add_argument('--config', help='Use config file to set arguments')
-
-    # errors and warnings
-    parser.add_argument('--verbose', '-v', action='count', default=0,
-                        help='Set verbosity level. Use this multiple times for more output. '
-                             'Default: only errors and important warnings, '
-                             '1: additional warnings and info')
-
-    args = parser.parse_args()
-
-    set_options_from_config(args, check=True, verbose=args.verbose > 1)
-
-    generate_from_simbev(args)
