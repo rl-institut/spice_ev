@@ -297,7 +297,7 @@ def generate_from_csv(args):
         "scenario": {
             "start_time": start.isoformat(),
             "interval": interval.total_seconds() // 60,
-            "n_intervals": stop.isoformat(),
+            "stop_time": stop.isoformat(),
             "discharge_limit": args.discharge_limit,
         },
         "constants": {
