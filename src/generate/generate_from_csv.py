@@ -139,7 +139,7 @@ def generate_from_csv(args):
             except IndexError:
                 # no departure event: stand until end of simulation
                 departure_event_in_input = False
-                departure = stop
+                departure = max(arrival + datetime.timedelta(hours=8), stop)
 
             # check if column delta_soc or column soc exists
             if "delta_soc" not in row.keys():
