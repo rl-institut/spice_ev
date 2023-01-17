@@ -219,7 +219,7 @@ if __name__ == '__main__':
     parser.add_argument('--config', help='Use config file to set arguments')
 
     # csv options
-    parser.add_argument('input-file', nargs='?',
+    parser.add_argument('--input-file', '-f',
                         help='input file name (rotations_example_table.csv)')
     parser.add_argument('--export-vehicle-id-csv', default=None,
                         help='option to export csv after assigning vehicle_id')
