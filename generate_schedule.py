@@ -307,6 +307,8 @@ def generate_individual_flex_band(scenario, gcID):
                 vid = event.vehicle_id
                 vehicle = vehicles[vid]
                 if event.event_type == 'arrival':
+                    if vehicle.connected_charging_station is not None:
+                        warnings.warn("Multiple arrivals")
                     cs_id = event.update["connected_charging_station"]
                     vehicle.connected_charging_station = cs_id
                     vehicle.battery.soc += event.update["soc_delta"]
@@ -318,20 +320,22 @@ def generate_individual_flex_band(scenario, gcID):
                         continue
                     if cs.parent != gcID:
                         # fake perfect charging
-                        vehicle.battery.soc = event.update["desired_soc"]
+                        vehicle.battery.soc = max(vehicle.battery.soc, event.update["desired_soc"])
                         continue
                     # arrived at this GC: add to list
                     vehicle.last_arrival_idx = (len(flex["vehicles"])-1, len(flex["vehicles"][-1]))
                     delta_soc = event.update["desired_soc"] - vehicle.battery.soc
                     delta_soc = max(delta_soc, 0)
                     energy = delta_soc * vehicle.battery.capacity / vehicle.battery.efficiency
+                    est_tod = event.update["estimated_time_of_departure"]
+                    tod_idx = (est_tod - scenario.start_time) // scenario.interval
                     flex["vehicles"][-1].append({
                         "vid": vid,
                         "v2g": get_v2g_energy(v),
                         "t_start": event.start_time,
-                        "t_end": scenario.stop_time,
+                        "t_end": min(est_tod, scenario.stop_time),
                         "idx_start": idx,
-                        "idx_end": scenario.n_intervals - 1,
+                        "idx_end": min(tod_idx, scenario.n_intervals - 1),
                         "init_soc": vehicle.battery.soc,
                         "energy": energy,
                         "desired_soc": event.update["desired_soc"],
@@ -339,14 +343,16 @@ def generate_individual_flex_band(scenario, gcID):
                         "p_min": max(cs.min_power, v.vehicle_type.min_charging_power),
                         "p_max": min(cs.max_power, v.battery.loading_curve.max_power),
                     })
-                    vehicle.battery.soc = event.update["desired_soc"]
+                    vehicle.battery.soc = max(vehicle.battery.soc, event.update["desired_soc"])
                 else:
                     # departure
                     cs_id = vehicle.connected_charging_station
                     if cs_id is None:
                         continue
+                    vehicle.connected_charging_station = None
                     cs = scenario.constants.charging_stations.get(cs_id)
                     if cs is None or cs.parent != gcID:
+                        # leave without being connected or different GC: skip
                         continue
                     # departed from this GC: update departure time
                     v_idx = vehicle.last_arrival_idx
@@ -381,10 +387,11 @@ def generate_schedule(args):
     # compute flexibility potential (min/max) of single grid connector for each timestep
     gcID, gc = list(s.constants.grid_connectors.items())[0]
     # use different function depending on "inidivual" argument
+    core_standing_time = args.core_standing_time or s.core_standing_time
     if args.individual:
         flex = generate_individual_flex_band(s, gcID)
     else:
-        flex = generate_flex_band(s, gcID=gcID, core_standing_time=args.core_standing_time)
+        flex = generate_flex_band(s, gcID=gcID, core_standing_time=core_standing_time)
 
     residual_load = []
     curtailment = []
@@ -446,8 +453,8 @@ def generate_schedule(args):
     original_curtailment = deepcopy(curtailment)
     original_residual_load = deepcopy(residual_load)
 
-    # default schedule: just basic power needs
-    schedule = [v for v in flex["base"]]
+    # default schedule: just basic power needs, but clipped to GC power
+    schedule = [min(max(v, flex["min"][i]), flex["max"][i]) for i, v in enumerate(flex["base"])]
 
     # adjust curtailment and residual load based on base flex (feed-in / ext. load)
     for i, power in enumerate(flex["base"]):
@@ -604,8 +611,11 @@ def generate_schedule(args):
 
     if args.individual:
         # generate schedule for each individual vehicle
-        min_flex = deepcopy(schedule)
-        max_flex = deepcopy(schedule)
+        min_flex = schedule.copy()
+        max_flex = schedule.copy()
+        gc_limit = flex["max"]  # simple renaming
+        # available GC power: max power minus base load
+        gc_avail = [max(gc_limit[i] - schedule[i], 0) for i in range(s.n_intervals)]
 
         for i in range(s.n_intervals):
             # sort arrivals by energy needed and standing time
@@ -639,24 +649,22 @@ def generate_schedule(args):
                             continue
                         if prio == 0:
                             # use curtailment power
-                            power_avail[j] = min(flex["max"][k], curtailment[k])
+                            power_avail[j] = min(gc_avail[k], curtailment[k])
                         elif prio == 1:
                             # don't exceed percentile
-                            power_avail[j] = min(
-                                flex["max"][k], cutoff_priority_1 - residual_load[k])
+                            power_avail[j] = min(gc_avail[k], cutoff_priority_1 - residual_load[k])
                         elif prio == 2:
                             # load must remain negative and below highest perc
                             power_avail[j] = min(
-                                flex["max"][k],
+                                gc_avail[k],
                                 -residual_load[k],
                                 cutoff_priority_4 - residual_load[k])
                         elif prio == 3:
                             # don't cross percentile
-                            power_avail[j] = min(
-                                flex["max"][k], cutoff_priority_4 - residual_load[k])
+                            power_avail[j] = min(gc_avail[k], cutoff_priority_4 - residual_load[k])
                         elif prio == 4:
                             # already in highest percentile: charge unrestricted
-                            power_avail[j] = flex["max"][k]
+                            power_avail[j] = gc_avail[k]
                         # clamp to vehicle power
                         power_avail[j] = min(power_avail[j], vinfo["p_max"])
 
@@ -674,7 +682,7 @@ def generate_schedule(args):
                         power = min(power, p_max_avail[j])
                         schedule[k] += power
                         energy_needed -= power / ts_per_hour
-                        flex["max"][k] -= power
+                        gc_avail[k] -= power
                         p_max_avail[j] -= power
 
                         # use curtailment power first
@@ -698,8 +706,9 @@ def generate_schedule(args):
             bat_flex = flex["batteries"]["power"] * flex["batteries"]["efficiency"] / ts_per_hour
             max_flex[i] += bat_flex
 
-        flex["min"] = min_flex
-        flex["max"] = max_flex
+        # rename for plotting and consistency with collective schedule
+        flex["max"] = [min(f, gc_limit[i]) for i, f in enumerate(max_flex)]
+        flex["min"] = [max(f, flex["min"][i]) for i, f in enumerate(min_flex)]
         # end generate schedule for individual vehicles
     else:
         # generate schedule for whole vehicle park
@@ -870,7 +879,7 @@ def generate_schedule(args):
         'grid_connector_id': list(s.constants.grid_connectors.keys())[0],
         'individual': args.individual,
     }
-    scenario_json['scenario']['core_standing_time'] = args.core_standing_time
+    scenario_json['scenario']['core_standing_time'] = core_standing_time
     with open(args.scenario, 'w') as f:
         json.dump(scenario_json, f, indent=2)
 
