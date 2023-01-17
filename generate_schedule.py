@@ -113,7 +113,10 @@ def generate_flex_band(scenario, gcID, core_standing_time=None):
             cs_id = v.connected_charging_station
             if cs_id is None:
                 # vehicle not present: reset vehicle flex
-                if vehicles[vid][0] != 0 and currently_in_core_standing_time:
+                if (
+                        vehicles[vid][0] != 0 and
+                        core_standing_time is not None and
+                        currently_in_core_standing_time):
                     warnings.warn(f"TS {step_i}: {vid} leaves during CST")
                 # keep vehicle energy until charging interval is complete
                 vehicles[vid] = [0, vehicles[vid][1], 0]
@@ -138,7 +141,9 @@ def generate_flex_band(scenario, gcID, core_standing_time=None):
                         v2g = (v.battery.get_available_power(s.interval)
                                * v.vehicle_type.v2g_power_factor) if v.vehicle_type.v2g else 0
                         vehicles[vid] = [charging_power, vehicle_energy_needed, v2g]
-                        if currently_in_core_standing_time and step_i != 0:
+                        if (
+                                step_i != 0 and
+                                core_standing_time is not None and currently_in_core_standing_time):
                             warnings.warn(f"TS {step_i}: {vid} arrives during CST")
         num_vehicles_present = sum(bool(v[0]) for v in vehicles.values())
 
@@ -400,6 +405,10 @@ def generate_schedule(args):
         flex = generate_individual_flex_band(s, gcID)
     else:
         flex = generate_flex_band(s, gcID=gcID, core_standing_time=core_standing_time)
+        # check that core standing time is set
+        if core_standing_time is None:
+            warnings.warn("Core standing time is not set. "
+                          "You can not simulate the schedule strategy without.")
 
     residual_load = []
     curtailment = []
