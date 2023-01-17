@@ -296,7 +296,7 @@ def generate_from_statistics(args):
         "scenario": {
             "start_time": start.isoformat(),
             "interval": interval.total_seconds() // 60,
-            "n_intervals": (stop - start) // interval,
+            "stop_time": stop.isoformat(),
             "discharge_limit": args.discharge_limit,
         },
         "constants": {
