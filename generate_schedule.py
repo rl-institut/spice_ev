@@ -248,7 +248,7 @@ def generate_individual_flex_band(scenario, gcID):
     flex["batteries"]["init_discharge"] = sum([b.get_available_power(interval) for b in batteries])
     for b in batteries:
         if b.capacity > 2**50:
-            print("WARNING: battery without capacity detected")
+            warnings.warn("WARNING: battery without capacity detected")
         flex["batteries"]["stored"] += b.soc * b.capacity
         flex["batteries"]["power"] += b.loading_curve.max_power
         flex["batteries"]["free"] += (1 - b.soc) * b.capacity
