@@ -42,6 +42,15 @@ def generate_from_csv(args):
     # read csv input file
     input = csv_to_dict(args.input_file)
 
+    # save path and options for CSV timeseries
+    times = []
+    for row in input:
+        times.append(row["departure_time"])
+    times.sort()
+    start = times[0]
+    start = datetime.datetime.strptime(start, DATETIME_FORMAT)
+    stop = start + datetime.timedelta(days=args.days)
+
     # INITIALIZE CONSTANTS AND EVENTS
     vehicle_types = {}
     vehicles = {}
@@ -128,8 +137,9 @@ def generate_from_csv(args):
                 next_arrival = v_id_list[idx + 1]["arrival_time"]
                 next_arrival = datetime.datetime.strptime(next_arrival, DATETIME_FORMAT)
             except IndexError:
+                # no departure: stand for 8h or until end of simulation (whichever comes later)
                 departure_event_in_input = False
-                departure = arrival + datetime.timedelta(hours=8)
+                departure = max(arrival + datetime.timedelta(hours=8), stop)
 
             # check if column delta_soc or column soc exists
             if "delta_soc" not in row.keys():
@@ -227,15 +237,6 @@ def generate_from_csv(args):
                         }
                     })
 
-    # save path and options for CSV timeseries
-    times = []
-    for row in input:
-        times.append(row["departure_time"])
-    times.sort()
-    start = times[0]
-    start = datetime.datetime.strptime(start, DATETIME_FORMAT)
-    stop = start + datetime.timedelta(days=args.days)
-
     # update info of external CSV files
     ext_info = {
         "external_load": "include_ext_load_csv",
@@ -296,7 +297,7 @@ def generate_from_csv(args):
         "scenario": {
             "start_time": start.isoformat(),
             "interval": interval.total_seconds() // 60,
-            "n_intervals": (stop - start) // interval,
+            "stop_time": stop.isoformat(),
             "discharge_limit": args.discharge_limit,
         },
         "constants": {
