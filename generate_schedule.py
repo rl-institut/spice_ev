@@ -682,8 +682,8 @@ def generate_schedule(args):
                         elif prio == 4:
                             # already in highest percentile: charge unrestricted
                             power_avail[j] = gc_avail[k]
-                        # clamp to vehicle power
-                        power_avail[j] = min(power_avail[j], vinfo["p_max"])
+                        # clamp to leftover vehicle power
+                        power_avail[j] = min(power_avail[j], p_max_avail[j])
 
                     for j, k in enumerate(standing_range):
                         # energy left within standing time
