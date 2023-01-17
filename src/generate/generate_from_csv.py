@@ -137,7 +137,7 @@ def generate_from_csv(args):
                 next_arrival = v_id_list[idx + 1]["arrival_time"]
                 next_arrival = datetime.datetime.strptime(next_arrival, DATETIME_FORMAT)
             except IndexError:
-                # no departure event: stand until end of simulation
+                # no departure: stand for 8h or until end of simulation (whichever comes later)
                 departure_event_in_input = False
                 departure = max(arrival + datetime.timedelta(hours=8), stop)
 
