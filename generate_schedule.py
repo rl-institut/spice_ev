@@ -344,7 +344,7 @@ def generate_individual_flex_band(scenario, gcID):
                     tod_idx = (est_tod - scenario.start_time) // scenario.interval
                     flex["vehicles"][-1].append({
                         "vid": vid,
-                        "v2g": get_v2g_energy(v),
+                        "v2g": get_v2g_energy(vehicle),
                         "t_start": event.start_time,
                         "t_end": min(est_tod, scenario.stop_time),
                         "idx_start": idx,
@@ -352,9 +352,9 @@ def generate_individual_flex_band(scenario, gcID):
                         "init_soc": vehicle.battery.soc,
                         "energy": energy,
                         "desired_soc": event.update["desired_soc"],
-                        "efficiency": v.battery.efficiency,
-                        "p_min": max(cs.min_power, v.vehicle_type.min_charging_power),
-                        "p_max": min(cs.max_power, v.battery.loading_curve.max_power),
+                        "efficiency": vehicle.battery.efficiency,
+                        "p_min": max(cs.min_power, vehicle.vehicle_type.min_charging_power),
+                        "p_max": min(cs.max_power, vehicle.battery.loading_curve.max_power),
                     })
                     vehicle.battery.soc = max(vehicle.battery.soc, event.update["desired_soc"])
                 else:
