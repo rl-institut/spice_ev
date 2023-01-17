@@ -84,7 +84,7 @@ def generate_flex_band(scenario, gcID, core_standing_time=None):
     bat_init_discharge_power = sum([b.get_available_power(s.interval) for b in batteries])
     for b in batteries:
         if b.capacity > 2**50:
-            print("WARNING: battery without capacity detected")
+            warnings.warn("battery without capacity detected")
         flex["batteries"]["stored"] += b.soc * b.capacity
         flex["batteries"]["power"] += b.loading_curve.max_power
         flex["batteries"]["free"] += (1 - b.soc) * b.capacity
@@ -96,7 +96,7 @@ def generate_flex_band(scenario, gcID, core_standing_time=None):
 
     vehicles = {vid: [0, 0, 0] for vid in s.world_state.vehicles}
     vehicles_present = False
-    power_needed = 0
+    prev_vehicles_present = False
 
     for step_i in range(scenario.n_intervals):
         s.step(event_steps[step_i])
@@ -108,19 +108,18 @@ def generate_flex_band(scenario, gcID, core_standing_time=None):
         # basic value: external load, feed-in power
         base_flex = gc.get_current_load()
 
-        num_vehicles_present = 0
-
         # update vehicles
         for vid, v in s.world_state.vehicles.items():
             cs_id = v.connected_charging_station
             if cs_id is None:
-                # vehicle not present: reset info, add to power needed in last interval
-                power_needed += vehicles[vid][1]
-                vehicles[vid] = [0, 0, 0]
+                # vehicle not present: reset vehicle flex
+                if vehicles[vid][0] != 0 and currently_in_core_standing_time:
+                    warnings.warn(f"TS {step_i}: {vid} leaves during CST")
+                # keep vehicle energy until charging interval is complete
+                vehicles[vid] = [0, vehicles[vid][1], 0]
             else:
-                cs = s.world_state.charging_stations[v.connected_charging_station]
+                cs = s.world_state.charging_stations[cs_id]
                 if cs.parent == gcID:
-                    num_vehicles_present += 1
                     if vehicles[vid][0] == 0:
                         # just arrived
                         charging_power = min(v.battery.loading_curve.max_power, cs.max_power)
@@ -132,15 +131,20 @@ def generate_flex_band(scenario, gcID, core_standing_time=None):
                             dep = -((scenario.start_time - dep) // s.interval)
                             factor = min((scenario.n_intervals - step_i) / (dep - step_i), 1)
                             delta_soc *= factor
-                        vehicle_energy_needed = (delta_soc *
-                                                 v.battery.capacity) / v.battery.efficiency
+                        vehicle_energy_needed = (
+                            vehicles[vid][1] +
+                            (delta_soc * v.battery.capacity) / v.battery.efficiency)
                         v.battery.soc = max(v.battery.soc, v.desired_soc)
                         v2g = (v.battery.get_available_power(s.interval)
                                * v.vehicle_type.v2g_power_factor) if v.vehicle_type.v2g else 0
                         vehicles[vid] = [charging_power, vehicle_energy_needed, v2g]
+                        if currently_in_core_standing_time and step_i != 0:
+                            warnings.warn(f"TS {step_i}: {vid} arrives during CST")
+        num_vehicles_present = sum(bool(v[0]) for v in vehicles.values())
 
         pv_support = max(-base_flex, 0)
-        if num_vehicles_present and currently_in_core_standing_time:
+        vehicles_present = currently_in_core_standing_time and num_vehicles_present > 0
+        if vehicles_present:
             # PV surplus can support vehicle charging
             for v in vehicles.values():
                 if pv_support <= EPS:
@@ -152,10 +156,10 @@ def generate_flex_band(scenario, gcID, core_standing_time=None):
 
             # get sums from vehicles dict
             vehicle_flex, needed, v2g_flex = map(sum, zip(*vehicles.values()))
-            if not vehicles_present:
+            if not prev_vehicles_present:
                 # new standing period
                 flex["intervals"].append({
-                    "needed": 0,
+                    "needed": 0,  # updated until all vehicles have left
                     "time": [],
                     "num_vehicles_present": 0,
                 })
@@ -168,12 +172,16 @@ def generate_flex_band(scenario, gcID, core_standing_time=None):
             if currently_in_core_standing_time:
                 info["time"].append(step_i)
         else:
-            # all vehicles left
-            if vehicles_present:
-                # first TS with all vehicles left: update power needed
-                flex["intervals"][-1]["needed"] = power_needed
-            vehicle_flex = power_needed = v2g_flex = 0
-        vehicles_present = currently_in_core_standing_time and num_vehicles_present > 0
+            # no vehicles present or not within core standing time: no vehicle flex
+            vehicle_flex = 0
+            v2g_flex = 0
+            if prev_vehicles_present:
+                # first TS with all vehicles left or end of CST
+                # reset vehicle flex and energy needed
+                vehicles = {vid: [0, 0, 0] for vid in vehicles}
+
+        # take note if vehicles are present for comparison at next timestep
+        prev_vehicles_present = vehicles_present
 
         bat_flex_discharge = bat_init_discharge_power if step_i == 0 else bat_full_discharge_power
         bat_flex_charge = flex["batteries"]["power"]
