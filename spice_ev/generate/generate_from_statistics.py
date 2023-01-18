@@ -4,7 +4,7 @@ import datetime
 import random
 import warnings
 
-from src.util import datetime_from_isoformat
+from spice_ev.util import datetime_from_isoformat
 
 
 DEFAULT_START_TIME = "2023-01-01T01:00:00+02:00"
@@ -116,7 +116,7 @@ def generate_from_statistics(args):
     if args.vehicles is None:
         args.vehicles = [['1', 'golf'], ['1', 'sprinter']]
 
-    # INITIALIZE CONSTANTS AND EVENTS
+    # INITIALIZE COMPONENTS AND EVENTS
     vehicle_types = {}
     vehicles = {}
     charging_stations = {}
@@ -299,7 +299,7 @@ def generate_from_statistics(args):
             "stop_time": stop.isoformat(),
             "discharge_limit": args.discharge_limit,
         },
-        "constants": {
+        "components": {
             "vehicle_types": vehicle_types,
             "vehicles": vehicles,
             "grid_connectors": args.gc,

@@ -4,7 +4,7 @@
     "interval": 1,
     "n_intervals": 2880
   },
-  "constants": {
+  "components": {
     "vehicle_types": {
       "VDL_opps": {
         "name": "solo bus",

@@ -20,7 +20,7 @@ Generate_from_statistics
 Generates a scenario JSON with random dummy trips for a set up defined by input
 arguments. For an example config file see `/examples/generate_from_statistics.cfg`.
 
-.. currentmodule:: src.generate.generate_from_statistics
+.. currentmodule:: spice_ev.generate.generate_from_statistics
 .. autosummary::
     :toctree: temp/
 
@@ -32,7 +32,7 @@ Generate_from_csv
 Generates a scenario JSON from csv rotation schedule of fleets. For an example
 config file see `/examples/generate_from_csv.cfg`.
 
-.. currentmodule:: src.generate.generate_from_csv
+.. currentmodule:: spice_ev.generate.generate_from_csv
 .. autosummary::
     :toctree: temp/
 
@@ -45,7 +45,7 @@ Generate_from_simbev
 Generates a scenario JSON from simBEV results. For an example
 config file see `/examples/generate_from_simbev.cfg`.
 
-.. currentmodule:: src.generate.generate_from_simbev
+.. currentmodule:: spice_ev.generate.generate_from_simbev
 .. autosummary::
     :toctree: temp/
 
@@ -80,7 +80,7 @@ Scenario
 Sets up constants, events, start time, interval of the simulation. Runs simulation
 stepwise and calls charging strategy for each timestep.
 
-.. currentmodule:: src.scenario
+.. currentmodule:: spice_ev.scenario
 .. autosummary::
     :toctree: temp/
 
@@ -93,7 +93,7 @@ Charging strategies
 ===================
 Wrapper / Parent class for the individual strategies.
 
-.. currentmodule:: src.strategy
+.. currentmodule:: spice_ev.strategy
 .. autosummary::
     :toctree: temp/
 
@@ -106,7 +106,7 @@ Each vehicle is charged such that it uses its complete standing time to reach th
 desired SoC. May charge more power (and above the desired SoC) if there is
 surplus feed-in power or if the energy price falls below a certain PRICE_THRESHOLD.
 
-.. currentmodule:: src.strategies.balanced
+.. currentmodule:: spice_ev.strategies.balanced
 .. autosummary::
     :toctree: temp/
 
@@ -118,7 +118,7 @@ Balanced Market
 When using this strategy, price information within the next *HORIZON* hours is evaluated. The goal is to divide standing times into periods of equal prices. A vehicle is now charged such that is uses the entire duration of all periods with the lowest price combined to reach its desired SOC. In case that time is not sufficient the periods of the second cheapest price are used to charge as much of the remaining delta SOC as possible, again in a balanced way with respect to power.
 
 
-.. currentmodule:: src.strategies.balanced_market
+.. currentmodule:: spice_ev.strategies.balanced_market
 .. autosummary::
     :toctree: temp/
 
@@ -129,7 +129,7 @@ Flex window
 -----------
 There are time windows during which charging is encouraged and there are those where it is discouraged. These time windows are determined by the grid operator (similar to Schedule strategy). During those windows where charging is encouraged the vehicles are charged with a sub-strategy.
 
-.. currentmodule:: src.strategies.flex_window
+.. currentmodule:: spice_ev.strategies.flex_window
 .. autosummary::
     :toctree: temp/
 
@@ -149,7 +149,7 @@ Charges one vehicle after the next with full power until the desired state of
 charge (SoC) is reached. Depending on the grid connector (GC), multiple vehicles
 may be charged in one timestep.
 
-.. currentmodule:: src.strategies.greedy
+.. currentmodule:: spice_ev.strategies.greedy
 .. autosummary::
     :toctree: temp/
 
@@ -161,7 +161,7 @@ Greedy Market
 This algorithm first determines the cheapest group of time intervals sufficient to charge all vehicles according to their needs.
 Moves all charging events to those time intervals and charges them with full power, similar to the greedy strategy.
 
-.. currentmodule:: src.strategies.greedy_market
+.. currentmodule:: spice_ev.strategies.greedy_market
 .. autosummary::
     :toctree: temp/
 
@@ -173,7 +173,7 @@ Peak load window
 ----------------
 Given a time window of high load, tries to charge outside this window. Different sub-strategies supported
 
-.. currentmodule:: src.strategies.peak_load_window
+.. currentmodule:: spice_ev.strategies.peak_load_window
 .. autosummary::
     :toctree: temp/
 
@@ -187,7 +187,7 @@ Distributed
 Unlimited grid connectors are supported. Vehicles that arrive at a station with opp (opportunity charging) are loaded with greedy strategy, ones that arrive at a depot station are loaded with balanced strategy.
 Application case: Bus scenarios.
 
-.. currentmodule:: src.strategies.distributed
+.. currentmodule:: spice_ev.strategies.distributed
 .. autosummary::
     :toctree: temp/
 
@@ -198,7 +198,7 @@ Schedule
 --------
 Allocate power according to grid operator schedule.
 
-.. currentmodule:: src.strategies.schedule
+.. currentmodule:: spice_ev.strategies.schedule
 .. autosummary::
     :toctree: temp/
 
@@ -218,7 +218,7 @@ Allocate power according to grid operator schedule.
 Components
 ==========
 
-.. currentmodule:: src.battery
+.. currentmodule:: spice_ev.battery
 .. autosummary::
     :toctree: temp/
 
@@ -228,7 +228,7 @@ Components
     Battery.load_iterative
     Battery.get_available_power
 
-.. currentmodule:: src.constants
+.. currentmodule:: spice_ev.components
 .. autosummary::
     :toctree: temp/
 
@@ -247,7 +247,7 @@ Components
 
 Events
 ======
-.. currentmodule:: src.events
+.. currentmodule:: spice_ev.events
 .. autosummary::
     :toctree: temp/
 
@@ -267,7 +267,7 @@ Events
 
 Loading curve
 =============
-.. currentmodule:: src.loading_curve
+.. currentmodule:: spice_ev.loading_curve
 .. autosummary::
     :toctree: temp/
 
@@ -279,7 +279,7 @@ Util
 ====
 Utility functions.
 
-.. currentmodule:: src.util
+.. currentmodule:: spice_ev.util
 .. autosummary::
     :toctree: temp/
 

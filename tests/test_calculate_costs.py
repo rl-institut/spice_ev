@@ -3,7 +3,7 @@ import pytest
 from pathlib import Path
 import subprocess
 
-from src import scenario
+from spice_ev import scenario
 import calculate_costs as cc
 
 TEST_REPO_PATH = Path(__file__).parent
@@ -19,7 +19,7 @@ def get_test_json():
             "interval": 15,
             "n_intervals": 96
         },
-        "constants": {
+        "components": {
             "grid_connectors": {
                 "GC1": {"max_power": 100, "cost": {"type": "fixed", "value": 0}}
             },
@@ -116,7 +116,7 @@ class TestSimulationCosts:
                             "time", "grid power [kW]", "price [EUR/kWh]",
                             "ext.load [kW]", "window"]]
             price_sheet = TEST_REPO_PATH / 'test_data/input_test_cost_calculation/price_sheet.json'
-            pv = sum([pv.nominal_power for pv in s.constants.photovoltaics.values()])
+            pv = sum([pv.nominal_power for pv in s.components.photovoltaics.values()])
             result = cc.calculate_costs("greedy", "MV", s.interval, *timeseries_lists,
                                         s.core_standing_time, str(price_sheet), None, pv)
 
@@ -135,7 +135,7 @@ class TestSimulationCosts:
                             "ext.load [kW]", "window"]]
         price_sheet = TEST_REPO_PATH / 'test_data/input_test_cost_calculation/price_sheet.json'
 
-        pv = sum([pv.nominal_power for pv in s.constants.photovoltaics.values()])
+        pv = sum([pv.nominal_power for pv in s.components.photovoltaics.values()])
 
         # check returned values
         result = cc.calculate_costs("balanced", "MV", s.interval, *timeseries_lists,
@@ -160,7 +160,7 @@ class TestSimulationCosts:
             "ext.load [kW]", "window"]]
         price_sheet = TEST_REPO_PATH / 'test_data/input_test_cost_calculation/price_sheet.json'
 
-        pv = sum([pv.nominal_power for pv in s.constants.photovoltaics.values()])
+        pv = sum([pv.nominal_power for pv in s.components.photovoltaics.values()])
 
         # check returned values
         result = cc.calculate_costs("balanced_market", "MV", s.interval, *timeseries_lists,
@@ -184,7 +184,7 @@ class TestSimulationCosts:
             "ext.load [kW]", "window"]]
         price_sheet = TEST_REPO_PATH / 'test_data/input_test_cost_calculation/price_sheet.json'
 
-        pv = sum([pv.nominal_power for pv in s.constants.photovoltaics.values()])
+        pv = sum([pv.nominal_power for pv in s.components.photovoltaics.values()])
 
         # check returned values
         result = cc.calculate_costs("flex_window", "MV", s.interval, *timeseries_lists,
@@ -209,7 +209,7 @@ class TestSimulationCosts:
             "ext.load [kW]", "window"]]
         price_sheet = TEST_REPO_PATH / 'test_data/input_test_cost_calculation/price_sheet.json'
 
-        pv = sum([pv.nominal_power for pv in s.constants.photovoltaics.values()])
+        pv = sum([pv.nominal_power for pv in s.components.photovoltaics.values()])
 
         # check returned values
         result = cc.calculate_costs("balanced_market", "MV", s.interval, *timeseries_lists,

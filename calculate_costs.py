@@ -4,7 +4,7 @@ import json
 import datetime
 import argparse
 
-from src import util
+from spice_ev import util
 
 # constants for grid fee
 

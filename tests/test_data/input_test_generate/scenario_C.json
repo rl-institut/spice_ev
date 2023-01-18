@@ -21,7 +21,7 @@
       ]
     }
   },
-  "constants": {
+  "components": {
     "vehicle_types": {
       "sprinter": {
         "name": "Sprinter",

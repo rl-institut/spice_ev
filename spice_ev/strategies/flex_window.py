@@ -1,8 +1,8 @@
 from copy import deepcopy
 import datetime
 
-from src import events, util
-from src.strategy import Strategy
+from spice_ev import events, util
+from spice_ev.strategy import Strategy
 
 
 class FlexWindow(Strategy):
@@ -12,11 +12,11 @@ class FlexWindow(Strategy):
     else: peak shaving in given time windows
     """
 
-    def __init__(self, constants, start_time, **kwargs):
+    def __init__(self, components, start_time, **kwargs):
         self.HORIZON = 24  # hours ahead
         self.LOAD_STRAT = "balanced"  # greedy, needy, balanced
 
-        super().__init__(constants, start_time, **kwargs)
+        super().__init__(components, start_time, **kwargs)
         assert (len(self.world_state.grid_connectors) == 1), "Only one grid connector supported"
         self.description = "Flex Window ({}, {} hour horizon)".format(
             self.LOAD_STRAT, self.HORIZON)

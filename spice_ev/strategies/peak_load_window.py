@@ -2,8 +2,8 @@ from copy import deepcopy
 import datetime
 import warnings
 
-from src import events, util
-from src.strategy import Strategy
+from spice_ev import events, util
+from spice_ev.strategy import Strategy
 
 
 class PeakLoadWindow(Strategy):
@@ -13,7 +13,7 @@ class PeakLoadWindow(Strategy):
 
     Charge balanced outside of windows, inside different substrategies are possible.
     """
-    def __init__(self, constants, start_time, **kwargs):
+    def __init__(self, components, start_time, **kwargs):
         # defaults, can be overridden by CLO (through kwargs)
 
         # minimum binary seach depth
@@ -21,7 +21,7 @@ class PeakLoadWindow(Strategy):
         self.LOAD_STRAT = 'needy'  # greedy, needy, balanced
 
         # init parent class Strategy. May override defaults
-        super().__init__(constants, start_time, **kwargs)
+        super().__init__(components, start_time, **kwargs)
         self.description = "§19stromNEV ({})".format(self.LOAD_STRAT)
 
         # set order of vehicles to load

@@ -1,5 +1,5 @@
-from src.util import clamp_power, get_cost
-from src.strategy import Strategy
+from spice_ev.util import clamp_power, get_cost
+from spice_ev.strategy import Strategy
 
 
 class Balanced(Strategy):
@@ -8,12 +8,12 @@ class Balanced(Strategy):
     Charging strategy that calculates the minimum required charging power to
     arrive at the desired SOC during the estimated parking time for each vehicle.
     """
-    def __init__(self, constants, start_time, **kwargs):
+    def __init__(self, components, start_time, **kwargs):
         # defaults
         self.ITERATIONS = 12
         self.PRICE_THRESHOLD = 0.001  # EUR/kWh
 
-        super().__init__(constants, start_time, **kwargs)
+        super().__init__(components, start_time, **kwargs)
         self.description = "balanced"
 
     def step(self):

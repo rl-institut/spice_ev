@@ -2,14 +2,14 @@ from copy import deepcopy
 from datetime import timedelta
 import warnings
 
-import src.events as events
-from src.strategy import Strategy
-from src.util import clamp_power, dt_within_core_standing_time
+import spice_ev.events as events
+from spice_ev.strategy import Strategy
+from spice_ev.util import clamp_power, dt_within_core_standing_time
 
 
 class Schedule(Strategy):
     """Schedule strategy"""
-    def __init__(self, constants, start_time, **kwargs):
+    def __init__(self, components, start_time, **kwargs):
         allowed_substrats = ["collective", "individual"]
         self.LOAD_STRAT = "collective"
 
@@ -20,7 +20,7 @@ class Schedule(Strategy):
         self.warn_core_standing_time = False
         self.ITERATIONS = 12
 
-        super().__init__(constants, start_time, **kwargs)
+        super().__init__(components, start_time, **kwargs)
         self.TS_per_hour = (timedelta(hours=1) / self.interval)
 
         self.description = "schedule ({})".format(self.LOAD_STRAT)

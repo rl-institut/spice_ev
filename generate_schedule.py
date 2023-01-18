@@ -9,7 +9,7 @@ from json.decoder import JSONDecodeError
 import os
 import warnings
 
-from src import events, scenario, strategy, util
+from spice_ev import events, scenario, strategy, util
 
 EPS = 1e-8
 
@@ -28,7 +28,7 @@ def generate_flex_band(scenario, gcID, core_standing_time=None):
     :rtype: dict
     """
     s = strategy.Strategy(
-        scenario.constants, scenario.start_time, **{
+        scenario.components, scenario.start_time, **{
             "interval": scenario.interval,
             "margin": 1,
             "ALLOW_NEGATIVE_SOC": True
@@ -214,7 +214,7 @@ def generate_individual_flex_band(scenario, gcID):
     :return: flex band
     :rtype: dict
     """
-    gc = deepcopy(scenario.constants.grid_connectors[gcID])
+    gc = deepcopy(scenario.components.grid_connectors[gcID])
     interval = scenario.interval
 
     event_signal_steps = scenario.events.get_event_steps(
@@ -244,7 +244,7 @@ def generate_individual_flex_band(scenario, gcID):
     }
 
     # aggregate battery info
-    batteries = [deepcopy(b) for b in scenario.constants.batteries.values() if b.parent == gcID]
+    batteries = [deepcopy(b) for b in scenario.components.batteries.values() if b.parent == gcID]
     flex["batteries"]["init_discharge"] = sum([b.get_available_power(interval) for b in batteries])
     for b in batteries:
         if b.capacity > 2**50:
@@ -258,7 +258,7 @@ def generate_individual_flex_band(scenario, gcID):
     flex["batteries"]["efficiency"] = \
         flex["batteries"]["efficiency"] / len(batteries) if len(batteries) else 1
 
-    vehicles = deepcopy(scenario.constants.vehicles)
+    vehicles = deepcopy(scenario.components.vehicles)
 
     def get_v2g_energy(vehicle):
         if vehicle.vehicle_type.v2g:
@@ -271,7 +271,7 @@ def generate_individual_flex_band(scenario, gcID):
         cs_id = v.connected_charging_station
         if cs_id is None:
             continue
-        cs = scenario.constants.charging_stations.get(cs_id)
+        cs = scenario.components.charging_stations.get(cs_id)
         if cs is None or cs.parent != gcID:
             continue
         # connected
@@ -327,7 +327,7 @@ def generate_individual_flex_band(scenario, gcID):
                     vehicle.battery.soc += event.update["soc_delta"]
                     if cs_id is None:
                         continue
-                    cs = scenario.constants.charging_stations.get(cs_id)
+                    cs = scenario.components.charging_stations.get(cs_id)
                     if cs is None:
                         # CS not found? Can't charge
                         continue
@@ -363,7 +363,7 @@ def generate_individual_flex_band(scenario, gcID):
                     if cs_id is None:
                         continue
                     vehicle.connected_charging_station = None
-                    cs = scenario.constants.charging_stations.get(cs_id)
+                    cs = scenario.components.charging_stations.get(cs_id)
                     if cs is None or cs.parent != gcID:
                         # leave without being connected or different GC: skip
                         continue
@@ -395,10 +395,10 @@ def generate_schedule(args):
 
     ts_per_hour = datetime.timedelta(hours=1) / s.interval
 
-    assert len(s.constants.grid_connectors) == 1, "Only one grid connector supported"
+    assert len(s.components.grid_connectors) == 1, "Only one grid connector supported"
 
     # compute flexibility potential (min/max) of single grid connector for each timestep
-    gcID, gc = list(s.constants.grid_connectors.items())[0]
+    gcID, gc = list(s.components.grid_connectors.items())[0]
     # use different function depending on "inidivual" argument
     core_standing_time = args.core_standing_time or s.core_standing_time
     if args.individual:
@@ -480,7 +480,7 @@ def generate_schedule(args):
         residual_load[i] += power - curtailment_power
         flex["base"][i] = 0
 
-    vehicle_ids = sorted(s.constants.vehicles.keys())
+    vehicle_ids = sorted(s.components.vehicles.keys())
     vehicle_schedule = {vid: [0] * s.n_intervals for vid in vehicle_ids}
 
     # set priorities
@@ -893,7 +893,7 @@ def generate_schedule(args):
         'start_time': s.start_time.isoformat(),
         'step_duration_s': s.interval.seconds,
         'csv_file': os.path.relpath(args.output, os.path.dirname(args.scenario)),
-        'grid_connector_id': list(s.constants.grid_connectors.keys())[0],
+        'grid_connector_id': list(s.components.grid_connectors.keys())[0],
         'individual': args.individual,
     }
     scenario_json['scenario']['core_standing_time'] = core_standing_time

@@ -1,18 +1,17 @@
 import datetime
 
-from src.strategy import Strategy
-from src import events
-from src.strategies import greedy
-from src.strategies import balanced
+from spice_ev import events
+from spice_ev.strategy import Strategy
+from spice_ev.strategies import greedy, balanced
 
 
 class Distributed(Strategy):
     """
     Strategy that allows for greedy charging at opp stops and balanced charging at depots.
     """
-    def __init__(self, constants, start_time, **kwargs):
+    def __init__(self, components, start_time, **kwargs):
         self.PRICE_THRESHOLD = 0.001  # EUR/kWh
-        super().__init__(constants, start_time, **kwargs)
+        super().__init__(components, start_time, **kwargs)
         self.description = "distributed"
         self.ITERATIONS = 12
         # minimum charging time at depot; time to look into the future for prioritization

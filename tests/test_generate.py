@@ -5,7 +5,7 @@ import pytest
 
 from generate import generate
 import generate_schedule
-from src import scenario
+from spice_ev import scenario
 
 TEST_REPO_PATH = Path(__file__).parent
 

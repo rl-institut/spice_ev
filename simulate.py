@@ -5,8 +5,8 @@ import json
 import os
 import warnings
 
-from src.scenario import Scenario
-from src.util import set_options_from_config
+from spice_ev.scenario import Scenario
+from spice_ev.util import set_options_from_config
 from calculate_costs import calculate_costs
 
 STRATEGIES = [
@@ -68,8 +68,8 @@ def simulate(args):
 
     if args.get("cost_calc"):
         # cost calculation following directly after simulation
-        for gcID, gc in s.constants.grid_connectors.items():
-            pv = sum([pv.nominal_power for pv in s.constants.photovoltaics.values()
+        for gcID, gc in s.components.grid_connectors.items():
+            pv = sum([pv.nominal_power for pv in s.components.photovoltaics.values()
                       if pv.parent == gcID])
             timeseries = vars(s).get(f"{gcID}_timeseries")
 

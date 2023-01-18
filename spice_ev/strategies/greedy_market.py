@@ -1,8 +1,8 @@
 from copy import deepcopy
 import datetime
 
-from src import events, util
-from src.strategy import Strategy
+from spice_ev import events, util
+from spice_ev.strategy import Strategy
 
 
 class GreedyMarket(Strategy):
@@ -10,11 +10,11 @@ class GreedyMarket(Strategy):
 
     Moves all charging events to times with low energy price
     """
-    def __init__(self, constants, start_time, **kwargs):
+    def __init__(self, components, start_time, **kwargs):
         self.PRICE_THRESHOLD = 0.001  # EUR/kWh
         self.HORIZON = 24  # hours ahead
 
-        super().__init__(constants, start_time, **kwargs)
+        super().__init__(components, start_time, **kwargs)
         assert len(self.world_state.grid_connectors) == 1, "Only one grid connector supported"
         self.description = "greedy (market-oriented) with {} hour horizon".format(self.HORIZON)
 

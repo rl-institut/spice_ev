@@ -4,7 +4,7 @@
     "interval": 15,
     "n_intervals": 96
   },
-  "constants": {
+  "components": {
     "vehicle_types": {
       "sprinter": {
         "name": "Sprinter",

@@ -4,7 +4,7 @@ import datetime
 import traceback
 from warnings import warn
 
-from src import constants, events, strategy, util, report
+from spice_ev import components, events, strategy, util, report
 
 
 class Scenario:
@@ -17,8 +17,10 @@ class Scenario:
     """
 
     def __init__(self, json_dict, dir_path=''):
-        # get constants and events
-        self.constants = constants.Constants(json_dict.get('constants'))
+        # get components (backwards compatibility: used to be called constants)
+        components_dict = json_dict.get("components", json_dict.get("constants"))
+        self.components = components.Components(components_dict)
+        # get events
         self.events = events.Events(json_dict.get('events'), dir_path)
 
         scenario = json_dict.get('scenario')
@@ -47,7 +49,7 @@ class Scenario:
         # compute average load for each timeslot
         for ext_load_list in self.events.external_load_lists.values():
             gc_id = ext_load_list.grid_connector_id
-            gc = self.constants.grid_connectors[gc_id]
+            gc = self.components.grid_connectors[gc_id]
             gc.add_avg_ext_load_week(ext_load_list, self.interval)
 
     def run(self, strategy_name, options):
@@ -64,11 +66,11 @@ class Scenario:
         options['events'] = self.events
         options['core_standing_time'] = self.core_standing_time
         options['DISCHARGE_LIMIT'] = options.get('DISCHARGE_LIMIT', self.discharge_limit)
-        strat = strategy.class_from_str(strategy_name)(self.constants, self.start_time, **options)
+        strat = strategy.class_from_str(strategy_name)(self.components, self.start_time, **options)
 
         event_steps = self.events.get_event_steps(self.start_time, self.n_intervals, self.interval)
 
-        gc_ids = self.constants.grid_connectors.keys()
+        gc_ids = self.components.grid_connectors.keys()
 
         socs = []
         prices = {gcID: [] for gcID in gc_ids}
@@ -78,7 +80,7 @@ class Scenario:
         disconnect = []
         feedInPower = {gcID: [] for gcID in gc_ids}
         stepsPerHour = datetime.timedelta(hours=1) / self.interval
-        batteryLevels = {k: [] for k in self.constants.batteries.keys()}
+        batteryLevels = {k: [] for k in self.components.batteries.keys()}
         connChargeByTS = {gcID: [] for gcID in gc_ids}
         gcPowerSchedule = {gcID: [] for gcID in gc_ids}
         gcWindowSchedule = {gcID: [] for gcID in gc_ids}
@@ -191,7 +193,7 @@ class Scenario:
 
                 # loads without charging stations (external + feed-in)
                 stepLoads = {k: v for k, v in gc.current_loads.items()
-                             if k not in self.constants.charging_stations.keys()}
+                             if k not in self.components.charging_stations.keys()}
                 extLoads[gcID].append(stepLoads)
 
                 # sum up total feed-in power

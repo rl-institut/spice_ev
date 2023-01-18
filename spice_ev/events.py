@@ -4,7 +4,7 @@ import os
 import datetime
 from warnings import warn
 
-from src import util
+from spice_ev import util
 
 
 class Events:

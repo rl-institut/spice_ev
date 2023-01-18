@@ -29,7 +29,7 @@ In order to generate a 7-day scenario with 10 vehicles of different types and 15
 
 .. code:: bash
 
-    ./generate.py --days 7 --vehicles 6 golf --vehicles 4 sprinter --interval 15 --vehicle-types examples/vehicle_types.json  scenario.json
+    ./generate.py --days 7 --vehicles 6 golf --vehicles 4 sprinter --interval 15 --vehicle-types examples/vehicle_types.json --output scenario.json
 
 In order to generate a scenario with input arguments from a config file type:
 
@@ -71,7 +71,7 @@ for more information on the file formats of the input files.
 
 .. code:: bash
 
-    ./generate.py --include-price-csv ../price/price.csv --include-ext-load-csv external_load.csv example.json
+    ./generate.py --include-price-csv ../price/price.csv --include-ext-load-csv external_load.csv -o example.json
 
 SimBEV integration
 ------------------
@@ -81,7 +81,7 @@ In oder to convert SimBEV output files to a SpiceEV scenario, use:
 
 .. code:: bash
 
-    generate_from_simbev.py --simbev /path/to/simbev/output/ example.json
+    generate_from_simbev.py --simbev /path/to/simbev/output/ -o example.json
 
 Help
 ----
@@ -89,7 +89,7 @@ In order to show all command line options type:
 
 .. code:: bash
 
-    ./generate -h
+    ./generate.py -h
     ./simulate.py -h
 
 
