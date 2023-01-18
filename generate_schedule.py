@@ -84,7 +84,7 @@ def generate_flex_band(scenario, gcID, core_standing_time=None):
     bat_init_discharge_power = sum([b.get_available_power(s.interval) for b in batteries])
     for b in batteries:
         if b.capacity > 2**50:
-            print("WARNING: battery without capacity detected")
+            warnings.warn("battery without capacity detected")
         flex["batteries"]["stored"] += b.soc * b.capacity
         flex["batteries"]["power"] += b.loading_curve.max_power
         flex["batteries"]["free"] += (1 - b.soc) * b.capacity
@@ -96,7 +96,7 @@ def generate_flex_band(scenario, gcID, core_standing_time=None):
 
     vehicles = {vid: [0, 0, 0] for vid in s.world_state.vehicles}
     vehicles_present = False
-    power_needed = 0
+    prev_vehicles_present = False
 
     for step_i in range(scenario.n_intervals):
         s.step(event_steps[step_i])
@@ -108,19 +108,21 @@ def generate_flex_band(scenario, gcID, core_standing_time=None):
         # basic value: external load, feed-in power
         base_flex = gc.get_current_load()
 
-        num_vehicles_present = 0
-
         # update vehicles
         for vid, v in s.world_state.vehicles.items():
             cs_id = v.connected_charging_station
             if cs_id is None:
-                # vehicle not present: reset info, add to power needed in last interval
-                power_needed += vehicles[vid][1]
-                vehicles[vid] = [0, 0, 0]
+                # vehicle not present: reset vehicle flex
+                if (
+                        vehicles[vid][0] != 0 and
+                        core_standing_time is not None and
+                        currently_in_core_standing_time):
+                    warnings.warn(f"TS {step_i}: {vid} leaves during CST")
+                # keep vehicle energy until charging interval is complete
+                vehicles[vid] = [0, vehicles[vid][1], 0]
             else:
-                cs = s.world_state.charging_stations[v.connected_charging_station]
+                cs = s.world_state.charging_stations[cs_id]
                 if cs.parent == gcID:
-                    num_vehicles_present += 1
                     if vehicles[vid][0] == 0:
                         # just arrived
                         charging_power = min(v.battery.loading_curve.max_power, cs.max_power)
@@ -132,15 +134,22 @@ def generate_flex_band(scenario, gcID, core_standing_time=None):
                             dep = -((scenario.start_time - dep) // s.interval)
                             factor = min((scenario.n_intervals - step_i) / (dep - step_i), 1)
                             delta_soc *= factor
-                        vehicle_energy_needed = (delta_soc *
-                                                 v.battery.capacity) / v.battery.efficiency
+                        vehicle_energy_needed = (
+                            vehicles[vid][1] +
+                            (delta_soc * v.battery.capacity) / v.battery.efficiency)
                         v.battery.soc = max(v.battery.soc, v.desired_soc)
                         v2g = (v.battery.get_available_power(s.interval)
                                * v.vehicle_type.v2g_power_factor) if v.vehicle_type.v2g else 0
                         vehicles[vid] = [charging_power, vehicle_energy_needed, v2g]
+                        if (
+                                step_i != 0 and
+                                core_standing_time is not None and currently_in_core_standing_time):
+                            warnings.warn(f"TS {step_i}: {vid} arrives during CST")
+        num_vehicles_present = sum(bool(v[0]) for v in vehicles.values())
 
         pv_support = max(-base_flex, 0)
-        if num_vehicles_present and currently_in_core_standing_time:
+        vehicles_present = currently_in_core_standing_time and num_vehicles_present > 0
+        if vehicles_present:
             # PV surplus can support vehicle charging
             for v in vehicles.values():
                 if pv_support <= EPS:
@@ -152,10 +161,10 @@ def generate_flex_band(scenario, gcID, core_standing_time=None):
 
             # get sums from vehicles dict
             vehicle_flex, needed, v2g_flex = map(sum, zip(*vehicles.values()))
-            if not vehicles_present:
+            if not prev_vehicles_present:
                 # new standing period
                 flex["intervals"].append({
-                    "needed": 0,
+                    "needed": 0,  # updated until all vehicles have left
                     "time": [],
                     "num_vehicles_present": 0,
                 })
@@ -168,12 +177,16 @@ def generate_flex_band(scenario, gcID, core_standing_time=None):
             if currently_in_core_standing_time:
                 info["time"].append(step_i)
         else:
-            # all vehicles left
-            if vehicles_present:
-                # first TS with all vehicles left: update power needed
-                flex["intervals"][-1]["needed"] = power_needed
-            vehicle_flex = power_needed = v2g_flex = 0
-        vehicles_present = currently_in_core_standing_time and num_vehicles_present > 0
+            # no vehicles present or not within core standing time: no vehicle flex
+            vehicle_flex = 0
+            v2g_flex = 0
+            if prev_vehicles_present:
+                # first TS with all vehicles left or end of CST
+                # reset vehicle flex and energy needed
+                vehicles = {vid: [0, 0, 0] for vid in vehicles}
+
+        # take note if vehicles are present for comparison at next timestep
+        prev_vehicles_present = vehicles_present
 
         bat_flex_discharge = bat_init_discharge_power if step_i == 0 else bat_full_discharge_power
         bat_flex_charge = flex["batteries"]["power"]
@@ -235,7 +248,7 @@ def generate_individual_flex_band(scenario, gcID):
     flex["batteries"]["init_discharge"] = sum([b.get_available_power(interval) for b in batteries])
     for b in batteries:
         if b.capacity > 2**50:
-            print("WARNING: battery without capacity detected")
+            warnings.warn("WARNING: battery without capacity detected")
         flex["batteries"]["stored"] += b.soc * b.capacity
         flex["batteries"]["power"] += b.loading_curve.max_power
         flex["batteries"]["free"] += (1 - b.soc) * b.capacity
@@ -307,6 +320,8 @@ def generate_individual_flex_band(scenario, gcID):
                 vid = event.vehicle_id
                 vehicle = vehicles[vid]
                 if event.event_type == 'arrival':
+                    if vehicle.connected_charging_station is not None:
+                        warnings.warn("Multiple arrivals")
                     cs_id = event.update["connected_charging_station"]
                     vehicle.connected_charging_station = cs_id
                     vehicle.battery.soc += event.update["soc_delta"]
@@ -318,35 +333,39 @@ def generate_individual_flex_band(scenario, gcID):
                         continue
                     if cs.parent != gcID:
                         # fake perfect charging
-                        vehicle.battery.soc = event.update["desired_soc"]
+                        vehicle.battery.soc = max(vehicle.battery.soc, event.update["desired_soc"])
                         continue
                     # arrived at this GC: add to list
                     vehicle.last_arrival_idx = (len(flex["vehicles"])-1, len(flex["vehicles"][-1]))
                     delta_soc = event.update["desired_soc"] - vehicle.battery.soc
                     delta_soc = max(delta_soc, 0)
                     energy = delta_soc * vehicle.battery.capacity / vehicle.battery.efficiency
+                    est_tod = event.update["estimated_time_of_departure"]
+                    tod_idx = (est_tod - scenario.start_time) // scenario.interval
                     flex["vehicles"][-1].append({
                         "vid": vid,
-                        "v2g": get_v2g_energy(v),
+                        "v2g": get_v2g_energy(vehicle),
                         "t_start": event.start_time,
-                        "t_end": scenario.stop_time,
+                        "t_end": min(est_tod, scenario.stop_time),
                         "idx_start": idx,
-                        "idx_end": scenario.n_intervals - 1,
+                        "idx_end": min(tod_idx, scenario.n_intervals - 1),
                         "init_soc": vehicle.battery.soc,
                         "energy": energy,
                         "desired_soc": event.update["desired_soc"],
-                        "efficiency": v.battery.efficiency,
-                        "p_min": max(cs.min_power, v.vehicle_type.min_charging_power),
-                        "p_max": min(cs.max_power, v.battery.loading_curve.max_power),
+                        "efficiency": vehicle.battery.efficiency,
+                        "p_min": max(cs.min_power, vehicle.vehicle_type.min_charging_power),
+                        "p_max": min(cs.max_power, vehicle.battery.loading_curve.max_power),
                     })
-                    vehicle.battery.soc = event.update["desired_soc"]
+                    vehicle.battery.soc = max(vehicle.battery.soc, event.update["desired_soc"])
                 else:
                     # departure
                     cs_id = vehicle.connected_charging_station
                     if cs_id is None:
                         continue
+                    vehicle.connected_charging_station = None
                     cs = scenario.constants.charging_stations.get(cs_id)
                     if cs is None or cs.parent != gcID:
+                        # leave without being connected or different GC: skip
                         continue
                     # departed from this GC: update departure time
                     v_idx = vehicle.last_arrival_idx
@@ -381,10 +400,15 @@ def generate_schedule(args):
     # compute flexibility potential (min/max) of single grid connector for each timestep
     gcID, gc = list(s.constants.grid_connectors.items())[0]
     # use different function depending on "inidivual" argument
+    core_standing_time = args.core_standing_time or s.core_standing_time
     if args.individual:
         flex = generate_individual_flex_band(s, gcID)
     else:
-        flex = generate_flex_band(s, gcID=gcID, core_standing_time=args.core_standing_time)
+        flex = generate_flex_band(s, gcID=gcID, core_standing_time=core_standing_time)
+        # check that core standing time is set
+        if core_standing_time is None:
+            warnings.warn("Core standing time is not set. "
+                          "You can not simulate the schedule strategy without.")
 
     residual_load = []
     curtailment = []
@@ -446,8 +470,8 @@ def generate_schedule(args):
     original_curtailment = deepcopy(curtailment)
     original_residual_load = deepcopy(residual_load)
 
-    # default schedule: just basic power needs
-    schedule = [v for v in flex["base"]]
+    # default schedule: just basic power needs, but clipped to GC power
+    schedule = [min(max(v, flex["min"][i]), flex["max"][i]) for i, v in enumerate(flex["base"])]
 
     # adjust curtailment and residual load based on base flex (feed-in / ext. load)
     for i, power in enumerate(flex["base"]):
@@ -604,8 +628,11 @@ def generate_schedule(args):
 
     if args.individual:
         # generate schedule for each individual vehicle
-        min_flex = deepcopy(schedule)
-        max_flex = deepcopy(schedule)
+        min_flex = schedule.copy()
+        max_flex = schedule.copy()
+        gc_limit = flex["max"]  # simple renaming
+        # available GC power: max power minus base load
+        gc_avail = [max(gc_limit[i] - schedule[i], 0) for i in range(s.n_intervals)]
 
         for i in range(s.n_intervals):
             # sort arrivals by energy needed and standing time
@@ -639,26 +666,24 @@ def generate_schedule(args):
                             continue
                         if prio == 0:
                             # use curtailment power
-                            power_avail[j] = min(flex["max"][k], curtailment[k])
+                            power_avail[j] = min(gc_avail[k], curtailment[k])
                         elif prio == 1:
                             # don't exceed percentile
-                            power_avail[j] = min(
-                                flex["max"][k], cutoff_priority_1 - residual_load[k])
+                            power_avail[j] = min(gc_avail[k], cutoff_priority_1 - residual_load[k])
                         elif prio == 2:
                             # load must remain negative and below highest perc
                             power_avail[j] = min(
-                                flex["max"][k],
+                                gc_avail[k],
                                 -residual_load[k],
                                 cutoff_priority_4 - residual_load[k])
                         elif prio == 3:
                             # don't cross percentile
-                            power_avail[j] = min(
-                                flex["max"][k], cutoff_priority_4 - residual_load[k])
+                            power_avail[j] = min(gc_avail[k], cutoff_priority_4 - residual_load[k])
                         elif prio == 4:
                             # already in highest percentile: charge unrestricted
-                            power_avail[j] = flex["max"][k]
-                        # clamp to vehicle power
-                        power_avail[j] = min(power_avail[j], vinfo["p_max"])
+                            power_avail[j] = gc_avail[k]
+                        # clamp to leftover vehicle power
+                        power_avail[j] = min(power_avail[j], p_max_avail[j])
 
                     for j, k in enumerate(standing_range):
                         # energy left within standing time
@@ -674,7 +699,7 @@ def generate_schedule(args):
                         power = min(power, p_max_avail[j])
                         schedule[k] += power
                         energy_needed -= power / ts_per_hour
-                        flex["max"][k] -= power
+                        gc_avail[k] -= power
                         p_max_avail[j] -= power
 
                         # use curtailment power first
@@ -698,8 +723,9 @@ def generate_schedule(args):
             bat_flex = flex["batteries"]["power"] * flex["batteries"]["efficiency"] / ts_per_hour
             max_flex[i] += bat_flex
 
-        flex["min"] = min_flex
-        flex["max"] = max_flex
+        # rename for plotting and consistency with collective schedule
+        flex["max"] = [min(f, gc_limit[i]) for i, f in enumerate(max_flex)]
+        flex["min"] = [max(f, flex["min"][i]) for i, f in enumerate(min_flex)]
         # end generate schedule for individual vehicles
     else:
         # generate schedule for whole vehicle park
@@ -870,7 +896,7 @@ def generate_schedule(args):
         'grid_connector_id': list(s.constants.grid_connectors.keys())[0],
         'individual': args.individual,
     }
-    scenario_json['scenario']['core_standing_time'] = args.core_standing_time
+    scenario_json['scenario']['core_standing_time'] = core_standing_time
     with open(args.scenario, 'w') as f:
         json.dump(scenario_json, f, indent=2)
 
@@ -883,8 +909,8 @@ def generate_schedule(args):
         axes[0].step(
             range(s.n_intervals),
             list(zip(flex["min"], flex["max"], schedule)),
-            label=["min", "max", "schedule"])
-        axes[0].axhline(color='k', linestyle='--', linewidth=1)
+            label=["min. flexibility", "max. flexibility", "schedule"])
+        axes[0].axhline(color='k', linestyle='dotted', linewidth=1)
         axes[0].set_xlim([0, s.n_intervals])
         axes[0].legend()
         axes[0].set_ylabel("power [kW]")
@@ -892,16 +918,21 @@ def generate_schedule(args):
         axes[1].step(
             range(s.n_intervals),
             list(zip(residual_load, curtailment)),
-            label=["residual load", "curtailment"])
+            label=["residual load (new)", "curtailment (new)"])
         # reset color cycle, so lines of original data have same color
         axes[1].set_prop_cycle(None)
         axes[1].step(
             range(s.n_intervals),
             list(zip(original_residual_load, original_curtailment)),
-            linestyle='--')
+            linestyle='--', label=["residual load (original)", "curtailment (original)"])
         # show cutoffs
+        axes[1].axhline(color='k', linestyle='dotted', linewidth=1)
         axes[1].axhline(cutoff_priority_1, color='k', linestyle='--', linewidth=1)
+        axes[1].text(s.n_intervals, cutoff_priority_1,
+                     f"${int(args.priority_percentile * 100)}^t$$^h$", fontsize=8)
         axes[1].axhline(cutoff_priority_4, color='k', linestyle='--', linewidth=1)
+        axes[1].text(s.n_intervals, cutoff_priority_4,
+                     f"${int((1 - args.priority_percentile) * 100)}^t$$^h$", fontsize=8)
         axes[1].legend()
         axes[1].set_xlim([0, s.n_intervals])
         axes[1].set_ylabel("power [kW]")
