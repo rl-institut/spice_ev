@@ -909,8 +909,8 @@ def generate_schedule(args):
         axes[0].step(
             range(s.n_intervals),
             list(zip(flex["min"], flex["max"], schedule)),
-            label=["min", "max", "schedule"])
-        axes[0].axhline(color='k', linestyle='--', linewidth=1)
+            label=["min. flexibility", "max. flexibility", "schedule"])
+        axes[0].axhline(color='k', linestyle='dotted', linewidth=0.5)
         axes[0].set_xlim([0, s.n_intervals])
         axes[0].legend()
         axes[0].set_ylabel("power [kW]")
@@ -918,16 +918,21 @@ def generate_schedule(args):
         axes[1].step(
             range(s.n_intervals),
             list(zip(residual_load, curtailment)),
-            label=["residual load", "curtailment"])
+            label=["residual load (new)", "curtailment (new)"])
         # reset color cycle, so lines of original data have same color
         axes[1].set_prop_cycle(None)
         axes[1].step(
             range(s.n_intervals),
             list(zip(original_residual_load, original_curtailment)),
-            linestyle='--')
+            linestyle='--', label=["residual load (original)", "curtailment (original)"])
         # show cutoffs
-        axes[1].axhline(cutoff_priority_1, color='k', linestyle='--', linewidth=1)
-        axes[1].axhline(cutoff_priority_4, color='k', linestyle='--', linewidth=1)
+        axes[1].axhline(color='k', linestyle='dotted', linewidth=0.5)
+        axes[1].axhline(cutoff_priority_1, color='k', linestyle='--', linewidth=0.5)
+        axes[1].text(s.n_intervals, cutoff_priority_1,
+                     f"${int(args.priority_percentile * 100)}^t$$^h$", fontsize=8)
+        axes[1].axhline(cutoff_priority_4, color='k', linestyle='--', linewidth=0.5)
+        axes[1].text(s.n_intervals, cutoff_priority_4,
+                     f"${int((1 - args.priority_percentile) * 100)}^t$$^h$", fontsize=8)
         axes[1].legend()
         axes[1].set_xlim([0, s.n_intervals])
         axes[1].set_ylabel("power [kW]")
