@@ -212,7 +212,7 @@ def calculate_costs(strategy, voltage_level, interval,
     :raises Exception: if charging strategy is not supported
     :raises ValueError: if nom. PV power exceeds max. power for feed-in remuneration in price sheet
     :return: total costs per year and simulation period (fees and taxes included)
-    :rtype: float
+    :rtype: dict
     """
 
     # sanity checks
