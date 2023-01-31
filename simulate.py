@@ -7,7 +7,7 @@ import warnings
 
 from spice_ev.scenario import Scenario
 from spice_ev.util import set_options_from_config
-from calculate_costs import calculate_costs
+from spice_ev.costs import calculate_costs
 
 STRATEGIES = [
     'greedy', 'greedy_market',

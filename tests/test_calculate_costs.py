@@ -3,8 +3,8 @@ import pytest
 from pathlib import Path
 import subprocess
 
-from spice_ev import scenario
-import calculate_costs as cc
+from spice_ev import scenario, costs as cc
+from calculate_costs import read_simulation_csv
 
 TEST_REPO_PATH = Path(__file__).parent
 supported_strategies = ["greedy", "balanced", "distributed", "balanced_market",
@@ -41,7 +41,7 @@ class TestSimulationCosts:
         s = scenario.Scenario(j)
         save_timeseries = tmp_path / "save_timeseries.csv"
         s.run('greedy', {"save_timeseries": str(save_timeseries)})
-        result = cc.read_simulation_csv(str(save_timeseries))
+        result = read_simulation_csv(str(save_timeseries))
 
         # check length of result lists
         for k, l in result.items():

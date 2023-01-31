@@ -4,8 +4,8 @@ from pathlib import Path
 import pytest
 
 from generate import generate
-import generate_schedule
 from spice_ev import scenario
+from spice_ev.generate import generate_schedule
 
 TEST_REPO_PATH = Path(__file__).parent
 

@@ -3,6 +3,7 @@ import json
 import os
 
 from spice_ev import util
+from spice_ev.generate.generate_schedule import generate_flex_band
 
 
 def aggregate_global_results(scenario):
@@ -73,9 +74,6 @@ def aggregate_local_results(scenario, gcID):
     stepsPerHour = scenario.stepsPerHour
 
     if gcID not in scenario.flex_bands.keys():
-        if 'generate_flex_band' not in locals().keys():
-            # cyclic dependency: import when needed
-            from generate_schedule import generate_flex_band
         try:
             scenario.flex_bands[gcID] = generate_flex_band(scenario, gcID)
         except Exception:
@@ -387,9 +385,6 @@ def aggregate_timeseries(scenario, gcID):
     if not hasattr(scenario, "flex_bands"):
         setattr(scenario, "flex_bands", {})
     if gcID not in scenario.flex_bands.keys():
-        if 'generate_flex_band' not in locals().keys():
-            # circular dependency: import when needed
-            from generate_schedule import generate_flex_band
         try:
             scenario.flex_bands[gcID] = generate_flex_band(scenario, gcID)
         except Exception:
