@@ -751,19 +751,22 @@ class Schedule(Strategy):
                 # too much power drawn: support with battery
                 power = -needed_power
                 # don't exceed GC limit
-                power = min(power, avail_pos_power)
+                power = min(power, avail_neg_power)
+                # don't exceed stored energy
+                power = min(power, battery.get_available_power(self.interval))
                 bat_power = -battery.unload(self.interval, target_power=power)["avg_power"]
             elif needed_power > self.EPS:
                 # not enough power drawn: charge battery
                 power = needed_power
                 # don't exceed GC limit
-                power = min(power, avail_neg_power)
+                power = min(power, avail_pos_power)
                 if power < battery.min_charging_power:
                     power = 0
                 bat_power = battery.load(self.interval, power)["avg_power"]
             else:
                 # target already reached
                 bat_power = 0
+
             gc.add_load(bid, bat_power)
 
     def step(self):
