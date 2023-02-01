@@ -752,8 +752,6 @@ class Schedule(Strategy):
                 power = -needed_power
                 # don't exceed GC limit
                 power = min(power, avail_neg_power)
-                # don't exceed stored energy
-                power = min(power, battery.get_available_power(self.interval))
                 bat_power = -battery.unload(self.interval, target_power=power)["avg_power"]
             elif needed_power > self.EPS:
                 # not enough power drawn: charge battery

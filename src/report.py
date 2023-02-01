@@ -307,7 +307,7 @@ def aggregate_local_results(scenario, gcID):
     vehicle_cap = sum([v.battery.capacity for v in scenario.constants.vehicles.values()])
     vehicle_energy = sum([sum(map(lambda v: max(v, 0), r["commands"].values()))
                           for r in scenario.results])
-    scenario.total_vehicle_cap[gcID] = vehicle_cap
+    scenario.total_vehicle_cap[gcID] = vehicle_cap or 1
     scenario.total_vehicle_energy[gcID] = vehicle_energy
     battery_cycles = vehicle_energy / vehicle_cap if vehicle_cap > 0 else 0
     json_results["all vehicle battery cycles"] = {

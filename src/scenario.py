@@ -18,8 +18,8 @@ class Scenario:
 
     def __init__(self, json_dict, dir_path=''):
         # get constants and events
-        self.constants = constants.Constants(json_dict.get('constants'))
-        self.events = events.Events(json_dict.get('events'), dir_path)
+        self.constants = constants.Constants(json_dict.get('constants', {}))
+        self.events = events.Events(json_dict.get('events', {}), dir_path)
 
         scenario = json_dict.get('scenario')
 
