@@ -56,12 +56,13 @@ Generate_schedule
 Generates schedule for grid signals. For an example
 config file see `/examples/generate_schedule.cfg`.
 
-.. currentmodule:: generate_schedule
+.. currentmodule:: spice_ev.generate.generate_schedule
 .. autosummary::
     :toctree: temp/
 
     generate_schedule
     generate_flex_band
+	generate_individual_flex_band
 
 Simulate
 ========
@@ -291,3 +292,13 @@ Utility functions.
     get_power
     clamp_power
     set_options_from_config
+
+Calculate costs
+===============
+Calculate fixed and operating costs based on price sheet. Can be done during simulation or independently afterwards. For an example config file see `/examples/calculate_costs.cfg`.
+
+.. currentmodule:: spice_ev.costs
+.. autosummary::
+    :toctree: temp/
+
+    calculate_costs

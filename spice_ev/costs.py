@@ -148,7 +148,7 @@ def calculate_costs(strategy, voltage_level, interval,
     :param price_list: prices for energy supply in EUR/kWh
     :type price_list: list
     :param power_fix_load_list: power supplied from the grid for the fixed load
-    :type power_fix_load_list list
+    :type power_fix_load_list: list
     :param charging_signal_list: charging signal (True (1): charge, False (0): don't charge)
     :type charging_signal_list: list
     :param core_standing_time_dict: defined core standing time of the fleet
