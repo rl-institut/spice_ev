@@ -6,7 +6,7 @@ from json.decoder import JSONDecodeError
 import warnings
 
 from spice_ev import util
-from spice_ev.generate import generate_schedule
+from spice_ev.generate.generate_schedule import generate_schedule
 
 
 if __name__ == '__main__':

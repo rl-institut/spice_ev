@@ -1,9 +1,8 @@
 import datetime
 import json
-import os
+from pathlib import Path
 
 from spice_ev import util
-from spice_ev.generate.generate_schedule import generate_flex_band
 
 
 def aggregate_global_results(scenario):
@@ -74,6 +73,9 @@ def aggregate_local_results(scenario, gcID):
     stepsPerHour = scenario.stepsPerHour
 
     if gcID not in scenario.flex_bands.keys():
+        if 'generate_flex_band' not in locals().keys():
+            # cyclic dependency: import when needed
+            from spice_ev.generate.generate_schedule import generate_flex_band
         try:
             scenario.flex_bands[gcID] = generate_flex_band(scenario, gcID)
         except Exception:
@@ -385,6 +387,9 @@ def aggregate_timeseries(scenario, gcID):
     if not hasattr(scenario, "flex_bands"):
         setattr(scenario, "flex_bands", {})
     if gcID not in scenario.flex_bands.keys():
+        if 'generate_flex_band' not in locals().keys():
+            # cyclic dependency: import when needed
+            from spice_ev.generate.generate_schedule import generate_flex_band
         try:
             scenario.flex_bands[gcID] = generate_flex_band(scenario, gcID)
         except Exception:
@@ -666,21 +671,15 @@ def generate_reports(scenario, options):
             setattr(scenario, var, {})
 
     # check file extensions
-    if save_results:
+    if save_results and Path(save_results).suffix != ".json":
         # general results should be JSON
-        ext = os.path.splitext(save_results)[-1]
-        if ext != ".json":
-            print("File extension mismatch: results file is of type .json")
-    if save_soc:
+        print("File extension mismatch: results file is of type .json")
+    if save_soc and Path(save_soc).suffix != ".csv":
         # vehicle SoC should be CSV
-        ext = os.path.splitext(save_soc)[-1]
-        if ext != ".csv":
-            print("File extension mismatch: SoC timeseries file is of type .csv")
-    if save_timeseries:
+        print("File extension mismatch: SoC timeseries file is of type .csv")
+    if save_timeseries and Path(save_timeseries).suffix != ".csv":
         # timeseries data should be CSV
-        ext = os.path.splitext(save_timeseries)[-1]
-        if ext != ".csv":
-            print("File extension mismatch: timeseries file is of type .csv")
+        print("File extension mismatch: timeseries file is of type .csv")
 
     gc_ids = sorted(scenario.components.grid_connectors.keys())
     for gcID in gc_ids:
@@ -692,22 +691,18 @@ def generate_reports(scenario, options):
             results_file_content = aggregate_local_results(scenario=scenario, gcID=gcID)
         if save_results:
             # write general results to file
-            if len(gc_ids) == 1:
-                file_name = save_results
-            else:
-                file_name, ext = os.path.splitext(save_results)
-                file_name = f"{file_name}_{util.sanitize(gcID)}{ext}"
-            with open(file_name, 'w') as results_file:
+            fpath = Path(save_results)
+            if len(gc_ids) > 1:
+                # extend file name by GC name (without special characters)
+                fpath = f"{fpath.stem}_{util.sanitize(gcID)}{fpath.suffix}"
+            with fpath.open('w') as results_file:
                 json.dump(results_file_content, results_file, indent=2)
         if save_timeseries:
             # save power use for each timestep in file
-            file_name, ext = os.path.splitext(save_timeseries)
-            if len(gc_ids) == 1:
-                file_name = save_timeseries
-            else:
-                file_name, ext = os.path.splitext(save_timeseries)
-                file_name = f"{file_name}_{util.sanitize(gcID)}{ext}"
-            with open(file_name, 'w') as timeseries_file:
+            fpath = Path(save_timeseries)
+            if len(gc_ids) > 1:
+                fpath = f"{fpath.stem}_{util.sanitize(gcID)}{fpath.suffix}"
+            with fpath.open('w') as timeseries_file:
                 # write header
                 timeseries_file.write(','.join(agg_ts["header"]))
                 # write timestep data

@@ -2,7 +2,7 @@
 
 import argparse
 import json
-import os
+from pathlib import Path
 import warnings
 
 from spice_ev.scenario import Scenario
@@ -31,7 +31,10 @@ def simulate(args):
         # cast arguments to dictionary for default handling
         args = vars(args)
 
-    if args.get("input") is None or not os.path.exists(args["input"]):
+    try:
+        input_file = Path(args["input"])
+        assert input_file.exists()
+    except (TypeError, AssertionError):
         raise SystemExit("Please specify a valid input file.")
 
     options = {
@@ -60,8 +63,8 @@ def simulate(args):
             options[opt_key] = opt_val
 
     # Read JSON
-    with open(args["input"], 'r') as f:
-        s = Scenario(json.load(f), os.path.dirname(args["input"]))
+    with input_file.open('r') as f:
+        s = Scenario(json.load(f), input_file.parent)
 
     # RUN!
     s.run(strategy_name, options)

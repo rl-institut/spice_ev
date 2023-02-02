@@ -297,19 +297,21 @@ class TestGenerateSchedule(TestCaseBase):
         assert sum(schedules[0][130:153]) == 0
         assert pytest.approx(sum(schedules[0][153:191]), .1) == 1000
 
-    def test_generate_complex_schedule(self):
+    def test_generate_complex_schedule(self, tmp_path):
         # slightly more complex scenario with ext. load and feed-in
+        # copy scenario and needed files to tmp
         path = TEST_REPO_PATH / "test_data/input_test_generate"
-        output_file = path / "schedule_example.csv"
+        for filename in ["scenario_C.json", "example_load.csv", "example_pv_feedin.csv"]:
+            (tmp_path / filename).write_text((path / filename).read_text())
+        schedule_file = tmp_path / "schedule.json"
         current_arg_values = {
             "input": path / "example_grid_situation.csv",
-            "scenario": path / "scenario_C.json",
-            "output": output_file,
+            "scenario": tmp_path / "scenario_C.json",
+            "output": schedule_file,
             "priority_percentile": 0.25,
             "visual": False,
             "core_standing_time": {"times": [{"start": [22, 0], "end": [5, 0]}], "full_days": [7]},
             "individual": False,
         }
         generate_schedule.generate_schedule(Namespace(**current_arg_values))
-        self.assertIsFile(output_file)
-        output_file.unlink()
+        self.assertIsFile(schedule_file)

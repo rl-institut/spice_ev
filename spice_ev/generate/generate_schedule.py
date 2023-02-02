@@ -2,7 +2,8 @@ from copy import deepcopy
 import csv
 import datetime
 import json
-import os
+from os.path import relpath
+from pathlib import Path
 import warnings
 
 from spice_ev import events, scenario, strategy, util
@@ -384,10 +385,11 @@ def generate_schedule(args):
     """
 
     # read in scenario
-    with open(args.scenario, 'r') as f:
+    args.scenario = Path(args.scenario)
+    with args.scenario.open('r') as f:
         scenario_json = json.load(f)
         scenario_json['events']['schedule_from_csv'] = {}
-        s = scenario.Scenario(scenario_json, os.path.dirname(args.scenario))
+        s = scenario.Scenario(scenario_json, args.scenario.parent)
 
     ts_per_hour = datetime.timedelta(hours=1) / s.interval
 
@@ -861,10 +863,16 @@ def generate_schedule(args):
         # search end of priority
         t_end += 1
 
-    args.output = args.output or '.'.join(args.scenario.split('.')[:-1]) + "_schedule.csv"
+    try:
+        args.output = Path(args.output)
+    except TypeError:
+        # no output filename given: save in same directory as scenario
+        args.output = args.scenario.parent / f"{args.scenario.stem}_schedule.csv"
     print("Writing to", args.output)
+    # pathlib relative_to can only look in subdirectories -> use os.path.relpath
+    relative_output_path = relpath(args.output, args.scenario.parent)
     # write schedule to file
-    with open(args.output, 'w') as f:
+    with args.output.open('w') as f:
         # header
         header = ["timestamp", "schedule [kW]", "charge"]
         if args.individual:
@@ -888,12 +896,12 @@ def generate_schedule(args):
         'column': 'schedule [kW]',
         'start_time': s.start_time.isoformat(),
         'step_duration_s': s.interval.seconds,
-        'csv_file': os.path.relpath(args.output, os.path.dirname(args.scenario)),
+        'csv_file': relative_output_path,
         'grid_connector_id': list(s.components.grid_connectors.keys())[0],
         'individual': args.individual,
     }
     scenario_json['scenario']['core_standing_time'] = core_standing_time
-    with open(args.scenario, 'w') as f:
+    with args.scenario.open('w') as f:
         json.dump(scenario_json, f, indent=2)
 
     if args.visual:
