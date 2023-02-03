@@ -30,7 +30,7 @@ arguments. For an example config file see `/examples/generate_from_statistics.cf
 Generate_from_csv
 -----------------
 Generates a scenario JSON from csv rotation schedule of fleets. For an example
-config file see `/examples/generate_from_csv.cfg`.
+config file see `/examples/configs/generate_from_csv.cfg`.
 
 .. currentmodule:: spice_ev.generate.generate_from_csv
 .. autosummary::
@@ -43,7 +43,7 @@ config file see `/examples/generate_from_csv.cfg`.
 Generate_from_simbev
 --------------------
 Generates a scenario JSON from simBEV results. For an example
-config file see `/examples/generate_from_simbev.cfg`.
+config file see `/examples/configs/generate_from_simbev.cfg`.
 
 .. currentmodule:: spice_ev.generate.generate_from_simbev
 .. autosummary::
@@ -54,7 +54,7 @@ config file see `/examples/generate_from_simbev.cfg`.
 Generate_schedule
 -----------------
 Generates schedule for grid signals. For an example
-config file see `/examples/generate_schedule.cfg`.
+config file see `/examples/configs/generate_schedule.cfg`.
 
 .. currentmodule:: spice_ev.generate.generate_schedule
 .. autosummary::
@@ -68,7 +68,7 @@ Simulate
 ========
 Reads in simulation input arguments, sets up scenario and runs the simulation.
 Functions as a wrapper for the simulation. For an example
-config file see `/examples/simulate.cfg`.
+config file see `/examples/configs/simulate.cfg`.
 
 .. currentmodule:: simulate
 .. autosummary::
@@ -78,7 +78,7 @@ config file see `/examples/simulate.cfg`.
 
 Scenario
 ========
-Sets up constants, events, start time, interval of the simulation. Runs simulation
+Sets up components, events, start time, interval of the simulation. Runs simulation
 stepwise and calls charging strategy for each timestep.
 
 .. currentmodule:: spice_ev.scenario
@@ -295,7 +295,7 @@ Utility functions.
 
 Calculate costs
 ===============
-Calculate fixed and operating costs based on price sheet. Can be done during simulation or independently afterwards. For an example config file see `/examples/calculate_costs.cfg`.
+Calculate fixed and operating costs based on price sheet. Can be done during simulation or independently afterwards. For an example config file see `/examples/configs/calculate_costs.cfg`.
 
 .. currentmodule:: spice_ev.costs
 .. autosummary::
