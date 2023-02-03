@@ -307,7 +307,7 @@ def aggregate_local_results(scenario, gcID):
     vehicle_cap = sum([v.battery.capacity for v in scenario.constants.vehicles.values()])
     vehicle_energy = sum([sum(map(lambda v: max(v, 0), r["commands"].values()))
                           for r in scenario.results])
-    scenario.total_vehicle_cap[gcID] = vehicle_cap or 1
+    scenario.total_vehicle_cap[gcID] = vehicle_cap
     scenario.total_vehicle_energy[gcID] = vehicle_energy
     battery_cycles = vehicle_energy / vehicle_cap if vehicle_cap > 0 else 0
     json_results["all vehicle battery cycles"] = {
@@ -766,7 +766,10 @@ def generate_reports(scenario, options):
             "sum_feed_in_per_h": {gcID: (sum(scenario.feedInPower[gcID]) / scenario.stepsPerHour)
                                   for gcID in gc_ids},
             "vehicle_battery_cycles": {
-                gcID: (scenario.total_vehicle_energy[gcID] / scenario.total_vehicle_cap[gcID])
+                # battery cycle: full charge of battery
+                # => total cycles: how often can batteries be fully charged with loaded energy
+                # avoid div0 if no vehicles are present
+                gcID: scenario.total_vehicle_energy[gcID] / max(scenario.total_vehicle_cap[gcID], 1)
                 for gcID in gc_ids
             }
         }
