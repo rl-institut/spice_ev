@@ -51,7 +51,7 @@ def generate_from_csv(args):
     start = datetime.datetime.strptime(start, DATETIME_FORMAT)
     stop = start + datetime.timedelta(days=args.days)
 
-    # INITIALIZE CONSTANTS AND EVENTS
+    # INITIALIZE COMPONENTS AND EVENTS
     vehicle_types = {}
     vehicles = {}
     charging_stations = {}
@@ -300,7 +300,7 @@ def generate_from_csv(args):
             "stop_time": stop.isoformat(),
             "discharge_limit": args.discharge_limit,
         },
-        "constants": {
+        "components": {
             "vehicle_types": vehicle_types,
             "vehicles": vehicles,
             "grid_connectors": args.gc,

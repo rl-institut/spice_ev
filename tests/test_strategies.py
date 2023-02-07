@@ -2,7 +2,7 @@ import json
 from pathlib import Path
 import pytest
 
-from src import scenario, strategy
+from spice_ev import scenario, strategy
 
 TEST_REPO_PATH = Path(__file__).parent
 
@@ -15,7 +15,7 @@ def get_test_json():
             "interval": 15,
             "n_intervals": 96
         },
-        "constants": {
+        "components": {
             "grid_connectors": {},
             "charging_stations": {},
             "vehicle_types": {},
@@ -58,6 +58,12 @@ class TestScenarios(TestCaseBase):
         s = scenario.Scenario(j)
         assert s.n_intervals == 4
 
+    def test_backwards_compatibility(self):
+        # components used to be called constants
+        j = get_test_json()
+        j["constants"] = j.pop("components")
+        scenario.Scenario(j)
+
     def test_empty(self):
         s = scenario.Scenario({
             "scenario": {
@@ -92,8 +98,8 @@ class TestScenarios(TestCaseBase):
         s = scenario.Scenario(load_json(input), input.parent)
         for strat in ['greedy', 'balanced', 'balanced_market', 'flex_window', 'peak_load_window']:
             s.run(strat, {"testing": True})
-            for gcID, gc in s.constants.grid_connectors.items():
-                assert s.testing["max_total_load"] <= s.constants.grid_connectors[gcID].max_power
+            for gcID, gc in s.components.grid_connectors.items():
+                assert s.testing["max_total_load"] <= s.components.grid_connectors[gcID].max_power
                 assert s.testing["max_total_load"] > 0
 
     def test_distributed_D(self):
@@ -102,8 +108,8 @@ class TestScenarios(TestCaseBase):
         s.run('distributed', {"testing": True, "strategy_option": [["ALLOW_NEGATIVE_SOC", True]],
                               "margin": 1})
         max_power = 0
-        for gcID, gc in s.constants.grid_connectors.items():
-            max_power += s.constants.grid_connectors[gcID].max_power
+        for gcID, gc in s.components.grid_connectors.items():
+            max_power += s.components.grid_connectors[gcID].max_power
         assert s.testing["max_total_load"] <= max_power
         assert s.testing["max_total_load"] > 0
 
@@ -138,7 +144,7 @@ class TestScenarios(TestCaseBase):
         total_load = [a + b for a, b in zip(load, cs_load)]
         assert sum([round(a - b, 3) for a, b in zip(total_load, s.testing["timeseries"][
             "total_load"])]) == 0
-        assert s.testing["max_total_load"] <= s.constants.grid_connectors["GC1"].max_power
+        assert s.testing["max_total_load"] <= s.components.grid_connectors["GC1"].max_power
         assert s.testing["max_total_load"] > 0
 
     def test_flex_window_all_loaded_in_windows(self):
@@ -177,7 +183,7 @@ class TestScenarios(TestCaseBase):
         for idx in indices_load_vehicle:
             if s.testing["timeseries"]["schedule"]["GC1"][idx] is True:
                 if round(cs_load[idx], 0) > 0:
-                    assert round(cs_load[idx], 0) == s.constants.charging_stations[
+                    assert round(cs_load[idx], 0) == s.components.charging_stations[
                         "CS_golf_0"].max_power
         # check if batteries are only loaded in window
         indices_load_battery = [idx for idx, val in enumerate(s.testing["timeseries"]["loads"]
@@ -195,8 +201,8 @@ class TestScenarios(TestCaseBase):
         s = scenario.Scenario(load_json(input), input.parent)
         s.run('distributed', {"testing": True})
         max_power = 0
-        for gcID, gc in s.constants.grid_connectors.items():
-            max_power += s.constants.grid_connectors[gcID].max_power
+        for gcID, gc in s.components.grid_connectors.items():
+            max_power += s.components.grid_connectors[gcID].max_power
         cs = s.testing["timeseries"]["sum_cs"]
         cs_1 = [x for x in cs if x[0] != 0]
         cs_2 = [x for x in cs if x[1] != 0]
@@ -229,7 +235,7 @@ class TestScenarios(TestCaseBase):
                 "interval": 15,
                 "n_intervals": 10
             },
-            "constants": {
+            "components": {
                 "grid_connectors": {
                     "GC": {
                         "max_power": 100,
@@ -253,7 +259,7 @@ class TestScenarios(TestCaseBase):
         assert pytest.approx(s.batteryLevels["BAT"][-1]) == 10
 
         # schedule too low => discharge battery (must not become negative)
-        s.constants.grid_connectors["GC"].target = -5
+        s.components.grid_connectors["GC"].target = -5
         s.run('schedule', {"LOAD_STRAT": "individual", "testing": True})
         # test battery
         assert pytest.approx(s.batteryLevels["BAT"][-1]) == 0
@@ -266,7 +272,7 @@ def test_apply_battery_losses():
             "interval": 15,
             "n_intervals": 100
         },
-        "constants": {
+        "components": {
             "vehicle_types": {
                 "test": {
                     "name": "test",
@@ -290,7 +296,7 @@ def test_apply_battery_losses():
         },
     }
     s = scenario.Scenario(test_json)
-    strat = strategy.Strategy(s.constants, s.start_time, **{"interval": s.interval})
+    strat = strategy.Strategy(s.components, s.start_time, **{"interval": s.interval})
     # test vehicle battery in particular
     battery = strat.world_state.vehicles["test_vehicle"].battery
 

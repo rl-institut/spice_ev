@@ -1,10 +1,20 @@
 import datetime
-from src import battery, loading_curve, util
-from src.events import ExternalLoad
+from spice_ev import battery, loading_curve, util
+from spice_ev.events import ExternalLoad
 
 
-class Constants:
-    """ Constants class"""
+class Components:
+    """
+    Components class
+
+    Collection of all components:
+    - grid_connectors
+    - charging_stations
+    - vehicle_types
+    - vehicles
+    - batteries
+    - photovoltaics
+    """
     def __init__(self, obj):
         self.grid_connectors = dict(
             {k: GridConnector(v) for k, v in obj.get('grid_connectors', {}).items()})

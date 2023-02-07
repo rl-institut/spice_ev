@@ -1,7 +1,7 @@
 import copy
 from math import exp, log
 
-from src.loading_curve import LoadingCurve
+from spice_ev.loading_curve import LoadingCurve
 
 
 class Battery():
@@ -13,7 +13,7 @@ class Battery():
         :param capacity: capacity of the battery in kWh
         :type capacity: numerical
         :param loading_curve: loading curve of the battery
-        :type loading_curve: src.loading_curve.LoadingCurve
+        :type loading_curve: spice_ev.loading_curve.LoadingCurve
         :param soc: soc of the battery
         :type soc: float
         :param efficiency: efficiency of the battery
@@ -21,7 +21,7 @@ class Battery():
         :param unloading_curve: unloading curve of the battery.
             Defaults to None for backwards-compatability (discharge with maximum
             power of loading curve)
-        :type unloading_curve: src.loading_curve.LoadingCurve
+        :type unloading_curve: spice_ev.loading_curve.LoadingCurve
         :param loss_rate: adjusted loss rate per timestep. Can have keys
             *relative* (percent in relation to current charge),
             *fixed_relative* (percent in relation to capacity) and
@@ -196,7 +196,7 @@ class Battery():
             This charging curve reflects the exact amount of power the battery releases/receives.
             The curve must already be clamped and scaled to account for losses due to efficiency and
             limitations of connected devices.
-        :type charging_curve: src.loading_curve.LoadingCurve
+        :type charging_curve: spice_ev.loading_curve.LoadingCurve
         :param target_soc: SOC to (dis)charge to.
         :type target_soc: numeric
         :return: Average power released/received across entire timedelta.

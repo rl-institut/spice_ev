@@ -1,5 +1,5 @@
-from src.util import clamp_power, get_cost
-from src.strategy import Strategy
+from spice_ev.util import clamp_power, get_cost
+from spice_ev.strategy import Strategy
 
 
 class Greedy(Strategy):
@@ -11,9 +11,9 @@ class Greedy(Strategy):
     No foresight, price does not matter for normal charging.
     Can store surplus energy (feed-in or low energy price) in stationary battery or vehicles.
     """
-    def __init__(self, constants, start_time, **kwargs):
+    def __init__(self, components, start_time, **kwargs):
         self.PRICE_THRESHOLD = 0.001  # EUR/kWh
-        super().__init__(constants, start_time, **kwargs)
+        super().__init__(components, start_time, **kwargs)
         self.description = "greedy"
 
     def step(self):

@@ -6,8 +6,8 @@ import json
 from pathlib import Path
 import warnings
 
-from src.util import set_options_from_config
-from src.generate import generate_from_csv, generate_from_simbev, generate_from_statistics
+from spice_ev.util import set_options_from_config
+from spice_ev.generate import generate_from_csv, generate_from_simbev, generate_from_statistics
 
 
 MODE_CHOICES = {

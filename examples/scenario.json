@@ -4,7 +4,7 @@
     "interval": 15,
     "n_intervals": 97
   },
-  "constants": {
+  "components": {
     "vehicle_types": {
         "sprinter": {
             "name": "sprinter",
@@ -12,7 +12,7 @@
             "max_charging_power": 7,
             "charging_curve": [[0, 7], [0.8, 7], [1, 0]]
         },
-        "kleinwagen": {
+        "golf": {
             "name": "E-Golf",
             "capacity": 50,
             "max_charging_power": 22,

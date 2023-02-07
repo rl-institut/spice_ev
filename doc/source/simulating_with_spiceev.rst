@@ -350,7 +350,7 @@ Output
 ......
 File type: json
 
-To be used in simulate.py. Defines general info (start_time, interval, n_intervals), constants (vehicle types, vehicles, grid connectors, charging stations, batteries) and events (external loads, feed-in, grid operator signals and vehicle events).
+To be used in simulate.py. Defines general info (start_time, interval, n_intervals), components (vehicle types, vehicles, grid connectors, charging stations, batteries) and events (external loads, feed-in, grid operator signals and vehicle events).
 
 generate_from_csv.py
 --------------------

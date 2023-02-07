@@ -1,7 +1,7 @@
 import datetime
 import pytest
 
-from src import battery, loading_curve
+from spice_ev import battery, loading_curve
 
 
 class TestLoadingCurve:

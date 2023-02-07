@@ -5,7 +5,7 @@
     "n_intervals": 96,
     "discharge_limit": 0.5
   },
-  "constants": {
+  "components": {
     "vehicle_types": {
       "sprinter": {
         "name": "Sprinter",

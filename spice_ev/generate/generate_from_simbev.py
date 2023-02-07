@@ -7,8 +7,8 @@ from pathlib import Path
 import random
 import warnings
 
-from src.battery import Battery
-from src.loading_curve import LoadingCurve
+from spice_ev.battery import Battery
+from spice_ev.loading_curve import LoadingCurve
 
 
 def parse_vehicle_types(tech_data):
@@ -78,7 +78,7 @@ def generate_from_simbev(args):
         with open(args.vehicle_types) as f:
             predefined_vehicle_types = json.load(f)
 
-    # INITIALIZE CONSTANTS AND EVENTS
+    # INITIALIZE COMPONENTS AND EVENTS
     vehicle_types = {}
     vehicles = {}
     charging_stations = {}
@@ -416,7 +416,7 @@ def generate_from_simbev(args):
             "n_intervals": n_intervals,
             "discharge_limit": args.discharge_limit,
         },
-        "constants": {
+        "components": {
             "vehicle_types": vehicle_types,
             "vehicles": vehicles,
             "grid_connectors": args.gc,

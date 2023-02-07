@@ -1,6 +1,6 @@
 import datetime
 
-from src import constants, util
+from spice_ev import components, util
 
 
 class TestUtil:
@@ -94,19 +94,19 @@ class TestUtil:
             assert b == e, "{}:{} is {}".format(h, 0, b)
 
     def test_clamp_power(self):
-        cs = constants.ChargingStation({
+        cs = components.ChargingStation({
             "min_power": 1,
             "max_power": 10,
             "current_power": 0,
             "parent": "GC"
         })
-        vtype = constants.VehicleType({
+        vtype = components.VehicleType({
             "name": "test",
             "capacity": 1,
             "charging_curve": [(0, 1), (1, 0)],
             "min_charging_power": 0
         })
-        v = constants.Vehicle({
+        v = components.Vehicle({
             "vehicle_type": "test",
         }, {"test": vtype})
 

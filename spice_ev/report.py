@@ -1,8 +1,8 @@
 import datetime
 import json
-import os
+from pathlib import Path
 
-from src import util
+from spice_ev import util
 
 
 def aggregate_global_results(scenario):
@@ -15,13 +15,13 @@ def aggregate_global_results(scenario):
     :param scenario: Scenario for which to aggregate data.
     :type scenario: spice_ev.Scenario
     """
-    gc_ids = scenario.constants.grid_connectors.keys()
+    gc_ids = scenario.components.grid_connectors.keys()
     all_totalLoad = [sum(x) for x in zip(*scenario.totalLoad.values())]
 
     sum_cs = []
     for r in scenario.results:
         cur_cs = []
-        for cs_id in sorted(scenario.constants.charging_stations):
+        for cs_id in sorted(scenario.components.charging_stations):
             cur_cs.append(r['commands'].get(cs_id, 0.0))
         sum_cs.append(cur_cs)
 
@@ -75,7 +75,7 @@ def aggregate_local_results(scenario, gcID):
     if gcID not in scenario.flex_bands.keys():
         if 'generate_flex_band' not in locals().keys():
             # cyclic dependency: import when needed
-            from generate_schedule import generate_flex_band
+            from spice_ev.generate.generate_schedule import generate_flex_band
         try:
             scenario.flex_bands[gcID] = generate_flex_band(scenario, gcID)
         except Exception:
@@ -97,11 +97,11 @@ def aggregate_local_results(scenario, gcID):
 
     json_results["grid_connector"] = {
         "gcID": gcID,
-        "voltage_level": scenario.constants.grid_connectors[gcID].voltage_level
+        "voltage_level": scenario.components.grid_connectors[gcID].voltage_level
         }
 
-    nominal_pv_power = sum([pv.nominal_power for pv in scenario.constants.photovoltaics.values()
-                            if pv.parent == gcID])
+    pvs = scenario.components.photovoltaics.values()
+    nominal_pv_power = sum([pv.nominal_power for pv in pvs if pv.parent == gcID])
 
     json_results["photovoltaics"] = {
         "nominal_power": nominal_pv_power,
@@ -115,9 +115,9 @@ def aggregate_local_results(scenario, gcID):
     }
 
     # gather info about standing and power in specific time windows
-    load_count = [[0] for _ in scenario.constants.vehicles]
+    load_count = [[0] for _ in scenario.components.vehicles]
     load_window = [[] for _ in range(4)]
-    count_window = [[0]*len(scenario.constants.vehicles) for _ in range(4)]
+    count_window = [[0]*len(scenario.components.vehicles) for _ in range(4)]
 
     cur_time = scenario.start_time - scenario.interval
     # maximum power (fixed and variable loads)
@@ -203,7 +203,7 @@ def aggregate_local_results(scenario, gcID):
     # count per vehicle: list(zip(*count_window))
     total_standing = sum(map(sum, count_window))
     # avoid div0 if there are no vehicles
-    num_vehicles = max(len(scenario.constants.vehicles), 1)
+    num_vehicles = max(len(scenario.components.vehicles), 1)
     scenario.avg_total_standing_time[gcID] = total_standing / num_vehicles / stepsPerHour
     json_results["avg standing time"] = {
         "single": avg_stand_time[gcID],
@@ -282,8 +282,8 @@ def aggregate_local_results(scenario, gcID):
     # charging cycles
     # stationary batteries
     total_bat_cap = 0
-    for batID, battery in scenario.constants.batteries.items():
-        if scenario.constants.batteries[batID].parent == gcID:
+    for batID, battery in scenario.components.batteries.items():
+        if scenario.components.batteries[batID].parent == gcID:
             if battery.capacity > 2**63:
                 # unlimited capacity
                 max_cap = max(scenario.batteryLevels[batID])
@@ -295,8 +295,8 @@ def aggregate_local_results(scenario, gcID):
     if total_bat_cap:
         total_bat_energy = 0
         for loads in scenario.extLoads[gcID]:
-            for batID in scenario.constants.batteries.keys():
-                if scenario.constants.batteries[batID].parent == gcID:
+            for batID in scenario.components.batteries.keys():
+                if scenario.components.batteries[batID].parent == gcID:
                     total_bat_energy += max(loads.get(batID, 0), 0) / stepsPerHour
         json_results["stationary battery cycles"] = {
             "value": total_bat_energy / total_bat_cap,
@@ -304,7 +304,7 @@ def aggregate_local_results(scenario, gcID):
             "info": "Number of load cycles of stationary batteries (averaged)"
         }
     # vehicles
-    vehicle_cap = sum([v.battery.capacity for v in scenario.constants.vehicles.values()])
+    vehicle_cap = sum([v.battery.capacity for v in scenario.components.vehicles.values()])
     vehicle_energy = sum([sum(map(lambda v: max(v, 0), r["commands"].values()))
                           for r in scenario.results])
     scenario.total_vehicle_cap[gcID] = vehicle_cap
@@ -352,8 +352,8 @@ def aggregate_timeseries(scenario, gcID):
     :rtype: dict
     """
 
-    cs_ids = sorted(item for item in scenario.constants.charging_stations.keys() if
-                    scenario.constants.charging_stations[item].parent == gcID)
+    cs_ids = sorted(item for item in scenario.components.charging_stations.keys() if
+                    scenario.components.charging_stations[item].parent == gcID)
 
     uc_keys = [
         "work",
@@ -388,8 +388,8 @@ def aggregate_timeseries(scenario, gcID):
         setattr(scenario, "flex_bands", {})
     if gcID not in scenario.flex_bands.keys():
         if 'generate_flex_band' not in locals().keys():
-            # circular dependency: import when needed
-            from generate_schedule import generate_flex_band
+            # cyclic dependency: import when needed
+            from spice_ev.generate.generate_schedule import generate_flex_band
         try:
             scenario.flex_bands[gcID] = generate_flex_band(scenario, gcID)
         except Exception:
@@ -398,7 +398,7 @@ def aggregate_timeseries(scenario, gcID):
     # any loads except CS present?
     hasExtLoads = any(scenario.extLoads)
     hasSchedule = any(s is not None for s in scenario.gcPowerSchedule[gcID])
-    hasBatteries = sum([b.parent == gcID for b in scenario.constants.batteries.values()])
+    hasBatteries = sum([b.parent == gcID for b in scenario.components.batteries.values()])
 
     # accumulate header
     # general info
@@ -462,13 +462,13 @@ def aggregate_timeseries(scenario, gcID):
         if hasBatteries:
             current_battery = {}
             for batID in scenario.batteryLevels:
-                if scenario.constants.batteries[batID].parent == gcID:
+                if scenario.components.batteries[batID].parent == gcID:
                     current_battery.update({batID: scenario.batteryLevels[batID]})
             row += [
                 # battery power
                 round(sum([
                     v for k, v in scenario.extLoads[gcID][idx].items()
-                    if k in scenario.constants.batteries]),
+                    if k in scenario.components.batteries]),
                     round_to_places),
                 # battery levels
                 # get connected battery
@@ -535,7 +535,7 @@ def generate_soc_timeseries(scenario):
     :param scenario: The scenario for which to generate SOC timeseries.
     :type scenario: spice_ev.Scenario
     """
-    vids = sorted(scenario.constants.vehicles.keys())
+    vids = sorted(scenario.components.vehicles.keys())
     scenario.vehicle_socs = {vid: [] for vid in vids}
     for ts_idx, socs in enumerate(scenario.socs):
         for vidx, vid in enumerate(vids):
@@ -587,21 +587,21 @@ def plot(scenario):
     ax.set_prop_cycle(None)
 
     ax.plot(xlabels, scenario.disconnect, '--')
-    if len(scenario.constants.vehicles) <= 10:
-        ax.legend(lines, sorted(scenario.constants.vehicles.keys()))
+    if len(scenario.components.vehicles) <= 10:
+        ax.legend(lines, sorted(scenario.components.vehicles.keys()))
 
     # charging stations
     ax = plt.subplot(2, plots_top_row, 2)
     ax.set_title('Charging Stations')
     ax.set(ylabel='Power in kW')
     lines = ax.step(xlabels, scenario.sum_cs, where='post')
-    if len(scenario.constants.charging_stations) <= 10:
-        ax.legend(lines, sorted(scenario.constants.charging_stations.keys()))
+    if len(scenario.components.charging_stations) <= 10:
+        ax.legend(lines, sorted(scenario.components.charging_stations.keys()))
 
     # total power
     ax = plt.subplot(2, 2, 3)
     ax.step(xlabels, list([sum(cs) for cs in scenario.sum_cs]), label="CS", where='post')
-    gc_ids = scenario.constants.grid_connectors.keys()
+    gc_ids = scenario.components.grid_connectors.keys()
     for gcID in gc_ids:
         for name, values in scenario.loads[gcID].items():
             ax.step(xlabels, values, label=name, where='post')
@@ -671,23 +671,17 @@ def generate_reports(scenario, options):
             setattr(scenario, var, {})
 
     # check file extensions
-    if save_results:
+    if save_results and Path(save_results).suffix != ".json":
         # general results should be JSON
-        ext = os.path.splitext(save_results)[-1]
-        if ext != ".json":
-            print("File extension mismatch: results file is of type .json")
-    if save_soc:
+        print("File extension mismatch: results file should be of type .json")
+    if save_soc and Path(save_soc).suffix != ".csv":
         # vehicle SoC should be CSV
-        ext = os.path.splitext(save_soc)[-1]
-        if ext != ".csv":
-            print("File extension mismatch: SoC timeseries file is of type .csv")
-    if save_timeseries:
+        print("File extension mismatch: SoC timeseries file should be of type .csv")
+    if save_timeseries and Path(save_timeseries).suffix != ".csv":
         # timeseries data should be CSV
-        ext = os.path.splitext(save_timeseries)[-1]
-        if ext != ".csv":
-            print("File extension mismatch: timeseries file is of type .csv")
+        print("File extension mismatch: timeseries file should be of type .csv")
 
-    gc_ids = sorted(scenario.constants.grid_connectors.keys())
+    gc_ids = sorted(scenario.components.grid_connectors.keys())
     for gcID in gc_ids:
         if cost_calculation or save_timeseries:
             # aggregate timeseries info
@@ -697,22 +691,18 @@ def generate_reports(scenario, options):
             results_file_content = aggregate_local_results(scenario=scenario, gcID=gcID)
         if save_results:
             # write general results to file
-            if len(gc_ids) == 1:
-                file_name = save_results
-            else:
-                file_name, ext = os.path.splitext(save_results)
-                file_name = f"{file_name}_{util.sanitize(gcID)}{ext}"
-            with open(file_name, 'w') as results_file:
+            fpath = Path(save_results)
+            if len(gc_ids) > 1:
+                # extend file name by GC name (without special characters)
+                fpath = fpath.parent / f"{fpath.stem}_{util.sanitize(gcID)}{fpath.suffix}"
+            with fpath.open('w') as results_file:
                 json.dump(results_file_content, results_file, indent=2)
         if save_timeseries:
             # save power use for each timestep in file
-            file_name, ext = os.path.splitext(save_timeseries)
-            if len(gc_ids) == 1:
-                file_name = save_timeseries
-            else:
-                file_name, ext = os.path.splitext(save_timeseries)
-                file_name = f"{file_name}_{util.sanitize(gcID)}{ext}"
-            with open(file_name, 'w') as timeseries_file:
+            fpath = Path(save_timeseries)
+            if len(gc_ids) > 1:
+                fpath = fpath.parent / f"{fpath.stem}_{util.sanitize(gcID)}{fpath.suffix}"
+            with fpath.open('w') as timeseries_file:
                 # write header
                 timeseries_file.write(','.join(agg_ts["header"]))
                 # write timestep data
@@ -727,7 +717,7 @@ def generate_reports(scenario, options):
         generate_soc_timeseries(scenario=scenario)
     if save_soc:
         # write vehicle SoC per timestep to file
-        vids = sorted(scenario.constants.vehicles.keys())
+        vids = sorted(scenario.components.vehicles.keys())
         with open(save_soc, "w") as soc_file:
             # write header
             header = ["timestep", "time"] + vids

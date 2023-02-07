@@ -2,12 +2,12 @@
 
 import argparse
 import json
-import os
+from pathlib import Path
 import warnings
 
-from src.scenario import Scenario
-from src.util import set_options_from_config
-from calculate_costs import calculate_costs
+from spice_ev.scenario import Scenario
+from spice_ev.util import set_options_from_config
+from spice_ev.costs import calculate_costs
 
 STRATEGIES = [
     'greedy', 'greedy_market',
@@ -31,7 +31,10 @@ def simulate(args):
         # cast arguments to dictionary for default handling
         args = vars(args)
 
-    if args.get("input") is None or not os.path.exists(args["input"]):
+    try:
+        input_file = Path(args["input"])
+        assert input_file.exists()
+    except (TypeError, AssertionError):
         raise SystemExit("Please specify a valid input file.")
 
     options = {
@@ -60,16 +63,16 @@ def simulate(args):
             options[opt_key] = opt_val
 
     # Read JSON
-    with open(args["input"], 'r') as f:
-        s = Scenario(json.load(f), os.path.dirname(args["input"]))
+    with input_file.open('r') as f:
+        s = Scenario(json.load(f), input_file.parent)
 
     # RUN!
     s.run(strategy_name, options)
 
     if args.get("cost_calc"):
         # cost calculation following directly after simulation
-        for gcID, gc in s.constants.grid_connectors.items():
-            pv = sum([pv.nominal_power for pv in s.constants.photovoltaics.values()
+        for gcID, gc in s.components.grid_connectors.items():
+            pv = sum([pv.nominal_power for pv in s.components.photovoltaics.values()
                       if pv.parent == gcID])
             timeseries = vars(s).get(f"{gcID}_timeseries")
 
