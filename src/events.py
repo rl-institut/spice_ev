@@ -29,8 +29,7 @@ class Events:
             obj.get('energy_price_from_csv', None), dir_path)
         self.grid_operator_signals += get_schedule_from_csv(
             obj.get('schedule_from_csv', None), dir_path)
-        self.vehicle_events = list(
-            [VehicleEvent(x) for x in obj.get('vehicle_events')])
+        self.vehicle_events = list([VehicleEvent(x) for x in obj.get('vehicle_events', {})])
 
     def get_event_steps(self, start_time, n_intervals, interval):
         """
