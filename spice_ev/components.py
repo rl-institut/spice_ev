@@ -17,13 +17,13 @@ class Components:
     """
     def __init__(self, obj):
         self.grid_connectors = dict(
-            {k: GridConnector(v) for k, v in obj['grid_connectors'].items()})
+            {k: GridConnector(v) for k, v in obj.get('grid_connectors', {}).items()})
         self.charging_stations = dict(
-            {k: ChargingStation(v) for k, v in obj['charging_stations'].items()})
+            {k: ChargingStation(v) for k, v in obj.get('charging_stations', {}).items()})
         self.vehicle_types = dict(
-            {k: VehicleType(v) for k, v in obj['vehicle_types'].items()})
+            {k: VehicleType(v) for k, v in obj.get('vehicle_types', {}).items()})
         self.vehicles = dict(
-            {k: Vehicle(v, self.vehicle_types) for k, v in obj['vehicles'].items()})
+            {k: Vehicle(v, self.vehicle_types) for k, v in obj.get('vehicles', {}).items()})
         self.batteries = dict(
             {k: StationaryBattery(v) for k, v in obj.get('batteries', {}).items()})
         self.photovoltaics = dict(

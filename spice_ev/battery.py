@@ -58,6 +58,9 @@ class Battery():
             # target SoC already reached: skip loading
             return {'avg_power': 0, 'soc_delta':  0}
 
+        # maximum soc: 1
+        target_soc = min(1, target_soc)
+
         old_soc = self.soc
         # get loading curve clamped to maximum value
         # adjust charging curve to reflect power that reaches the battery
@@ -108,6 +111,9 @@ class Battery():
         else:
             # target soc given: target power must not be set
             assert target_power is None, "Unload battery: choose either target power or SoC"
+
+        # don't try to reach soc below 0. If already below 0, don't discharge
+        target_soc = max(min(self.soc, 0), target_soc)
 
         if target_soc - self.soc > self.EPS:
             # target SoC already reached: skip unloading
