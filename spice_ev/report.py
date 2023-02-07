@@ -673,13 +673,13 @@ def generate_reports(scenario, options):
     # check file extensions
     if save_results and Path(save_results).suffix != ".json":
         # general results should be JSON
-        print("File extension mismatch: results file is of type .json")
+        print("File extension mismatch: results file should be of type .json")
     if save_soc and Path(save_soc).suffix != ".csv":
         # vehicle SoC should be CSV
-        print("File extension mismatch: SoC timeseries file is of type .csv")
+        print("File extension mismatch: SoC timeseries file should be of type .csv")
     if save_timeseries and Path(save_timeseries).suffix != ".csv":
         # timeseries data should be CSV
-        print("File extension mismatch: timeseries file is of type .csv")
+        print("File extension mismatch: timeseries file should be of type .csv")
 
     gc_ids = sorted(scenario.components.grid_connectors.keys())
     for gcID in gc_ids:
