@@ -694,14 +694,14 @@ def generate_reports(scenario, options):
             fpath = Path(save_results)
             if len(gc_ids) > 1:
                 # extend file name by GC name (without special characters)
-                fpath = f"{fpath.stem}_{util.sanitize(gcID)}{fpath.suffix}"
+                fpath = fpath.parent / f"{fpath.stem}_{util.sanitize(gcID)}{fpath.suffix}"
             with fpath.open('w') as results_file:
                 json.dump(results_file_content, results_file, indent=2)
         if save_timeseries:
             # save power use for each timestep in file
             fpath = Path(save_timeseries)
             if len(gc_ids) > 1:
-                fpath = f"{fpath.stem}_{util.sanitize(gcID)}{fpath.suffix}"
+                fpath = fpath.parent / f"{fpath.stem}_{util.sanitize(gcID)}{fpath.suffix}"
             with fpath.open('w') as timeseries_file:
                 # write header
                 timeseries_file.write(','.join(agg_ts["header"]))
