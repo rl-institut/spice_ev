@@ -222,7 +222,7 @@ def generate_from_simbev(args):
 
                 # get maximum length of timesteps
                 departure_idx = int(row["event_start"]) + int(row["event_time"])
-                n_intervals = max(n_intervals, departure_idx)
+                n_intervals = max(n_intervals, departure_idx + 1)
 
                 # actual driving and charging behavior
                 if not args.ignore_simbev_soc:
