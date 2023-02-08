@@ -1,7 +1,7 @@
 from setuptools import setup, find_packages
 
 setup(
-    name="spiceev",
+    name="spice_ev",
     version="1.0.0dev",
     description="Simulation Program for Individual Charging Events of Electric Vehicles.",
     url="https://github.com/rl-institut/spice_ev",
