@@ -248,8 +248,10 @@ class Scenario:
                 strat.description = "*** {} (ABORTED) ***".format(strat.description)
                 print(error)
                 break
-
         # next simulation timestep
+
+        # end of simulation: increase step_i one last time (no error: step_i == n_intervals)
+        step_i += 1
 
         # make variable members of Scenario class to access them in report
         for var in ["batteryLevels", "connChargeByTS", "disconnect",
