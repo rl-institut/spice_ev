@@ -247,7 +247,7 @@ def get_schedule_from_csv(obj, dir_path):
         window_col_idx = header.index(window_col) if window_col in header else None
 
         if obj.get('individual'):
-            vehicle_names = header[3:]
+            vehicle_names = header[7:]
             vehicle_schedules = [None]*len(vehicle_names)
         else:
             vehicle_names = []
@@ -297,8 +297,8 @@ def get_schedule_from_csv(obj, dir_path):
                     "window": window,
                 }))
 
-            for i, vid in enumerate(vehicle_names):
-                v_schedule = float(row[i+3])
+            for i, vid in enumerate(reversed(vehicle_names)):
+                v_schedule = float(row[-1 - i])
                 if v_schedule != vehicle_schedules[i]:
                     schedule.append(VehicleEvent({
                         "start_time": start_time.isoformat(),

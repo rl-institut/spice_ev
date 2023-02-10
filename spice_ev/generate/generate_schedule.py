@@ -874,7 +874,8 @@ def generate_schedule(args):
     # write schedule to file
     with args.output.open('w') as f:
         # header
-        header = ["timestamp", "schedule [kW]", "charge"]
+        header = ["timestamp", "schedule [kW]", "charge", "residual load old [kW]",
+                  "curtailment old [kW]", "residual load new [kW]", "curtailment new [kW]"]
         if args.individual:
             header += vehicle_ids
         f.write(', '.join(header) + '\n')
@@ -885,6 +886,10 @@ def generate_schedule(args):
                 cur_time.isoformat(),      # timestamp
                 round(schedule[t], 3),     # schedule rounded to Watts
                 int(priorities[t] <= 2),   # charging window?
+                round(original_residual_load[t], 3),
+                round(original_curtailment[t], 3),
+                round(residual_load[t], 3),
+                round(curtailment[t], 3),
             ]
             if args.individual:
                 # create column for every vehicle schedule
