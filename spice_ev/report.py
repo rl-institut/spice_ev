@@ -407,35 +407,35 @@ def aggregate_timeseries(scenario, gcID):
     if any(scenario.prices[gcID]):
         header.append("price [EUR/kWh]")
     # grid power
-    header.append("grid power [kW]")
+    header.append("grid supply [kW]")
     # external loads
     if hasExtLoads:
         # external loads (e.g., building)
-        header.append("ext.load [kW]")
+        header.append("fixed load [kW]")
     # feed-in
     if any(scenario.feedInPower):
-        header.append("feed-in [kW]")
+        header.append("local generation [kW]")
     # batteries
     if hasBatteries:
         header += ["battery power [kW]", "bat. stored energy [kWh]"]
     # flex
-    header += ["flex min [kW]", "flex base [kW]", "flex max [kW]"]
+    header += ["flex band min [kW]", "flex band base [kW]", "flex band max [kW]"]
     # schedule & window
     if hasSchedule:
         # external loads (e.g., building)
-        header += ["schedule [kW]", "window"]
+        header += ["schedule [kW]", "window signal [-]"]
     # sum of charging power
-    header.append("sum CS power")
+    header.append("sum CS power [kW]")
     # charging power per use case
     header += ["sum UC {}".format(uc) for uc in uc_keys_present]
     # total number of occupied charging stations
-    header.append("# occupied CS")
+    header.append("# occupied CS [-]")
     # number of CS in use (delivering power)
-    header.append("CS in use")
+    header.append("# CS in use [-]")
     # number of occupied CS per UC
     header += ["# occupied UC {}".format(uc) for uc in uc_keys_present]
     # charging power per CS
-    header += [str(cs_id) for cs_id in cs_ids]
+    header += [str(cs_id) + " [kW]" for cs_id in cs_ids]
 
     # accumulate timesteps
     timeseries = []
