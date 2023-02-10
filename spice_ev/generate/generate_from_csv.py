@@ -58,7 +58,7 @@ def generate_from_csv(args):
     events = {
         "grid_operator_signals": [],
         "external_load": {},
-        "energy_feed_in": {},
+        "local_generation": {},
         "vehicle_events": []
     }
 
@@ -240,7 +240,7 @@ def generate_from_csv(args):
     # update info of external CSV files
     ext_info = {
         "external_load": "include_ext_load_csv",
-        "energy_feed_in": "include_feed_in_csv",
+        "local_generation": "include_local_generation_csv",
         "energy_price_from_csv": "include_price_csv",
     }
     for info, field in ext_info.items():

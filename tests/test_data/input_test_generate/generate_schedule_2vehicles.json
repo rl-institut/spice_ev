@@ -61,7 +61,7 @@
   "events": {
     "grid_operator_signals": [],
     "external_load": {},
-    "energy_feed_in": {},
+    "local_generation": {},
     "vehicle_events": [
       {
         "signal_time": "2023-01-01T08:47:00+02:00",

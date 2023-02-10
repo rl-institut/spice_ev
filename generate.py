@@ -83,9 +83,9 @@ def update_namespace(args):
             "default_step_duration_s": 900,  # 15 minutes
             "default_column": "energy",
         },
-        "feed-in": {
-            "filename": args.include_feed_in_csv,
-            "options": "include_feed_in_csv_option",
+        "local_generation": {
+            "filename": args.include_local_generation_csv,
+            "options": "include_local_generation_csv_option",
             "default_step_duration_s": 3600,  # 60 minutes
             "default_column": "energy",
         },
@@ -198,12 +198,12 @@ if __name__ == '__main__':
     parser.add_argument('--include-ext-load-csv-option', '-eo', metavar=('KEY', 'VALUE'),
                         nargs=2, default=[], action='append',
                         help='append additional argument to external load')
-    parser.add_argument('--include-feed-in-csv',
-                        help='include CSV for energy feed-in, e.g., local PV. \
-                        You may define custom options with --include-feed-in-csv-option')
-    parser.add_argument('--include-feed-in-csv-option', '-fo', metavar=('KEY', 'VALUE'),
+    parser.add_argument('--include-local-generation-csv',
+                        help='include CSV for local energy generation, e.g., local PV. \
+                        You may define custom options with --include-local-generation-csv-option')
+    parser.add_argument('--include-local-generation-csv-option', '-fo', metavar=('KEY', 'VALUE'),
                         nargs=2, default=[], action='append',
-                        help='append additional argument to feed-in load')
+                        help='append additional argument to local generation')
     parser.add_argument('--include-price-csv',
                         help='include CSV for energy price. \
                         You may define custom options with --include-price-csv-option')

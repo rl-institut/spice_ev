@@ -24,8 +24,8 @@ ARG_VALUES1 = {
     "export_vehicle_id_csv": None,
     "include_ext_load_csv": None,
     "include_ext_load_csv_option": [],
-    "include_feed_in_csv": None,
-    "include_feed_in_csv_option": [],
+    "include_local_generation_csv": None,
+    "include_local_generation_csv_option": [],
     "seed": None,
     "include_price_csv": None,
     "include_price_csv_option": [],
@@ -66,9 +66,9 @@ class TestGenerate(TestCaseBase):
             "include_ext_load_csv": str(
                 TEST_REPO_PATH / "test_data/input_test_generate/example_load.csv"),
             "include_ext_load_csv_option": [("column", "value"), ("factor", 0.0001)],
-            "include_feed_in_csv": str(
+            "include_local_generation_csv": str(
                 TEST_REPO_PATH / "test_data/input_test_generate/example_pv_feedin.csv"),
-            "include_feed_in_csv_option": [
+            "include_local_generation_csv_option": [
                 ("column", "Feed-in Total (kW)"), ("step_duration_s", 60)],
             "include_price_csv": str(
                 TEST_REPO_PATH / "test_data/input_test_generate/example_load.csv"),
