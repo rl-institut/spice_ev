@@ -83,13 +83,13 @@ def find_prices(price_sheet_path, strategy, voltage_level, utilization_time_per_
     return commodity_charge, capacity_charge, fee_type
 
 
-def calculate_commodity_costs(price_list, power_grid_supply_list, interval, fraction_year):
+def calculate_commodity_costs(price_list, power_supply_list, interval, fraction_year):
     """Calculates commodity costs for all types of customers
 
     :param price_list: price list with commodity charge per timestamp
     :type price_list: list
-    :param power_grid_supply_list: power supplied from the grid
-    :type power_grid_supply_list: list
+    :param power_supply_list: power supplied from the grid
+    :type power_supply_list: list
     :param interval: simulation interval
     :type interval: timedelta
     :param fraction_year: simulation time relative to one year
@@ -104,9 +104,9 @@ def calculate_commodity_costs(price_list, power_grid_supply_list, interval, frac
     # create lists with energy supply per timestep and calculate costs:
     # factor 3600: kilo Joule --> kWh
     # factor 100: ct --> €
-    for i in range(len(power_grid_supply_list)):
+    for i in range(len(power_supply_list)):
         energy_supply_per_timestep = \
-            power_grid_supply_list[i] * interval.total_seconds() / 3600  # [kWh]
+            power_supply_list[i] * interval.total_seconds() / 3600  # [kWh]
         commodity_costs_eur_sim = commodity_costs_eur_sim + \
             (energy_supply_per_timestep * price_list[i] / 100)  # [€]
     commodity_costs_eur_per_year = commodity_costs_eur_sim / fraction_year
@@ -279,10 +279,10 @@ def calculate_costs(strategy, voltage_level, interval,
 
         # find power at times of high tariff
         max_price = max(price_list)
-        max_power_costs = 0
+        max_power_high_tariff = 0
         for i, power in enumerate(power_flex_load_list):
-            if (price_list[i] == max_price) and (power > max_power_costs):
-                max_power_costs = power
+            if (price_list[i] == max_price) and (power > max_power_high_tariff):
+                max_power_high_tariff = power
 
         # capacity costs for flexible load:
         # set a suitable utilization time in order to use prices for grid friendly charging
@@ -291,11 +291,11 @@ def calculate_costs(strategy, voltage_level, interval,
             find_prices(price_sheet_json, strategy, voltage_level, utilization_time_per_year,
                         energy_supply_per_year, UTILIZATION_TIME_PER_YEAR_EC)
         capacity_costs_eur_flex = \
-            calculate_capacity_costs_rlm(capacity_charge_flex, max_power_costs)
+            calculate_capacity_costs_rlm(capacity_charge_flex, max_power_high_tariff)
 
         # commodity costs for flexible load:
         commodity_costs_eur_per_year_flex, commodity_costs_eur_sim_flex = calculate_commodity_costs(
-            price_list, power_grid_supply_list, interval, fraction_year)
+            price_list, power_flex_load_list, interval, fraction_year)
 
         # TOTAl COSTS:
         commodity_costs_eur_sim = commodity_costs_eur_sim_fix + commodity_costs_eur_sim_flex

@@ -40,10 +40,10 @@ def read_simulation_csv(csv_file):
             power_fix_load_list.append(power_fix_load)
 
             try:
-                charging_signal = bool(int(row["window"]))
+                charging_signal = bool(int(row["window signal [-]"]))
             except KeyError:
                 charging_signal = None
-            charging_signal = bool(int(row["window signal [-]"]))
+            charging_signal_list.append(charging_signal)
 
     return {
         "timestamps_list": timestamps_list,
