@@ -173,7 +173,7 @@ if __name__ == '__main__':
                         help='set number of minutes for each timestep (Δt)')
     parser.add_argument('--min-soc', metavar='SOC', type=float, default=0.8,
                         help='set minimum desired SOC (0 - 1) for each charging process')
-    parser.add_argument('--battery', '-b', default=[], nargs=2, type=float, action='append',
+    parser.add_argument('--battery', '-b', default=[], nargs=2, action='append',
                         help='add battery with specified capacity in kWh and C-rate \
                         (-1 for variable capacity, second argument is fixed power))')
     parser.add_argument('--gc-power', type=int, default=100, help='set power at grid connection '
@@ -247,6 +247,6 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    set_options_from_config(args, check=True, verbose=args.verbose > 1)
+    set_options_from_config(args, check=parser, verbose=args.verbose > 1)
 
     generate(args)

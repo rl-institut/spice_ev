@@ -42,7 +42,7 @@ if __name__ == '__main__':
         # no core standing time provided, defaulted to None
         pass
 
-    util.set_options_from_config(args, check=True, verbose=False)
+    util.set_options_from_config(args, check=parser, verbose=False)
 
     missing = [arg for arg in ["scenario", "input"] if vars(args).get(arg) is None]
     if missing:
