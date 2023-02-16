@@ -148,13 +148,6 @@
           "soc_delta": -0.2
         }
       }
-    ],
-    "schedule_from_csv": {
-      "column": "schedule [kW]",
-      "start_time": "2018-01-01T00:00:00+02:00",
-      "step_duration_s": 900,
-      "csv_file": "schedule_example.csv",
-      "grid_connector_id": "GC1"
-    }
+    ]
   }
 }

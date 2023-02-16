@@ -1,4 +1,5 @@
 import datetime
+import pytest
 
 from spice_ev import components, util
 
@@ -93,6 +94,47 @@ class TestUtil:
             b = util.dt_within_core_standing_time(dt.replace(hour=h, minute=0), core)
             assert b == e, "{}:{} is {}".format(h, 0, b)
 
+    def test_get_cost_and_power(self):
+        assert util.get_power(None, {}) is None
+        # fixed costs
+        costs = {"type": "fixed", "value": 3}
+        power_cost = [(0, 0), (1, 3), (-1, -3)]
+        for p, c in power_cost:
+            assert pytest.approx(util.get_cost(p, costs)) == c
+            assert pytest.approx(util.get_power(c, costs)) == p
+
+        # poly costs
+        # order 0 or 1 (constant cost). Also test order reducing (highest order != 0)
+        costs = {"type": "polynomial", "value": []}
+        assert util.get_power(0, costs) is None
+        costs = {"type": "polynomial", "value": [1, 0, 0, 0]}
+        assert util.get_power(1, costs) is None
+        # linear: c = 2 - x
+        costs = {"type": "polynomial", "value": [2, -1]}
+        power_cost = [(0, 2), (1, 1), (-1, 3)]
+        for p, c in power_cost:
+            assert pytest.approx(util.get_cost(p, costs)) == c
+            assert pytest.approx(util.get_power(c, costs)) == p
+
+        # c = 3 + 2*x + 1*x*x
+        costs = {"type": "polynomial", "value": [3, 2, 1]}
+        power_cost = [(0, 3), (1, 6), (-1, 2)]  # 3+0+0, 3+2+1, 3-2+1
+        for p, c in power_cost:
+            assert pytest.approx(util.get_cost(p, costs)) == c
+            assert pytest.approx(util.get_power(c, costs)) == p
+
+        # higher order: not supported
+        costs = {"type": "polynomial", "value": [3, 2, 1, 0, -1]}
+        with pytest.raises(NotImplementedError):
+            util.get_power(0, costs)
+
+        # unknown type
+        costs = {"type": None}
+        with pytest.raises(NotImplementedError):
+            util.get_cost(0, costs)
+        with pytest.raises(NotImplementedError):
+            util.get_power(0, costs)
+
     def test_clamp_power(self):
         cs = components.ChargingStation({
             "min_power": 1,
@@ -136,3 +178,11 @@ class TestUtil:
         assert util.clamp_power(9, v, cs) == 9
         assert util.clamp_power(10, v, cs) == 9
         assert util.clamp_power(20, v, cs) == 9
+
+    def test_sanitize(self):
+        # default: remove </|\\>:"?*
+        assert util.sanitize("") == ""
+        assert util.sanitize("foo bar") == "foo bar"
+        assert util.sanitize('".*<f/|o\\o:>?!"') == ".foo!"
+        # declare special chars to remove
+        assert util.sanitize("<foo? bar!>", 'or ') == "<f?ba!>"
