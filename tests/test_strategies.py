@@ -242,16 +242,16 @@ class TestScenarios(TestCaseBase):
             for load_strat in ["collective", "individual"]:
                 # create schedule
                 generate_schedule.generate_schedule(Namespace(
-                    scenario = dst,
-                    input = TEST_REPO_PATH / "test_data/input_test_generate/example_grid_situation.csv",
-                    output = schedule,
-                    individual = load_strat == "individual",
-                    core_standing_time = {
-                        "times":[{"start": [22,0], "end":[5,0]}], "no_drive_days":[6]
+                    scenario=dst,
+                    input=TEST_REPO_PATH/"test_data/input_test_generate/example_grid_situation.csv",
+                    output=schedule,
+                    individual=load_strat == "individual",
+                    core_standing_time={
+                        "times": [{"start": [22, 0], "end": [5, 0]}], "no_drive_days": [6]
                     },
-                    priority_percentile = 0.25,
-                    visual = False,
-                    config = None,
+                    priority_percentile=0.25,
+                    visual=False,
+                    config=None,
                 ))
                 with dst.open('r') as f:
                     j = json.load(f)
