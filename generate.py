@@ -156,7 +156,7 @@ def generate(args):
         json.dump(scenario, f, indent=2)
 
 
-if __name__ == '__main__':
+if __name__ == '__main__':  # pragma: no cover
 
     DEFAULT_START_TIME = "2023-01-01T01:00:00+02:00"
 
