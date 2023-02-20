@@ -11,7 +11,7 @@ class Events:
 
         Sets up events:
         * external_load
-        * energy_feed_in
+        * local_generation
         * grid_operator_signals - price
         * grid_operator_signals - schedule
         * vehicle_events
@@ -21,8 +21,8 @@ class Events:
         # optional
         self.external_load_lists = dict(
             {k: EnergyValuesList(v, dir_path) for k, v in obj.get('external_load', {}).items()})
-        self.energy_feed_in_lists = dict(
-            {k: EnergyValuesList(v, dir_path) for k, v in obj.get('energy_feed_in', {}).items()})
+        self.local_generation_lists = dict(
+            {k: EnergyValuesList(v, dir_path) for k, v in obj.get('local_generation', {}).items()})
         self.grid_operator_signals = list(
             [GridOperatorSignal(x) for x in obj.get('grid_operator_signals', [])])
         self.grid_operator_signals += get_energy_price_list_from_csv(
@@ -49,9 +49,10 @@ class Events:
         all_events = self.vehicle_events + self.grid_operator_signals
         for name, load_list in self.external_load_lists.items():
             all_events.extend(load_list.get_events(name, ExternalLoad))
-        for name, feed_in_list in self.energy_feed_in_lists.items():
+        for name, local_generation_list in self.local_generation_lists.items():
             all_events.extend(
-                feed_in_list.get_events(name, EnergyFeedIn, has_perfect_foresight=True))
+                local_generation_list.get_events(name, LocalEnergyGeneration,
+                                                 has_perfect_foresight=True))
 
         ignored = 0
 
@@ -79,8 +80,8 @@ class Event:
         return '{}, {}'.format(self.__class__.__name__, vars(self))
 
 
-class EnergyFeedIn(Event):
-    """EnergyFeedIn class"""
+class LocalEnergyGeneration(Event):
+    """LocalEnergyGeneration class"""
     def __init__(self, kwargs):
         self.__dict__.update(**kwargs)
 
@@ -120,18 +121,18 @@ class EnergyValuesList:
 
     def get_events(self, name, value_class, has_perfect_foresight=False):
         """
-        Sets up feed_in and external_load events from input.
+        Sets up local generation and external_load events from input.
 
         :param name: name of the input csv file
         :type name: str
-        :param value_class: object (e.g. EnergyFeedIn)
+        :param value_class: object (e.g. LocalEnergyGeneration)
         :type value_class: object
         :param has_perfect_foresight: true if system knows about future events
         :type has_perfect_foresight: bool
         :return: list of events
         :rtype: list
         """
-        assert value_class in [EnergyFeedIn, ExternalLoad]
+        assert value_class in [LocalEnergyGeneration, ExternalLoad]
 
         eventlist = []
         time_delta = datetime.timedelta(seconds=self.step_duration_s)

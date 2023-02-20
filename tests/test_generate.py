@@ -82,7 +82,7 @@ class TestGenerate(TestCaseBase):
             s = scenario.Scenario(j)
             s.n_intervals = 5
             s.run("greedy", {})
-            assert sum(s.feedInPower["GC1"]) != 0
+            assert sum(s.localGenerationPower["GC1"]) != 0
             assert pytest.approx(sum(s.extLoads["GC1"][-1].values())) == -33
             assert s.prices["GC1"][-2] == 11319.32
             assert pytest.approx(s.prices["GC1"][-1]) == 11585.256

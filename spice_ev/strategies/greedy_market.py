@@ -60,7 +60,7 @@ class GreedyMarket(Strategy):
             key=lambda x: (x[1].estimated_time_of_departure, x[0]))
 
         cur_cost = gc.cost
-        cur_feed_in = {k: -v for k, v in gc.current_loads.items() if v < 0}
+        cur_local_generation = {k: -v for k, v in gc.current_loads.items() if v < 0}
         cur_max_power = gc.cur_max_power
 
         # ---------- GET NEXT EVENTS ---------- #
@@ -92,8 +92,8 @@ class GreedyMarket(Strategy):
                     # update GC info
                     cur_max_power = event.max_power or gc.max_power
                     cur_cost = event.cost or gc.cost
-                elif type(event) == events.EnergyFeedIn:
-                    cur_feed_in[event.name] = event.value
+                elif type(event) == events.LocalEnergyGeneration:
+                    cur_local_generation[event.name] = event.value
                 elif type(event) == events.VehicleEvent:
                     vid = event.vehicle_id
                     if event.event_type == "departure":
@@ -119,7 +119,8 @@ class GreedyMarket(Strategy):
                 # add battery power (sign switch, as ext_load is subtracted)
                 ext_load -= avail_bat_power
             else:
-                ext_load = gc.get_avg_ext_load(cur_time, self.interval) - sum(cur_feed_in.values())
+                ext_load = gc.get_avg_ext_load(cur_time, self.interval) \
+                           - sum(cur_local_generation.values())
             timesteps.append({
                 "power": cur_max_power - ext_load,
                 "cost": cur_cost,

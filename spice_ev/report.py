@@ -25,7 +25,7 @@ def aggregate_global_results(scenario):
             cur_cs.append(r['commands'].get(cs_id, 0.0))
         sum_cs.append(cur_cs)
 
-    # untangle external loads (with feed-in)
+    # untangle fixed loads (with local generation)
     loads = {}
     for gcID in gc_ids:
         loads[gcID] = {}
@@ -56,7 +56,7 @@ def aggregate_local_results(scenario, gcID):
         avg needed energy,
         power peaks,
         average drawn power,
-        feed-in energy,
+        local generated energy,
         max. stored energy in batteries,
         stationary battery cycles,
         all vehicle battery cycles
@@ -151,7 +151,7 @@ def aggregate_local_results(scenario, gcID):
 
         fixed_load = sum([v for k, v in scenario.extLoads[gcID][idx].items() if
                           k in scenario.events.external_load_lists or
-                          k in scenario.events.energy_feed_in_lists])
+                          k in scenario.events.local_generation_lists])
         max_fixed_load = max(max_fixed_load, fixed_load)
         var_load = scenario.totalLoad[gcID][idx] - fixed_load
         max_variable_load = max(max_variable_load, var_load)
@@ -248,7 +248,7 @@ def aggregate_local_results(scenario, gcID):
             "variable": max_variable_load,
             "total": max(scenario.totalLoad[gcID]),
             "unit": "kW",
-            "info": "Maximum drawn power, by fixed loads (building, PV),"
+            "info": "Maximum drawn power, by fixed loads (building),"
                     " variable loads (charging stations, stationary batteries) "
                     "and all loads"
         }
@@ -261,9 +261,9 @@ def aggregate_local_results(scenario, gcID):
         "info": "Drawn power, averaged over all time steps"
     }
 
-    # total feed-in energy
-    json_results["feed-in energy"] = {
-        "value": sum(scenario.feedInPower[gcID]) / stepsPerHour,
+    # total energy from local generation
+    json_results["local energy generation"] = {
+        "value": sum(scenario.localGenerationPower[gcID]) / stepsPerHour,
         "unit": "kWh",
         "info": "Total energy from renewable energy sources"
     }
@@ -334,7 +334,7 @@ def aggregate_timeseries(scenario, gcID):
         price [EUR/kWh],
         grid power [kW],
         ext.load [kW],
-        feed-in [kW],
+        local generation [kW],
         flex min [kW],
         flex base [kW],
         flex max [kW],
@@ -412,8 +412,8 @@ def aggregate_timeseries(scenario, gcID):
     if hasExtLoads:
         # external loads (e.g., building)
         header.append("fixed load [kW]")
-    # feed-in
-    if any(scenario.feedInPower):
+    # local generation
+    if any(scenario.localGenerationPower):
         header.append("local generation [kW]")
     # batteries
     if hasBatteries:
@@ -454,9 +454,9 @@ def aggregate_timeseries(scenario, gcID):
                 v for k, v in scenario.extLoads[gcID][idx].items()
                 if k in scenario.events.external_load_lists])
             row.append(round(sumExtLoads, round_to_places))
-        # feed-in (negative since grid power is fed into system)
-        if any(scenario.feedInPower):
-            row.append(-1 * round(scenario.feedInPower[gcID][idx], round_to_places))
+        # local generation (negative since power is fed into system)
+        if any(scenario.localGenerationPower):
+            row.append(-1 * round(scenario.localGenerationPower[gcID][idx], round_to_places))
 
         # batteries
         if hasBatteries:
@@ -552,7 +552,8 @@ def plot(scenario):
         1. SOC over time per vehicle
         2. Power over time per charging station
         3. Power over time aggregated over all instances of various power sources
-           and sinks, namely grid connectors, charging stations, PV, batteries
+           and sinks, namely grid connectors, charging stations, local power plants (e.g. PV),
+           batteries
         4. Price over time per grid connector
 
     :param scenario: The scenario for which to generate the plots.
@@ -753,8 +754,8 @@ def generate_reports(scenario, options):
             "avg_total_standing_time": scenario.avg_total_standing_time,
             "avg_needed_energy": scenario.avg_needed_energy,
             "avg_drawn_power": scenario.avg_drawn,
-            "sum_feed_in_per_h": {gcID: (sum(scenario.feedInPower[gcID]) / scenario.stepsPerHour)
-                                  for gcID in gc_ids},
+            "sum_local_generation_per_h": {gcID: (sum(scenario.localGenerationPower[gcID])
+                                                  / scenario.stepsPerHour) for gcID in gc_ids},
             "vehicle_battery_cycles": {
                 # battery cycle: full charge of battery
                 # => total cycles: how often can batteries be fully charged with loaded energy

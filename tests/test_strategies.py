@@ -120,7 +120,7 @@ class TestScenarios(TestCaseBase):
         s = scenario.Scenario(load_json(input), input.parent)
         s.run('greedy', {"testing": True})
         assert pytest.approx(s.testing["max_total_load"]) == 0
-        assert s.testing["sum_feed_in_per_h"]["GC1"] == 246.0
+        assert s.testing["sum_local_generation_per_h"]["GC1"] == 246.0
         assert s.strat.world_state.batteries["BAT1"].soc > 0
 
     # TEST STRATEGY OUTPUTS
@@ -133,7 +133,7 @@ class TestScenarios(TestCaseBase):
         assert s.testing["avg_stand_time"]["GC1"] == 8.875
         assert round(s.testing["avg_needed_energy"]["GC1"], 2) == 1.08
         assert round(s.testing["avg_drawn_power"]["GC1"], 2) == 1.44
-        assert round(s.testing["sum_feed_in_per_h"]["GC1"], 2) == 0
+        assert round(s.testing["sum_local_generation_per_h"]["GC1"], 2) == 0
         assert round(s.testing["vehicle_battery_cycles"]["GC1"], 2) == 1.1
         assert round(s.testing["avg_flex_per_window"]["GC1"][0], 2) == 372
         assert round(s.testing["avg_flex_per_window"]["GC1"][3], 2) == 375.71

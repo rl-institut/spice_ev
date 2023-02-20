@@ -9,7 +9,8 @@ class Greedy(Strategy):
 
     Charges as much power as possible during each timestep until all desired SOC are reached.
     No foresight, price does not matter for normal charging.
-    Can store surplus energy (feed-in or low energy price) in stationary battery or vehicles.
+    Can store surplus energy (local generation or low energy price) in stationary battery or
+    vehicles.
     """
     def __init__(self, components, start_time, **kwargs):
         self.PRICE_THRESHOLD = 0.001  # EUR/kWh

@@ -128,7 +128,7 @@ class PeakLoadWindow(Strategy):
                     break
                 # event handled: don't handle again, so increase index
                 event_idx += 1
-                if type(event) in [events.ExternalLoad, events.EnergyFeedIn]:
+                if type(event) in [events.ExternalLoad, events.LocalEnergyGeneration]:
                     ts[-1]["loads"][event.name] = event.value
             # end of useful events
 

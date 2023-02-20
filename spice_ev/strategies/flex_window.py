@@ -51,7 +51,7 @@ class FlexWindow(Strategy):
         for cs in self.world_state.charging_stations.values():
             cs.current_power = 0
 
-        cur_feed_in = {k: -v for k, v in gc.current_loads.items() if v < 0}
+        cur_local_generation = {k: -v for k, v in gc.current_loads.items() if v < 0}
         cur_max_power = gc.cur_max_power
 
         # ---------- GET NEXT EVENTS ---------- #
@@ -84,11 +84,12 @@ class FlexWindow(Strategy):
                     cur_max_power = event.max_power or cur_max_power
                     if event.window is not None:
                         cur_window = event.window
-                elif type(event) == events.EnergyFeedIn:
-                    cur_feed_in[event.name] = event.value
+                elif type(event) == events.LocalEnergyGeneration:
+                    cur_local_generation[event.name] = event.value
                 # vehicle events ignored (use vehicle info such as estimated_time_of_departure)
 
-            ext_load = gc.get_avg_ext_load(cur_time, self.interval) - sum(cur_feed_in.values())
+            ext_load = gc.get_avg_ext_load(cur_time, self.interval) \
+                - sum(cur_local_generation.values())
 
             # save infos for each timestep
             timesteps.append(
