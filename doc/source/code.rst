@@ -12,7 +12,7 @@ Generate inputs
 The generate scripts prepare input files for the simulation with SpiceEV. Most
 generate scripts create a scenario json, containing information about the vehicles, the trips,
 the charging stations, grid connectors as well as optional inputs such as
-stationary batteries, external load, feed-in or grid signal time series. The module
+stationary batteries, fixed load, local power plants or grid signal time series. The module
 'generate_schedule' prepares a csv file of grid operator schedules and adds this schedule to an existing input json.
 
 Generate_from_statistics
@@ -105,7 +105,7 @@ Balanced
 --------
 Each vehicle is charged such that it uses its complete standing time to reach the
 desired SoC. May charge more power (and above the desired SoC) if there is
-surplus feed-in power or if the energy price falls below a certain PRICE_THRESHOLD.
+surplus from local generation or if the energy price falls below a certain PRICE_THRESHOLD.
 
 .. currentmodule:: spice_ev.strategies.balanced
 .. autosummary::
@@ -237,8 +237,8 @@ Components
     GridConnector
     GridConnector.add_load
     GridConnector.get_current_load
-    GridConnector.add_avg_ext_load_week
-    GridConnector.get_avg_ext_load
+    GridConnector.add_avg_fixed_load_week
+    GridConnector.get_avg_fixed_load
     ChargingStation
     VehicleType
     Vehicle
@@ -255,8 +255,8 @@ Events
     Event
     Events
     Events.get_event_steps
-    EnergyFeedIn
-    ExternalLoad
+    LocalEnergyGeneration
+    FixedLoad
     EnergyValuesList
     EnergyValuesList.get_events
     GridOperatorSignal

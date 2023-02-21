@@ -10,7 +10,7 @@ Charging strategies
 The core of SpiceEV are the different charging strategies. They decide how to react to events, when to charge the vehicles and by how much. To see how to set strategy options, refer to :ref:`Command line options <command_line_options>`. The following table indicates whether a charging strategy considers stationary batteries and V2G.
 
 +--------------------------+-----------------------------+-------------------------------+-------------------------------+
-|**charging strategy**     | **stationary batteries**    | **V2G**                       |  **local feed-in**            |
+|**charging strategy**     | **stationary batteries**    | **V2G**                       |  **local generation**         |
 +--------------------------+-----------------------------+-------------------------------+-------------------------------+
 | greedy                   | x                           | x                             |  x                            |
 +--------------------------+-----------------------------+-------------------------------+-------------------------------+
@@ -33,12 +33,12 @@ Greedy
 ------
 As soon as a vehicle is connected, it is charged at the maximum possible power until the desired SoC level is reached.
 Depending on the grid connector (GC), the power must be throttled in order to not exceed its maximum power. A vehicle
-may be charged above the desired SoC if there is surplus feed-in power or the energy price falls below the set price threshold.
+may be charged above the desired SoC if there is energy surplus from local generation or the energy price falls below the set price threshold.
 
 Balanced
 --------
 Each vehicle is charged with the minimal possible power over its standing time to reach the desired SoC. A vehicle
-may be charged above the desired SoC if there is surplus feed-in power or the energy price falls below the set price threshold.
+may be charged above the desired SoC if there is energy surplus from local generation or the energy price falls below the set price threshold.
 A prerequisite for this strategy is an estimate of the standing time. In the simulation model, a perfect foresight is used for
 this purpose. By defining a time horizon, it is possible to specify how far in the future departure times are known.
 
@@ -164,13 +164,14 @@ is charged according to the state of art.
 Flexible time windows
 ---------------------
 
-Based on the forecast grid situation, low tariff windows and high tariff windows are defined. If curtailment is
-forecast or feed-in outweighs load, these periods become low tariff windows.
+Based on the forecast grid situation, low tariff windows and high tariff windows are defined. If curtailment of
+renewable power plants is forecast or feed-in outweighs load, these periods become low tariff windows.
 
 When using flexible time windows the flexible loads such as electric vehicles are charged with the tariff for grid
 friendly charging from the price sheet. Load peaks in low tariff time windows are not taken into account when
 determining the capacity related costs. The calculation of the capacity related costs is based exclusively on the power
-peaks in high-tariff windows. This way grid supply during times of curtailment or high feed-in is encouraged.
+peaks in high-tariff windows. This way grid supply during times of curtailment of renewable power plants or high feed-in
+is encouraged.
 
 The flexible time windows are only applied on flexible loads. The fixed load of a location is charged according to the
 state of art.

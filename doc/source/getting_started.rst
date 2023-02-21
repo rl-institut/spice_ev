@@ -66,7 +66,7 @@ Note that when running the `generate_schedule.py` module, you need to already ha
 Include other csv time series
 -----------------------------
 
-You can also include your previously generated or already existing price time series and additional external load and/or feed in time series to your input arguments when generating the scenario.json. See :ref:`Input and output file formats <file_formats>`
+You can also include your previously generated or already existing price time series and additional fixed load and/or local generation time series to your input arguments when generating the scenario.json. See :ref:`Input and output file formats <file_formats>`
 for more information on the file formats of the input files.
 
 .. code:: bash
