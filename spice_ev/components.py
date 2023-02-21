@@ -1,6 +1,6 @@
 import datetime
 from spice_ev import battery, loading_curve, util
-from spice_ev.events import ExternalLoad
+from spice_ev.events import FixedLoad
 
 
 class Components:
@@ -45,7 +45,7 @@ class GridConnector:
             ('voltage_level', str, None)
         ]
         util.set_attr_from_dict(obj, self, keys, optional_keys)
-        self.avg_ext_load = None
+        self.avg_fixed_load = None
         self.cur_max_power = self.max_power
 
     def add_load(self, key, value):
@@ -78,26 +78,26 @@ class GridConnector:
                 current_load += value
         return current_load
 
-    def add_avg_ext_load_week(self, ext_load_list, interval):
+    def add_avg_fixed_load_week(self, fixed_load_list, interval):
         """Compute average load using EnergyValuesList
 
         Each weekday has its own sequence of average values, depending on interval.
-        Multiple external loads are added up
+        Multiple fixed loads are added up
 
-        :param ext_load_list: list of external loads
-        :type ext_load_list: list
+        :param fixed_load_list: list of fixed loads
+        :type fixed_load_list: list
         :param interval: interval of one timestep
         :type interval: timedelta
         """
         # convert EnergyValuesList to event list
-        events = ext_load_list.get_events(None, ExternalLoad, has_perfect_foresight=False)
+        events = fixed_load_list.get_events(None, FixedLoad, has_perfect_foresight=False)
         events_per_day = int(datetime.timedelta(hours=24) / interval)
         values_by_weekday = [[[] for _ in range(events_per_day)] for _ in range(7)]
 
-        # iterate over event list, to find which external load is present during which interval step
+        # iterate over event list, to find which fixed load is present during which interval step
         # take care when EnergyValuesList.step_duration_s != interval (not in sync)
         # last event in interval used, similar to strategy implementation
-        cur_time = ext_load_list.start_time - interval
+        cur_time = fixed_load_list.start_time - interval
         cur_value = None
         while True:
             cur_time += interval
@@ -110,7 +110,7 @@ class GridConnector:
                 event = events.pop(0)
                 cur_value = event.value
 
-            # insert external load value into specific timeslot
+            # insert fixed load value into specific timeslot
             if cur_value is not None:
                 weekday = cur_time.weekday()
                 midnight = cur_time.replace(hour=0, minute=0)
@@ -122,31 +122,31 @@ class GridConnector:
             (sum(v) / len(v)) if len(v) > 0 else 0 for v in day_values
         ] for day_values in values_by_weekday]
 
-        # set/update avg_ext_load for this GC
-        if self.avg_ext_load is None:
-            self.avg_ext_load = avg_values_by_weekday
+        # set/update avg_fixed_load for this GC
+        if self.avg_fixed_load is None:
+            self.avg_fixed_load = avg_values_by_weekday
         else:
-            # multiple external loads: add up
+            # multiple fixed loads: add up
             for i, values in enumerate(avg_values_by_weekday):
-                self.avg_ext_load[i] = [e + v for (e, v) in zip(self.avg_ext_load[i], values)]
+                self.avg_fixed_load[i] = [e + v for (e, v) in zip(self.avg_ficed_load[i], values)]
 
-    def get_avg_ext_load(self, dt, interval):
-        """Get average external load for specific timeslot
+    def get_avg_fixed_load(self, dt, interval):
+        """Get average fixed load for specific timeslot
 
         :param dt: time
         :type dt: datetime
         :param interval: interval of one timestep
         :type interval: timedelta
-        :return: average external load
+        :return: average fixed load
         :rtype: dict
         """
         # dt: datetime, interval: scenario interval timedelta
-        if self.avg_ext_load is None:
+        if self.avg_fixed_load is None:
             return 0
         weekday = dt.weekday()
         midnight = dt.replace(hour=0, minute=0)
         timeslot = int((dt - midnight) / interval)
-        return self.avg_ext_load[weekday][timeslot]
+        return self.avg_fixed_load[weekday][timeslot]
 
 
 class ChargingStation:

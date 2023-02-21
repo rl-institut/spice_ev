@@ -28,7 +28,7 @@ def get_test_json():
             "vehicles": {},
         },
         "events": {
-            "external_loads": {},
+            "fixed_loads": {},
             "grid_operator_signals": [],
             "vehicle_events": [],
         }

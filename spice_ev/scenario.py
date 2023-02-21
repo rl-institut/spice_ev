@@ -47,10 +47,10 @@ class Scenario:
         self.core_standing_time = scenario.get('core_standing_time', None)
 
         # compute average load for each timeslot
-        for ext_load_list in self.events.external_load_lists.values():
-            gc_id = ext_load_list.grid_connector_id
+        for fixed_load_list in self.events.fixed_load_lists.values():
+            gc_id = fixed_load_list.grid_connector_id
             gc = self.components.grid_connectors[gc_id]
-            gc.add_avg_ext_load_week(ext_load_list, self.interval)
+            gc.add_avg_fixed_load_week(fixed_load_list, self.interval)
 
     def run(self, strategy_name, options):
         """
@@ -75,7 +75,7 @@ class Scenario:
         socs = []
         prices = {gcID: [] for gcID in gc_ids}
         results = []
-        extLoads = {gcID: [] for gcID in gc_ids}
+        fixedLoads = {gcID: [] for gcID in gc_ids}
         totalLoad = {gcID: [] for gcID in gc_ids}
         disconnect = []
         localGenerationPower = {gcID: [] for gcID in gc_ids}
@@ -194,7 +194,7 @@ class Scenario:
                 # loads without charging stations (fixed + local generation)
                 stepLoads = {k: v for k, v in gc.current_loads.items()
                              if k not in self.components.charging_stations.keys()}
-                extLoads[gcID].append(stepLoads)
+                fixedLoads[gcID].append(stepLoads)
 
                 # sum up total local generation power
                 local_generation_keys = self.events.local_generation_lists.keys()
@@ -256,7 +256,7 @@ class Scenario:
 
         # make variable members of Scenario class to access them in report
         for var in ["batteryLevels", "connChargeByTS", "disconnect",
-                    "extLoads", "localGenerationPower", "gcPowerSchedule", "gcWindowSchedule",
+                    "fixedLoads", "localGenerationPower", "gcPowerSchedule", "gcWindowSchedule",
                     "prices", "results", "socs", "step_i", "stepsPerHour", "strat",
                     "strategy_name", "totalLoad"]:
             setattr(self, var, locals()[var])

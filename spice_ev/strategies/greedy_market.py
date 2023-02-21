@@ -68,7 +68,7 @@ class GreedyMarket(Strategy):
         vehicle_events = {vid: [] for vid in self.world_state.vehicles.keys()}
 
         # look ahead (limited by horizon)
-        # get future events and predict external load and cost for each timestep
+        # get future events and predict fixed load and cost for each timestep
         # take note of vehicle arriving and leaving and their soc
         event_idx = 0
         timesteps_ahead = int(datetime.timedelta(hours=self.HORIZON) / self.interval)
@@ -112,17 +112,17 @@ class GreedyMarket(Strategy):
                         vehicle_events[vid].append(arrival_event)
 
             # compute available power and associated costs
-            # get (predicted) external load
+            # get (predicted) fixed load
             if timestep_idx == 0:
-                # use actual external load
-                ext_load = gc.get_current_load()
-                # add battery power (sign switch, as ext_load is subtracted)
-                ext_load -= avail_bat_power
+                # use actual fixed load
+                fixed_load = gc.get_current_load()
+                # add battery power (sign switch, as fixed_load is subtracted)
+                fixed_load -= avail_bat_power
             else:
-                ext_load = gc.get_avg_ext_load(cur_time, self.interval) \
+                fixed_load = gc.get_avg_fixed_load(cur_time, self.interval) \
                            - sum(cur_local_generation.values())
             timesteps.append({
-                "power": cur_max_power - ext_load,
+                "power": cur_max_power - fixed_load,
                 "cost": cur_cost,
             })
 

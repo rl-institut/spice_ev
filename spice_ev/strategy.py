@@ -88,10 +88,10 @@ class Strategy():
             # remove event from list
             ev = self.world_state.future_events.pop(0)
 
-            if type(ev) == events.ExternalLoad:
+            if type(ev) == events.FixedLoad:
                 connector = self.world_state.grid_connectors[ev.grid_connector_id]
                 assert ev.name not in self.world_state.charging_stations, (
-                    "External load must not be from charging station")
+                    "Fixed load must not be from charging station")
                 connector.current_loads[ev.name] = ev.value  # not reset after last event
             elif type(ev) == events.LocalEnergyGeneration:
                 assert ev.name not in self.world_state.charging_stations, (

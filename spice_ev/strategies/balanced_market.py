@@ -63,7 +63,7 @@ class BalancedMarket(Strategy):
         timesteps = []
 
         # look ahead (limited by horizon)
-        # get future events and predict external load and cost for each timestep
+        # get future events and predict fixed load and cost for each timestep
         event_idx = 0
         timesteps_ahead = int(datetime.timedelta(hours=self.HORIZON) / self.interval)
 
@@ -93,15 +93,15 @@ class BalancedMarket(Strategy):
                 # vehicle events ignored (use vehicle info such as estimated_time_of_departure)
 
             # compute available power and associated costs
-            # get (predicted) external load
+            # get (predicted) fixed load
             if timestep_idx == 0:
-                # use actual external load
-                ext_load = gc.get_current_load()
+                # use actual fixed load
+                fixed_load = gc.get_current_load()
             else:
-                ext_load = gc.get_avg_ext_load(cur_time, self.interval) \
+                fixed_load = gc.get_avg_fixed_load(cur_time, self.interval) \
                            - sum(cur_local_generation.values())
             timesteps.append({
-                "power": cur_max_power - ext_load,
+                "power": cur_max_power - fixed_load,
                 "max_power": cur_max_power,
                 "cost": cur_cost,
             })

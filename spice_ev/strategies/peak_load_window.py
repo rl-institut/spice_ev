@@ -98,7 +98,7 @@ class PeakLoadWindow(Strategy):
                     v.dep_ts = timesteps_per_day
         sum_loads = sum(gc.current_loads.values())
 
-        # peek into future events for external loads, feed-in and schedule
+        # peek into future events for fixed loads, feed-in and schedule
         event_idx = 0
         cur_time = self.current_time - self.interval
         # look one day ahead
@@ -116,7 +116,7 @@ class PeakLoadWindow(Strategy):
                 if vehicle.estimated_time_of_departure < cur_time:
                     standing[vid] += 1
 
-            # peek into future events for external load or cost changes
+            # peek into future events for fixed load or cost changes
             while True:
                 try:
                     event = self.world_state.future_events[event_idx]
@@ -128,7 +128,7 @@ class PeakLoadWindow(Strategy):
                     break
                 # event handled: don't handle again, so increase index
                 event_idx += 1
-                if type(event) in [events.ExternalLoad, events.LocalEnergyGeneration]:
+                if type(event) in [events.FixedLoad, events.LocalEnergyGeneration]:
                     ts[-1]["loads"][event.name] = event.value
             # end of useful events
 

@@ -27,7 +27,7 @@ class TestReport:
                 "grid_connectors": {
                     "GC": {
                         "max_power": 100,
-                        "current_loads": {"ext_load": 11},
+                        "current_loads": {"fixed_load": 11},
                         "cost": {"type": "fixed", "value": 0.1},
                     }
                 }

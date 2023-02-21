@@ -122,7 +122,7 @@ def generate_from_statistics(args):
     charging_stations = {}
     events = {
         "grid_operator_signals": [],
-        "external_load": {},
+        "fixed_load": {},
         "local_generation": {},
         "vehicle_events": []
     }
@@ -245,7 +245,7 @@ def generate_from_statistics(args):
 
     # update info of external CSV files
     ext_info = {
-        "external_load": "include_ext_load_csv",
+        "fixed_load": "include_fixed_load_csv",
         "local_generation": "include_local_generation_csv",
         "energy_price_from_csv": "include_price_csv",
     }

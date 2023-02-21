@@ -22,8 +22,8 @@ ARG_VALUES1 = {
     "discharge_limit": 0.5,
     "cs_power_min": 0,
     "export_vehicle_id_csv": None,
-    "include_ext_load_csv": None,
-    "include_ext_load_csv_option": [],
+    "include_fixed_load_csv": None,
+    "include_fixed_load_csv_option": [],
     "include_local_generation_csv": None,
     "include_local_generation_csv_option": [],
     "seed": None,
@@ -63,9 +63,9 @@ class TestGenerate(TestCaseBase):
         current_arg_values.update({
             "mode": "statistics",
             "output": output_file,
-            "include_ext_load_csv": str(
+            "include_fixed_load_csv": str(
                 TEST_REPO_PATH / "test_data/input_test_generate/example_load.csv"),
-            "include_ext_load_csv_option": [("column", "value"), ("factor", 0.0001)],
+            "include_fixed_load_csv_option": [("column", "value"), ("factor", 0.0001)],
             "include_local_generation_csv": str(
                 TEST_REPO_PATH / "test_data/input_test_generate/example_pv_feedin.csv"),
             "include_local_generation_csv_option": [
@@ -83,7 +83,7 @@ class TestGenerate(TestCaseBase):
             s.n_intervals = 5
             s.run("greedy", {})
             assert sum(s.localGenerationPower["GC1"]) != 0
-            assert pytest.approx(sum(s.extLoads["GC1"][-1].values())) == -33
+            assert pytest.approx(sum(s.fixedLoads["GC1"][-1].values())) == -33
             assert s.prices["GC1"][-2] == 11319.32
             assert pytest.approx(s.prices["GC1"][-1]) == 11585.256
 
@@ -298,7 +298,7 @@ class TestGenerateSchedule(TestCaseBase):
         assert pytest.approx(sum(schedules[0][153:191]), .1) == 1000
 
     def test_generate_complex_schedule(self, tmp_path):
-        # slightly more complex scenario with ext. load and feed-in
+        # slightly more complex scenario with fixed load and feed-in
         # copy scenario and needed files to tmp
         path = TEST_REPO_PATH / "test_data/input_test_generate"
         for filename in ["scenario_C.json", "example_load.csv", "example_pv_feedin.csv"]:

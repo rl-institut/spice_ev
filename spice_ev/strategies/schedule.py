@@ -143,9 +143,10 @@ class Schedule(Strategy):
                 # copy last GC info
                 gc_info.append(deepcopy(gc_info[-1]))
 
-            # get approximation of external load
-            gc_info[-1]["current_loads"]["ext_load"] = gc.get_avg_ext_load(cur_time, self.interval)
-            # peek into future events for external load or cost changes
+            # get approximation of fixed load
+            gc_info[-1]["current_loads"]["fixed_load"] = gc.get_avg_fixed_load(cur_time,
+                                                                               self.interval)
+            # peek into future events for fixed load or cost changes
             while True:
                 try:
                     event = self.world_state.future_events[event_idx]
@@ -167,7 +168,7 @@ class Schedule(Strategy):
                     gc_info[-1]["current_loads"][event.name] = -event.value
                 # ignore vehicle events, use vehicle data directly
                 # ignore localGeneration for now as well
-            # end of useful events peek into future events for external loads, schedule
+            # end of useful events peek into future events for fixed loads, schedule
         return gc_info
 
     def evaluate_core_standing_time_ahead(self):

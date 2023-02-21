@@ -102,7 +102,7 @@ def generate_flex_band(scenario, gcID, core_standing_time=None):
         currently_in_core_standing_time = \
             util.dt_within_core_standing_time(current_datetime, core_standing_time)
 
-        # basic value: external load, local generation power
+        # basic value: fixed load, local generation power
         base_flex = gc.get_current_load()
 
         # update vehicles
@@ -295,8 +295,8 @@ def generate_individual_flex_band(scenario, gcID):
         if idx != 0:
             flex["vehicles"].append([])
         for event in timestep:
-            if type(event) == events.ExternalLoad and event.grid_connector_id == gcID:
-                # external load event at this GC
+            if type(event) == events.FixedLoad and event.grid_connector_id == gcID:
+                # fixed load event at this GC
                 gc.current_loads[event.name] = event.value
             elif type(event) == events.LocalEnergyGeneration and event.grid_connector_id == gcID:
                 # local generation event behind this GC
@@ -471,7 +471,7 @@ def generate_schedule(args):
     # default schedule: just basic power needs, but clipped to GC power
     schedule = [min(max(v, flex["min"][i]), flex["max"][i]) for i, v in enumerate(flex["base"])]
 
-    # adjust curtailment and residual load based on base flex (local generation / ext. load)
+    # adjust curtailment and residual load based on base flex (local generation / fixed load)
     for i, power in enumerate(flex["base"]):
         curtailment_power = min(curtailment[i], power)
         curtailment[i] -= curtailment_power

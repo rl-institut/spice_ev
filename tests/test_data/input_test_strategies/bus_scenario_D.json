@@ -1027,7 +1027,7 @@
         }
       }
     ],
-    "external_load": {
+    "fixed_load": {
       "Building-20210705-20210719": {
         "csv_file": "example_load.csv",
         "start_time": "2018-01-02T00:06:00+02:00",

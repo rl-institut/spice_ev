@@ -58,7 +58,7 @@ class FlexWindow(Strategy):
         timesteps = []
 
         # look ahead (limited by horizon)
-        # get future events and predict external load and cost for each timestep
+        # get future events and predict fixed load and cost for each timestep
         event_idx = 0
         timesteps_ahead = int(datetime.timedelta(hours=self.HORIZON) / self.interval)
 
@@ -88,18 +88,18 @@ class FlexWindow(Strategy):
                     cur_local_generation[event.name] = event.value
                 # vehicle events ignored (use vehicle info such as estimated_time_of_departure)
 
-            ext_load = gc.get_avg_ext_load(cur_time, self.interval) \
+            fixed_load = gc.get_avg_fixed_load(cur_time, self.interval) \
                 - sum(cur_local_generation.values())
 
             # save infos for each timestep
             timesteps.append(
                 {
                     "timestep_idx": timestep_idx,
-                    "power": cur_max_power - ext_load,
-                    "ext_load": ext_load,
+                    "power": cur_max_power - fixed_load,
+                    "fixed_load": fixed_load,
                     "window": cur_window,
                     "v_load": 0,
-                    "total_load": ext_load
+                    "total_load": fixed_load
                 }
             )
 
@@ -531,7 +531,7 @@ class FlexWindow(Strategy):
                 if not cur_vehicles or cur_needed < self.EPS:
                     # no vehicles or no energy need: skip simulation
                     break
-                self.distribute_power(cur_vehicles, total_power - ts_info["ext_load"], cur_needed)
+                self.distribute_power(cur_vehicles, total_power - ts_info["fixed_load"], cur_needed)
 
             safe = all([v.get_delta_soc() < self.EPS for v in sim_vehicles])
             if safe:
@@ -805,7 +805,7 @@ class FlexWindow(Strategy):
                     # calculate needed power to load battery
                     for ts_info in no_window_timesteps:
                         cur_time += self.interval
-                        cur_needed_power = (ts_info["ext_load"] + ts_info["v_load"]) - total_power
+                        cur_needed_power = (ts_info["fixed_load"] + ts_info["v_load"]) - total_power
                         if sim_vehicle.battery.soc <= discharge_limit:
                             # already discharged
                             break

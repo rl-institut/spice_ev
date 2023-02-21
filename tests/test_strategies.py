@@ -22,7 +22,7 @@ def get_test_json():
             "vehicles": {},
         },
         "events": {
-            "external_loads": {},
+            "fixed_loads": {},
             "grid_operator_signals": [],
             "vehicle_events": [],
         }
@@ -80,21 +80,21 @@ class TestScenarios(TestCaseBase):
         input = TEST_REPO_PATH / 'test_data/input_test_strategies/scenario_A.json'
         scenario.Scenario(load_json(input), input.parent)
 
-    # TEST SCENARIOS WITH BATTERY, FEEDIN AND EXTERNAL LOAD (Scenario A)
+    # TEST SCENARIOS WITH BATTERY, FEEDIN AND FIXED LOAD (Scenario A)
     def test_scenario_A(self):
         input = TEST_REPO_PATH / 'test_data/input_test_strategies/scenario_A.json'
         s = scenario.Scenario(load_json(input), input.parent)
         for strat in ['greedy', 'balanced', 'balanced_market', 'flex_window', 'peak_load_window']:
             s.run(strat, {})
 
-    # TEST with battery, feedin, extLoad and V2G (Scenario B)
+    # TEST with battery, feedin, fixedLoad and V2G (Scenario B)
     def test_scenario_B(self):
         input = TEST_REPO_PATH / 'test_data/input_test_strategies/scenario_B.json'
         s = scenario.Scenario(load_json(input), input.parent)
         for strat in ['greedy', 'balanced', 'balanced_market', 'flex_window', 'peak_load_window']:
             s.run(strat, {})
 
-    # TEST with battery, feedin, extLoad, V2G and schedule (Scenario C)
+    # TEST with battery, feedin, fixedLoad, V2G and schedule (Scenario C)
     def test_scenario_C1(self):
         input = TEST_REPO_PATH / 'test_data/input_test_strategies/scenario_C1.json'
         s = scenario.Scenario(load_json(input), input.parent)

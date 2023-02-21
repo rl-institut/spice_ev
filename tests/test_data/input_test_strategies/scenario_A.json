@@ -124,7 +124,7 @@
         }
       }
     ],
-    "external_load": {},
+    "fixed_load": {},
     "energy_feed_in": {},
     "vehicle_events": [
       {

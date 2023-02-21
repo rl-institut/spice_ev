@@ -10,7 +10,7 @@ class Events:
     """ Events class
 
         Sets up events:
-        * external_load
+        * fixed_load
         * local_generation
         * grid_operator_signals - price
         * grid_operator_signals - schedule
@@ -19,8 +19,8 @@ class Events:
     def __init__(self, obj, dir_path):
         dir_path = Path(dir_path)
         # optional
-        self.external_load_lists = dict(
-            {k: EnergyValuesList(v, dir_path) for k, v in obj.get('external_load', {}).items()})
+        self.fixed_load_lists = dict(
+            {k: EnergyValuesList(v, dir_path) for k, v in obj.get('fixed_load', {}).items()})
         self.local_generation_lists = dict(
             {k: EnergyValuesList(v, dir_path) for k, v in obj.get('local_generation', {}).items()})
         self.grid_operator_signals = list(
@@ -47,8 +47,8 @@ class Events:
         steps = list([[] for _ in range(n_intervals)])
 
         all_events = self.vehicle_events + self.grid_operator_signals
-        for name, load_list in self.external_load_lists.items():
-            all_events.extend(load_list.get_events(name, ExternalLoad))
+        for name, load_list in self.fixed_load_lists.items():
+            all_events.extend(load_list.get_events(name, FixedLoad))
         for name, local_generation_list in self.local_generation_lists.items():
             all_events.extend(
                 local_generation_list.get_events(name, LocalEnergyGeneration,
@@ -86,8 +86,8 @@ class LocalEnergyGeneration(Event):
         self.__dict__.update(**kwargs)
 
 
-class ExternalLoad(Event):
-    """ExternalLoad class"""
+class FixedLoad(Event):
+    """FixedLoad class"""
     def __init__(self, kwargs):
         self.__dict__.update(**kwargs)
 
@@ -121,7 +121,7 @@ class EnergyValuesList:
 
     def get_events(self, name, value_class, has_perfect_foresight=False):
         """
-        Sets up local generation and external_load events from input.
+        Sets up local generation and fixed_load events from input.
 
         :param name: name of the input csv file
         :type name: str
@@ -132,7 +132,7 @@ class EnergyValuesList:
         :return: list of events
         :rtype: list
         """
-        assert value_class in [LocalEnergyGeneration, ExternalLoad]
+        assert value_class in [LocalEnergyGeneration, FixedLoad]
 
         eventlist = []
         time_delta = datetime.timedelta(seconds=self.step_duration_s)

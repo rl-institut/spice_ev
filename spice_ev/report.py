@@ -29,7 +29,7 @@ def aggregate_global_results(scenario):
     loads = {}
     for gcID in gc_ids:
         loads[gcID] = {}
-        for i, step in enumerate(scenario.extLoads[gcID]):
+        for i, step in enumerate(scenario.fixedLoads[gcID]):
             for k, v in step.items():
                 if k not in loads[gcID]:
                     # new key, not present before
@@ -149,8 +149,8 @@ def aggregate_local_results(scenario, gcID):
             else:
                 load_count[i][-1] += (soc is not None)
 
-        fixed_load = sum([v for k, v in scenario.extLoads[gcID][idx].items() if
-                          k in scenario.events.external_load_lists or
+        fixed_load = sum([v for k, v in scenario.fixedLoads[gcID][idx].items() if
+                          k in scenario.events.fixed_load_lists or
                           k in scenario.events.local_generation_lists])
         max_fixed_load = max(max_fixed_load, fixed_load)
         var_load = scenario.totalLoad[gcID][idx] - fixed_load
@@ -294,7 +294,7 @@ def aggregate_local_results(scenario, gcID):
                 total_bat_cap += battery.capacity
     if total_bat_cap:
         total_bat_energy = 0
-        for loads in scenario.extLoads[gcID]:
+        for loads in scenario.fixedLoads[gcID]:
             for batID in scenario.components.batteries.keys():
                 if scenario.components.batteries[batID].parent == gcID:
                     total_bat_energy += max(loads.get(batID, 0), 0) / stepsPerHour
@@ -333,7 +333,7 @@ def aggregate_timeseries(scenario, gcID):
     The time series generated are:
         price [EUR/kWh],
         grid power [kW],
-        ext.load [kW],
+        fixed load [kW],
         local generation [kW],
         flex min [kW],
         flex base [kW],
@@ -396,7 +396,7 @@ def aggregate_timeseries(scenario, gcID):
             scenario.flex_bands[gcID] = {}
 
     # any loads except CS present?
-    hasExtLoads = any(scenario.extLoads)
+    hasFixedLoads = any(scenario.fixedLoads)
     hasSchedule = any(s is not None for s in scenario.gcPowerSchedule[gcID])
     hasBatteries = sum([b.parent == gcID for b in scenario.components.batteries.values()])
 
@@ -408,9 +408,9 @@ def aggregate_timeseries(scenario, gcID):
         header.append("price [EUR/kWh]")
     # grid power
     header.append("grid supply [kW]")
-    # external loads
-    if hasExtLoads:
-        # external loads (e.g., building)
+    # fixed loads
+    if hasFixedLoads:
+        # fixed loads (e.g., building)
         header.append("fixed load [kW]")
     # local generation
     if any(scenario.localGenerationPower):
@@ -422,7 +422,7 @@ def aggregate_timeseries(scenario, gcID):
     header += ["flex band min [kW]", "flex band base [kW]", "flex band max [kW]"]
     # schedule & window
     if hasSchedule:
-        # external loads (e.g., building)
+        # fixed loads (e.g., building)
         header += ["schedule [kW]", "window signal [-]"]
     # sum of charging power
     header.append("sum CS power [kW]")
@@ -448,12 +448,12 @@ def aggregate_timeseries(scenario, gcID):
             row.append(scenario.prices[gcID][idx])
         # grid power (negative since grid power is fed into system)
         row.append(-1 * round(scenario.totalLoad[gcID][idx], round_to_places))
-        # external loads
-        if hasExtLoads:
-            sumExtLoads = sum([
-                v for k, v in scenario.extLoads[gcID][idx].items()
-                if k in scenario.events.external_load_lists])
-            row.append(round(sumExtLoads, round_to_places))
+        # fixed loads
+        if hasFixedLoads:
+            sumFixedLoads = sum([
+                v for k, v in scenario.fixedLoads[gcID][idx].items()
+                if k in scenario.events.fixed_load_lists])
+            row.append(round(sumFixedLoads, round_to_places))
         # local generation (negative since power is fed into system)
         if any(scenario.localGenerationPower):
             row.append(-1 * round(scenario.localGenerationPower[gcID][idx], round_to_places))
@@ -467,7 +467,7 @@ def aggregate_timeseries(scenario, gcID):
             row += [
                 # battery power
                 round(sum([
-                    v for k, v in scenario.extLoads[gcID][idx].items()
+                    v for k, v in scenario.fixedLoads[gcID][idx].items()
                     if k in scenario.components.batteries]),
                     round_to_places),
                 # battery levels
