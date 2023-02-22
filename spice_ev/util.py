@@ -198,7 +198,7 @@ def clamp_power(power, vehicle, cs):
     return power
 
 
-def set_options_from_config(args, check=False, verbose=True):
+def set_options_from_config(args, check=None, verbose=True):
     """
     Update given options from config file.
 
@@ -206,15 +206,17 @@ def set_options_from_config(args, check=False, verbose=True):
 
     :param args: input arguments
     :type args: argparse.Namespace
-    :param check: raise ValueError on unknown options
-    :type check: bool
+    :param check: check config options against argparser
+    :type check: argparse.ArgumentParser
     :param verbose: gives final overview of arguments
-    :type verbose: bool
-    :raises ValueError: if arguments are checked and an unknown argument is encountered
+    :type bool
+
+    :raise argparse.ArgumentError: Raised if wrong option values are given
+    :raises Exception: Raised if unknown option is given or value could not be converted
     """
     if "config" in args and args.config is not None:
         # read options from config file
-        with open(args.config, 'r') as f:
+        with open(args.config, 'r', encoding='utf-8') as f:
             for line in f:
                 line = line.strip()
                 if line.startswith('#'):
@@ -232,11 +234,32 @@ def set_options_from_config(args, check=False, verbose=True):
                 except ValueError:
                     # or not
                     pass
-                # known option?
-                if (k not in args) and check:
-                    raise ValueError("Unknown option {}".format(k))
-                # set option
-                vars(args)[k] = v
+                # check option
+                if check is not None:
+                    # find action by name
+                    try:
+                        action = [a for a in check._actions if a.dest == k][0]
+                    except IndexError:
+                        raise Exception(f"Unknown option {k}")
+                    # check each item in list individually
+                    v_list = [v] if type(v) != list else v
+                    for v_item in v_list:
+                        # check item. Returns None on success
+                        # may raise ArgumentError if not successful
+                        try:
+                            if action.type is not None:
+                                v_item = action.type(v_item)
+                            check._check_value(action, v_item)
+                        except Exception:
+                            print(f"Failed check {k}: {v}")
+                            raise
+                    else:
+                        # all checks successful: set argument
+                        vars(args)[k] = v
+                else:
+                    # set option
+                    vars(args)[k] = v
+
         # Give overview of options
         if verbose:
             print("Options: {}".format(vars(args)))

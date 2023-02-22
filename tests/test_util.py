@@ -1,4 +1,6 @@
+import argparse
 import datetime
+import pytest
 
 from spice_ev import components, util
 
@@ -136,3 +138,52 @@ class TestUtil:
         assert util.clamp_power(9, v, cs) == 9
         assert util.clamp_power(10, v, cs) == 9
         assert util.clamp_power(20, v, cs) == 9
+
+    def test_set_options_from_config(self, tmp_path):
+        ns = argparse.Namespace(baf=2)
+        # create dummy config:
+        """
+        foo= bar
+        # comment
+        baf =1
+        array = [1]
+        """
+        (tmp_path / "config.cfg").write_text("foo= bar\n#comment\nbaf =1\narray = [1]")
+        # no config: no update
+        util.set_options_from_config(ns)
+        assert ns.baf == 2
+
+        # config without parser: simple update, no check
+        ns.config = tmp_path / "config.cfg"
+        util.set_options_from_config(ns)
+        assert ns.baf == 1
+        assert ns.foo == "bar"
+        assert ns.array == [1]
+
+        # config with parser: check validity of options
+        # reset Namespace
+        ns = argparse.Namespace(baf=2, config=tmp_path / "config.cfg")
+        parser = argparse.ArgumentParser()
+        # unknown option: generic exception
+        with pytest.raises(Exception):
+            util.set_options_from_config(ns, check=parser)
+        # add options, but wrong type of foo
+        parser.add_argument("--foo", type=int)
+        parser.add_argument("--baf", type=int)
+        parser.add_argument("--array", action="append")
+        # unused option
+        parser.add_argument("--default", default="default")
+        with pytest.raises(ValueError):
+            util.set_options_from_config(ns, check=parser)
+        # fix last option
+        parser._actions[-4].type = str
+        util.set_options_from_config(ns, check=parser)
+        assert ns.baf == 1
+        assert ns.foo == "bar"
+        assert ns.array == [1]
+        # check choices
+        parser._actions[-2].choices = [2, 3]
+        with pytest.raises(argparse.ArgumentError):
+            util.set_options_from_config(ns, check=parser)
+        parser._actions[-2].choices = [1, 2, 3]
+        util.set_options_from_config(ns, check=parser)
