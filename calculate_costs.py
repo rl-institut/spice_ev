@@ -67,7 +67,7 @@ if __name__ == "__main__":  # pragma: no cover
 
     args = parser.parse_args()
 
-    util.set_options_from_config(args, check=False, verbose=False)
+    util.set_options_from_config(args, check=parser, verbose=False)
 
     # load simulation results:
     with open(args.get_results, "r", newline="") as sj:
