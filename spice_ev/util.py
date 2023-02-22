@@ -209,7 +209,7 @@ def set_options_from_config(args, check=None, verbose=True):
     :param check: check config options against argparser
     :type check: argparse.ArgumentParser
     :param verbose: gives final overview of arguments
-    :type bool
+    :type verbose: bool
 
     :raise argparse.ArgumentError: Raised if wrong option values are given
     :raises Exception: Raised if unknown option is given or value could not be converted
