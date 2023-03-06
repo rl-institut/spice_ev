@@ -669,7 +669,7 @@ def generate_schedule(args):
 
     # check that schedule is within flex
     for i, v in enumerate(schedule):
-        assert flex["min"][i] <= v <= flex["max"][i], (
+        assert flex["min"][i] - EPS < v < flex["max"][i] + EPS, (
             f"Schedule outside flex @ {i}: {v} not within [{flex['min'][i]}, {flex['max'][i]}]")
 
     try:
