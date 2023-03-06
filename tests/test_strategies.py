@@ -249,7 +249,6 @@ class TestScenarios(TestCaseBase):
                     core_standing_time={
                         "times": [{"start": [22, 0], "end": [5, 0]}], "no_drive_days": [6]
                     },
-                    priority_percentile=0.25,
                     visual=False,
                     config=None,
                 ))

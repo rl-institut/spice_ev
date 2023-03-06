@@ -21,8 +21,6 @@ if __name__ == '__main__':
                         'defaults to <scenario>_schedule.csv')
     parser.add_argument('--individual', '-i', action='store_true',
                         help='schedule based on individual vehicles instead of vehicle park')
-    parser.add_argument('--priority-percentile', default=0.25, type=float,
-                        help='Percentiles for priority determination')
     parser.add_argument('--core-standing-time', default=None,
                         help='Define time frames as well as full '
                         'days during which the fleet is guaranteed to be available in a JSON '

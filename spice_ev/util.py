@@ -1,6 +1,8 @@
+import csv
 import datetime
 import json
 from math import sqrt
+import warnings
 
 
 def datetime_from_isoformat(s):
@@ -280,3 +282,56 @@ def sanitize(s, chars=''):
     if not chars:
         chars = '</|\\>:"?*'
     return s.translate({ord(c): "" for c in chars})
+
+
+def read_grid_file(grid_path):
+    """
+    Reads in grid file.
+
+    Should be CSV with columns "residual load" and curtailment.
+    Optional column "timestamp" in ISO format.
+    :param grid_path: path to grid situation file
+    :type: grid_path: str
+    :return: residual_load, curtailment and grid_start_time (if timestamps are given, else None)
+    :rtype: triple
+    """
+    residual_load = []
+    curtailment = []
+    curtailment_is_positive = False
+    curtailment_is_negative = False
+    # Read grid situation timeseries
+    with open(grid_path, 'r', newline='') as f:
+        reader = csv.DictReader(f)
+        for row_idx, row in enumerate(reader):
+            # get start time of grid situation series
+            if row_idx == 0:
+                try:
+                    grid_start_time = datetime.datetime.strptime(row["timestamp"], "%Y-%m-%d %H:%M")
+                except (ValueError, KeyError):
+                    warnings.warn('Time component of grid situation timeseries ignored. '
+                                  'Must be of format YYYY.MM.DD HH:MM')
+                    grid_start_time = None
+
+            # store residual_load value, use previous value if none provided
+            try:
+                residual_load.append(float(row["residual load"]))
+            except ValueError:
+                warnings.warn("Residual load timeseries contains non-numeric values.")
+                replace_unknown = residual_load[-1] if row_idx > 0 else 0
+                residual_load.append(replace_unknown)
+            # store curtailment info
+            try:
+                # sign of curtailment not clear
+                curtailment_value = float(row["curtailment"])
+                # at least make sure it is consistent
+                curtailment_is_negative |= curtailment_value < 0
+                curtailment_is_positive |= curtailment_value > 0
+                assert not (curtailment_is_negative and curtailment_is_positive)
+                curtailment.append(abs(curtailment_value))
+            except ValueError:
+                warnings.warn("Curtailment timeseries contains non-numeric values.")
+                replace_unknown = curtailment[-1] if row_idx > 0 else 0
+                curtailment.append(replace_unknown)
+
+    assert len(residual_load) == len(curtailment)
+    return residual_load, curtailment, grid_start_time

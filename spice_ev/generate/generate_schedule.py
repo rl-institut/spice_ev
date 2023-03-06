@@ -1,5 +1,4 @@
 from copy import deepcopy
-import csv
 import datetime
 import json
 from os.path import relpath
@@ -382,6 +381,16 @@ def generate_individual_flex_band(scenario, gcID):
 
 
 def aggressive_round(f, places=0):
+    """
+    Numbers close to zero are truncated to zero.
+
+    :param f: number to round
+    :type f: numeric
+    :param places: decimal places to round to. Defaults to 0.
+    :type places: int
+    :return: rounded number
+    :rtype: numeric
+    """
     if -EPS < f < EPS:
         return 0
     return round(f, places)
@@ -418,6 +427,12 @@ def generate_schedule(args):
             warnings.warn("Core standing time is not set. "
                           "You can not simulate the schedule strategy without.")
 
+    residual_load, curtailment, grid_start_time = util.read_grid_file(args.input)
+    if grid_start_time is None:
+        # if timestamp column does not exist or contains wrong format
+        # assume grid situation timeseries at the same time as simulation
+        grid_start_time = s.start_time.replace(tzinfo=None)
+    """
     residual_load = []
     curtailment = []
     curtailment_is_positive = False
@@ -456,6 +471,7 @@ def generate_schedule(args):
                 warnings.warn("Curtailment timeseries contains non-numeric values.")
                 replace_unknown = curtailment[-1] if row_idx > 0 else 0
                 curtailment.append(replace_unknown)
+    """
 
     # find timesteps relevant for simulation and discard remaining
     idx_start = (s.start_time.replace(tzinfo=None) - grid_start_time) // s.interval
@@ -511,7 +527,7 @@ def generate_schedule(args):
         # average residual load during period
         p_avg = 0
         for idx, i in enumerate(period):
-            # use curtailment first
+            # use curtailment power first (greedy charging)
             if curtailment[i] > EPS:
                 power = min(curtailment[i], avail["max"][i], power_needed, ind_flex[idx][1])
                 power_needed -= power
