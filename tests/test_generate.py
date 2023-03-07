@@ -32,7 +32,6 @@ ARG_VALUES1 = {
     "verbose": 0,
     "voltage_level": "MV",
     # generate_schedule
-    "priority_percentile": 0.25,
     "core_standing_time": None,
     "visual": False,
 }
@@ -308,7 +307,6 @@ class TestGenerateSchedule(TestCaseBase):
             "input": path / "example_grid_situation.csv",
             "scenario": tmp_path / "scenario_C.json",
             "output": schedule_file,
-            "priority_percentile": 0.25,
             "visual": False,
             "core_standing_time": {"times": [{"start": [22, 0], "end": [5, 0]}], "full_days": [7]},
             "individual": False,
