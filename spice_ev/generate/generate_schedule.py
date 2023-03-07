@@ -493,7 +493,7 @@ def generate_schedule(args):
 
     # adjust curtailment and residual load based on base flex (feed-in / ext. load)
     for i, power in enumerate(flex["base"]):
-        curtailment_power = min(curtailment[i], power)
+        curtailment_power = max(min(curtailment[i], power), 0)
         curtailment[i] -= curtailment_power
         residual_load[i] += power - curtailment_power
         flex["base"][i] = 0
@@ -539,7 +539,7 @@ def generate_schedule(args):
                 curtailment[i] -= power
                 energy_distributed += power / ts_per_hour
                 ind_flex[idx] = (ind_flex[idx][0] - power, ind_flex[idx][1] - power)
-            p_avg += residual_load[i]
+            p_avg += residual_load[i] - curtailment[i]
         p_avg /= len(period)
 
         if power_needed < EPS and not v2g:
@@ -553,17 +553,18 @@ def generate_schedule(args):
         p = p_avg + power_needed / len(period)
         while (p_high - p_low) > EPS:
             power_needed = old_power_needed
+            new_avg = p_avg + p
             for idx, i in enumerate(period):
                 # difference of new average to residual load
-                delta_p = p - residual_load[i]
+                delta_p = new_avg - (residual_load[i] - curtailment[i])
                 if delta_p > 0:
                     # res. load lower than new average: charge to increase load
                     # clip to available power
                     delta_p = min(delta_p, avail["max"][i])
                     # clip to flex (individual and global)
                     delta_p = min(delta_p, ind_flex[idx][1], flex["max"][i] - schedule[i])
-                elif v2g:
-                    # res. load higher than new average, V2G: discharge to lower load
+                elif v2g and residual_load[i] > EPS and curtailment[i] < EPS:
+                    # V2G only if res. load positive and no curtailment
                     # clip to available power (which is positive)
                     delta_p = max(delta_p, -avail["min"][i])
                     # clip to flex (individual and global)
@@ -592,7 +593,9 @@ def generate_schedule(args):
             schedule[i] += power[idx]
             if vid:
                 vehicle_schedule[vid][i] += power[idx]
-            residual_load[i] += power[idx]
+            curtail_power = max(min(curtailment[i], power[idx]), 0)
+            curtailment[i] -= curtail_power
+            residual_load[i] += power[idx] - curtail_power
             energy_distributed += power[idx] / ts_per_hour
             avail["min"][i] += power[idx]
             avail["max"][i] -= power[idx]
