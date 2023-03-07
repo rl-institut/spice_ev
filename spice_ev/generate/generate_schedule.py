@@ -646,7 +646,7 @@ def generate_schedule(args):
     else:
         # generate schedule for whole vehicle park
         avail = {
-            "min": [max(schedule[i] - gc.max_power, 0) for i in range(s.n_intervals)],
+            "min": [max(schedule[i] + gc.max_power, 0) for i in range(s.n_intervals)],
             "max": [max(gc.max_power - schedule[i], 0) for i in range(s.n_intervals)],
         }
         for interval in flex["intervals"]:
