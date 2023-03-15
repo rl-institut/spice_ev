@@ -345,7 +345,7 @@ def split_feedin(grid, pv, cs_sum, round_to_places):
     :param round_to_places: decimal places, that each value in the result list should be rounded to
     :type round_to_places: int
     :return: List of feed-in (negative values) to grid split into PV-, V2G- and battery-feed-in,
-      in that order
+        in that order
     :rtype: List
     """
     # Prio 1: If grid has feed-in, it originates partially or fully from the PV source
