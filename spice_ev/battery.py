@@ -1,7 +1,7 @@
 import copy
 from math import exp, log
 
-from src.loading_curve import LoadingCurve
+from spice_ev.loading_curve import LoadingCurve
 
 
 class Battery():
@@ -13,7 +13,7 @@ class Battery():
         :param capacity: capacity of the battery in kWh
         :type capacity: numerical
         :param loading_curve: loading curve of the battery
-        :type loading_curve: src.loading_curve.LoadingCurve
+        :type loading_curve: spice_ev.loading_curve.LoadingCurve
         :param soc: soc of the battery
         :type soc: float
         :param efficiency: efficiency of the battery
@@ -21,7 +21,7 @@ class Battery():
         :param unloading_curve: unloading curve of the battery.
             Defaults to None for backwards-compatability (discharge with maximum
             power of loading curve)
-        :type unloading_curve: src.loading_curve.LoadingCurve
+        :type unloading_curve: spice_ev.loading_curve.LoadingCurve
         :param loss_rate: adjusted loss rate per timestep. Can have keys
             *relative* (percent in relation to current charge),
             *fixed_relative* (percent in relation to capacity) and
@@ -57,6 +57,9 @@ class Battery():
         if self.soc - target_soc > self.EPS:
             # target SoC already reached: skip loading
             return {'avg_power': 0, 'soc_delta':  0}
+
+        # maximum soc: 1
+        target_soc = min(1, target_soc)
 
         old_soc = self.soc
         # get loading curve clamped to maximum value
@@ -109,6 +112,9 @@ class Battery():
             # target soc given: target power must not be set
             assert target_power is None, "Unload battery: choose either target power or SoC"
 
+        # don't try to reach soc below 0. If already below 0, don't discharge
+        target_soc = max(min(self.soc, 0), target_soc)
+
         if target_soc - self.soc > self.EPS:
             # target SoC already reached: skip unloading
             return {'avg_power': 0, 'soc_delta':  0}
@@ -130,9 +136,11 @@ class Battery():
 
         return {'avg_power': avg_power, 'soc_delta':  old_soc - self.soc}
 
-    def load_iterative(self, timedelta, max_charging_power):
+    def load_iterative(self, timedelta, max_charging_power):  # pragma: no cover
         """Adjust SOC and return average charging power for a given timedelta
         and maximum charging power.
+
+        Numerical approach. Only used to validate analytical methods.
 
         :param timedelta: time period in which battery can be loaded
         :type timedelta: timedelta
@@ -190,7 +198,7 @@ class Battery():
             This charging curve reflects the exact amount of power the battery releases/receives.
             The curve must already be clamped and scaled to account for losses due to efficiency and
             limitations of connected devices.
-        :type charging_curve: src.loading_curve.LoadingCurve
+        :type charging_curve: spice_ev.loading_curve.LoadingCurve
         :param target_soc: SOC to (dis)charge to.
         :type target_soc: numeric
         :return: Average power released/received across entire timedelta.

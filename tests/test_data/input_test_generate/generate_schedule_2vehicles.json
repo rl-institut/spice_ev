@@ -6,7 +6,7 @@
     "discharge_limit": 0.5,
     "core_standing_time": null
   },
-  "constants": {
+  "components": {
     "vehicle_types": {
       "sprinter": {
         "name": "Sprinter",

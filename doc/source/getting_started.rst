@@ -22,20 +22,20 @@ Run SpiceEV
 
 In order to run a simulation with SpiceEV you need to first generate your `scenario.json`, which then serves as the input for your simulation. There are several exemplary :ref:`Generate <generate>` -scripts where you can,
 e.g. generate trips for certain vehicles by random functions or load your vehicle schedules from a csv file. For now we use the `generate.py` script to create random trips for a number of predefined vehicles. Vehicles
-should be defined in a `vehicle_type.json` and be added to your input arguments. See `examples/vehicle_types.json` for some exemplary vehicles.
-You can define your input arguments in the command line or open a config file (e.g. `examples/generate.cfg`) to set your variables. For an overview over all command line options see section :ref:`Command line options <command_line_options>`.
+should be defined in a `vehicle_type.json` and be added to your input arguments. See `examples/data/vehicle_types.json` for some exemplary vehicles.
+You can define your input arguments in the command line or open a config file (e.g. `examples/configs/generate.cfg`) to set your variables. For an overview over all command line options see section :ref:`Command line options <command_line_options>`.
 
 In order to generate a 7-day scenario with 10 vehicles of different types and 15 minute timesteps with command line options, type:
 
 .. code:: bash
 
-    ./generate.py --days 7 --vehicles 6 golf --vehicles 4 sprinter --interval 15 --vehicle-types examples/vehicle_types.json  scenario.json
+    ./generate.py --days 7 --vehicles 6 golf --vehicles 4 sprinter --interval 15 --vehicle-types examples/data/vehicle_types.json --output scenario.json
 
 In order to generate a scenario with input arguments from a config file type:
 
 .. code:: bash
 
-    ./generate.py --config ./examples/generate.cfg
+    ./generate.py --config ./examples/configs/generate.cfg
 
 
 Now that you have created your first scenario, you can run a simulation. You need to define the path to the input scenario.json and the charging strategy you want to use.
@@ -45,11 +45,11 @@ In this case we use the greedy strategy and set `--visual` to plot the results.
 
     ./simulate.py scenario.json --strategy greedy --visual
 
-Again, you can alternatively define the input arguments in a config file, as in `examples/simulate.cfg`:
+Again, you can alternatively define the input arguments in a config file, as in `examples/configs/simulate.cfg`:
 
 .. code:: bash
 
-    ./simulate.py --config ./examples/simulate.cfg
+    ./simulate.py --config ./examples/configs/simulate.cfg
 
 Generate grid operator schedules
 --------------------------------
@@ -58,9 +58,9 @@ If you want to generate a grid operator schedule from an input csv and include i
 
 .. code:: bash
 
-    ./generate_schedule.py --scenario example.json --input data/timeseries/grid_situation_1.csv --output data/schedules/grid_situation_1.csv
+    ./generate_schedule.py --scenario example.json --input examples/data/grid_situation.csv --output examples/schedules/schedule.csv
 
-In this case a csv time series is read in from the folder `data/timeseries/` and the created schedule is saved in `data/schedules/`. The schedule csv is automatically added to the json `example.json`.
+In this case a csv time series is read in from the folder `examples/data/` and the created schedule is saved in `examples/schedules/`. The schedule csv is automatically added to the json `example.json`.
 Note that when running the `generate_schedule.py` module, you need to already have an existing scenario.json that you want to add the schedule to.
 
 Include other csv time series
@@ -71,7 +71,7 @@ for more information on the file formats of the input files.
 
 .. code:: bash
 
-    ./generate.py --include-price-csv ../price/price.csv --include-ext-load-csv external_load.csv example.json
+    ./generate.py --include-price-csv ../price/price.csv --include-ext-load-csv external_load.csv -o example.json
 
 SimBEV integration
 ------------------
@@ -81,7 +81,7 @@ In oder to convert SimBEV output files to a SpiceEV scenario, use:
 
 .. code:: bash
 
-    generate_from_simbev.py --simbev /path/to/simbev/output/ example.json
+    generate_from_simbev.py --simbev /path/to/simbev/output/ -o example.json
 
 Help
 ----
@@ -89,7 +89,7 @@ In order to show all command line options type:
 
 .. code:: bash
 
-    ./generate -h
+    ./generate.py -h
     ./simulate.py -h
 
 
@@ -97,8 +97,8 @@ As said above, there are also example configuration files in the example folder.
 
 .. code:: bash
 
-    ./generate.py --config examples/generate.cfg examples/example.json
-    ./simulate.py --config examples/simulate.cfg examples/example.json
+    ./generate.py --config examples/configs/generate.cfg examples/scenario.json
+    ./simulate.py --config examples/configs/simulate.cfg examples/scenario.json
 
 
 

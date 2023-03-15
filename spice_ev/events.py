@@ -1,10 +1,9 @@
 import csv
-from math import ceil
-import os
 import datetime
+from pathlib import Path
 from warnings import warn
 
-from src import util
+from spice_ev import util
 
 
 class Events:
@@ -18,6 +17,7 @@ class Events:
         * vehicle_events
     """
     def __init__(self, obj, dir_path):
+        dir_path = Path(dir_path)
         # optional
         self.external_load_lists = dict(
             {k: EnergyValuesList(v, dir_path) for k, v in obj.get('external_load', {}).items()})
@@ -29,8 +29,7 @@ class Events:
             obj.get('energy_price_from_csv', None), dir_path)
         self.grid_operator_signals += get_schedule_from_csv(
             obj.get('schedule_from_csv', None), dir_path)
-        self.vehicle_events = list(
-            [VehicleEvent(x) for x in obj.get('vehicle_events')])
+        self.vehicle_events = list([VehicleEvent(x) for x in obj.get('vehicle_events', {})])
 
     def get_event_steps(self, start_time, n_intervals, interval):
         """
@@ -57,7 +56,8 @@ class Events:
         ignored = 0
 
         for event in all_events:
-            index = ceil((event.signal_time - start_time) / interval)
+            # get ceil of time index (start of next interval)
+            index = -((start_time - event.signal_time) // interval)
 
             if index < 0:
                 warn('Event is before start of scenario, placing at first time step: ' + str(event))
@@ -110,7 +110,7 @@ class EnergyValuesList:
 
         # Read CSV file if values are not given directly
         if not self.values:
-            csv_path = os.path.join(dir_path, obj['csv_file'])
+            csv_path = dir_path / obj['csv_file']
             column = obj['column']
 
             with open(csv_path, newline='') as csvfile:
@@ -171,8 +171,8 @@ def get_energy_price_list_from_csv(obj, dir_path):
 
     :param obj: dictionary with information about input csv
     :type obj: dict
-    :param dir_path: path to directory
-    :type dir_path: str
+    :param dir_path: directory
+    :type dir_path: Path
 
     :return: grid operator signal events
         list
@@ -184,7 +184,7 @@ def get_energy_price_list_from_csv(obj, dir_path):
     interval = datetime.timedelta(seconds=obj["step_duration_s"])
     yesterday = datetime.timedelta(days=1)
 
-    csv_path = os.path.join(dir_path, obj['csv_file'])
+    csv_path = dir_path / obj['csv_file']
     column = obj['column']
 
     with open(csv_path, newline='') as csvfile:
@@ -209,8 +209,8 @@ def get_schedule_from_csv(obj, dir_path):
 
     :param obj: dictionary with information about input csv
     :type obj: dict
-    :param dir_path: path to directory
-    :type dir_path: str
+    :param dir_path: directory
+    :type dir_path: Path
     :raises SystemExit: if specified schedule *column* is not present in input file
     :return: grid operator schedule
     :rtype: list
@@ -232,7 +232,7 @@ def get_schedule_from_csv(obj, dir_path):
     last_target = None
     last_window = None
 
-    csv_path = os.path.join(dir_path, obj['csv_file'])
+    csv_path = dir_path / obj['csv_file']
     with open(csv_path, newline='') as csvfile:
         # reader = csv.DictReader(csvfile, delimiter=',', quotechar='"')
         # assert col in reader.fieldnames, "'{}' is not a column of {}".format(col, obj['csv_file'])

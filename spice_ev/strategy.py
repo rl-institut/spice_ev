@@ -2,14 +2,14 @@ from copy import deepcopy
 from importlib import import_module
 from warnings import warn
 
-from src import events
-from src.util import get_cost, clamp_power
+from spice_ev import events
+from spice_ev.util import get_cost, clamp_power
 
 
 def class_from_str(strategy_name):
     import_name = strategy_name.lower()
     class_name = "".join([s.capitalize() for s in strategy_name.split('_')])
-    module = import_module('src.strategies.' + import_name)
+    module = import_module('spice_ev.strategies.' + import_name)
     return getattr(module, class_name)
 
 
@@ -17,8 +17,8 @@ class Strategy():
     """
     Parent class for the individual strategies.
 
-    :param constants: class containing the constant componants
-    :type constants: class
+    :param components: class containing the components
+    :type components: class
     :param start_time: start time of the simulation
     :type start_time: datetime
     :param interval: interval of one timestep of the simulation (e.g. 15 min)
@@ -27,9 +27,9 @@ class Strategy():
     :type kwargs: dict
     """
 
-    def __init__(self, constants, start_time, **kwargs):
+    def __init__(self, components, start_time, **kwargs):
 
-        self.world_state = deepcopy(constants)
+        self.world_state = deepcopy(components)
         self.world_state.future_events = []
         self.interval = kwargs.get('interval')  # required
         self.current_time = start_time - self.interval

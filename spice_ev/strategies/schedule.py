@@ -2,14 +2,14 @@ from copy import deepcopy
 from datetime import timedelta
 import warnings
 
-import src.events as events
-from src.strategy import Strategy
-from src.util import clamp_power, dt_within_core_standing_time
+import spice_ev.events as events
+from spice_ev.strategy import Strategy
+from spice_ev.util import clamp_power, dt_within_core_standing_time
 
 
 class Schedule(Strategy):
     """Schedule strategy"""
-    def __init__(self, constants, start_time, **kwargs):
+    def __init__(self, components, start_time, **kwargs):
         allowed_substrats = ["collective", "individual"]
         self.LOAD_STRAT = "collective"
 
@@ -20,7 +20,7 @@ class Schedule(Strategy):
         self.warn_core_standing_time = False
         self.ITERATIONS = 12
 
-        super().__init__(constants, start_time, **kwargs)
+        super().__init__(components, start_time, **kwargs)
         self.TS_per_hour = (timedelta(hours=1) / self.interval)
 
         self.description = "schedule ({})".format(self.LOAD_STRAT)
@@ -741,31 +741,30 @@ class Schedule(Strategy):
                 continue
             # get difference between target and GC load
             current_load = gc.get_current_load()
-            power = gc.target - current_load
-            # get differences to positive and negative GC limits
+            needed_power = gc.target - current_load
+            # get remaining available positive and negative GC power
             avail_pos_power = gc.cur_max_power - current_load
-            avail_neg_power = -gc.cur_max_power - current_load
+            avail_neg_power = gc.cur_max_power + current_load
 
-            if avail_pos_power < -self.EPS:
-                # GC limit exceeded: supply from battery
-                power = -avail_pos_power
-                bat_power = -battery.unload(self.interval, power / battery.efficiency)["avg_power"]
-            elif avail_neg_power > self.EPS:
-                # negative GC limit exceeded: store excess in battery
-                power = max(battery.min_power, avail_neg_power)
-                bat_power = battery.load(self.interval, power)["avg_power"]
-            elif power < -self.EPS:
-                # discharge to provide the energy the schedule asks for
-                # charge with more power to make up for loss due to efficiency
-                power = min(-power, avail_neg_power)
-                bat_power = -battery.unload(self.interval, -power / battery.efficiency)["avg_power"]
-            elif min(power, avail_pos_power) >= battery.min_charging_power:
-                # target not yet reached and within GC limit: draw power to reach target
+            # try to reach target power
+            if needed_power < -self.EPS:
+                # too much power drawn: support with battery
+                power = -needed_power
+                # don't exceed GC limit
+                power = min(power, avail_neg_power)
+                bat_power = -battery.unload(self.interval, target_power=power)["avg_power"]
+            elif needed_power > self.EPS:
+                # not enough power drawn: charge battery
+                power = needed_power
+                # don't exceed GC limit
                 power = min(power, avail_pos_power)
+                if power < battery.min_charging_power:
+                    power = 0
                 bat_power = battery.load(self.interval, power)["avg_power"]
             else:
-                # below minimum charging power
+                # target already reached
                 bat_power = 0
+
             gc.add_load(bid, bat_power)
 
     def step(self):

@@ -1,10 +1,12 @@
+from argparse import Namespace
 import json
-import os
+from pathlib import Path
 import pytest
 
-from src import scenario, strategy
+from spice_ev import scenario, strategy
+from spice_ev.generate import generate_schedule
 
-TEST_REPO_PATH = os.path.dirname(__file__)
+TEST_REPO_PATH = Path(__file__).parent
 
 
 def get_test_json():
@@ -15,7 +17,7 @@ def get_test_json():
             "interval": 15,
             "n_intervals": 96
         },
-        "constants": {
+        "components": {
             "grid_connectors": {},
             "charging_stations": {},
             "vehicle_types": {},
@@ -30,15 +32,14 @@ def get_test_json():
 
 
 def load_json(filename):
-
     with open(filename, 'r') as f:
         return json.load(f)
 
 
 class TestCaseBase:
     def assertIsFile(self, path):
-        if not os.path.isfile(path):
-            raise AssertionError("File does not exist: %s" % str(path))
+        assert path.exists()
+        assert path.is_file()
 
 
 class TestScenarios(TestCaseBase):
@@ -59,118 +60,66 @@ class TestScenarios(TestCaseBase):
         s = scenario.Scenario(j)
         assert s.n_intervals == 4
 
+    def test_backwards_compatibility(self):
+        # components used to be called constants
+        j = get_test_json()
+        j["constants"] = j.pop("components")
+        scenario.Scenario(j)
+
+    def test_empty(self):
+        s = scenario.Scenario({
+            "scenario": {
+                "start_time": "2020-01-01T00:00:00+02:00",
+                "interval": 15,
+                "n_intervals": 10
+            }})
+        s.run('greedy', {})
+        assert s.n_intervals == 10
+        assert s.step_i == 10
+
     def test_file(self):
         # open from file
-        input = os.path.join(TEST_REPO_PATH, 'test_data/input_test_strategies/scenario_A.json')
-        scenario.Scenario(load_json(input), os.path.dirname(input))
+        input = TEST_REPO_PATH / 'test_data/input_test_strategies/scenario_A.json'
+        scenario.Scenario(load_json(input), input.parent)
 
     # TEST SCENARIOS WITH BATTERY, FEEDIN AND EXTERNAL LOAD (Scenario A)
-
-    def test_greedy_A(self):
-        # test basic strategy
-        input = os.path.join(TEST_REPO_PATH, 'test_data/input_test_strategies/scenario_A.json')
-        s = scenario.Scenario(load_json(input), os.path.dirname(input))
-        s.run('greedy', {})
-
-    def test_balanced_A(self):
-        # test basic strategy
-        input = os.path.join(TEST_REPO_PATH, 'test_data/input_test_strategies/scenario_A.json')
-        s = scenario.Scenario(load_json(input), os.path.dirname(input))
-        s.run('balanced', {})
-
-    def test_balanced_market_A(self):
-        # test basic strategy
-        input = os.path.join(TEST_REPO_PATH, 'test_data/input_test_strategies/scenario_A.json')
-        s = scenario.Scenario(load_json(input), os.path.dirname(input))
-        s.run('balanced_market', {})
-
-    def test_flex_window_A(self):
-        # test basic strategy
-        input = os.path.join(TEST_REPO_PATH, 'test_data/input_test_strategies/scenario_A.json')
-        s = scenario.Scenario(load_json(input), os.path.dirname(input))
-        s.run('flex_window', {})
-
-    def test_peak_load_window_A(self):
-        # test basic strategy
-        input = os.path.join(TEST_REPO_PATH, 'test_data/input_test_strategies/scenario_A.json')
-        s = scenario.Scenario(load_json(input), os.path.dirname(input))
-        s.run('peak_load_window', {})
+    def test_scenario_A(self):
+        input = TEST_REPO_PATH / 'test_data/input_test_strategies/scenario_A.json'
+        s = scenario.Scenario(load_json(input), input.parent)
+        for strat in ['greedy', 'balanced', 'balanced_market', 'flex_window', 'peak_load_window']:
+            s.run(strat, {})
 
     # TEST with battery, feedin, extLoad and V2G (Scenario B)
-
-    def test_greedy_B(self):
-        input = os.path.join(TEST_REPO_PATH, 'test_data/input_test_strategies/scenario_B.json')
-        s = scenario.Scenario(load_json(input), os.path.dirname(input))
-        s.run('greedy', {})
-
-    def test_balanced_B(self):
-        input = os.path.join(TEST_REPO_PATH, 'test_data/input_test_strategies/scenario_B.json')
-        s = scenario.Scenario(load_json(input), os.path.dirname(input))
-        s.run('balanced', {})
-
-    def test_balanced_market_B(self):
-        input = os.path.join(TEST_REPO_PATH, 'test_data/input_test_strategies/scenario_B.json')
-        s = scenario.Scenario(load_json(input), os.path.dirname(input))
-        s.run('balanced_market', {})
-
-    def test_flex_window_B(self):
-        input = os.path.join(TEST_REPO_PATH, 'test_data/input_test_strategies/scenario_B.json')
-        s = scenario.Scenario(load_json(input), os.path.dirname(input))
-        s.run('flex_window', {})
-
-    def test_peak_load_window_B(self):
-        input = os.path.join(TEST_REPO_PATH, 'test_data/input_test_strategies/scenario_B.json')
-        s = scenario.Scenario(load_json(input), os.path.dirname(input))
-        s.run('peak_load_window', {})
+    def test_scenario_B(self):
+        input = TEST_REPO_PATH / 'test_data/input_test_strategies/scenario_B.json'
+        s = scenario.Scenario(load_json(input), input.parent)
+        for strat in ['greedy', 'balanced', 'balanced_market', 'flex_window', 'peak_load_window']:
+            s.run(strat, {})
 
     # TEST with battery, feedin, extLoad, V2G and schedule (Scenario C)
-
-    def test_balanced_C(self):
-        input = os.path.join(TEST_REPO_PATH, 'test_data/input_test_strategies/scenario_C1.json')
-        s = scenario.Scenario(load_json(input), os.path.dirname(input))
-        s.run('balanced', {"testing": True})
-        for gcID, gc in s.constants.grid_connectors.items():
-            assert s.testing["max_total_load"] <= s.constants.grid_connectors[gcID].max_power
-            assert s.testing["max_total_load"] > 0
-
-    def test_balanced_market_C(self):
-        input = os.path.join(TEST_REPO_PATH, 'test_data/input_test_strategies/scenario_C1.json')
-        s = scenario.Scenario(load_json(input), os.path.dirname(input))
-        s.run('balanced_market', {"testing": True})
-        for gcID, gc in s.constants.grid_connectors.items():
-            assert s.testing["max_total_load"] <= s.constants.grid_connectors[gcID].max_power
-            assert s.testing["max_total_load"] > 0
-
-    def test_flex_window_C(self):
-        input = os.path.join(TEST_REPO_PATH, 'test_data/input_test_strategies/scenario_C1.json')
-        s = scenario.Scenario(load_json(input), os.path.dirname(input))
-        s.run('flex_window', {"testing": True})
-        for gcID, gc in s.constants.grid_connectors.items():
-            assert s.testing["max_total_load"] <= s.constants.grid_connectors[gcID].max_power
-            assert s.testing["max_total_load"] > 0
-
-    def test_peak_load_window_C(self):
-        input = os.path.join(TEST_REPO_PATH, 'test_data/input_test_strategies/scenario_C1.json')
-        s = scenario.Scenario(load_json(input), os.path.dirname(input))
-        s.run('peak_load_window', {"testing": True})
-        for gcID, gc in s.constants.grid_connectors.items():
-            assert s.testing["max_total_load"] <= s.constants.grid_connectors[gcID].max_power
-            assert s.testing["max_total_load"] > 0
+    def test_scenario_C1(self):
+        input = TEST_REPO_PATH / 'test_data/input_test_strategies/scenario_C1.json'
+        s = scenario.Scenario(load_json(input), input.parent)
+        for strat in ['greedy', 'balanced', 'balanced_market', 'flex_window', 'peak_load_window']:
+            s.run(strat, {"testing": True})
+            for gcID, gc in s.components.grid_connectors.items():
+                assert s.testing["max_total_load"] <= s.components.grid_connectors[gcID].max_power
+                assert s.testing["max_total_load"] > 0
 
     def test_distributed_D(self):
-        input = os.path.join(TEST_REPO_PATH, 'test_data/input_test_strategies/bus_scenario_D.json')
-        s = scenario.Scenario(load_json(input), os.path.dirname(input))
+        input = TEST_REPO_PATH / 'test_data/input_test_strategies/bus_scenario_D.json'
+        s = scenario.Scenario(load_json(input), input.parent)
         s.run('distributed', {"testing": True, "strategy_option": [["ALLOW_NEGATIVE_SOC", True]],
                               "margin": 1})
         max_power = 0
-        for gcID, gc in s.constants.grid_connectors.items():
-            max_power += s.constants.grid_connectors[gcID].max_power
+        for gcID, gc in s.components.grid_connectors.items():
+            max_power += s.components.grid_connectors[gcID].max_power
         assert s.testing["max_total_load"] <= max_power
         assert s.testing["max_total_load"] > 0
 
     def test_pv_bat(self):
-        input = os.path.join(TEST_REPO_PATH, 'test_data/input_test_strategies/scenario_PV_Bat.json')
-        s = scenario.Scenario(load_json(input), os.path.dirname(input))
+        input = TEST_REPO_PATH / 'test_data/input_test_strategies/scenario_PV_Bat.json'
+        s = scenario.Scenario(load_json(input), input.parent)
         s.run('greedy', {"testing": True})
         assert pytest.approx(s.testing["max_total_load"]) == 0
         assert s.testing["sum_feed_in_per_h"]["GC1"] == 246.0
@@ -178,18 +127,18 @@ class TestScenarios(TestCaseBase):
 
     # TEST STRATEGY OUTPUTS
     def test_general_outputs(self):
-        input = os.path.join(TEST_REPO_PATH, 'test_data/input_test_strategies/scenario_C1.json')
-        s = scenario.Scenario(load_json(input), os.path.dirname(input))
+        input = TEST_REPO_PATH / 'test_data/input_test_strategies/scenario_C1.json'
+        s = scenario.Scenario(load_json(input), input.parent)
         s.run('greedy', {"testing": True})
 
-        assert s.testing["avg_total_standing_time"]["GC1"] == 17.5
-        assert s.testing["avg_stand_time"]["GC1"] == 8.75
+        assert s.testing["avg_total_standing_time"]["GC1"] == 17.75
+        assert s.testing["avg_stand_time"]["GC1"] == 8.875
         assert round(s.testing["avg_needed_energy"]["GC1"], 2) == 1.08
-        assert round(s.testing["avg_drawn_power"]["GC1"], 2) == 1.45
+        assert round(s.testing["avg_drawn_power"]["GC1"], 2) == 1.44
         assert round(s.testing["sum_feed_in_per_h"]["GC1"], 2) == 0
         assert round(s.testing["vehicle_battery_cycles"]["GC1"], 2) == 1.1
         assert round(s.testing["avg_flex_per_window"]["GC1"][0], 2) == 372
-        assert round(s.testing["avg_flex_per_window"]["GC1"][3], 2) == 375.39
+        assert round(s.testing["avg_flex_per_window"]["GC1"][3], 2) == 375.71
         assert round(s.testing["sum_energy_per_window"]["GC1"][0], 2) == 0
         assert round(s.testing["sum_energy_per_window"]["GC1"][3], 2) == 0
         load = [0] * 96
@@ -199,12 +148,12 @@ class TestScenarios(TestCaseBase):
         total_load = [a + b for a, b in zip(load, cs_load)]
         assert sum([round(a - b, 3) for a, b in zip(total_load, s.testing["timeseries"][
             "total_load"])]) == 0
-        assert s.testing["max_total_load"] <= s.constants.grid_connectors["GC1"].max_power
+        assert s.testing["max_total_load"] <= s.components.grid_connectors["GC1"].max_power
         assert s.testing["max_total_load"] > 0
 
     def test_flex_window_all_loaded_in_windows(self):
-        input = os.path.join(TEST_REPO_PATH, 'test_data/input_test_strategies/scenario_C1.json')
-        s = scenario.Scenario(load_json(input), os.path.dirname(input))
+        input = TEST_REPO_PATH / 'test_data/input_test_strategies/scenario_C1.json'
+        s = scenario.Scenario(load_json(input), input.parent)
         s.run('flex_window', {"testing": True})
 
         # check if vehicles are only loaded in window
@@ -228,8 +177,8 @@ class TestScenarios(TestCaseBase):
             assert s.testing["timeseries"]["schedule"]["GC1"][idx] is False
 
     def test_flex_window_not_loaded_in_windows(self):
-        input = os.path.join(TEST_REPO_PATH, 'test_data/input_test_strategies/scenario_C2.json')
-        s = scenario.Scenario(load_json(input), os.path.dirname(input))
+        input = TEST_REPO_PATH / 'test_data/input_test_strategies/scenario_C2.json'
+        s = scenario.Scenario(load_json(input), input.parent)
         s.run('flex_window', {"testing": True})
 
         # check if vehicles are loaded with max power in window
@@ -238,7 +187,7 @@ class TestScenarios(TestCaseBase):
         for idx in indices_load_vehicle:
             if s.testing["timeseries"]["schedule"]["GC1"][idx] is True:
                 if round(cs_load[idx], 0) > 0:
-                    assert round(cs_load[idx], 0) == s.constants.charging_stations[
+                    assert round(cs_load[idx], 0) == s.components.charging_stations[
                         "CS_golf_0"].max_power
         # check if batteries are only loaded in window
         indices_load_battery = [idx for idx, val in enumerate(s.testing["timeseries"]["loads"]
@@ -252,13 +201,12 @@ class TestScenarios(TestCaseBase):
             assert s.testing["timeseries"]["schedule"]["GC1"][idx] is False
 
     def test_distributed_C3_priorization(self):
-        input = os.path.join(TEST_REPO_PATH, 'test_data/input_test_strategies/scenario_C3.json')
-        s = scenario.Scenario(load_json(input), os.path.dirname(input))
-        s.run('distributed', {"testing": True, "strategy_option": [["ALLOW_NEGATIVE_SOC", True]],
-                              "margin": 1})
+        input = TEST_REPO_PATH / 'test_data/input_test_strategies/scenario_C3.json'
+        s = scenario.Scenario(load_json(input), input.parent)
+        s.run('distributed', {"testing": True})
         max_power = 0
-        for gcID, gc in s.constants.grid_connectors.items():
-            max_power += s.constants.grid_connectors[gcID].max_power
+        for gcID, gc in s.components.grid_connectors.items():
+            max_power += s.components.grid_connectors[gcID].max_power
         cs = s.testing["timeseries"]["sum_cs"]
         cs_1 = [x for x in cs if x[0] != 0]
         cs_2 = [x for x in cs if x[1] != 0]
@@ -269,25 +217,81 @@ class TestScenarios(TestCaseBase):
         assert len(set([round(x[0], 2) for x in cs_1])) == 1
         assert len(set([round(x[1], 2) for x in cs_2])) == 1
 
-    def test_distributed_C3_outputs(self):
-        input = os.path.join(TEST_REPO_PATH, 'test_data/input_test_strategies/scenario_C3.json')
-        save_results = os.path.join(TEST_REPO_PATH,
-                                    'test_data/input_test_strategies/save_results.json')
-        save_timeseries = os.path.join(TEST_REPO_PATH,
-                                       'test_data/input_test_strategies/save_timeseries.csv')
-        save_soc = os.path.join(TEST_REPO_PATH, 'test_data/input_test_strategies/save_soc.csv')
-        s = scenario.Scenario(load_json(input), os.path.dirname(input))
-        s.run('distributed', {"testing": True, "strategy_option": [["ALLOW_NEGATIVE_SOC", True]],
-                              "save_results": save_results,
-                              "save_timeseries": save_timeseries,
-                              "save_soc": save_soc})
+    def test_distributed_C3_outputs(self, tmp_path):
+        input = TEST_REPO_PATH / 'test_data/input_test_strategies/scenario_C3.json'
+        save_results = tmp_path / 'save_results.json'
+        save_timeseries = tmp_path / 'save_timeseries.csv'
+        save_soc = tmp_path / 'save_soc.csv'
+        s = scenario.Scenario(load_json(input), input.parent)
+        s.run('distributed', {
+            "testing": True,
+            "save_results": save_results,
+            "save_timeseries": save_timeseries,
+            "save_soc": save_soc})
         self.assertIsFile(save_results)
         self.assertIsFile(save_timeseries)
         self.assertIsFile(save_soc)
-        # remove output file
-        os.remove(save_results)
-        os.remove(save_timeseries)
-        os.remove(save_soc)
+
+    def test_schedule(self, tmp_path):
+        for input in ["scenario_C3.json", "scenario_PV_Bat.json"]:
+            # generate schedule -> copy scenario file to tmp
+            src = TEST_REPO_PATH / f"test_data/input_test_strategies/{input}"
+            dst = tmp_path / "scenario.json"
+            dst.write_text(src.read_text())
+            schedule = tmp_path / "schedule.csv"
+            for load_strat in ["collective", "individual"]:
+                # create schedule
+                generate_schedule.generate_schedule(Namespace(
+                    scenario=dst,
+                    input=TEST_REPO_PATH/"test_data/input_test_generate/example_grid_situation.csv",
+                    output=schedule,
+                    individual=load_strat == "individual",
+                    core_standing_time={
+                        "times": [{"start": [22, 0], "end": [5, 0]}], "no_drive_days": [6]
+                    },
+                    visual=False,
+                    config=None,
+                ))
+                with dst.open('r') as f:
+                    j = json.load(f)
+                s = scenario.Scenario(j, tmp_path)
+                s.run('schedule', {"LOAD_STRAT": load_strat})
+
+    def test_schedule_battery(self):
+        test_json = {
+            "scenario": {
+                "start_time": "2020-01-01T00:00:00+02:00",
+                "interval": 15,
+                "n_intervals": 10
+            },
+            "components": {
+                "grid_connectors": {
+                    "GC": {
+                        "max_power": 100,
+                        "target": 5
+                    }
+                },
+                "batteries": {
+                    "BAT": {
+                        "parent": "GC",
+                        "charging_curve": [(0, 10), (1, 10)],
+                        "capacity": 10,
+                        "soc": 0.5,
+                    }
+                }
+            },
+        }
+        s = scenario.Scenario(test_json)
+        # schedule too high => charge battery (must not overflow)
+        s.run('schedule', {"LOAD_STRAT": "individual", "testing": True})
+        # test battery
+        assert pytest.approx(s.batteryLevels["BAT"][-1]) == 10
+
+        # schedule too low => discharge battery (must not become negative)
+        s.components.grid_connectors["GC"].target = -5
+        s.run('schedule', {"LOAD_STRAT": "individual", "testing": True})
+        # test battery
+        assert pytest.approx(s.batteryLevels["BAT"][-1]) == 0
 
 
 def test_apply_battery_losses():
@@ -297,9 +301,7 @@ def test_apply_battery_losses():
             "interval": 15,
             "n_intervals": 100
         },
-        "constants": {
-            "grid_connectors": {},
-            "charging_stations": {},
+        "components": {
             "vehicle_types": {
                 "test": {
                     "name": "test",
@@ -321,14 +323,9 @@ def test_apply_battery_losses():
                 }
             }
         },
-        "events": {
-            "external_loads": {},
-            "grid_operator_signals": [],
-            "vehicle_events": [],
-        }
     }
     s = scenario.Scenario(test_json)
-    strat = strategy.Strategy(s.constants, s.start_time, **{"interval": s.interval})
+    strat = strategy.Strategy(s.components, s.start_time, **{"interval": s.interval})
     # test vehicle battery in particular
     battery = strat.world_state.vehicles["test_vehicle"].battery
 
