@@ -1,6 +1,8 @@
+import csv
 import datetime
 import json
 from math import sqrt
+import warnings
 
 
 def datetime_from_isoformat(s):
@@ -198,7 +200,7 @@ def clamp_power(power, vehicle, cs):
     return power
 
 
-def set_options_from_config(args, check=False, verbose=True):
+def set_options_from_config(args, check=None, verbose=True):
     """
     Update given options from config file.
 
@@ -206,15 +208,17 @@ def set_options_from_config(args, check=False, verbose=True):
 
     :param args: input arguments
     :type args: argparse.Namespace
-    :param check: raise ValueError on unknown options
-    :type check: bool
+    :param check: check config options against argparser
+    :type check: argparse.ArgumentParser
     :param verbose: gives final overview of arguments
     :type verbose: bool
-    :raises ValueError: if arguments are checked and an unknown argument is encountered
+
+    :raise argparse.ArgumentError: Raised if wrong option values are given
+    :raises Exception: Raised if unknown option is given or value could not be converted
     """
     if "config" in args and args.config is not None:
         # read options from config file
-        with open(args.config, 'r') as f:
+        with open(args.config, 'r', encoding='utf-8') as f:
             for line in f:
                 line = line.strip()
                 if line.startswith('#'):
@@ -232,11 +236,32 @@ def set_options_from_config(args, check=False, verbose=True):
                 except ValueError:
                     # or not
                     pass
-                # known option?
-                if (k not in args) and check:
-                    raise ValueError("Unknown option {}".format(k))
-                # set option
-                vars(args)[k] = v
+                # check option
+                if check is not None:
+                    # find action by name
+                    try:
+                        action = [a for a in check._actions if a.dest == k][0]
+                    except IndexError:
+                        raise Exception(f"Unknown option {k}")
+                    # check each item in list individually
+                    v_list = [v] if type(v) != list else v
+                    for v_item in v_list:
+                        # check item. Returns None on success
+                        # may raise ArgumentError if not successful
+                        try:
+                            if action.type is not None:
+                                v_item = action.type(v_item)
+                            check._check_value(action, v_item)
+                        except Exception:
+                            print(f"Failed check {k}: {v}")
+                            raise
+                    else:
+                        # all checks successful: set argument
+                        vars(args)[k] = v
+                else:
+                    # set option
+                    vars(args)[k] = v
+
         # Give overview of options
         if verbose:
             print("Options: {}".format(vars(args)))
@@ -257,3 +282,56 @@ def sanitize(s, chars=''):
     if not chars:
         chars = '</|\\>:"?*'
     return s.translate({ord(c): "" for c in chars})
+
+
+def read_grid_file(grid_path):
+    """
+    Reads in grid file.
+
+    Should be CSV with columns "residual load" and curtailment.
+    Optional column "timestamp" in ISO format.
+    :param grid_path: path to grid situation file
+    :type: grid_path: str
+    :return: residual_load, curtailment and grid_start_time (if timestamps are given, else None)
+    :rtype: triple
+    """
+    residual_load = []
+    curtailment = []
+    curtailment_is_positive = False
+    curtailment_is_negative = False
+    # Read grid situation timeseries
+    with open(grid_path, 'r', newline='') as f:
+        reader = csv.DictReader(f)
+        for row_idx, row in enumerate(reader):
+            # get start time of grid situation series
+            if row_idx == 0:
+                try:
+                    grid_start_time = datetime.datetime.strptime(row["timestamp"], "%Y-%m-%d %H:%M")
+                except (ValueError, KeyError):
+                    warnings.warn('Time component of grid situation timeseries ignored. '
+                                  'Must be of format YYYY.MM.DD HH:MM')
+                    grid_start_time = None
+
+            # store residual_load value, use previous value if none provided
+            try:
+                residual_load.append(float(row["residual load"]))
+            except ValueError:
+                warnings.warn("Residual load timeseries contains non-numeric values.")
+                replace_unknown = residual_load[-1] if row_idx > 0 else 0
+                residual_load.append(replace_unknown)
+            # store curtailment info
+            try:
+                # sign of curtailment not clear
+                curtailment_value = float(row["curtailment"])
+                # at least make sure it is consistent
+                curtailment_is_negative |= curtailment_value < 0
+                curtailment_is_positive |= curtailment_value > 0
+                assert not (curtailment_is_negative and curtailment_is_positive)
+                curtailment.append(abs(curtailment_value))
+            except ValueError:
+                warnings.warn("Curtailment timeseries contains non-numeric values.")
+                replace_unknown = curtailment[-1] if row_idx > 0 else 0
+                curtailment.append(replace_unknown)
+
+    assert len(residual_load) == len(curtailment)
+    return residual_load, curtailment, grid_start_time
