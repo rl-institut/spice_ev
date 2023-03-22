@@ -103,7 +103,7 @@ def generate_flex_band(scenario, gcID, core_standing_time=None):
         currently_in_core_standing_time = \
             util.dt_within_core_standing_time(current_datetime, core_standing_time)
 
-        # basic value: external load, feed-in power
+        # basic value: fixed load, local generation power
         base_flex = gc.get_current_load()
 
         # update vehicles
@@ -145,16 +145,16 @@ def generate_flex_band(scenario, gcID, core_standing_time=None):
                             warnings.warn(f"TS {step_i}: {vid} arrives during CST")
         num_vehicles_present = sum(bool(v[0]) for v in vehicles.values())
 
-        pv_support = max(-base_flex, 0)
+        local_generation_support = max(-base_flex, 0)
         vehicles_present = currently_in_core_standing_time and num_vehicles_present > 0
         if vehicles_present:
-            # PV surplus can support vehicle charging
+            # local generation surplus can support vehicle charging
             for v in vehicles.values():
-                if pv_support <= EPS:
+                if local_generation_support <= EPS:
                     break
-                power = min(v[0], v[1] * ts_per_hour, pv_support)
+                power = min(v[0], v[1] * ts_per_hour, local_generation_support)
                 v[1] -= power / ts_per_hour
-                pv_support -= power
+                local_generation_support -= power
                 base_flex += power
 
             # get sums from vehicles dict
@@ -188,10 +188,10 @@ def generate_flex_band(scenario, gcID, core_standing_time=None):
 
         bat_flex_discharge = bat_init_discharge_power if step_i == 0 else bat_full_discharge_power
         bat_flex_charge = flex["batteries"]["power"]
-        # PV surplus can also feed batteries
-        pv_to_battery = min(bat_flex_charge, pv_support)
-        bat_flex_charge -= pv_to_battery
-        pv_support -= pv_to_battery
+        # local generation surplus can also feed batteries
+        local_gen_to_battery = min(bat_flex_charge, local_generation_support)
+        bat_flex_charge -= local_gen_to_battery
+        local_generation_support -= local_gen_to_battery
 
         flex["base"].append(clamp_to_gc(base_flex))
         # min: no vehicle charging, discharge from batteries and V2G
@@ -298,11 +298,11 @@ def generate_individual_flex_band(scenario, gcID):
         if idx != 0:
             flex["vehicles"].append([])
         for event in timestep:
-            if type(event) == events.ExternalLoad and event.grid_connector_id == gcID:
-                # external load event at this GC
+            if type(event) == events.FixedLoad and event.grid_connector_id == gcID:
+                # fixed load event at this GC
                 gc.current_loads[event.name] = event.value
-            elif type(event) == events.EnergyFeedIn and event.grid_connector_id == gcID:
-                # feed-in event at this GC
+            elif type(event) == events.LocalEnergyGeneration and event.grid_connector_id == gcID:
+                # local generation event behind this GC
                 gc.current_loads[event.name] = -event.value
             elif type(event) == events.GridOperatorSignal and event.grid_connector_id == gcID:
                 # grid op event at this GC
@@ -491,7 +491,7 @@ def generate_schedule(args):
     # default schedule: just basic power needs, but clipped to GC power
     schedule = [min(max(v, flex["min"][i]), flex["max"][i]) for i, v in enumerate(flex["base"])]
 
-    # adjust curtailment and residual load based on base flex (feed-in / ext. load)
+    # adjust curtailment and residual load based on base flex (local generation / fixed load)
     for i, power in enumerate(flex["base"]):
         curtailment_power = max(min(curtailment[i], power), 0)
         curtailment[i] -= curtailment_power
@@ -686,7 +686,8 @@ def generate_schedule(args):
     # write schedule to file
     with args.output.open('w') as f:
         # header
-        header = ["timestamp", "schedule [kW]", "charge"]
+        header = ["timestamp", "schedule [kW]", "charge", "residual load old [kW]",
+                  "curtailment old [kW]", "residual load new [kW]", "curtailment new [kW]"]
         if args.individual:
             header += vehicle_ids
         f.write(', '.join(header) + '\n')
@@ -699,6 +700,10 @@ def generate_schedule(args):
                 cur_time.isoformat(),  # timestamp
                 aggressive_round(schedule[t], 3),  # schedule rounded to Watts
                 int(charging_window),
+                round(original_residual_load[t], 3),
+                round(original_curtailment[t], 3),
+                round(residual_load[t], 3),
+                round(curtailment[t], 3),
             ]
             if args.individual:
                 # create column for every vehicle schedule

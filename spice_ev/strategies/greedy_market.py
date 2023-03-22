@@ -60,7 +60,7 @@ class GreedyMarket(Strategy):
             key=lambda x: (x[1].estimated_time_of_departure, x[0]))
 
         cur_cost = gc.cost
-        cur_feed_in = {k: -v for k, v in gc.current_loads.items() if v < 0}
+        cur_local_generation = {k: -v for k, v in gc.current_loads.items() if v < 0}
         cur_max_power = gc.cur_max_power
 
         # ---------- GET NEXT EVENTS ---------- #
@@ -68,7 +68,7 @@ class GreedyMarket(Strategy):
         vehicle_events = {vid: [] for vid in self.world_state.vehicles.keys()}
 
         # look ahead (limited by horizon)
-        # get future events and predict external load and cost for each timestep
+        # get future events and predict fixed load and cost for each timestep
         # take note of vehicle arriving and leaving and their soc
         event_idx = 0
         timesteps_ahead = int(datetime.timedelta(hours=self.HORIZON) / self.interval)
@@ -92,8 +92,8 @@ class GreedyMarket(Strategy):
                     # update GC info
                     cur_max_power = event.max_power or gc.max_power
                     cur_cost = event.cost or gc.cost
-                elif type(event) == events.EnergyFeedIn:
-                    cur_feed_in[event.name] = event.value
+                elif type(event) == events.LocalEnergyGeneration:
+                    cur_local_generation[event.name] = event.value
                 elif type(event) == events.VehicleEvent:
                     vid = event.vehicle_id
                     if event.event_type == "departure":
@@ -112,16 +112,17 @@ class GreedyMarket(Strategy):
                         vehicle_events[vid].append(arrival_event)
 
             # compute available power and associated costs
-            # get (predicted) external load
+            # get (predicted) fixed load
             if timestep_idx == 0:
-                # use actual external load
-                ext_load = gc.get_current_load()
-                # add battery power (sign switch, as ext_load is subtracted)
-                ext_load -= avail_bat_power
+                # use actual fixed load
+                fixed_load = gc.get_current_load()
+                # add battery power (sign switch, as fixed_load is subtracted)
+                fixed_load -= avail_bat_power
             else:
-                ext_load = gc.get_avg_ext_load(cur_time, self.interval) - sum(cur_feed_in.values())
+                fixed_load = gc.get_avg_fixed_load(cur_time, self.interval) \
+                           - sum(cur_local_generation.values())
             timesteps.append({
-                "power": cur_max_power - ext_load,
+                "power": cur_max_power - fixed_load,
                 "cost": cur_cost,
             })
 

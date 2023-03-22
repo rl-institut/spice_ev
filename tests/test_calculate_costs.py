@@ -28,7 +28,7 @@ def get_test_json():
             "vehicles": {},
         },
         "events": {
-            "external_loads": {},
+            "fixed_loads": {},
             "grid_operator_signals": [],
             "vehicle_events": [],
         }
@@ -66,8 +66,8 @@ class TestSimulationCosts:
         s.run('greedy', {"cost_calculation": True})
         timeseries = s.GC1_timeseries
         timeseries_lists = [timeseries.get(k, [0]*s.n_intervals) for k in [
-                            "time", "grid power [kW]", "price [EUR/kWh]",
-                            "ext.load [kW]", "window"]]
+                            "time", "grid supply [kW]", "price [EUR/kWh]",
+                            "local generation [kW]", "window signal [-]"]]
         price_sheet = TEST_REPO_PATH / 'test_data/input_test_cost_calculation/price_sheet.json'
 
         # test all supported strategies
@@ -113,8 +113,8 @@ class TestSimulationCosts:
             s.run("greedy", {"cost_calculation": True})
             timeseries = s.GC1_timeseries
             timeseries_lists = [timeseries.get(k, [0] * s.n_intervals) for k in [
-                            "time", "grid power [kW]", "price [EUR/kWh]",
-                            "ext.load [kW]", "window"]]
+                            "time", "grid supply [kW]", "price [EUR/kWh]",
+                            "local generation [kW]", "window signal [-]"]]
             price_sheet = TEST_REPO_PATH / 'test_data/input_test_cost_calculation/price_sheet.json'
             pv = sum([pv.nominal_power for pv in s.components.photovoltaics.values()])
             result = cc.calculate_costs("greedy", "MV", s.interval, *timeseries_lists,
@@ -131,8 +131,8 @@ class TestSimulationCosts:
         s.run('balanced', {"cost_calculation": True})
         timeseries = s.GC1_timeseries
         timeseries_lists = [timeseries.get(k, [0] * s.n_intervals) for k in [
-                            "time", "grid power [kW]", "price [EUR/kWh]",
-                            "ext.load [kW]", "window"]]
+                            "time", "grid supply [kW]", "price [EUR/kWh]",
+                            "local generation [kW]", "window signal [-]"]]
         price_sheet = TEST_REPO_PATH / 'test_data/input_test_cost_calculation/price_sheet.json'
 
         pv = sum([pv.nominal_power for pv in s.components.photovoltaics.values()])
@@ -156,8 +156,8 @@ class TestSimulationCosts:
         s.run('balanced_market', {"cost_calculation": True})
         timeseries = s.GC1_timeseries
         timeseries_lists = [timeseries.get(k, [0] * s.n_intervals) for k in [
-            "time", "grid power [kW]", "price [EUR/kWh]",
-            "ext.load [kW]", "window"]]
+                        "time", "grid supply [kW]", "price [EUR/kWh]",
+                        "local generation [kW]", "window signal [-]"]]
         price_sheet = TEST_REPO_PATH / 'test_data/input_test_cost_calculation/price_sheet.json'
 
         pv = sum([pv.nominal_power for pv in s.components.photovoltaics.values()])
@@ -180,8 +180,8 @@ class TestSimulationCosts:
         s.run('flex_window', {"cost_calculation": True})
         timeseries = s.GC1_timeseries
         timeseries_lists = [timeseries.get(k, [0] * s.n_intervals) for k in [
-            "time", "grid power [kW]", "price [EUR/kWh]",
-            "ext.load [kW]", "window"]]
+            "time", "grid supply [kW]", "price [EUR/kWh]",
+            "local generation [kW]", "window signal [-]"]]
         price_sheet = TEST_REPO_PATH / 'test_data/input_test_cost_calculation/price_sheet.json'
 
         pv = sum([pv.nominal_power for pv in s.components.photovoltaics.values()])
@@ -205,8 +205,8 @@ class TestSimulationCosts:
         s.run('balanced_market', {"cost_calculation": True})
         timeseries = s.GC1_timeseries
         timeseries_lists = [timeseries.get(k, [0] * s.n_intervals) for k in [
-            "time", "grid power [kW]", "price [EUR/kWh]",
-            "ext.load [kW]", "window"]]
+            "time", "grid supply [kW]", "price [EUR/kWh]",
+            "local generation [kW]", "window signal [-]"]]
         price_sheet = TEST_REPO_PATH / 'test_data/input_test_cost_calculation/price_sheet.json'
 
         pv = sum([pv.nominal_power for pv in s.components.photovoltaics.values()])

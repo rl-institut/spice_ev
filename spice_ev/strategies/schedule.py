@@ -132,7 +132,7 @@ class Schedule(Strategy):
             "charge": False
         }]
 
-        # peek into future events for external loads, feed-in and schedule
+        # peek into future events for fixed loads, local generation and schedule
         event_idx = 0
         cur_time = self.current_time - self.interval
         timesteps = dt // self.interval
@@ -143,9 +143,10 @@ class Schedule(Strategy):
                 # copy last GC info
                 gc_info.append(deepcopy(gc_info[-1]))
 
-            # get approximation of external load
-            gc_info[-1]["current_loads"]["ext_load"] = gc.get_avg_ext_load(cur_time, self.interval)
-            # peek into future events for external load or cost changes
+            # get approximation of fixed load
+            gc_info[-1]["current_loads"]["fixed_load"] = gc.get_avg_fixed_load(cur_time,
+                                                                               self.interval)
+            # peek into future events for fixed load or cost changes
             while True:
                 try:
                     event = self.world_state.future_events[event_idx]
@@ -163,11 +164,11 @@ class Schedule(Strategy):
                         event.target if event.target is not None else gc_info[-1]["target"]
                     gc_info[-1]["charge"] = \
                         event.window if event.window is not None else gc_info[-1]["charge"]
-                elif type(event) == events.EnergyFeedIn:
+                elif type(event) == events.LocalEnergyGeneration:
                     gc_info[-1]["current_loads"][event.name] = -event.value
                 # ignore vehicle events, use vehicle data directly
-                # ignore feedIn for now as well
-            # end of useful events peek into future events for external loads, schedule
+                # ignore localGeneration for now as well
+            # end of useful events peek into future events for fixed loads, schedule
         return gc_info
 
     def evaluate_core_standing_time_ahead(self):
@@ -195,7 +196,7 @@ class Schedule(Strategy):
         self.charge_window = [x > 0 for x in self.power_for_vehicles_per_TS]
         TS_to_charge_vehicles = sum(self.charge_window)
 
-        # PV and Grid energy available for vehicles
+        # Local Generation and Grid energy available for vehicles
         self.energy_available_for_vehicles_on_schedule = sum([
             power / self.TS_per_hour
             for power in self.power_for_vehicles_per_TS if power > self.EPS
@@ -624,7 +625,7 @@ class Schedule(Strategy):
 
             for vehicle, cs in vehicles:
                 # only "collective" sub-strategy allowed here
-                # charge vehicles with available PV energy
+                # charge vehicles with available energy from local generation
                 power = max(-gc.get_current_load(), 0)
 
                 power = clamp_power(power, vehicle, cs)
@@ -789,7 +790,8 @@ class Schedule(Strategy):
                 if any([v.vehicle_type.v2g for v in self.world_state.vehicles.values()]):
                     self.charge_vehicles_during_core_standing_time_v2g(charging_stations)
             else:
-                # charge excess PV power greedy outside of core standing time ON schedule
+                # charge excess power from local generation greedy outside of core standing time ON
+                # schedule
                 charging_stations = self.charge_vehicles()
                 # any vehicle below desired SoC after core standing time?
                 # charge balanced OFF schedule
