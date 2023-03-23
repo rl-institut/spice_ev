@@ -93,7 +93,7 @@ arguments. For an example configuration file see `/examples/generate_from_statis
 
 Generate_from_simbev
 ....................
-This module generates a `scenario.json` from simBEV [#]_ results. For an example
+This module generates a `scenario.json` from SimBEV [#]_ results. For an example
 configuration file see `/examples/configs/generate_from_simbev.cfg`.
 
 .. currentmodule:: spice_ev.generate.generate_from_simbev

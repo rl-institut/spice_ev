@@ -298,7 +298,7 @@ class TestGenerateSchedule(TestCaseBase):
         assert pytest.approx(sum(schedules[0][153:191]), .1) == 1000
 
     def test_generate_complex_schedule(self, tmp_path):
-        # slightly more complex scenario with fixed load and feed-in
+        # slightly more complex scenario with fixed load and local generation
         # copy scenario and needed files to tmp
         path = TEST_REPO_PATH / "test_data/input_test_generate"
         for filename in ["scenario_C.json", "example_load.csv", "example_pv_feedin.csv"]:

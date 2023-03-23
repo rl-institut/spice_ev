@@ -95,7 +95,7 @@ class Strategy():
                 connector.current_loads[ev.name] = ev.value  # not reset after last event
             elif type(ev) == events.LocalEnergyGeneration:
                 assert ev.name not in self.world_state.charging_stations, (
-                    "Energy feed-in must not be from charging station")
+                    "Local energy generation must not be from charging station")
                 connector = self.world_state.grid_connectors[ev.grid_connector_id]
                 connector.current_loads[ev.name] = -ev.value
             elif type(ev) == events.GridOperatorSignal:
