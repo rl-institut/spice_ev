@@ -12,6 +12,29 @@ def get_scenario():
     return s
 
 
+def test_split_feedin():
+    # no feed-in (positive load) at grid connector
+    assert [0, 0, 0] == report.split_feedin(grid=6, generation=-3, cs_sum=-2, round_to_places=2)
+    # more generation than feed-in (i.e. negative load) at grid connector
+    assert [-6, 0, 0] == report.split_feedin(grid=-6, generation=-7, cs_sum=-1, round_to_places=2)
+    # less generation than feed-in at grid connector, but generation + V2G is more
+    assert [-5, -1, 0] == report.split_feedin(grid=-6, generation=-5, cs_sum=-2, round_to_places=2)
+    # less generation and V2G than feed-in at grid connector
+    assert [-3, -2, -1] == report.split_feedin(grid=-6, generation=-3, cs_sum=-2, round_to_places=2)
+    # more generation than feed-in (i.e. negative load) at grid connector
+    assert [0, -2, -4] == report.split_feedin(grid=-6, generation=0, cs_sum=-2, round_to_places=2)
+    # feed-in at grid connector is provided by the battery
+    # if no generation or vehicles charging (positive value) instead of discharging
+    assert [0, 0, -6] == report.split_feedin(grid=-6, generation=0, cs_sum=2, round_to_places=2)
+    # rounding is correct
+    assert [-3.12, -2.12, -round(6 - 3.123 - 2.123, 2)] == report.split_feedin(
+        grid=-6,
+        generation=-3.123,
+        cs_sum=-2.123,
+        round_to_places=2
+    )
+
+
 class TestReport:
     def test_aggregate_global_results(self):
         report.aggregate_global_results(get_scenario())

@@ -327,33 +327,35 @@ def aggregate_local_results(scenario, gcID):
     return json_results
 
 
-def split_feedin(grid, pv, cs_sum, round_to_places):
+def split_feedin(grid, generation, cs_sum, round_to_places):
     """
-    Splits feed-in to grid into PV, V2G and battery for one time step
+    Splits feed-in to grid into generation (e.g. PV), V2G and battery for one time step
 
-    Either all energy fed into the grid is from PV or all current PV energy
-    is fed in to grid (prio1) and the remaining feed-in energy further either
-    fully/partially fed in by v2g (prio2) or battery discharged energy
-    (prio3) in the same manner
+    1. Either all energy fed into the grid is from local generator
+    2. or all current locally generated energy is fed in to grid (prio1) and further
+        the remaining feed-in energy is in the same manner either:
+    2.1. fully fed in by V2G (prio2)
+    2.2 or only partially, while the remaining is assumed to be discharged battery energy (prio3)
 
-    :param grid: current total load at grid connector at time step
+    :param grid: current total load at grid connector at time step (negative value implies feed-in)
     :type grid: float
-    :param pv: current generation of PV power at time step (as positive/absolute value)
-    :type pv: float
+    :param generation: current generation (e.g. PV) power at time step (as negative value)
+    :type generation: float
     :param cs_sum: aggregated sum of load at all charging stations at grid connector at time step
+        (negative value implies that charging station is discharging vehicles)
     :type cs_sum: float
     :param round_to_places: decimal places, that each value in the result list should be rounded to
     :type round_to_places: int
-    :return: List of feed-in (negative values) to grid split into PV-, V2G- and battery-feed-in,
-        in that order
+    :return: List of feed-in (negative values) to grid split into generation-, V2G- and
+        battery-feed-in; in that order
     :rtype: List
     """
-    # Prio 1: If grid has feed-in, it originates partially or fully from the PV source
-    pv_feedin = min(
-        -pv,
-        grid
-    ) if grid > 0 else 0
-    accumulated = grid + pv
+    # Prio 1: If grid has feed-in, it originates partially or fully from the local generation
+    generated_feedin = min(
+        -generation,
+        -grid
+    ) if grid < 0 else 0
+    accumulated = - grid + generation
     # Prio 2: If the remaining feed-in to grid exists,
     # it originates partially or fully from discharging vehicles
     cs_discharge = -min(cs_sum, 0)
@@ -366,9 +368,8 @@ def split_feedin(grid, pv, cs_sum, round_to_places):
     battery_feedin = (
         accumulated - v2g_feedin
     ) if (accumulated - v2g_feedin) > 0 else 0
-
     return [
-        - round(pv_feedin, round_to_places),
+        - round(generated_feedin, round_to_places),
         - round(v2g_feedin, round_to_places),
         - round(battery_feedin, round_to_places)
     ]
@@ -555,8 +556,8 @@ def aggregate_timeseries(scenario, gcID):
         cs_sum = sum(gc_commands.values())
         # feed-in per asset, i.e. PV, V2G and battery in this priority order
         row += split_feedin(
-            -scenario.totalLoad[gcID][idx],
-            -scenario.feedInPower[gcID][idx],
+            scenario.totalLoad[gcID][idx],
+            - scenario.localGenerationPower[gcID][idx],
             cs_sum,
             round_to_places
         )
