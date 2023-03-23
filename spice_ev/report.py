@@ -447,6 +447,7 @@ def aggregate_timeseries(scenario, gcID):
     hasFixedLoads = any(scenario.fixedLoads)
     hasSchedule = any(s is not None for s in scenario.gcPowerSchedule[gcID])
     hasBatteries = sum([b.parent == gcID for b in scenario.components.batteries.values()])
+    hasFeedinComponents = [any(scenario.localGenerationPower), True, bool(hasBatteries)]
 
     # accumulate header
     # general info
@@ -473,9 +474,13 @@ def aggregate_timeseries(scenario, gcID):
         # fixed loads (e.g., building)
         header += ["schedule [kW]", "window signal [-]"]
     # Feed-in to grid per asset
-    header.append("generated feed-in [kW]")
-    header.append("V2G feed-in [kW]")
-    header.append("battery feed-in [kW]")
+    print(hasFeedinComponents)
+    header += [
+        component for has, component in zip(
+            hasFeedinComponents,
+            ["generated feed-in [kW]", "V2G feed-in [kW]", "battery feed-in [kW]"]
+        ) if has
+    ]
     # sum of charging power
     header.append("sum CS power [kW]")
     # charging power per use case
@@ -555,12 +560,13 @@ def aggregate_timeseries(scenario, gcID):
                     gc_commands.update({k: v})
         cs_sum = sum(gc_commands.values())
         # feed-in per asset, i.e. PV, V2G and battery in this priority order
-        row += split_feedin(
+        splitFeedin = split_feedin(
             scenario.totalLoad[gcID][idx],
             - scenario.localGenerationPower[gcID][idx],
             cs_sum,
             round_to_places
         )
+        row += [feedin for has, feedin in zip(hasFeedinComponents, splitFeedin) if has]
         # sum of all current CS power that are connected to gc
         row.append(round(cs_sum, round_to_places))
         # sum up all charging power at gc for each use case
