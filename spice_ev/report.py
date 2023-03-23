@@ -473,7 +473,7 @@ def aggregate_timeseries(scenario, gcID):
         # fixed loads (e.g., building)
         header += ["schedule [kW]", "window signal [-]"]
     # Feed-in to grid per asset
-    header.append("PV feed-in [kW]")
+    header.append("generated feed-in [kW]")
     header.append("V2G feed-in [kW]")
     header.append("battery feed-in [kW]")
     # sum of charging power
