@@ -1,0 +1,365 @@
+{
+  "scenario": {
+    "start_time": "2023-01-01T00:00:00+02:00",
+    "interval": 15.0,
+    "stop_time": "2023-01-08T00:00:00+02:00",
+    "discharge_limit": 0.5
+  },
+  "components": {
+    "vehicle_types": {
+      "golf": {
+        "name": "E-Golf",
+        "capacity": 50,
+        "mileage": 16,
+        "charging_curve": [
+          [
+            0,
+            22
+          ],
+          [
+            0.8,
+            22
+          ],
+          [
+            1,
+            22
+          ]
+        ],
+        "min_charging_power": 0.2,
+        "v2g": false,
+        "v2g_power_factor": 0.5,
+        "no_drive_days": [
+          2
+        ]
+      },
+      "sprinter": {
+        "name": "Sprinter",
+        "capacity": 76,
+        "mileage": 40,
+        "charging_curve": [
+          [
+            0,
+            11
+          ],
+          [
+            0.8,
+            11
+          ],
+          [
+            1,
+            11
+          ]
+        ],
+        "min_charging_power": 0.2,
+        "v2g": false,
+        "v2g_power_factor": 0.5,
+        "no_drive_days": [
+          5,
+          6
+        ]
+      }
+    },
+    "vehicles": {
+      "golf_0": {
+        "connected_charging_station": "CS_golf_0",
+        "estimated_time_of_departure": "2023-01-02T08:47:00+02:00",
+        "desired_soc": 0.8,
+        "soc": 0.8,
+        "vehicle_type": "golf"
+      },
+      "sprinter_0": {
+        "connected_charging_station": "CS_sprinter_0",
+        "estimated_time_of_departure": "2023-01-02T07:55:00+02:00",
+        "desired_soc": 0.8,
+        "soc": 0.8,
+        "vehicle_type": "sprinter"
+      }
+    },
+    "grid_connectors": {
+      "GC1": {
+        "max_power": 100,
+        "voltage_level": "MV",
+        "cost": {
+          "type": "fixed",
+          "value": 0.3
+        }
+      }
+    },
+    "charging_stations": {
+      "CS_golf_0": {
+        "max_power": 22,
+        "min_power": 0,
+        "parent": "GC1"
+      },
+      "CS_sprinter_0": {
+        "max_power": 11,
+        "min_power": 0,
+        "parent": "GC1"
+      }
+    },
+    "batteries": {
+      "BAT1": {
+        "parent": "GC1",
+        "capacity": 350,
+        "charging_curve": [
+          [
+            0,
+            175.0
+          ],
+          [
+            1,
+            175.0
+          ]
+        ]
+      }
+    },
+    "photovoltaics": {
+      "PV1": {
+        "parent": "GC1",
+        "nominal_power": 10
+      }
+    }
+  },
+  "events": {
+    "grid_operator_signals": [],
+    "external_load": {
+      "load.csv": {
+        "csv_file": "load.csv",
+        "start_time": "2023-01-01T00:00:00+02:00",
+        "step_duration_s": 600,
+        "grid_connector_id": "GC1",
+        "column": "value",
+        "factor": 0.001
+      }
+    },
+    "energy_feed_in": {
+      "timeseries/feed_in.csv": {
+        "csv_file": "timeseries/feed_in.csv",
+        "start_time": "2023-01-01T00:00:00+02:00",
+        "step_duration_s": 3600,
+        "grid_connector_id": "GC1",
+        "column": "value",
+        "factor": 1
+      }
+    },
+    "vehicle_events": [
+      {
+        "signal_time": "2023-01-02T08:47:00+02:00",
+        "start_time": "2023-01-02T08:47:00+02:00",
+        "vehicle_id": "golf_0",
+        "event_type": "departure",
+        "update": {
+          "estimated_time_of_arrival": "2023-01-02T19:04:00+02:00"
+        }
+      },
+      {
+        "signal_time": "2023-01-02T19:04:00+02:00",
+        "start_time": "2023-01-02T19:04:00+02:00",
+        "vehicle_id": "golf_0",
+        "event_type": "arrival",
+        "update": {
+          "connected_charging_station": "CS_golf_0",
+          "estimated_time_of_departure": "2023-01-03T07:49:00+02:00",
+          "desired_soc": 0.8,
+          "soc_delta": -0.1550381415673025
+        }
+      },
+      {
+        "signal_time": "2023-01-02T07:55:00+02:00",
+        "start_time": "2023-01-02T07:55:00+02:00",
+        "vehicle_id": "sprinter_0",
+        "event_type": "departure",
+        "update": {
+          "estimated_time_of_arrival": "2023-01-02T14:46:00+02:00"
+        }
+      },
+      {
+        "signal_time": "2023-01-02T14:46:00+02:00",
+        "start_time": "2023-01-02T14:46:00+02:00",
+        "vehicle_id": "sprinter_0",
+        "event_type": "arrival",
+        "update": {
+          "connected_charging_station": "CS_sprinter_0",
+          "estimated_time_of_departure": "2023-01-03T08:18:00+02:00",
+          "desired_soc": 0.8,
+          "soc_delta": -0.2513328607356992
+        }
+      },
+      {
+        "signal_time": "2023-01-03T07:49:00+02:00",
+        "start_time": "2023-01-03T07:49:00+02:00",
+        "vehicle_id": "golf_0",
+        "event_type": "departure",
+        "update": {
+          "estimated_time_of_arrival": "2023-01-03T14:12:00+02:00"
+        }
+      },
+      {
+        "signal_time": "2023-01-03T14:12:00+02:00",
+        "start_time": "2023-01-03T14:12:00+02:00",
+        "vehicle_id": "golf_0",
+        "event_type": "arrival",
+        "update": {
+          "connected_charging_station": "CS_golf_0",
+          "estimated_time_of_departure": "2023-01-05T08:28:00+02:00",
+          "desired_soc": 0.8,
+          "soc_delta": -0.16350180867923797
+        }
+      },
+      {
+        "signal_time": "2023-01-03T08:18:00+02:00",
+        "start_time": "2023-01-03T08:18:00+02:00",
+        "vehicle_id": "sprinter_0",
+        "event_type": "departure",
+        "update": {
+          "estimated_time_of_arrival": "2023-01-03T17:22:00+02:00"
+        }
+      },
+      {
+        "signal_time": "2023-01-03T17:22:00+02:00",
+        "start_time": "2023-01-03T17:22:00+02:00",
+        "vehicle_id": "sprinter_0",
+        "event_type": "arrival",
+        "update": {
+          "connected_charging_station": "CS_sprinter_0",
+          "estimated_time_of_departure": "2023-01-04T08:15:00+02:00",
+          "desired_soc": 0.8,
+          "soc_delta": -0.1523743048900244
+        }
+      },
+      {
+        "signal_time": "2023-01-04T08:15:00+02:00",
+        "start_time": "2023-01-04T08:15:00+02:00",
+        "vehicle_id": "sprinter_0",
+        "event_type": "departure",
+        "update": {
+          "estimated_time_of_arrival": "2023-01-04T16:29:00+02:00"
+        }
+      },
+      {
+        "signal_time": "2023-01-04T16:29:00+02:00",
+        "start_time": "2023-01-04T16:29:00+02:00",
+        "vehicle_id": "sprinter_0",
+        "event_type": "arrival",
+        "update": {
+          "connected_charging_station": "CS_sprinter_0",
+          "estimated_time_of_departure": "2023-01-05T08:20:00+02:00",
+          "desired_soc": 0.8,
+          "soc_delta": -0.14331578947368423
+        }
+      },
+      {
+        "signal_time": "2023-01-05T08:28:00+02:00",
+        "start_time": "2023-01-05T08:28:00+02:00",
+        "vehicle_id": "golf_0",
+        "event_type": "departure",
+        "update": {
+          "estimated_time_of_arrival": "2023-01-05T17:13:00+02:00"
+        }
+      },
+      {
+        "signal_time": "2023-01-05T17:13:00+02:00",
+        "start_time": "2023-01-05T17:13:00+02:00",
+        "vehicle_id": "golf_0",
+        "event_type": "arrival",
+        "update": {
+          "connected_charging_station": "CS_golf_0",
+          "estimated_time_of_departure": "2023-01-06T08:20:00+02:00",
+          "desired_soc": 0.8,
+          "soc_delta": -0.21446400000000002
+        }
+      },
+      {
+        "signal_time": "2023-01-05T08:20:00+02:00",
+        "start_time": "2023-01-05T08:20:00+02:00",
+        "vehicle_id": "sprinter_0",
+        "event_type": "departure",
+        "update": {
+          "estimated_time_of_arrival": "2023-01-05T16:28:00+02:00"
+        }
+      },
+      {
+        "signal_time": "2023-01-05T16:28:00+02:00",
+        "start_time": "2023-01-05T16:28:00+02:00",
+        "vehicle_id": "sprinter_0",
+        "event_type": "arrival",
+        "update": {
+          "connected_charging_station": "CS_sprinter_0",
+          "estimated_time_of_departure": "2023-01-06T08:20:00+02:00",
+          "desired_soc": 0.8,
+          "soc_delta": -0.3527368421052632
+        }
+      },
+      {
+        "signal_time": "2023-01-06T08:20:00+02:00",
+        "start_time": "2023-01-06T08:20:00+02:00",
+        "vehicle_id": "golf_0",
+        "event_type": "departure",
+        "update": {
+          "estimated_time_of_arrival": "2023-01-06T17:53:00+02:00"
+        }
+      },
+      {
+        "signal_time": "2023-01-06T17:53:00+02:00",
+        "start_time": "2023-01-06T17:53:00+02:00",
+        "vehicle_id": "golf_0",
+        "event_type": "arrival",
+        "update": {
+          "connected_charging_station": "CS_golf_0",
+          "estimated_time_of_departure": "2023-01-07T08:18:00+02:00",
+          "desired_soc": 0.8,
+          "soc_delta": -0.12754983854283278
+        }
+      },
+      {
+        "signal_time": "2023-01-06T08:20:00+02:00",
+        "start_time": "2023-01-06T08:20:00+02:00",
+        "vehicle_id": "sprinter_0",
+        "event_type": "departure",
+        "update": {
+          "estimated_time_of_arrival": "2023-01-06T18:02:00+02:00"
+        }
+      },
+      {
+        "signal_time": "2023-01-06T18:02:00+02:00",
+        "start_time": "2023-01-06T18:02:00+02:00",
+        "vehicle_id": "sprinter_0",
+        "event_type": "arrival",
+        "update": {
+          "connected_charging_station": "CS_sprinter_0",
+          "estimated_time_of_departure": "2023-01-10T08:31:00+02:00",
+          "desired_soc": 0.8,
+          "soc_delta": -0.3209387014557338
+        }
+      },
+      {
+        "signal_time": "2023-01-07T08:18:00+02:00",
+        "start_time": "2023-01-07T08:18:00+02:00",
+        "vehicle_id": "golf_0",
+        "event_type": "departure",
+        "update": {
+          "estimated_time_of_arrival": "2023-01-07T15:10:00+02:00"
+        }
+      },
+      {
+        "signal_time": "2023-01-07T15:10:00+02:00",
+        "start_time": "2023-01-07T15:10:00+02:00",
+        "vehicle_id": "golf_0",
+        "event_type": "arrival",
+        "update": {
+          "connected_charging_station": "CS_golf_0",
+          "estimated_time_of_departure": "2023-01-10T08:02:00+02:00",
+          "desired_soc": 0.8,
+          "soc_delta": -0.17915347536723603
+        }
+      }
+    ],
+    "energy_price_from_csv": {
+      "csv_file": "../energy_price.csv",
+      "start_time": "2023-01-01T00:00:00+02:00",
+      "step_duration_s": 21600,
+      "grid_connector_id": "GC1",
+      "column": "value"
+    }
+  }
+}

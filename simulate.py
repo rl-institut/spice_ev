@@ -127,7 +127,7 @@ if __name__ == "__main__":
     parser.add_argument('--config', help='Use config file to set arguments')
     args = parser.parse_args()
 
-    set_options_from_config(args, check=True, verbose=False)
+    set_options_from_config(args, check=parser, verbose=False)
 
     if args.output:
         warnings.warn("output argument is deprecated, use save-timeseries instead",

@@ -1,8 +1,10 @@
+from argparse import Namespace
 import json
 from pathlib import Path
 import pytest
 
 from spice_ev import scenario, strategy
+from spice_ev.generate import generate_schedule
 
 TEST_REPO_PATH = Path(__file__).parent
 
@@ -229,6 +231,31 @@ class TestScenarios(TestCaseBase):
         self.assertIsFile(save_results)
         self.assertIsFile(save_timeseries)
         self.assertIsFile(save_soc)
+
+    def test_schedule(self, tmp_path):
+        for input in ["scenario_C3.json", "scenario_PV_Bat.json"]:
+            # generate schedule -> copy scenario file to tmp
+            src = TEST_REPO_PATH / f"test_data/input_test_strategies/{input}"
+            dst = tmp_path / "scenario.json"
+            dst.write_text(src.read_text())
+            schedule = tmp_path / "schedule.csv"
+            for load_strat in ["collective", "individual"]:
+                # create schedule
+                generate_schedule.generate_schedule(Namespace(
+                    scenario=dst,
+                    input=TEST_REPO_PATH/"test_data/input_test_generate/example_grid_situation.csv",
+                    output=schedule,
+                    individual=load_strat == "individual",
+                    core_standing_time={
+                        "times": [{"start": [22, 0], "end": [5, 0]}], "no_drive_days": [6]
+                    },
+                    visual=False,
+                    config=None,
+                ))
+                with dst.open('r') as f:
+                    j = json.load(f)
+                s = scenario.Scenario(j, tmp_path)
+                s.run('schedule', {"LOAD_STRAT": load_strat})
 
     def test_schedule_battery(self):
         test_json = {

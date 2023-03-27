@@ -36,7 +36,8 @@
     },
     "grid_connectors": {
         "GC1": {
-          "max_power": 200
+          "max_power": 200,
+          "voltage_level": "MV"
         }
     },
     "charging_stations": {

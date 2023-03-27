@@ -3,6 +3,9 @@
 *.pyc
 .DS_Store
 
+.coverage
+htmlcov/
+
 docs/
 .vscode/
 _build/

@@ -136,9 +136,11 @@ class Battery():
 
         return {'avg_power': avg_power, 'soc_delta':  old_soc - self.soc}
 
-    def load_iterative(self, timedelta, max_charging_power):
+    def load_iterative(self, timedelta, max_charging_power):  # pragma: no cover
         """Adjust SOC and return average charging power for a given timedelta
         and maximum charging power.
+
+        Numerical approach. Only used to validate analytical methods.
 
         :param timedelta: time period in which battery can be loaded
         :type timedelta: timedelta

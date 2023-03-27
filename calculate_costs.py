@@ -54,7 +54,7 @@ def read_simulation_csv(csv_file):
     }
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover
     parser = argparse.ArgumentParser(
         description='Generate scenarios as JSON files for vehicle charging modelling')
     parser.add_argument('--voltage-level', '-vl', help='Choose voltage level for cost calculation')
@@ -67,7 +67,7 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    util.set_options_from_config(args, check=False, verbose=False)
+    util.set_options_from_config(args, check=parser, verbose=False)
 
     # load simulation results:
     with open(args.get_results, "r", newline="") as sj:

@@ -1,4 +1,6 @@
+import argparse
 import datetime
+import pytest
 
 from spice_ev import components, util
 
@@ -93,6 +95,47 @@ class TestUtil:
             b = util.dt_within_core_standing_time(dt.replace(hour=h, minute=0), core)
             assert b == e, "{}:{} is {}".format(h, 0, b)
 
+    def test_get_cost_and_power(self):
+        assert util.get_power(None, {}) is None
+        # fixed costs
+        costs = {"type": "fixed", "value": 3}
+        power_cost = [(0, 0), (1, 3), (-1, -3)]
+        for p, c in power_cost:
+            assert pytest.approx(util.get_cost(p, costs)) == c
+            assert pytest.approx(util.get_power(c, costs)) == p
+
+        # poly costs
+        # order 0 or 1 (constant cost). Also test order reducing (highest order != 0)
+        costs = {"type": "polynomial", "value": []}
+        assert util.get_power(0, costs) is None
+        costs = {"type": "polynomial", "value": [1, 0, 0, 0]}
+        assert util.get_power(1, costs) is None
+        # linear: c = 2 - x
+        costs = {"type": "polynomial", "value": [2, -1]}
+        power_cost = [(0, 2), (1, 1), (-1, 3)]
+        for p, c in power_cost:
+            assert pytest.approx(util.get_cost(p, costs)) == c
+            assert pytest.approx(util.get_power(c, costs)) == p
+
+        # c = 3 + 2*x + 1*x*x
+        costs = {"type": "polynomial", "value": [3, 2, 1]}
+        power_cost = [(0, 3), (1, 6), (-1, 2)]  # 3+0+0, 3+2+1, 3-2+1
+        for p, c in power_cost:
+            assert pytest.approx(util.get_cost(p, costs)) == c
+            assert pytest.approx(util.get_power(c, costs)) == p
+
+        # higher order: not supported
+        costs = {"type": "polynomial", "value": [3, 2, 1, 0, -1]}
+        with pytest.raises(NotImplementedError):
+            util.get_power(0, costs)
+
+        # unknown type
+        costs = {"type": None}
+        with pytest.raises(NotImplementedError):
+            util.get_cost(0, costs)
+        with pytest.raises(NotImplementedError):
+            util.get_power(0, costs)
+
     def test_clamp_power(self):
         cs = components.ChargingStation({
             "min_power": 1,
@@ -136,3 +179,60 @@ class TestUtil:
         assert util.clamp_power(9, v, cs) == 9
         assert util.clamp_power(10, v, cs) == 9
         assert util.clamp_power(20, v, cs) == 9
+
+    def test_set_options_from_config(self, tmp_path):
+        ns = argparse.Namespace(baf=2)
+        # create dummy config:
+        """
+        foo= bar
+        # comment
+        baf =1
+        array = [1]
+        """
+        (tmp_path / "config.cfg").write_text("foo= bar\n#comment\nbaf =1\narray = [1]")
+        # no config: no update
+        util.set_options_from_config(ns)
+        assert ns.baf == 2
+
+        # config without parser: simple update, no check
+        ns.config = tmp_path / "config.cfg"
+        util.set_options_from_config(ns)
+        assert ns.baf == 1
+        assert ns.foo == "bar"
+        assert ns.array == [1]
+
+        # config with parser: check validity of options
+        # reset Namespace
+        ns = argparse.Namespace(baf=2, config=tmp_path / "config.cfg")
+        parser = argparse.ArgumentParser()
+        # unknown option: generic exception
+        with pytest.raises(Exception):
+            util.set_options_from_config(ns, check=parser)
+        # add options, but wrong type of foo
+        parser.add_argument("--foo", type=int)
+        parser.add_argument("--baf", type=int)
+        parser.add_argument("--array", action="append")
+        # unused option
+        parser.add_argument("--default", default="default")
+        with pytest.raises(ValueError):
+            util.set_options_from_config(ns, check=parser)
+        # fix last option
+        parser._actions[-4].type = str
+        util.set_options_from_config(ns, check=parser)
+        assert ns.baf == 1
+        assert ns.foo == "bar"
+        assert ns.array == [1]
+        # check choices
+        parser._actions[-2].choices = [2, 3]
+        with pytest.raises(argparse.ArgumentError):
+            util.set_options_from_config(ns, check=parser)
+        parser._actions[-2].choices = [1, 2, 3]
+        util.set_options_from_config(ns, check=parser)
+
+    def test_sanitize(self):
+        # default: remove </|\\>:"?*
+        assert util.sanitize("") == ""
+        assert util.sanitize("foo bar") == "foo bar"
+        assert util.sanitize('".*<f/|o\\o:>?!"') == ".foo!"
+        # declare special chars to remove
+        assert util.sanitize("<foo? bar!>", 'or ') == "<f?ba!>"
