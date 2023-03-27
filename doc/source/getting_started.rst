@@ -37,7 +37,7 @@ options, type:
 
 .. code:: bash
 
-    ./generate.py --days 7 --vehicles 6 golf --vehicles 4 sprinter --interval 15 --vehicle-types examples/data/vehicle_types.json --output scenario.json
+    ./generate.py statistics --days 7 --vehicles 6 golf --vehicles 4 sprinter --interval 15 --vehicle-types examples/data/vehicle_types.json --output scenario.json
 
 In order to generate a scenario with input arguments from a configuration file, type:
 
@@ -68,10 +68,10 @@ you can do this by running `generate_schedule.py`:
 
 .. code:: bash
 
-    ./generate_schedule.py --scenario example.json --input examples/data/grid_situation.csv --output examples/schedules/schedule.csv
+    ./generate_schedule.py scenario.json --input examples/data/grid_situation.csv --output examples/schedule.csv
 
 In this case a CSV time series is read in from the folder `examples/data/` and the created schedule is saved in
-`examples/schedules/`. The schedule CSV is automatically added to the `example.json`. Note that when running the
+`examples/`. The schedule CSV is automatically added to the `scenario.json`. Note that when running the
 `generate_schedule.py` script, you need to already have an existing `scenario.json` that you want to add the schedule to.
 
 Include other CSV time series
@@ -83,7 +83,7 @@ of the input files can be found here: :ref:`Input and output file formats <file_
 
 .. code:: bash
 
-    ./generate.py --include-price-csv ../price/price.csv --include-ext-load-csv external_load.csv -o example.json
+    ./generate.py --include-price-csv ../price/price.csv --include-fixed-load-csv external_load.csv -o example.json
 
 
 Help

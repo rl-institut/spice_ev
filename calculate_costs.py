@@ -31,7 +31,7 @@ def read_simulation_csv(csv_file):
             timestamp = datetime.datetime.fromisoformat(row["time"])
             price = float(row.get("price [EUR/kWh]", 0))
             power_grid_supply = float(row["grid supply [kW]"])
-            power_fix_load = float(row["local generation [kW]"])
+            power_fix_load = float(row["fixed load [kW]"])
 
             # append value to the respective list:
             timestamps_list.append(timestamp)

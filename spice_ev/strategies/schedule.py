@@ -167,7 +167,7 @@ class Schedule(Strategy):
                 elif type(event) == events.LocalEnergyGeneration:
                     gc_info[-1]["current_loads"][event.name] = -event.value
                 # ignore vehicle events, use vehicle data directly
-                # ignore localGeneration for now as well
+                # ignore local generation for now as well
             # end of useful events peek into future events for fixed loads, schedule
         return gc_info
 
@@ -196,7 +196,7 @@ class Schedule(Strategy):
         self.charge_window = [x > 0 for x in self.power_for_vehicles_per_TS]
         TS_to_charge_vehicles = sum(self.charge_window)
 
-        # Local Generation and Grid energy available for vehicles
+        # power from local generation and grid power available for vehicles
         self.energy_available_for_vehicles_on_schedule = sum([
             power / self.TS_per_hour
             for power in self.power_for_vehicles_per_TS if power > self.EPS
@@ -625,7 +625,7 @@ class Schedule(Strategy):
 
             for vehicle, cs in vehicles:
                 # only "collective" sub-strategy allowed here
-                # charge vehicles with available energy from local generation
+                # charge vehicles with available power from local generation
                 power = max(-gc.get_current_load(), 0)
 
                 power = clamp_power(power, vehicle, cs)
