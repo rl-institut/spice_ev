@@ -180,7 +180,7 @@ Flexible time windows
 ---------------------
 
 Based on the forecast grid situation, low tariff windows and high tariff windows are defined. If curtailment of
-renewable power plants is forecast or feed-in outweighs load, these periods become low tariff windows.
+renewable power plants is forecast or local generation outweighs load, these periods become low tariff windows.
 
 When using flexible time windows the flexible loads such as electric vehicles are charged with the tariff for grid
 friendly charging from the price sheet. Load peaks in low tariff time windows are not taken into account when
