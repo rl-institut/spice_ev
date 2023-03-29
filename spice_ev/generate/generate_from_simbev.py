@@ -105,14 +105,16 @@ def generate_from_simbev(args):
         "energy_price_from_csv": "include_price_csv",
     }
     for info, field in ext_info.items():
-        option = field + "_option"
-        if vars(args)[field] and vars(args)[option]["start_time"] is None:
-            vars(args)[option]["start_time"] = start.isoformat()
-        if vars(args)[option]:
-            if info == "energy_price_from_csv":
-                events[info] = vars(args)[option]
-            else:
-                events[info][vars(args)[field]] = vars(args)[option]
+        option = vars(args)[field + "_option"]
+        field = vars(args)[field]
+        if field is None:
+            continue
+        if option["start_time"] is None:
+            option["start_time"] = start.isoformat()
+        if info == "energy_price_from_csv":
+            events[info] = option
+        else:
+            events[info][field] = option
 
     if args.include_price_csv is None:
         if args.seed is not None and args.seed < 0:
@@ -386,7 +388,7 @@ def generate_from_simbev(args):
                 "start_time": start_time.isoformat(),
                 "cost": {
                     "type": "fixed",
-                    "value": 0.15 + random.gauss(0, 0.05)
+                    "value": round(0.15 + random.gauss(0, 0.05), 5)
                 }
             })
         else:
@@ -397,7 +399,7 @@ def generate_from_simbev(args):
                 "start_time": start_time.isoformat(),
                 "cost": {
                     "type": "fixed",
-                    "value": 0.15 + random.gauss(0, 0.05)
+                    "value": round(0.15 + random.gauss(0, 0.05), 5)
                 }
             })
 

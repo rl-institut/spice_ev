@@ -100,7 +100,7 @@ def update_namespace(args):
     target_path = Path(args.output).parent
 
     for file_type, file_info in csv_files.items():
-        if file_info["filename"]:
+        if file_info["filename"] is not None:
             options = {
                 "csv_file": file_info["filename"],
                 "start_time": None,
@@ -125,6 +125,8 @@ def update_namespace(args):
                     if not options["column"] in reader.fieldnames:
                         warnings.warn(f"{file_type} csv file '{ext_csv_path} "
                                       f"has no column {options['column']}'.")
+        elif vars(args)[file_info["options"]]:
+            warnings.warn(f"CSV {file_type} has options, but no file")
 
 
 def generate(args):

@@ -250,14 +250,16 @@ def generate_from_statistics(args):
         "energy_price_from_csv": "include_price_csv",
     }
     for info, field in ext_info.items():
-        option = field + "_option"
-        if vars(args)[field] and vars(args)[option]["start_time"] is None:
-            vars(args)[option]["start_time"] = start.isoformat()
-        if vars(args)[option]:
-            if info == "energy_price_from_csv":
-                events[info] = vars(args)[option]
-            else:
-                events[info][vars(args)[field]] = vars(args)[option]
+        option = vars(args)[field + "_option"]
+        field = vars(args)[field]
+        if field is None:
+            continue
+        if option["start_time"] is None:
+            option["start_time"] = start.isoformat()
+        if info == "energy_price_from_csv":
+            events[info] = option
+        else:
+            events[info][field] = option
 
     if args.include_price_csv is None:
         # generate prices for the day
