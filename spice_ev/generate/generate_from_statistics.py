@@ -274,7 +274,7 @@ def generate_from_statistics(args):
                     "start_time": morning.isoformat(),
                     "cost": {
                         "type": "fixed",
-                        "value": 0.15 + random.gauss(0, 0.05)
+                        "value": round(0.15 + random.gauss(0, 0.05), 5)
                     }
                 }, {
                     # night (depending on month - 6): 5ct
@@ -283,7 +283,7 @@ def generate_from_statistics(args):
                     "start_time": evening_by_month.isoformat(),
                     "cost": {
                         "type": "fixed",
-                        "value": 0.05 + random.gauss(0, 0.03)
+                        "value": round(0.05 + random.gauss(0, 0.03), 5)
                     }
                 }]
 
