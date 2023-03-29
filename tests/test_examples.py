@@ -1,9 +1,22 @@
-import filecmp
 from pathlib import Path
 import subprocess
 
 TEST_REPO_PATH = Path(__file__).parent
 EXAMPLE_PATH = TEST_REPO_PATH.parent / "examples"
+
+
+def compare_files(p1, p2):
+    # filecmp.cmp does not work because Windows and Linux files have different line breaks
+    # (difference in file size, but diff shows no difference)
+    # => replace different line break with universal linebreak (by reading with newline=None)
+    try:
+        with p1.open('r', newline=None) as f1:
+            content1 = f1.read()
+        with p2.open('r', newline=None) as f2:
+            content2 = f2.read()
+        return content1 == content2
+    except Exception:
+        return False
 
 
 class TestExampleConfigs:
@@ -26,7 +39,7 @@ class TestExampleConfigs:
             "python", TEST_REPO_PATH.parent / "calculate_costs.py", "--config", dst
         ]) == 0
         # check against expected file
-        assert filecmp.cmp(results_tmp, EXAMPLE_PATH / "output/calculate_costs_results.json")
+        assert compare_files(results_tmp, EXAMPLE_PATH / "output/calculate_costs_results.json")
 
     def test_generate(self, tmp_path):
         result_path = tmp_path / "scenario.json"
@@ -50,7 +63,7 @@ class TestExampleConfigs:
             # check against expected file
             expected = EXAMPLE_PATH / f"output/scenario_{dst.stem}.json"
             if expected.exists():
-                assert filecmp.cmp(result_path, expected)
+                assert compare_files(result_path, expected)
             else:
                 # can't test from_csv against known file, as results differ each run
                 assert result_path.exists()
@@ -77,7 +90,7 @@ class TestExampleConfigs:
             "python", TEST_REPO_PATH.parent / "generate_schedule.py", "--config", dst
         ]) == 0
         # check against expected file
-        assert filecmp.cmp(schedule, EXAMPLE_PATH / "output/schedule.csv")
+        assert compare_files(schedule, EXAMPLE_PATH / "output/schedule.csv")
 
     def test_simulate(self, tmp_path):
         # copy config to tmp, adjust paths
@@ -98,4 +111,4 @@ class TestExampleConfigs:
         ]) == 0
         # check against expected files
         for p in tmp_path.glob("simulation*"):
-            assert filecmp.cmp(p, EXAMPLE_PATH / f"output/{p.stem}{p.suffix}")
+            assert compare_files(p, EXAMPLE_PATH / f"output/{p.stem}{p.suffix}")
