@@ -474,7 +474,6 @@ def aggregate_timeseries(scenario, gcID):
         # fixed loads (e.g., building)
         header += ["schedule [kW]", "window signal [-]"]
     # Feed-in to grid per asset
-    print(hasFeedinComponents)
     header += [
         component for has, component in zip(
             hasFeedinComponents,
