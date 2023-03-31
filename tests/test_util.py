@@ -185,11 +185,12 @@ class TestUtil:
         # create dummy config:
         """
         foo= bar
+
         # comment
         baf =1
         array = [1]
         """
-        (tmp_path / "config.cfg").write_text("foo= bar\n#comment\nbaf =1\narray = [1]")
+        (tmp_path / "config.cfg").write_text("foo= bar\n\n#comment\nbaf =1\narray = [1]")
         # no config: no update
         util.set_options_from_config(ns)
         assert ns.baf == 2

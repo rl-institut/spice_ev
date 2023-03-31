@@ -52,6 +52,70 @@ class TestReport:
     def test_generate_soc_timeseries(self):
         report.generate_soc_timeseries(get_scenario())
 
+    def test_simple_plot(self):
+        try:
+            import matplotlib.pyplot as plt
+        except ModuleNotFoundError:
+            # no matplot installed
+            return
+        s = scenario.Scenario({
+            "scenario": {
+                "start_time": "2020-01-01T00:00:00+02:00",
+                "interval": 15,
+                "n_intervals": 10
+            },
+            "components": {
+                "grid_connectors": {
+                    "GC": {
+                        "max_power": 100,
+                        "cost": {"type": "fixed", "value": 0.1},
+                    }
+                }
+            }
+        })
+        s.run('greedy', {})
+        report.aggregate_global_results(s)
+        with plt.ion():
+            report.plot(s)
+
+    def test_extended_plot(self):
+        try:
+            import matplotlib.pyplot as plt
+        except ModuleNotFoundError:
+            # no matplot installed
+            return
+        s = scenario.Scenario({
+            "scenario": {
+                "start_time": "2020-01-01T00:00:00+02:00",
+                "interval": 15,
+                "n_intervals": 10
+            },
+            "components": {
+                "grid_connectors": {
+                    "GC": {
+                        "max_power": 100,
+                        "target": 10,
+                    }
+                },
+                "vehicle_types": {
+                    "test": {"name": "test", "capacity": 10, "charging_curve": [[0, 1], [1, 1]]}},
+                "vehicles": {"t1": {"vehicle_type": "test", "soc": 0.3, "desired_soc": 0.5, "connected_charging_station": "cs", "schedule": 5}},
+                "charging_stations": {"cs": {"max_power": 10,"parent": "GC"}},
+                "batteries": {"BAT": {
+                    "parent": "GC",
+                    "charging_curve": [(0, 10), (1, 10)],
+                    "capacity": 10,
+                    "soc": 0.5,
+                }}
+            }
+        })
+        s.run('schedule', {"LOAD_STRAT": "individual"})
+        assert s.strat.world_state.vehicles["t1"].battery.soc > 0.3
+        assert s.strat.world_state.batteries["BAT"].soc > 0.5
+        report.aggregate_global_results(s)
+        with plt.ion():
+            report.plot(s)
+
     def test_generate_reports(self, tmp_path):
         report.generate_reports(get_scenario(), {
             'save_timeseries': tmp_path / 'timeseries.csv',
