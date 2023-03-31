@@ -99,8 +99,14 @@ class TestReport:
                 },
                 "vehicle_types": {
                     "test": {"name": "test", "capacity": 10, "charging_curve": [[0, 1], [1, 1]]}},
-                "vehicles": {"t1": {"vehicle_type": "test", "soc": 0.3, "desired_soc": 0.5, "connected_charging_station": "cs", "schedule": 5}},
-                "charging_stations": {"cs": {"max_power": 10,"parent": "GC"}},
+                "vehicles": {"t1": {
+                    "vehicle_type": "test",
+                    "soc": 0.3,
+                    "desired_soc": 0.5,
+                    "connected_charging_station": "cs",
+                    "schedule": 5
+                }},
+                "charging_stations": {"cs": {"max_power": 10, "parent": "GC"}},
                 "batteries": {"BAT": {
                     "parent": "GC",
                     "charging_curve": [(0, 10), (1, 10)],

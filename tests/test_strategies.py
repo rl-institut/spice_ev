@@ -118,7 +118,7 @@ class TestScenarios(TestCaseBase):
                 "start_time": "2020-01-01T00:35:00+02:00",
                 "grid_connector_id": "GC1",
                 "max_power": 2000,
-              },{
+              }, {
                 "signal_time": "2020-01-01T00:00:00+02:00",
                 "start_time": "2020-01-01T00:50:00+02:00",
                 "grid_connector_id": "GC1",
@@ -154,8 +154,8 @@ class TestScenarios(TestCaseBase):
             },
             "components": {
                 "vehicle_types": {
-                    "test": {"name": "test", "capacity": 100, "charging_curve": [[0, 100], [1, 100]]}},
-                "vehicles": {"t1": {"vehicle_type": "test", "soc": 0.3, "desired_soc": 0.5}}
+                    "test": {"name": "t", "capacity": 100, "charging_curve": [[0, 100], [1, 100]]}},
+                "vehicles": {"t1": {"vehicle_type": "t", "soc": 0.3, "desired_soc": 0.5}}
             },
             "events": {"vehicle_events": [{
                 "signal_time": "1970-01-01T00:00:00+02:00",
@@ -163,31 +163,32 @@ class TestScenarios(TestCaseBase):
                 "vehicle_id": "t1",
                 "event_type": "departure",
                 "update": {}
-              },{
+              }, {
                 "signal_time": "2020-01-01T00:00:00+02:00",
                 "start_time": "2020-01-01T00:05:00+02:00",
                 "vehicle_id": "t1",
                 "event_type": "arrival",
                 "update": {"soc_delta": -0.1, "desired_soc": 0.5}
-              },{
+              }, {
                 "signal_time": "2020-01-01T00:00:00+02:00",
                 "start_time": "2020-01-01T00:20:00+02:00",
                 "vehicle_id": "t1",
                 "event_type": "departure",
                 "update": {}
-              },{
+              }, {
                 "signal_time": "2020-01-01T00:00:00+02:00",
                 "start_time": "2020-01-01T00:35:00+02:00",
                 "vehicle_id": "t1",
                 "event_type": "arrival",
-                "update": {"soc_delta": -0.6, "desired_soc": 0.5, "connected_charging_station": "cs"}
-              },{
+                "update": {
+                    "soc_delta": -0.6, "desired_soc": 0.5, "connected_charging_station": "cs"}
+              }, {
                 "signal_time": "2020-01-01T00:00:00+02:00",
                 "start_time": "2020-01-01T00:50:00+02:00",
                 "vehicle_id": "t1",
                 "event_type": "departure",
                 "update": {}
-              },{
+              }, {
                 "signal_time": "2020-01-01T00:00:00+02:00",
                 "start_time": "2020-01-01T01:05:00+02:00",
                 "vehicle_id": "t1",
@@ -460,11 +461,12 @@ class TestScenarios(TestCaseBase):
         strat.world_state.grid_connectors["GC"].cost["value"] = 0.1
         strat.update_batteries()
         # battery not charged because price higher than threshold
-        assert strat.world_state.batteries["BAT"].soc  == 0.5
+        assert strat.world_state.batteries["BAT"].soc == 0.5
         strat.world_state.grid_connectors["GC"].cost["value"] = -0.1
         strat.update_batteries()
         # battery charged because price is lower than threshold
         assert strat.world_state.batteries["BAT"].soc > 0.5
+
 
 def test_apply_battery_losses():
     test_json = {
