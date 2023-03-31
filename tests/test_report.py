@@ -26,11 +26,11 @@ def test_split_feedin():
     # no generation nor V2G with feed-in at grid connector
     assert [0, 0, 6] == report.split_feedin(grid=6, generation=0, cs_sum=2, round_to_places=2)
     # rounding is correct
-    assert [3.123, 2.123, round(6 - 3.123 - 2.123, 3)] == report.split_feedin(
+    assert [3.12, 2.12, round(6 - 3.123 - 2.123, 2)] == report.split_feedin(
         grid=6,
         generation=-3.123,
         cs_sum=-2.123,
-        round_to_places=3
+        round_to_places=2
     )
 
 

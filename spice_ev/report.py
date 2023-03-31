@@ -327,7 +327,7 @@ def aggregate_local_results(scenario, gcID):
     return json_results
 
 
-def split_feedin(grid, generation, cs_sum, round_to_places):
+def split_feedin(grid, generation, cs_sum, round_to_places=3):
     """
     Splits feed-in to grid into generation (e.g. PV), V2G and battery for one time step.
     Order:
