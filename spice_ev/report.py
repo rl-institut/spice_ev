@@ -453,7 +453,7 @@ def aggregate_timeseries(scenario, gcID):
         # fixed loads (e.g., building)
         header.append("fixed load [kW]")
     # local generation
-    if any(scenario.localGenerationPower):
+    if hasGeneration:
         header.append("local generation [kW]")
     # batteries
     if hasBatteries:
@@ -502,7 +502,7 @@ def aggregate_timeseries(scenario, gcID):
                 if k in scenario.events.fixed_load_lists])
             row.append(round(sumFixedLoads, round_to_places))
         # local generation (negative since power is fed into system)
-        if any(scenario.localGenerationPower):
+        if hasGeneration:
             row.append(-1 * round(scenario.localGenerationPower[gcID][idx], round_to_places))
 
         # batteries
@@ -552,7 +552,7 @@ def aggregate_timeseries(scenario, gcID):
         # feed-in per asset, i.e. PV, V2G and battery in this priority order
         splitFeedin = split_feedin(
             - scenario.totalLoad[gcID][idx],
-            - scenario.localGenerationPower[gcID][idx],
+            - scenario.localGenerationPower[gcID][idx] if hasGeneration else 0,
             min(cs_sum, 0),
             round_to_places
         )
