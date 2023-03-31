@@ -154,7 +154,7 @@ class TestScenarios(TestCaseBase):
             },
             "components": {
                 "vehicle_types": {
-                    "test": {"name": "t", "capacity": 100, "charging_curve": [[0, 100], [1, 100]]}},
+                    "t": {"name": "t", "capacity": 100, "charging_curve": [[0, 100], [1, 100]]}},
                 "vehicles": {"t1": {"vehicle_type": "t", "soc": 0.3, "desired_soc": 0.5}}
             },
             "events": {"vehicle_events": [{
