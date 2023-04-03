@@ -269,14 +269,17 @@ def aggregate_local_results(scenario, gcID):
     }
 
     # total feed-in originating from local generation, V2G or battery
-    gc_timeseries = getattr(scenario, f"{gcID}_timeseries")
-    json_results["feed-in energy"] = {
-        "generation": sum(gc_timeseries.get('generation feed-in [kW]', [])) / stepsPerHour,
-        "v2g": sum(gc_timeseries.get('V2G feed-in [kW]', [])) / stepsPerHour,
-        "battery": sum(gc_timeseries.get('battery feed-in [kW]', [])) / stepsPerHour,
-        "unit": "kWh",
-        "info": "Total energy fed into grid per component type"
-    }
+    try:
+        gc_timeseries = getattr(scenario, f"{gcID}_timeseries")
+        json_results["feed-in energy"] = {
+            "generation": sum(gc_timeseries.get('generation feed-in [kW]', [])) / stepsPerHour,
+            "v2g": sum(gc_timeseries.get('V2G feed-in [kW]', [])) / stepsPerHour,
+            "battery": sum(gc_timeseries.get('battery feed-in [kW]', [])) / stepsPerHour,
+            "unit": "kWh",
+            "info": "Total energy fed into grid per component type"
+        }
+    except AttributeError as e:
+        pass
 
     # battery sizes
     for b in scenario.batteryLevels.values():
