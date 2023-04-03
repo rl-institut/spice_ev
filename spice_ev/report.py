@@ -270,7 +270,6 @@ def aggregate_local_results(scenario, gcID):
 
     # total feed-in originating from local generation, V2G or battery
     gc_timeseries = getattr(scenario, f"{gcID}_timeseries")
-    print(gc_timeseries.get('V2G feed-in [kW]', []))
     json_results["feed-in energy"] = {
         "generation": sum(gc_timeseries.get('generation feed-in [kW]', [])) / stepsPerHour,
         "v2g": sum(gc_timeseries.get('V2G feed-in [kW]', [])) / stepsPerHour,
