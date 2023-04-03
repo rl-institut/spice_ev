@@ -278,7 +278,8 @@ def aggregate_local_results(scenario, gcID):
             "unit": "kWh",
             "info": "Total energy fed into grid per component type"
         }
-    except AttributeError as e:
+    except AttributeError:
+        # if feed-in time series were not set before skip this entry
         pass
 
     # battery sizes
