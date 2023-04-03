@@ -268,6 +268,20 @@ def aggregate_local_results(scenario, gcID):
         "info": "Total energy from renewable energy sources"
     }
 
+    # total feed-in originating from local generation, V2G or battery
+    try:
+        gc_timeseries = getattr(scenario, f"{gcID}_timeseries")
+        json_results["feed-in energy"] = {
+            "generation": sum(gc_timeseries.get('generation feed-in [kW]', [])) / stepsPerHour,
+            "v2g": sum(gc_timeseries.get('V2G feed-in [kW]', [])) / stepsPerHour,
+            "battery": sum(gc_timeseries.get('battery feed-in [kW]', [])) / stepsPerHour,
+            "unit": "kWh",
+            "info": "Total energy fed into grid per component type"
+        }
+    except AttributeError:
+        # if feed-in time series were not set before skip this entry
+        pass
+
     # battery sizes
     for b in scenario.batteryLevels.values():
         if any(b):
@@ -325,6 +339,43 @@ def aggregate_local_results(scenario, gcID):
     }
 
     return json_results
+
+
+def split_feedin(grid, generation, cs_sum, round_to_places=3):
+    """
+    Splits feed-in to grid into generation (e.g. PV), V2G and battery for one time step.
+    Order:
+    1. feed-in is provided by local generation first
+    2. feed-in not locally generated comes from discharging vehicles first
+    3. rest of feed-in must come from stationary battery
+
+    :param grid: current total feed-in at grid connector at time step
+    :type grid: float
+    :param generation: current generation (e.g. PV) power at time step (as negative value)
+    :type generation: float
+    :param cs_sum: aggregated power of discharging vehicles at grid connector at time step
+    :type cs_sum: float
+    :param round_to_places: decimal places, that each value in the result list should be rounded to
+    :type round_to_places: int
+    :return: list of feed-in to grid split into generation-, V2G- and battery-feed-in; in that order
+    :rtype: list
+    """
+
+    accumulated = grid
+    # feed-in is provided by local generation first
+    generation_feedin = max(min(-generation, accumulated), 0)
+    accumulated -= generation_feedin
+    # feed-in not locally generated comes from discharging vehicles first
+    v2g_feedin = max(min(-cs_sum, accumulated), 0)
+    accumulated -= v2g_feedin
+    # rest of feed-in must come from stationary battery
+    battery_feedin = max(accumulated, 0)
+
+    return [
+        round(generation_feedin, round_to_places),
+        round(v2g_feedin, round_to_places),
+        round(battery_feedin, round_to_places)
+    ]
 
 
 def aggregate_timeseries(scenario, gcID):
@@ -398,7 +449,10 @@ def aggregate_timeseries(scenario, gcID):
     # any loads except CS present?
     hasFixedLoads = any(scenario.fixedLoads)
     hasSchedule = any(s is not None for s in scenario.gcPowerSchedule[gcID])
-    hasBatteries = sum([b.parent == gcID for b in scenario.components.batteries.values()])
+    hasGeneration = any(scenario.localGenerationPower[gcID])
+    hasV2G = any([v.vehicle_type.v2g for v in scenario.components.vehicles.values()])
+    hasBatteries = any([b.parent == gcID for b in scenario.components.batteries.values()])
+    hasFeedinComponents = [hasGeneration, hasV2G, hasBatteries]
 
     # accumulate header
     # general info
@@ -413,7 +467,7 @@ def aggregate_timeseries(scenario, gcID):
         # fixed loads (e.g., building)
         header.append("fixed load [kW]")
     # local generation
-    if any(scenario.localGenerationPower):
+    if hasGeneration:
         header.append("local generation [kW]")
     # batteries
     if hasBatteries:
@@ -424,6 +478,13 @@ def aggregate_timeseries(scenario, gcID):
     if hasSchedule:
         # fixed loads (e.g., building)
         header += ["schedule [kW]", "window signal [-]"]
+    # Feed-in to grid per asset
+    header += [
+        component for has, component in zip(
+            hasFeedinComponents,
+            ["generation feed-in [kW]", "V2G feed-in [kW]", "battery feed-in [kW]"]
+        ) if has
+    ]
     # sum of charging power
     header.append("sum CS power [kW]")
     # charging power per use case
@@ -455,7 +516,7 @@ def aggregate_timeseries(scenario, gcID):
                 if k in scenario.events.fixed_load_lists])
             row.append(round(sumFixedLoads, round_to_places))
         # local generation (negative since power is fed into system)
-        if any(scenario.localGenerationPower):
+        if hasGeneration:
             row.append(-1 * round(scenario.localGenerationPower[gcID][idx], round_to_places))
 
         # batteries
@@ -501,7 +562,17 @@ def aggregate_timeseries(scenario, gcID):
             for k, v in r["commands"].items():
                 if k in cs_ids:
                     gc_commands.update({k: v})
-        row.append(round(sum(gc_commands.values()), round_to_places))
+        cs_sum = sum(gc_commands.values())
+        # feed-in per asset, i.e. PV, V2G and battery in this priority order
+        splitFeedin = split_feedin(
+            - scenario.totalLoad[gcID][idx],
+            - scenario.localGenerationPower[gcID][idx] if hasGeneration else 0,
+            min(cs_sum, 0),
+            round_to_places
+        )
+        row += [feedin for has, feedin in zip(hasFeedinComponents, splitFeedin) if has]
+        # sum of all current CS power that are connected to gc
+        row.append(round(cs_sum, round_to_places))
         # sum up all charging power at gc for each use case
         row += [round(sum([cs_value for cs_id, cs_value in gc_commands.items()
                            if cs_id in cs_by_uc[uc_key]]),

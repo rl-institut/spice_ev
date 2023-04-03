@@ -64,17 +64,24 @@
     "variable": 3.960209870101264,
     "total": 3.960209870101264,
     "unit": "kW",
-    "info": "Maximum drawn power, by fixed loads (building, PV), variable loads (charging stations, stationary batteries) and all loads"
+    "info": "Maximum drawn power, by fixed loads (building), variable loads (charging stations, stationary batteries) and all loads"
   },
   "avg drawn power": {
     "value": 0.06077048290830174,
     "unit": "kW",
     "info": "Drawn power, averaged over all time steps"
   },
-  "feed-in energy": {
+  "local energy generation": {
     "value": 0.0,
     "unit": "kWh",
     "info": "Total energy from renewable energy sources"
+  },
+  "feed-in energy": {
+    "generation": 0.0,
+    "v2g": 0.0,
+    "battery": 0.0,
+    "unit": "kWh",
+    "info": "Total energy fed into grid per component type"
   },
   "all vehicle battery cycles": {
     "value": 0.04210526315789478,
