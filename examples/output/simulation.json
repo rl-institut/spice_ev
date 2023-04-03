@@ -76,6 +76,13 @@
     "unit": "kWh",
     "info": "Total energy from renewable energy sources"
   },
+  "feed-in energy": {
+    "generation": 0.0,
+    "v2g": 0.0,
+    "battery": 0.0,
+    "unit": "kWh",
+    "info": "Total energy fed into grid per component type"
+  },
   "all vehicle battery cycles": {
     "value": 0.04210526315789478,
     "unit": null,
