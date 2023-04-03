@@ -268,6 +268,17 @@ def aggregate_local_results(scenario, gcID):
         "info": "Total energy from renewable energy sources"
     }
 
+    # total feed-in originating from local generation, V2G or battery
+    gc_timeseries = getattr(scenario, f"{gcID}_timeseries")
+    print(gc_timeseries.get('V2G feed-in [kW]', []))
+    json_results["feed-in energy"] = {
+        "generation": sum(gc_timeseries.get('generation feed-in [kW]', [])) / stepsPerHour,
+        "v2g": sum(gc_timeseries.get('V2G feed-in [kW]', [])) / stepsPerHour,
+        "battery": sum(gc_timeseries.get('battery feed-in [kW]', [])) / stepsPerHour,
+        "unit": "kWh",
+        "info": "Total energy fed into grid per component type"
+    }
+
     # battery sizes
     for b in scenario.batteryLevels.values():
         if any(b):
