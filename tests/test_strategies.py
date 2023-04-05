@@ -44,6 +44,7 @@ class TestCaseBase:
 
 class TestScenarios(TestCaseBase):
 
+    # TEST BASIC FUNCTIONALITY
     def test_scenario_times(self):
         # correct number of timesteps?
         j = get_test_json()
@@ -67,20 +68,162 @@ class TestScenarios(TestCaseBase):
         scenario.Scenario(j)
 
     def test_empty(self):
-        s = scenario.Scenario({
+        test_json = {
             "scenario": {
                 "start_time": "2020-01-01T00:00:00+02:00",
                 "interval": 15,
                 "n_intervals": 10
-            }})
+            }
+        }
+        s = scenario.Scenario(test_json)
         s.run('greedy', {})
         assert s.n_intervals == 10
         assert s.step_i == 10
+
+        test_json["components"] = {"grid_connectors": {"GC1": {"max_power": 42}}}
+        s = scenario.Scenario(test_json)
+        strat = strategy.Strategy(s.components, s.start_time, **{"interval": s.interval})
+        with pytest.raises(Exception):
+            # GC has neither cost nor schedule
+            strat.step()
 
     def test_file(self):
         # open from file
         input = TEST_REPO_PATH / 'test_data/input_test_strategies/scenario_A.json'
         scenario.Scenario(load_json(input), input.parent)
+
+    def test_set_connector_power(self):
+        s = scenario.Scenario({
+            "scenario": {
+                "start_time": "2020-01-01T00:00:00+02:00",
+                "interval": 15,
+                "n_intervals": 10
+            },
+            "components": {"grid_connectors": {"GC1": {
+                "max_power": 1000,
+                "cost": {"type": "fixed", "value": 0.1}
+            }}},
+            "events": {"grid_operator_signals": [{
+                "signal_time": "2020-01-01T00:00:00+02:00",
+                "start_time": "2020-01-01T00:05:00+02:00",
+                "grid_connector_id": "GC1",
+                "max_power": 500,
+              }, {
+                "signal_time": "2020-01-01T00:00:00+02:00",
+                "start_time": "2020-01-01T00:25:00+02:00",
+                "grid_connector_id": "GC1",
+                "cost": {"type": "fixed", "value": 0.2}
+              }, {
+                "signal_time": "2020-01-01T00:00:00+02:00",
+                "start_time": "2020-01-01T00:35:00+02:00",
+                "grid_connector_id": "GC1",
+                "max_power": 2000,
+              }, {
+                "signal_time": "2020-01-01T00:00:00+02:00",
+                "start_time": "2020-01-01T00:50:00+02:00",
+                "grid_connector_id": "GC1",
+                "max_power": 2000,
+              },
+            ]}
+        })
+        strat = strategy.Strategy(s.components, s.start_time, **{"interval": s.interval})
+        event_steps = s.events.get_event_steps(s.start_time, s.n_intervals, s.interval)
+        strat.step(event_steps[0])
+        # start of scenario: initial value
+        assert strat.world_state.grid_connectors["GC1"].cur_max_power == 1000
+        strat.step()
+        # first step: max_power set
+        assert strat.world_state.grid_connectors["GC1"].cur_max_power == 500
+        strat.step()
+        # second step: grid event without max_power => retain value
+        assert strat.world_state.grid_connectors["GC1"].cur_max_power == 500
+        strat.step()
+        # third step: max_power higher than initial value: clip
+        assert strat.world_state.grid_connectors["GC1"].cur_max_power == 1000
+        # fourth step: no max power of connector: set max_power of event
+        strat.world_state.grid_connectors["GC1"].max_power = None
+        strat.step()
+        assert strat.world_state.grid_connectors["GC1"].cur_max_power == 2000
+
+    def test_vehicle_soc(self):
+        s = scenario.Scenario({
+            "scenario": {
+                "start_time": "2020-01-01T00:00:00+02:00",
+                "interval": 15,
+                "n_intervals": 10
+            },
+            "components": {
+                "vehicle_types": {
+                    "t": {"name": "t", "capacity": 100, "charging_curve": [[0, 100], [1, 100]]}},
+                "vehicles": {"t1": {"vehicle_type": "t", "soc": 0.3, "desired_soc": 0.5}}
+            },
+            "events": {"vehicle_events": [{
+                "signal_time": "1970-01-01T00:00:00+02:00",
+                "start_time": "1970-01-01T00:00:00+02:00",
+                "vehicle_id": "t1",
+                "event_type": "departure",
+                "update": {}
+              }, {
+                "signal_time": "2020-01-01T00:00:00+02:00",
+                "start_time": "2020-01-01T00:05:00+02:00",
+                "vehicle_id": "t1",
+                "event_type": "arrival",
+                "update": {"soc_delta": -0.1, "desired_soc": 0.5}
+              }, {
+                "signal_time": "2020-01-01T00:00:00+02:00",
+                "start_time": "2020-01-01T00:20:00+02:00",
+                "vehicle_id": "t1",
+                "event_type": "departure",
+                "update": {}
+              }, {
+                "signal_time": "2020-01-01T00:00:00+02:00",
+                "start_time": "2020-01-01T00:35:00+02:00",
+                "vehicle_id": "t1",
+                "event_type": "arrival",
+                "update": {
+                    "soc_delta": -0.6, "desired_soc": 0.5, "connected_charging_station": "cs"}
+              }, {
+                "signal_time": "2020-01-01T00:00:00+02:00",
+                "start_time": "2020-01-01T00:50:00+02:00",
+                "vehicle_id": "t1",
+                "event_type": "departure",
+                "update": {}
+              }, {
+                "signal_time": "2020-01-01T00:00:00+02:00",
+                "start_time": "2020-01-01T01:05:00+02:00",
+                "vehicle_id": "t1",
+                "event_type": "arrival",
+                "update": {"soc_delta": -0.6, "desired_soc": 0.5}
+              },
+            ]}
+        })
+        strat = strategy.Strategy(s.components, s.start_time, **{"interval": s.interval})
+        event_steps = s.events.get_event_steps(s.start_time, s.n_intervals, s.interval)
+        # pre-step: initial soc
+        assert strat.world_state.vehicles["t1"].battery.soc == 0.3
+        # first step: update for timesteps before scenario start (set desired soc if needed)
+        strat.step(event_steps[0])
+        assert strat.world_state.vehicles["t1"].battery.soc == 0.5
+        # second step: normal arrival with delta_soc = 0.1
+        strat.step()
+        assert strat.world_state.vehicles["t1"].battery.soc == 0.4
+        strat.world_state.vehicles["t1"].battery.soc = 0.5
+        # third step: normal departure
+        strat.step()
+        assert strat.world_state.vehicles["t1"].battery.soc == 0.5
+        # fourth step: arrival with negative soc
+        strat.ALLOW_NEGATIVE_SOC = True
+        strat.RESET_NEGATIVE_SOC = True
+        strat.step()
+        assert strat.world_state.vehicles["t1"].battery.soc == 0
+        # fifth step: departure with soc below desired
+        strat.world_state.vehicles["t1"].battery.soc = 0.4
+        strat.step()
+        assert strat.margin_counter == 1
+        # sixth step: error when arriving with negative soc
+        strat.ALLOW_NEGATIVE_SOC = False
+        with pytest.raises(RuntimeError):
+            strat.step()
 
     # TEST SCENARIOS WITH BATTERY, FEEDIN AND EXTERNAL LOAD (Scenario A)
     def test_scenario_A(self):
@@ -292,6 +435,37 @@ class TestScenarios(TestCaseBase):
         s.run('schedule', {"LOAD_STRAT": "individual", "testing": True})
         # test battery
         assert pytest.approx(s.batteryLevels["BAT"][-1]) == 0
+
+    def test_low_price(self):
+        s = scenario.Scenario({
+            "scenario": {
+                "start_time": "2020-01-01T00:00:00+02:00",
+                "interval": 15,
+                "n_intervals": 10
+            },
+            "components": {
+                "grid_connectors": {"GC": {
+                    "max_power": 100,
+                    "cost": {"type": "fixed", "value": 0.1}
+                }},
+                "batteries": {"BAT": {
+                    "parent": "GC",
+                    "charging_curve": [(0, 10), (1, 10)],
+                    "capacity": 10,
+                    "soc": 0.5,
+                }}
+            }
+        })
+        strat = strategy.Strategy(s.components, s.start_time, **{"interval": s.interval})
+        strat.PRICE_THRESHOLD = 0
+        strat.world_state.grid_connectors["GC"].cost["value"] = 0.1
+        strat.update_batteries()
+        # battery not charged because price higher than threshold
+        assert strat.world_state.batteries["BAT"].soc == 0.5
+        strat.world_state.grid_connectors["GC"].cost["value"] = -0.1
+        strat.update_batteries()
+        # battery charged because price is lower than threshold
+        assert strat.world_state.batteries["BAT"].soc > 0.5
 
 
 def test_apply_battery_losses():

@@ -1,3 +1,4 @@
+import datetime
 import json
 import pytest
 from pathlib import Path
@@ -220,6 +221,85 @@ class TestSimulationCosts:
         assert result["power_procurement_costs_per_year"] == 246.6
         assert result["levies_fees_and_taxes_per_year"] == 226.63
         assert result["feed_in_remuneration_per_year"] == 0
+
+    def test_greedy_rlm(self):
+        # prepare scenario to trigger RLM
+        # energy_supply_per_year > 100000, but utilization_time_per_year < 2500
+        result = cc.calculate_costs(
+            "greedy", "MV", datetime.timedelta(hours=1),
+            [None]*9,  # empty timestamps
+            [-1000] + [0]*8,  # single grid supply value
+            None,  # empty prices
+            [0] * 9,  # empty fix loads
+            None,  # empty charging signal
+            None,  # empty CST
+            TEST_REPO_PATH / 'test_data/input_test_cost_calculation/price_sheet.json')
+        # TODO compare expected values
+        assert result is not None
+
+    def test_fixed_load(self):
+        for strategy in ["balanced_market", "flex_window", "schedule"]:
+            result = cc.calculate_costs(
+                strategy, "MV", datetime.timedelta(hours=1),
+                [None]*9,  # empty timestamps
+                [0]*9,  # empty grid supply
+                [1]*9,  # static prices
+                [100] * 9,  # static fixed loads
+                [True]*9,  # always-on charging signal
+                None,  # empty CST
+                TEST_REPO_PATH / 'test_data/input_test_cost_calculation/price_sheet.json')
+            # TODO compare expected values
+            assert result is not None
+
+    def test_pv_nominal(self):
+        price_sheet = TEST_REPO_PATH / 'test_data/input_test_cost_calculation/price_sheet.json'
+        with price_sheet.open('r') as ps:
+            price_sheet_json = json.load(ps)
+        # iterate over PV ranges
+        pv_ranges = price_sheet_json["feed-in_remuneration"]["PV"]["kWp"]
+        for pv in pv_ranges:
+            result = cc.calculate_costs(
+                "greedy", "MV", datetime.timedelta(hours=1),
+                [None]*9,  # empty timestamps
+                [pv]*9,  # positive grid supply
+                None,  # empty prices
+                [0] * 9,  # empty fixed loads
+                None,  # no charging signal
+                None,  # empty CST
+                price_sheet,
+                power_pv_nominal=pv)
+            # TODO compare expected values
+            assert result is not None
+        with pytest.raises(ValueError):
+            # PV out of range
+            cc.calculate_costs(
+                "greedy", "MV", datetime.timedelta(hours=1),
+                [None]*9,  # empty timestamps
+                [1]*9,  # positive grid supply
+                None,  # empty prices
+                [0] * 9,  # empty fixed loads
+                None,  # no charging signal
+                None,  # empty CST
+                price_sheet,
+                power_pv_nominal=pv_ranges[-1]+1)
+
+    def test_write_results(self, tmp_path):
+        dst = tmp_path / "results.json"
+        dst.write_text("{}")
+        cc.calculate_costs(
+            "greedy", "MV", datetime.timedelta(hours=1),
+            [None]*9,  # empty timestamps
+            [0]*9,  # empty grid supply
+            None,  # empty prices
+            [0] * 9,  # empty fixed loads
+            None,  # no charging signal
+            None,  # empty CST
+            TEST_REPO_PATH / 'test_data/input_test_cost_calculation/price_sheet.json',
+            results_json=dst)
+        with dst.open('r') as f:
+            results_json = json.load(f)
+            # TODO compare expected values
+            assert results_json is not None
 
 
 class TestPostSimulationCosts:
