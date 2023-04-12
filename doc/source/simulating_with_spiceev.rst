@@ -332,9 +332,9 @@ simulate.py
     +----------------------------------------------+------------------------------------------------------------------------------+
     | flex band min, base and max [kW]             | minimum and maximum flexibility per timestep                                 |
     +----------------------------------------------+------------------------------------------------------------------------------+
-    | generation feed-in [kW]    	               | Feed-in to grid from local generation (omitted if not present)               |
+    | generation feed-in [kW]    	           | Feed-in to grid from local generation (omitted if not present)               |
     +----------------------------------------------+------------------------------------------------------------------------------+
-    | V2G feed-in [kW]    	                       | Feed-in to grid from V2G-capable vehicles (omitted if not present)           |
+    | V2G feed-in [kW]    	                   | Feed-in to grid from V2G-capable vehicles (omitted if not present)           |
     +----------------------------------------------+------------------------------------------------------------------------------+
     | battery feed-in [kW]                         | Feed-in to grid from battery (omitted if not present)                        |
     +----------------------------------------------+------------------------------------------------------------------------------+
@@ -347,8 +347,6 @@ simulate.py
     | # occupied CS [-]                            |	number of charging stations with a vehicle connected to it                |
     +----------------------------------------------+------------------------------------------------------------------------------+
     | # CS in use [-]                              |	number of charging stations charging vehicles at the same time            |
-    +----------------------------------------------+------------------------------------------------------------------------------+
-    | # occupied UC {}                             |	???                                                                       |
     +----------------------------------------------+------------------------------------------------------------------------------+
     | CS _ *vehicle type* _ *grid connector* [kW]  |	power at each charging station                                            |
     +----------------------------------------------+------------------------------------------------------------------------------+

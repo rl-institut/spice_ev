@@ -35,7 +35,7 @@ plots of the results:
 
 Include an external load in scenario:
 ```sh
-./generate.py --include-ext-load-csv external_load.csv -o example.json
+./generate.py --include-fixed-load-csv fixed_load.csv -o example.json
 ```
 Please note that included file paths are relative to the scenario file location. Consider this directory structure:
 
@@ -44,14 +44,14 @@ Please note that included file paths are relative to the scenario file location.
 │   ├── price
 │   │   ├── price.csv
 │   ├── my_scenario
-│   │   ├── external_load.csv
+│   │   ├── fixed_load.csv
 │   │   ├── example.json
 ```
-The external_load.csv file is in the same directory as the example.json, hence no relative path is specified.
+The fixed_load.csv file is in the same directory as the example.json, hence no relative path is specified.
 
-To include the price and external load timeseries:
+To include the price and fixed load timeseries:
 ```sh
-./generate.py --include-price-csv ../price/price.csv --include-ext-load-csv external_load.csv -o example.json
+./generate.py --include-price-csv ../price/price.csv --include-fixed-load-csv fixed_load.csv -o example.json
 ```
 
 Calculate and include schedule:

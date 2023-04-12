@@ -83,7 +83,7 @@ of the input files can be found here: :ref:`Input and output file formats <file_
 
 .. code:: bash
 
-    ./generate.py --include-price-csv ../price/price.csv --include-fixed-load-csv external_load.csv -o example.json
+    ./generate.py --include-price-csv ../price/price.csv --include-fixed-load-csv fixed_load.csv -o example.json
 
 
 Help

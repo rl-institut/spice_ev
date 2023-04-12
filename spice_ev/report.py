@@ -464,7 +464,7 @@ def aggregate_timeseries(scenario, gcID):
     header.append("grid supply [kW]")
     # fixed loads
     if hasFixedLoads:
-        # fixed loads (e.g., building)
+        # fixed loads (e.g. building)
         header.append("fixed load [kW]")
     # local generation
     if hasGeneration:
@@ -476,7 +476,6 @@ def aggregate_timeseries(scenario, gcID):
     header += ["flex band min [kW]", "flex band base [kW]", "flex band max [kW]"]
     # schedule & window
     if hasSchedule:
-        # fixed loads (e.g., building)
         header += ["schedule [kW]", "window signal [-]"]
     # Feed-in to grid per asset
     header += [
