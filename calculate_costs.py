@@ -30,8 +30,8 @@ def read_simulation_csv(csv_file):
             # find values for parameter
             timestamp = datetime.datetime.fromisoformat(row["time"])
             price = float(row.get("price [EUR/kWh]", 0))
-            power_grid_supply = float(row["grid power [kW]"])
-            power_fix_load = float(row["ext.load [kW]"])
+            power_grid_supply = float(row["grid supply [kW]"])
+            power_fix_load = float(row["fixed load [kW]"])
 
             # append value to the respective list:
             timestamps_list.append(timestamp)
@@ -40,7 +40,7 @@ def read_simulation_csv(csv_file):
             power_fix_load_list.append(power_fix_load)
 
             try:
-                charging_signal = bool(int(row["window"]))
+                charging_signal = bool(int(row["window signal [-]"]))
             except KeyError:
                 charging_signal = None
             charging_signal_list.append(charging_signal)

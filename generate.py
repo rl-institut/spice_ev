@@ -77,13 +77,13 @@ def update_namespace(args):
 
     # external input CSV files
     csv_files = {
-        "external load": {
-            "filename": "include_ext_load_csv",
+        "fixed load": {
+            "filename": "include_fixed_load_csv",
             "default_step_duration_s": 900,  # 15 minutes
             "default_column": "energy",
         },
-        "feed-in": {
-            "filename": "include_feed_in_csv",
+        "local_generation": {
+            "filename": "include_local_generation_csv",
             "default_step_duration_s": 3600,  # 60 minutes
             "default_column": "energy",
         },
@@ -206,18 +206,18 @@ if __name__ == '__main__':  # pragma: no cover
     # input files (CSV, JSON)
     parser.add_argument('--vehicle-types', default=None,
                         help='location of vehicle type definitions')
-    parser.add_argument('--include-ext-load-csv',
-                        help='include CSV for external load. \
-                        You may define custom options with --include-ext-load-csv-option')
-    parser.add_argument('--include-ext-load-csv-option', '-eo', metavar=('KEY', 'VALUE'),
+    parser.add_argument('--include-fixed-load-csv',
+                        help='include CSV for fixed load. \
+                        You may define custom options with --include-fixed-load-csv-option')
+    parser.add_argument('--include-fixed-load-csv-option', '-eo', metavar=('KEY', 'VALUE'),
                         nargs=2, default=[], action='append',
-                        help='append additional argument to external load')
-    parser.add_argument('--include-feed-in-csv',
-                        help='include CSV for energy feed-in, e.g., local PV. \
-                        You may define custom options with --include-feed-in-csv-option')
-    parser.add_argument('--include-feed-in-csv-option', '-fo', metavar=('KEY', 'VALUE'),
+                        help='append additional argument to fixed load')
+    parser.add_argument('--include-local-generation-csv',
+                        help='include CSV for local energy generation, e.g., local PV. \
+                        You may define custom options with --include-local-generation-csv-option')
+    parser.add_argument('--include-local-generation-csv-option', '-fo', metavar=('KEY', 'VALUE'),
                         nargs=2, default=[], action='append',
-                        help='append additional argument to feed-in load')
+                        help='append additional argument to local generation')
     parser.add_argument('--include-price-csv',
                         help='include CSV for energy price. \
                         You may define custom options with --include-price-csv-option')

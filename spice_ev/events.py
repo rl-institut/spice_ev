@@ -10,8 +10,8 @@ class Events:
     """ Events class
 
         Sets up events:
-        * external_load
-        * energy_feed_in
+        * fixed_load
+        * local_generation
         * grid_operator_signals - price
         * grid_operator_signals - schedule
         * vehicle_events
@@ -19,10 +19,10 @@ class Events:
     def __init__(self, obj, dir_path):
         dir_path = Path(dir_path)
         # optional
-        self.external_load_lists = dict(
-            {k: EnergyValuesList(v, dir_path) for k, v in obj.get('external_load', {}).items()})
-        self.energy_feed_in_lists = dict(
-            {k: EnergyValuesList(v, dir_path) for k, v in obj.get('energy_feed_in', {}).items()})
+        self.fixed_load_lists = dict(
+            {k: EnergyValuesList(v, dir_path) for k, v in obj.get('fixed_load', {}).items()})
+        self.local_generation_lists = dict(
+            {k: EnergyValuesList(v, dir_path) for k, v in obj.get('local_generation', {}).items()})
         self.grid_operator_signals = list(
             [GridOperatorSignal(x) for x in obj.get('grid_operator_signals', [])])
         self.grid_operator_signals += get_energy_price_list_from_csv(
@@ -47,11 +47,12 @@ class Events:
         steps = list([[] for _ in range(n_intervals)])
 
         all_events = self.vehicle_events + self.grid_operator_signals
-        for name, load_list in self.external_load_lists.items():
-            all_events.extend(load_list.get_events(name, ExternalLoad))
-        for name, feed_in_list in self.energy_feed_in_lists.items():
+        for name, load_list in self.fixed_load_lists.items():
+            all_events.extend(load_list.get_events(name, FixedLoad))
+        for name, local_generation_list in self.local_generation_lists.items():
             all_events.extend(
-                feed_in_list.get_events(name, EnergyFeedIn, has_perfect_foresight=True))
+                local_generation_list.get_events(name, LocalEnergyGeneration,
+                                                 has_perfect_foresight=True))
 
         ignored = 0
 
@@ -79,14 +80,14 @@ class Event:
         return '{}, {}'.format(self.__class__.__name__, vars(self))
 
 
-class EnergyFeedIn(Event):
-    """EnergyFeedIn class"""
+class LocalEnergyGeneration(Event):
+    """LocalEnergyGeneration class"""
     def __init__(self, kwargs):
         self.__dict__.update(**kwargs)
 
 
-class ExternalLoad(Event):
-    """ExternalLoad class"""
+class FixedLoad(Event):
+    """FixedLoad class"""
     def __init__(self, kwargs):
         self.__dict__.update(**kwargs)
 
@@ -120,18 +121,18 @@ class EnergyValuesList:
 
     def get_events(self, name, value_class, has_perfect_foresight=False):
         """
-        Sets up feed_in and external_load events from input.
+        Sets up local generation and fixed_load events from input.
 
         :param name: name of the input csv file
         :type name: str
-        :param value_class: object (e.g. EnergyFeedIn)
+        :param value_class: object (e.g. LocalEnergyGeneration)
         :type value_class: object
         :param has_perfect_foresight: true if system knows about future events
         :type has_perfect_foresight: bool
         :return: list of events
         :rtype: list
         """
-        assert value_class in [EnergyFeedIn, ExternalLoad]
+        assert value_class in [LocalEnergyGeneration, FixedLoad]
 
         eventlist = []
         time_delta = datetime.timedelta(seconds=self.step_duration_s)
@@ -247,7 +248,7 @@ def get_schedule_from_csv(obj, dir_path):
         window_col_idx = header.index(window_col) if window_col in header else None
 
         if obj.get('individual'):
-            vehicle_names = header[3:]
+            vehicle_names = header[7:]
             vehicle_schedules = [None]*len(vehicle_names)
         else:
             vehicle_names = []
@@ -297,8 +298,8 @@ def get_schedule_from_csv(obj, dir_path):
                     "window": window,
                 }))
 
-            for i, vid in enumerate(vehicle_names):
-                v_schedule = float(row[i+3])
+            for i, vid in enumerate(reversed(vehicle_names)):
+                v_schedule = float(row[-1 - i])
                 if v_schedule != vehicle_schedules[i]:
                     schedule.append(VehicleEvent({
                         "start_time": start_time.isoformat(),

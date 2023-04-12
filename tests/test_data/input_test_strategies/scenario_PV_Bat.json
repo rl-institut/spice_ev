@@ -81,8 +81,8 @@
   },
   "events": {
     "grid_operator_signals": [],
-    "external_load": {},
-    "energy_feed_in": {
+    "fixed_load": {},
+    "local_generation": {
       "PV_feed-in_KM": {
         "start_time": "2022-04-04T00:00:00+02:00",
         "step_duration_s": 3600,

@@ -24,7 +24,7 @@ def get_test_json():
             "vehicles": {},
         },
         "events": {
-            "external_loads": {},
+            "fixed_loads": {},
             "grid_operator_signals": [],
             "vehicle_events": [],
         }
@@ -225,21 +225,21 @@ class TestScenarios(TestCaseBase):
         with pytest.raises(RuntimeError):
             strat.step()
 
-    # TEST SCENARIOS WITH BATTERY, FEEDIN AND EXTERNAL LOAD (Scenario A)
+    # TEST SCENARIOS WITH BATTERY, LOCAL GENERATION AND FIXED LOAD (Scenario A)
     def test_scenario_A(self):
         input = TEST_REPO_PATH / 'test_data/input_test_strategies/scenario_A.json'
         s = scenario.Scenario(load_json(input), input.parent)
         for strat in ['greedy', 'balanced', 'balanced_market', 'flex_window', 'peak_load_window']:
             s.run(strat, {})
 
-    # TEST with battery, feedin, extLoad and V2G (Scenario B)
+    # TEST with battery, local generation, fixed load and V2G (Scenario B)
     def test_scenario_B(self):
         input = TEST_REPO_PATH / 'test_data/input_test_strategies/scenario_B.json'
         s = scenario.Scenario(load_json(input), input.parent)
         for strat in ['greedy', 'balanced', 'balanced_market', 'flex_window', 'peak_load_window']:
             s.run(strat, {})
 
-    # TEST with battery, feedin, extLoad, V2G and schedule (Scenario C)
+    # TEST with battery, local generation, fixed load, V2G and schedule (Scenario C)
     def test_scenario_C1(self):
         input = TEST_REPO_PATH / 'test_data/input_test_strategies/scenario_C1.json'
         s = scenario.Scenario(load_json(input), input.parent)
@@ -265,7 +265,7 @@ class TestScenarios(TestCaseBase):
         s = scenario.Scenario(load_json(input), input.parent)
         s.run('greedy', {"testing": True})
         assert pytest.approx(s.testing["max_total_load"]) == 0
-        assert s.testing["sum_feed_in_per_h"]["GC1"] == 246.0
+        assert s.testing["sum_local_generation_per_h"]["GC1"] == 246.0
         assert s.strat.world_state.batteries["BAT1"].soc > 0
 
     # TEST STRATEGY OUTPUTS
@@ -278,7 +278,7 @@ class TestScenarios(TestCaseBase):
         assert s.testing["avg_stand_time"]["GC1"] == 8.875
         assert round(s.testing["avg_needed_energy"]["GC1"], 2) == 1.08
         assert round(s.testing["avg_drawn_power"]["GC1"], 2) == 1.44
-        assert round(s.testing["sum_feed_in_per_h"]["GC1"], 2) == 0
+        assert round(s.testing["sum_local_generation_per_h"]["GC1"], 2) == 0
         assert round(s.testing["vehicle_battery_cycles"]["GC1"], 2) == 1.1
         assert round(s.testing["avg_flex_per_window"]["GC1"][0], 2) == 372
         assert round(s.testing["avg_flex_per_window"]["GC1"][3], 2) == 375.71

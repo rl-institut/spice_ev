@@ -122,7 +122,7 @@
   },
   "events": {
     "grid_operator_signals": [],
-    "external_load": {
+    "fixed_load": {
       "load.csv": {
         "csv_file": "load.csv",
         "start_time": "2023-01-01T00:00:00+02:00",
@@ -132,9 +132,9 @@
         "factor": 0.001
       }
     },
-    "energy_feed_in": {
-      "timeseries/feed_in.csv": {
-        "csv_file": "timeseries/feed_in.csv",
+    "local_generation": {
+      "timeseries/local_generation.csv": {
+        "csv_file": "timeseries/local_generation.csv",
         "start_time": "2023-01-01T00:00:00+02:00",
         "step_duration_s": 3600,
         "grid_connector_id": "GC1",
