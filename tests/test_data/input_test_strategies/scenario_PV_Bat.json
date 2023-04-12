@@ -26,7 +26,7 @@
           ]
         ],
         "min_charging_power": 0.2,
-        "v2g": false,
+        "v2g": true,
         "v2g_power_factor": 0.5
       }
     },

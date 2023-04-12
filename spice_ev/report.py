@@ -654,25 +654,28 @@ def plot(scenario):
     ax = plt.subplot(2, plots_top_row, 1)
     ax.set_title('Vehicles')
     ax.set(ylabel='SoC')
-    lines = ax.plot(xlabels, scenario.socs)
-    # reset color cycle, so lines have same color
-    ax.set_prop_cycle(None)
+    if any(scenario.socs):
+        lines = ax.plot(xlabels, scenario.socs)
+        # reset color cycle, so lines have same color
+        ax.set_prop_cycle(None)
 
-    ax.plot(xlabels, scenario.disconnect, '--')
-    if len(scenario.components.vehicles) <= 10:
-        ax.legend(lines, sorted(scenario.components.vehicles.keys()))
+        ax.plot(xlabels, scenario.disconnect, '--')
+        if len(scenario.components.vehicles) <= 10:
+            ax.legend(lines, sorted(scenario.components.vehicles.keys()))
 
     # charging stations
     ax = plt.subplot(2, plots_top_row, 2)
     ax.set_title('Charging Stations')
     ax.set(ylabel='Power in kW')
-    lines = ax.step(xlabels, scenario.sum_cs, where='post')
-    if len(scenario.components.charging_stations) <= 10:
-        ax.legend(lines, sorted(scenario.components.charging_stations.keys()))
+    if any(scenario.sum_cs):
+        lines = ax.step(xlabels, scenario.sum_cs, where='post')
+        if len(scenario.components.charging_stations) <= 10:
+            ax.legend(lines, sorted(scenario.components.charging_stations.keys()))
 
     # total power
     ax = plt.subplot(2, 2, 3)
-    ax.step(xlabels, list([sum(cs) for cs in scenario.sum_cs]), label="CS", where='post')
+    if any(scenario.sum_cs):
+        ax.step(xlabels, list([sum(cs) for cs in scenario.sum_cs]), label="CS", where='post')
     gc_ids = scenario.components.grid_connectors.keys()
     for gcID in gc_ids:
         for name, values in scenario.loads[gcID].items():

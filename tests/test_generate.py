@@ -2,6 +2,7 @@ from argparse import Namespace
 import json
 from pathlib import Path
 import pytest
+import warnings
 
 from generate import generate
 from spice_ev import scenario
@@ -22,13 +23,7 @@ ARG_VALUES1 = {
     "discharge_limit": 0.5,
     "cs_power_min": 0,
     "export_vehicle_id_csv": None,
-    "include_fixed_load_csv": None,
-    "include_fixed_load_csv_option": [],
-    "include_local_generation_csv": None,
-    "include_local_generation_csv_option": [],
     "seed": None,
-    "include_price_csv": None,
-    "include_price_csv_option": [],
     "verbose": 0,
     "voltage_level": "MV",
     # generate_schedule
@@ -186,6 +181,36 @@ class TestGenerate(TestCaseBase):
         })
         generate(Namespace(**current_arg_values))
         self.assertIsFile(output_file)
+
+    def test_generate_update_namespace(self):
+        # tests various more obscure options not covered by other tests
+        with pytest.raises(SystemExit):
+            # required options missing
+            generate(Namespace())
+
+        args = ARG_VALUES1.copy()
+        args.update({
+            # ignore output
+            "output": "/dev/null",
+            # no vehicle_types given
+            "vehicle_types": None,
+            # no voltage_level given
+            "voltage_level": None,
+            # pv_power given
+            "pv_power": 100,
+            # unlimited battery
+            "battery": [(-1, 1)],
+            # CSV file does not exist
+            "include_ext_load_csv": "DOES NOT EXIST",
+            # wrong column
+            "include_price_csv": str(TEST_REPO_PATH / "../examples/data/price_sheet.json"),
+            "include_price_csv_option": [("column", "DOES NOT EXIST")],
+            # CSV options without file
+            "include_feed_in_csv_option": [("grid_connector_id", "GC")],
+        })
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore', UserWarning)
+            generate(Namespace(**args))
 
 
 class TestGenerateSchedule(TestCaseBase):

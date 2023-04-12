@@ -648,7 +648,7 @@ class Schedule(Strategy):
             gc_id = cs.parent
             gc = self.world_state.grid_connectors[gc_id]
             if vehicle.schedule is None:
-                raise RuntimeError("Vehicle without schedule encountered")
+                raise RuntimeError(f"Vehicle {vid} without schedule")
 
             # look into future events for schedule changes
             cur_schedule = vehicle.schedule

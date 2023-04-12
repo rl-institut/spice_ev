@@ -78,20 +78,17 @@ def update_namespace(args):
     # external input CSV files
     csv_files = {
         "fixed load": {
-            "filename": args.include_fixed_load_csv,
-            "options": "include_fixed_load_csv_option",
+            "filename": "include_fixed_load_csv",
             "default_step_duration_s": 900,  # 15 minutes
             "default_column": "energy",
         },
         "local_generation": {
-            "filename": args.include_local_generation_csv,
-            "options": "include_local_generation_csv_option",
+            "filename": "include_local_generation_csv",
             "default_step_duration_s": 3600,  # 60 minutes
             "default_column": "energy",
         },
         "price": {
-            "filename": args.include_price_csv,
-            "options": "include_price_csv_option",
+            "filename": "include_price_csv",
             "default_step_duration_s": 3600,  # 60 minutes
             "default_column": "price [ct/kWh]",
         },
@@ -100,22 +97,31 @@ def update_namespace(args):
     target_path = Path(args.output).parent
 
     for file_type, file_info in csv_files.items():
-        if file_info["filename"]:
+        # iterate over input CSV file types
+        csv_file = vars(args).get(file_info["filename"])
+        # fixed pattern: _option suffix for each CSV file type can be given
+        option_name = file_info["filename"] + "_option"
+        csv_options = vars(args).get(option_name, [])
+        if csv_file is not None:
+            # prepare default options
             options = {
-                "csv_file": file_info["filename"],
+                "csv_file": csv_file,
                 "start_time": None,
                 "step_duration_s": file_info["default_step_duration_s"],
                 "grid_connector_id": "GC1",
                 "column": file_info["default_column"],
             }
-            for key, value in vars(args)[file_info["options"]]:
+            # update from options given in args
+            for key, value in csv_options:
                 if key == "step_duration_s":
+                    # only special key: step_duration is number, not string
                     value = int(value)
                 options[key] = value
-            vars(args)[file_info["options"]] = options
+            # update options in namespace
+            vars(args)[option_name] = options
 
             # check if CSV file exists
-            ext_csv_path = target_path.joinpath(file_info["filename"])
+            ext_csv_path = target_path.joinpath(csv_file)
             if not ext_csv_path.exists():
                 warnings.warn(f"{file_type} csv file '{ext_csv_path}' does not exist yet.")
             else:
@@ -125,6 +131,13 @@ def update_namespace(args):
                     if not options["column"] in reader.fieldnames:
                         warnings.warn(f"{file_type} csv file '{ext_csv_path} "
                                       f"has no column {options['column']}'.")
+        else:
+            vars(args)[file_info["filename"]] = None
+            if csv_options:
+                # options without CSV file
+                warnings.warn(f"CSV {file_type} has options, but no file")
+            else:
+                vars(args)[option_name] = None
 
 
 def generate(args):
@@ -142,6 +155,7 @@ def generate(args):
         "simbev": ["simbev", "output"],
         "statistics": ["output"],
     }
+    args.mode = vars(args).get("mode", "statistics")
     missing = [arg for arg in required[args.mode] if vars(args).get(arg) is None]
     if missing:
         raise SystemExit("The following arguments are required: {}".format(", ".join(missing)))

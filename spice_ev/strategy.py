@@ -35,6 +35,7 @@ class Strategy():
         self.current_time = start_time - self.interval
         # relative allowed difference between battery SoC and desired SoC when leaving
         self.margin = 0.1
+        self.PRICE_THRESHOLD = 0
         self.ALLOW_NEGATIVE_SOC = False
         self.RESET_NEGATIVE_SOC = False
         self.V2G_POWER_FACTOR = 0.5
@@ -110,10 +111,7 @@ class Strategy():
                     connector.window = ev.window
                 # set max power from event
                 if connector.max_power:
-                    if ev.max_power is None:
-                        # event max power not set: reset to connector power
-                        connector.cur_max_power = connector.max_power
-                    else:
+                    if ev.max_power is not None:
                         connector.cur_max_power = min(connector.max_power, ev.max_power)
                 else:
                     # connector max power not set
