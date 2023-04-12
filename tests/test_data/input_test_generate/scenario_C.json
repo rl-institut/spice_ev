@@ -260,12 +260,12 @@
       }
     },
     "local_generation": {
-      "example_local_generation": {
-        "csv_file": "example_pv_feedin.csv",
+      "example_pv": {
+        "csv_file": "example_pv.csv",
         "start_time": "2018-01-01T00:00:00+02:00",
         "step_duration_s": 3600,
         "grid_connector_id": "GC1",
-        "column": "Feed-in Total (kW)",
+        "column": "pv (kW)",
         "factor": 1
       }
     },
