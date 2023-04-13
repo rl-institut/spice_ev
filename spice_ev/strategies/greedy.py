@@ -86,14 +86,14 @@ def load_vehicle(strategy, cs, gc, vehicle, cs_id, charging_stations, avail_bat_
     if get_cost(1, gc.cost) <= strategy.PRICE_THRESHOLD:
         # low energy price: take max available power from GC without batteries
         power = clamp_power(gc_power_left, vehicle, cs)
-        avg_power = vehicle.battery.load(strategy.interval, power)['avg_power']
+        avg_power = vehicle.battery.load(strategy.interval, max_power=power)['avg_power']
     elif vehicle.get_delta_soc() > 0:
         # vehicle needs charging: take max available power (with batteries)
         # limit to desired SoC
         power = gc_power_left + avail_bat_power
         power = clamp_power(power, vehicle, cs)
         avg_power = vehicle.battery.load(
-            strategy.interval, power, target_soc=vehicle.desired_soc)['avg_power']
+            strategy.interval, max_power=power, target_soc=vehicle.desired_soc)['avg_power']
         bat_power_used = True
 
     # update CS and GC

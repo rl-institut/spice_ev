@@ -111,7 +111,7 @@ def load_vehicle(strategy, cs, gc, vehicle, cs_id, charging_stations, avail_bat_
             # get new power value (binary search: use average)
             power = (max_power + min_power) / 2
             # load whole time with same power
-            charged_soc = vehicle.battery.load(dt, power)["soc_delta"]
+            charged_soc = vehicle.battery.load(dt, target_power=power)["soc_delta"]
             # reset SOC
             vehicle.battery.soc = old_soc
 
@@ -125,7 +125,7 @@ def load_vehicle(strategy, cs, gc, vehicle, cs_id, charging_stations, avail_bat_
                 max_power = power
 
     # load with power
-    avg_power = vehicle.battery.load(strategy.interval, power)['avg_power']
+    avg_power = vehicle.battery.load(strategy.interval, target_power=power)['avg_power']
     charging_stations[cs_id] = gc.add_load(cs_id, avg_power)
     cs.current_power += avg_power
     if bat_power_used:

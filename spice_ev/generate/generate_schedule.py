@@ -432,46 +432,6 @@ def generate_schedule(args):
         # if timestamp column does not exist or contains wrong format
         # assume grid situation timeseries at the same time as simulation
         grid_start_time = s.start_time.replace(tzinfo=None)
-    """
-    residual_load = []
-    curtailment = []
-    curtailment_is_positive = False
-    curtailment_is_negative = False
-    # Read grid situation timeseries
-    with open(args.input, 'r', newline='') as f:
-        reader = csv.DictReader(f)
-        for row_idx, row in enumerate(reader):
-            # get start time of grid situation series
-            if row_idx == 0:
-                try:
-                    grid_start_time = datetime.datetime.strptime(row["timestamp"], "%Y-%m-%d %H:%M")
-                except (ValueError, KeyError):
-                    # if timestamp column does not exist or contains wrong format
-                    # assume grid situation timeseries at the same time as simulation
-                    grid_start_time = s.start_time.replace(tzinfo=None)
-                    warnings.warn('Time component of grid situation timeseries ignored. '
-                                  'Must be of format YYYY.MM.DD HH:MM')
-            # store residual_load value, use previous value if none provided
-            try:
-                residual_load.append(float(row["residual load"]))
-            except ValueError:
-                warnings.warn("Residual load timeseries contains non-numeric values.")
-                replace_unknown = residual_load[-1] if row_idx > 0 else 0
-                residual_load.append(replace_unknown)
-            # store curtailment info
-            try:
-                # sign of curtailment not clear
-                curtailment_value = float(row["curtailment"])
-                # at least make sure it is consistent
-                curtailment_is_negative |= curtailment_value < 0
-                curtailment_is_positive |= curtailment_value > 0
-                assert not (curtailment_is_negative and curtailment_is_positive)
-                curtailment.append(abs(curtailment_value))
-            except ValueError:
-                warnings.warn("Curtailment timeseries contains non-numeric values.")
-                replace_unknown = curtailment[-1] if row_idx > 0 else 0
-                curtailment.append(replace_unknown)
-    """
 
     # find timesteps relevant for simulation and discard remaining
     idx_start = (s.start_time.replace(tzinfo=None) - grid_start_time) // s.interval

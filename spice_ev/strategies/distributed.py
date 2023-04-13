@@ -157,7 +157,7 @@ class Distributed(Strategy):
                 # GC suffices to meet busses needs
                 power = gc.cur_max_power - gc_current_load
                 power = 0 if power < battery.min_charging_power else power
-                avg_power = battery.load(self.interval, power)['avg_power']
+                avg_power = battery.load(self.interval, max_power=power)['avg_power']
                 gc.add_load(b_id, avg_power)
             else:
                 # current load > max load, use battery to support GC

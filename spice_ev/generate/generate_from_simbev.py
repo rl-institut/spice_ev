@@ -238,7 +238,7 @@ def generate_from_simbev(args):
                         # set battery SoC to level when arriving
                         battery.soc = float(row["soc_start"])
                         charge_duration = int(row["event_time"]) * interval
-                        battery.load(charge_duration, cs_power)
+                        battery.load(charge_duration, max_power=cs_power)
                         if battery.soc < float(row["soc_end"]) and args.verbose > 0:
                             warnings.warn(f"Can't fulfill charging request for {v_id} in "
                                           f"ts {row['timestamp']}. Desired SoC is set to "

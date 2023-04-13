@@ -74,18 +74,50 @@ class TestBattery:
     """
 
     def test_charging(self):
-        # charge one battery with 10 kW for one hour and another battery with 1 kW for 10 hours
-        # SoC and used energy must be the same
         points = [(0, 42), (0.5, 42), (1, 1)]
         lc = loading_curve.LoadingCurve(points)
+        td = datetime.timedelta(hours=1)
+
+        # test target_power
+        b = battery.Battery(100, lc, 0.2)
+        # constant charging curve
+        p = b.load(td, target_power=10)["avg_power"]
+        assert pytest.approx(p) == 10
+        # declining charging curve, but power must be met
+        b.soc = 0.6
+        p = b.load(td, target_power=10)["avg_power"]
+        assert pytest.approx(p) == 10
+        # battery full: no power
+        b.soc = 1
+        p = b.load(td, target_power=10)["avg_power"]
+        assert pytest.approx(p) == 0
+        # no target_power and target_soc at same time
+        b.soc = 0.5
+        with pytest.raises(Exception):
+            b.load(td, target_power=10, target_soc=1)
+
+        # test max_power
+        b.soc = 0.1
+        p = b.load(td, max_power=10)["avg_power"]
+        assert pytest.approx(p) == 10
+        b.soc = 0.1
+        p = b.load(td, max_power=100)["avg_power"]
+        assert pytest.approx(p) == 42
+
+        # test target_soc
+        b.soc = 0.1
+        b.load(td, target_soc=0.2)
+        assert pytest.approx(b.soc) == 0.2
+
+        # charge one battery with 10 kW for one hour and another battery with 1 kW for 10 hours
+        # SoC and used energy must be the same
         # charge from soc=0
         b1 = battery.Battery(100, lc, 0)
         b2 = battery.Battery(100, lc, 0)
-        td = datetime.timedelta(hours=1)
-        p1 = b1.load(td, 10)["avg_power"]
+        p1 = b1.load(td, target_power=10)["avg_power"]
         p2 = 0
         for _ in range(10):
-            p2 += b2.load(td, 1)["avg_power"]
+            p2 += b2.load(td, target_power=1)["avg_power"]
         assert pytest.approx(b1.soc) == b2.soc, "SoC different: {} vs {}".format(b1.soc, b2.soc)
         assert pytest.approx(p1) == p2, "Used power different: {} vs {}".format(p1, p2)
         # discharge from soc=0, allow discharge below soc=0
@@ -104,10 +136,10 @@ class TestBattery:
         b1 = battery.Battery(100, lc, 0.9)
         b2 = battery.Battery(100, lc, 0.9)
         td = datetime.timedelta(hours=1)
-        p1 = b1.load(td*10, 42)["avg_power"]
+        p1 = b1.load(td*10, target_power=42)["avg_power"]
         p2 = 0
         for _ in range(10):
-            p2 += b2.load(td, 42)["avg_power"]
+            p2 += b2.load(td, target_power=42)["avg_power"]
         p2 /= 10
         assert pytest.approx(b1.soc) == 1, "SoC should be 1 but is: {}".format(b1.soc)
         assert pytest.approx(b2.soc) == 1, "SoC should be 1 but is: {}".format(b2.soc)
@@ -119,7 +151,7 @@ class TestBattery:
         td = datetime.timedelta(minutes=15)
         t1 = t2 = 0
         while not pytest.approx(b1.soc) == 1:
-            b1.load(td, 42)["avg_power"]
+            b1.load(td, target_soc=1)["avg_power"]
             t1 += 1
         while not pytest.approx(b2.soc) == 0:
             b2.unload(td, target_soc=0)["avg_power"]
@@ -168,10 +200,10 @@ class TestBattery:
         ]
         for t in target:
             b.soc = initial_soc
-            p = b.unload(td_short, 10, target_soc=t[0])["avg_power"]
+            p = b.unload(td_short, max_power=10, target_soc=t[0])["avg_power"]
             assert pytest.approx(p) == t[1]
             assert pytest.approx(b.soc) == t[2]
-            p = b.unload(td_long, 50, target_soc=t[0])["avg_power"]
+            p = b.unload(td_long, max_power=50, target_soc=t[0])["avg_power"]
             assert pytest.approx(b.soc) == initial_soc
 
     def test_differential(self):
@@ -217,7 +249,7 @@ class TestBattery:
         td = datetime.timedelta(hours=1)
 
         # draw above 100% soc
-        b.load(td, max_charging_power=10, target_soc=1.5)
+        b.load(td, max_power=10, target_soc=1.5)
         assert b.soc == 1
 
         # discharge below 0% soc
@@ -227,7 +259,7 @@ class TestBattery:
 
         # target soc below initial soc
         b.soc = 0.5
-        b.load(td, max_charging_power=10, target_soc=0)
+        b.load(td, max_power=10, target_soc=0)
         assert b.soc == 0.5
 
         # supply 10 kW over 1 h from 5 kWh stored energy: don't go below 0

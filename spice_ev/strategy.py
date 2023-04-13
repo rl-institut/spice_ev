@@ -201,7 +201,7 @@ class Strategy():
             if gc_surplus > self.EPS:
                 # surplus power
                 power = clamp_power(gc_surplus, vehicle, cs)
-                avg_power = vehicle.battery.load(self.interval, power)['avg_power']
+                avg_power = vehicle.battery.load(self.interval, max_power=power)['avg_power']
                 commands[cs_id] = gc.add_load(cs_id, avg_power)
                 cs.current_power += avg_power
             elif (vehicle.get_delta_soc() < -self.EPS
@@ -214,7 +214,7 @@ class Strategy():
                     vehicle.battery.loading_curve.max_power * vehicle.vehicle_type.v2g_power_factor)
                 target_soc = max(vehicle.desired_soc, self.DISCHARGE_LIMIT)
                 avg_power = vehicle.battery.unload(
-                    self.interval, discharge_power, target_soc)['avg_power']
+                    self.interval, max_power=discharge_power, target_soc=target_soc)['avg_power']
                 commands[cs_id] = gc.add_load(cs_id, -avg_power)
                 cs.current_power -= avg_power
         return commands
@@ -233,17 +233,17 @@ class Strategy():
                 # low price: charge with full power
                 power = gc.cur_max_power - gc_current_load
                 power = 0 if power < battery.min_charging_power else power
-                avg_power = battery.load(self.interval, power)['avg_power']
+                avg_power = battery.load(self.interval, max_power=power)['avg_power']
                 gc.add_load(b_id, avg_power)
             elif gc_current_load < 0:
                 # surplus energy: charge
                 power = -gc_current_load
                 power = 0 if power < battery.min_charging_power else power
-                avg_power = battery.load(self.interval, power)['avg_power']
+                avg_power = battery.load(self.interval, target_power=power)['avg_power']
                 gc.add_load(b_id, avg_power)
             else:
                 # GC draws power: use stored energy to support GC
-                bat_power = battery.unload(self.interval, gc_current_load)['avg_power']
+                bat_power = battery.unload(self.interval, target_power=gc_current_load)['avg_power']
                 gc.add_load(b_id, -bat_power)
 
     def apply_battery_losses(self):
