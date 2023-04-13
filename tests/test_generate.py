@@ -182,7 +182,7 @@ class TestGenerate(TestCaseBase):
         generate(Namespace(**current_arg_values))
         self.assertIsFile(output_file)
 
-    def test_generate_update_namespace(self):
+    def test_generate_update_namespace(self, tmp_path):
         # tests various more obscure options not covered by other tests
         with pytest.raises(SystemExit):
             # required options missing
@@ -191,7 +191,7 @@ class TestGenerate(TestCaseBase):
         args = ARG_VALUES1.copy()
         args.update({
             # ignore output
-            "output": "/dev/null",
+            "output": str(tmp_path / "out.json"),
             # no vehicle_types given
             "vehicle_types": None,
             # no voltage_level given
