@@ -202,19 +202,6 @@ the maximum permitted power at the GC, multiple vehicles may be charged in one t
     Greedy.step
     load_vehicle
 
-Greedy Market
-.............
-This algorithm first determines the cheapest group of time intervals sufficient to charge all vehicles according to their
-needs. All charging events are moved to those intervals. The vehicles are charged with full power, similar to the
-strategy `greedy`.
-
-.. currentmodule:: spice_ev.strategies.greedy_market
-.. autosummary::
-    :toctree: temp/
-
-    GreedyMarket
-    GreedyMarket.step
-
 
 Peak load window
 ................
