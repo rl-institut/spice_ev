@@ -87,7 +87,7 @@ class TestScenarios(TestCaseBase):
             "start_time": j["scenario"]["start_time"],
             "step_duration_s": 60,
             "grid_connector_id": "test_gc",
-            "values": [0,1]
+            "values": [0, 1]
         }}
 
         s = scenario.Scenario(j)
