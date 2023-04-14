@@ -24,7 +24,7 @@ def get_test_json():
             "vehicles": {},
         },
         "events": {
-            "fixed_loads": {},
+            "fixed_load": {},
             "grid_operator_signals": [],
             "vehicle_events": [],
         }
@@ -66,6 +66,33 @@ class TestScenarios(TestCaseBase):
         j = get_test_json()
         j["constants"] = j.pop("components")
         scenario.Scenario(j)
+
+        # event names changed
+        j = get_test_json()
+        # add dummy GC
+        j["components"]["grid_connectors"]["test_gc"] = {"max_power": 42}
+
+        # external_load -> fixed_load
+        del j["events"]["fixed_load"]
+        # add dummy events
+        j["events"]["external_load"] = {"test": {
+            "start_time": j["scenario"]["start_time"],
+            "step_duration_s": 60,
+            "grid_connector_id": "test_gc",
+            "values": [0]
+        }}
+
+        # energy_feed_in -> local_generation
+        j["events"]["energy_feed_in"] = {"test": {
+            "start_time": j["scenario"]["start_time"],
+            "step_duration_s": 60,
+            "grid_connector_id": "test_gc",
+            "values": [0,1]
+        }}
+
+        s = scenario.Scenario(j)
+        assert len(s.events.fixed_load_lists["test"].values) == 1
+        assert len(s.events.local_generation_lists["test"].values) == 2
 
     def test_empty(self):
         test_json = {

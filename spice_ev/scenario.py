@@ -20,8 +20,13 @@ class Scenario:
         # get components (backwards compatibility: used to be called constants)
         components_dict = json_dict.get("components", json_dict.get("constants", {}))
         self.components = components.Components(components_dict)
-        # get events
-        self.events = events.Events(json_dict.get('events', {}), dir_path)
+        # get events (backwards compatibility: some event fields were renamed)
+        events_dict = json_dict.get('events', {})
+        if "external_load" in events_dict:
+            events_dict["fixed_load"] = events_dict["external_load"]
+        if "energy_feed_in" in events_dict:
+            events_dict["local_generation"] = events_dict["energy_feed_in"]
+        self.events = events.Events(events_dict, dir_path)
 
         scenario = json_dict.get('scenario')
 
