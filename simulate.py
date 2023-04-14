@@ -10,11 +10,8 @@ from spice_ev.util import set_options_from_config
 from spice_ev.costs import calculate_costs
 
 STRATEGIES = [
-    'greedy', 'greedy_market',
-    'balanced', 'balanced_market',
-    'peak_load_window', 'flex_window',
-    'schedule', 'schedule_foresight',
-    'distributed',
+    'greedy', 'balanced', 'balanced_market', 'distributed',
+    'peak_load_window', 'flex_window', 'schedule'
 ]
 
 
