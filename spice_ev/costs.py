@@ -130,7 +130,7 @@ def calculate_capacity_costs_rlm(capacity_charge, max_power_strategy):
 
 def calculate_costs(strategy, voltage_level, interval,
                     timestamps_list, power_grid_supply_list,
-                    price_list, power_fix_load_list, charging_signal_list,
+                    price_list, power_fix_load_list, power_generation_feed_in_list, charging_signal_list,
                     core_standing_time_dict, price_sheet_json, results_json=None,
                     power_pv_nominal=0):
     """Calculate costs for the chosen charging strategy
@@ -149,6 +149,8 @@ def calculate_costs(strategy, voltage_level, interval,
     :type price_list: list
     :param power_fix_load_list: power supplied from the grid for the fixed load
     :type power_fix_load_list: list
+    :param power_generation_feed_in_list: power fed into the grid from local generation
+    :type power_generation_feed_in_list: list
     :param charging_signal_list: charging signal (True (1): charge, False (0): don't charge)
     :type charging_signal_list: list
     :param core_standing_time_dict: defined core standing time of the fleet
@@ -178,7 +180,7 @@ def calculate_costs(strategy, voltage_level, interval,
     fraction_year = len(timestamps_list) * interval / datetime.timedelta(days=365)
 
     # split power into feed-in and supply (change sign)
-    power_feed_in_list = [max(v, 0) for v in power_grid_supply_list]
+    # power_feed_in_list = [max(v, 0) for v in power_grid_supply_list]
     power_grid_supply_list = [max(-v, 0) for v in power_grid_supply_list]
 
     # only consider positive values of fixed load for cost calculation
@@ -552,14 +554,16 @@ def calculate_costs(strategy, voltage_level, interval,
     # PV power plant not existing:
     else:
         feed_in_charge_pv = 0  # [ct/kWh]
-
+    print(power_generation_feed_in_list)
     # energy feed in by PV power plant:
-    energy_feed_in_pv_sim = sum(power_feed_in_list) * interval.total_seconds() / 3600  # [kWh]
-    energy_feed_in_pv_per_year = energy_feed_in_pv_sim / fraction_year  # [kWh]
+    if power_generation_feed_in_list is None:
+        power_generation_feed_in_list = [0] * len(timestamps_list)
+    energy_feed_in_generation_sim = sum(power_generation_feed_in_list) * interval.total_seconds() / 3600  # [kWh]
+    energy_feed_in_generation_per_year = energy_feed_in_generation_sim / fraction_year  # [kWh]
 
     # costs for PV feed-in:
-    pv_feed_in_costs_sim = energy_feed_in_pv_sim * feed_in_charge_pv / 100  # [EUR]
-    pv_feed_in_costs_per_year = energy_feed_in_pv_per_year * feed_in_charge_pv / 100  # [EUR]
+    pv_feed_in_costs_sim = energy_feed_in_generation_sim * feed_in_charge_pv / 100  # [EUR]
+    pv_feed_in_costs_per_year = energy_feed_in_generation_per_year * feed_in_charge_pv / 100  # [EUR]
 
     # COSTS FROM TAXES AND TOTAL COSTS:
 

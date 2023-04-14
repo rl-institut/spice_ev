@@ -85,6 +85,7 @@ def simulate(args):
                 power_grid_supply_list=timeseries.get("grid supply [kW]"),
                 price_list=timeseries.get("price [EUR/kWh]"),
                 power_fix_load_list=timeseries.get("fixed load [kW]"),
+                power_generation_feed_in_list=timeseries.get("generation feed-in [kW]"),
                 charging_signal_list=timeseries.get("window signal [-]"),
                 core_standing_time_dict=s.core_standing_time,
                 price_sheet_json=args.get("cost_parameters_file"),
