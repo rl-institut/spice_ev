@@ -112,8 +112,10 @@
         },
         "schedule": {
             "reduction_of_commodity_charge": 0,
+            "deviation_charge": 70.14,
             "unit": "ct/kWh",
-            "info": "'reduction of commodity charge' can be subtracted from commodity charge (reimburse flexibility)"
+            "info": ["'reduction of commodity charge' can be subtracted from commodity charge (reimburse flexibility), ",
+                "'deviation charge' is used instead if capacity charge and is applied on deviations from schedule"]
         }
     }
 }
