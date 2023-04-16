@@ -68,7 +68,7 @@ class TestSimulationCosts:
         timeseries = s.GC1_timeseries
         timeseries_lists = [timeseries.get(k, [0]*s.n_intervals) for k in [
                             "time", "grid supply [kW]", "price [EUR/kWh]",
-                            "local generation [kW]","schedule [kW]", "window signal [-]"]]
+                            "local generation [kW]",  "schedule [kW]", "window signal [-]"]]
         price_sheet = TEST_REPO_PATH / 'test_data/input_test_cost_calculation/price_sheet.json'
 
         # test all supported strategies
