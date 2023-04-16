@@ -87,7 +87,6 @@ def simulate(args):
                 power_fix_load_list=timeseries.get("fixed load [kW]"),
                 power_schedule_list=timeseries.get("schedule [kW]"),
                 charging_signal_list=timeseries.get("window signal [-]"),
-                core_standing_time_dict=s.core_standing_time,
                 price_sheet_json=args.get("cost_parameters_file"),
                 results_json=args.get("save_results"),
                 power_pv_nominal=pv,

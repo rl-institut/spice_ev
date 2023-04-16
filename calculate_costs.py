@@ -101,7 +101,6 @@ if __name__ == "__main__":  # pragma: no cover
         strategy=strategy,
         voltage_level=voltage_level,
         interval=datetime.timedelta(minutes=interval_min),
-        core_standing_time_dict=core_standing_time_dict,
         price_sheet_json=args.cost_parameters_file,
         results_json=args.get_results,
         power_pv_nominal=args.pv_power,

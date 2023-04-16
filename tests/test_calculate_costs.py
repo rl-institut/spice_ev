@@ -74,18 +74,15 @@ class TestSimulationCosts:
         # test all supported strategies
         for strategy in supported_strategies:
             cc.calculate_costs(strategy, "MV", s.interval, *timeseries_lists,
-                               core_standing_time_dict=s.core_standing_time,
                                price_sheet_json=str(price_sheet))
 
         # test error for non-supported strategy
         with pytest.raises(Exception):
             cc.calculate_costs("strategy", "MV", s.interval, *timeseries_lists,
-                               core_standing_time_dict=s.core_standing_time,
                                price_sheet_json=str(price_sheet))
 
         # check returned values
         result = cc.calculate_costs(supported_strategies[0], "MV", s.interval, *timeseries_lists,
-                                    core_standing_time_dict=s.core_standing_time,
                                     price_sheet_json=str(price_sheet))
         assert result["total_costs_per_year"] == 78.18
         assert result["commodity_costs_eur_per_year"] == 0
@@ -119,7 +116,7 @@ class TestSimulationCosts:
             price_sheet = TEST_REPO_PATH / 'test_data/input_test_cost_calculation/price_sheet.json'
             pv = sum([pv.nominal_power for pv in s.components.photovoltaics.values()])
             result = cc.calculate_costs("greedy", "MV", s.interval, *timeseries_lists,
-                                        s.core_standing_time, str(price_sheet), None, pv)
+                                        str(price_sheet), None, pv)
 
             for i, value in enumerate(result.values()):
                 assert value == expected[i]
@@ -140,7 +137,7 @@ class TestSimulationCosts:
 
         # check returned values
         result = cc.calculate_costs("balanced", "MV", s.interval, *timeseries_lists,
-                                    s.core_standing_time, str(price_sheet), None, pv)
+                                    str(price_sheet), None, pv)
         assert result["total_costs_per_year"] == 309.4
         assert result["commodity_costs_eur_per_year"] == 73.45
         assert result["capacity_costs_eur"] == 65.7
@@ -165,7 +162,7 @@ class TestSimulationCosts:
 
         # check returned values
         result = cc.calculate_costs("balanced_market", "MV", s.interval, *timeseries_lists,
-                                    s.core_standing_time, str(price_sheet), None, pv)
+                                    str(price_sheet), None, pv)
         assert result["total_costs_per_year"] == 323.14
         assert result["commodity_costs_eur_per_year"] == 14.41
         assert result["capacity_costs_eur"] == 0
@@ -189,7 +186,7 @@ class TestSimulationCosts:
 
         # check returned values
         result = cc.calculate_costs("flex_window", "MV", s.interval, *timeseries_lists,
-                                    s.core_standing_time, str(price_sheet), None, pv)
+                                    str(price_sheet), None, pv)
         assert result["total_costs_per_year"] == 3932.83
         assert result["commodity_costs_eur_per_year"] == 279.44
         assert result["capacity_costs_eur"] == 1543.08
@@ -214,7 +211,7 @@ class TestSimulationCosts:
 
         # check returned values
         result = cc.calculate_costs("balanced_market", "MV", s.interval, *timeseries_lists,
-                                    s.core_standing_time, str(price_sheet), None, pv)
+                                    str(price_sheet), None, pv)
         assert result["total_costs_per_year"] == 495.31
         assert result["commodity_costs_eur_per_year"] == 22.08
         assert result["capacity_costs_eur"] == 0
@@ -233,7 +230,6 @@ class TestSimulationCosts:
             [0] * 9,  # empty fix loads
             [0]*9,  # empty schedule,  # empty schedule
             None,  # empty charging signal
-            None,  # empty CST
             TEST_REPO_PATH / 'test_data/input_test_cost_calculation/price_sheet.json')
         # TODO compare expected values
         assert result is not None
@@ -248,7 +244,6 @@ class TestSimulationCosts:
                 [100] * 9,  # static fixed loads
                 [0]*9,  # empty schedule
                 [True]*9,  # always-on charging signal
-                None,  # empty CST
                 TEST_REPO_PATH / 'test_data/input_test_cost_calculation/price_sheet.json')
             # TODO compare expected values
             assert result is not None
@@ -268,7 +263,6 @@ class TestSimulationCosts:
                 [0] * 9,  # empty fixed loads
                 [0] * 9,  # empty schedule
                 None,  # no charging signal
-                None,  # empty CST
                 price_sheet,
                 power_pv_nominal=pv)
             # TODO compare expected values
@@ -283,7 +277,6 @@ class TestSimulationCosts:
                 [0] * 9,  # empty fixed loads
                 [0] * 9,  # empty schedule
                 None,  # no charging signal
-                None,  # empty CST
                 price_sheet,
                 power_pv_nominal=pv_ranges[-1]+1)
 
@@ -298,7 +291,6 @@ class TestSimulationCosts:
             [0] * 9,  # empty fixed loads
             [0] * 9,  # empty schedule
             None,  # no charging signal
-            None,  # empty CST
             TEST_REPO_PATH / 'test_data/input_test_cost_calculation/price_sheet.json',
             results_json=dst)
         with dst.open('r') as f:

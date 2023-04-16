@@ -129,8 +129,7 @@ def calculate_capacity_costs_rlm(capacity_charge, max_power_strategy):
 def calculate_costs(strategy, voltage_level, interval,
                     timestamps_list, power_grid_supply_list,
                     price_list, power_fix_load_list, power_schedule_list, charging_signal_list,
-                    core_standing_time_dict, price_sheet_json, results_json=None,
-                    power_pv_nominal=0):
+                    price_sheet_json, results_json=None, power_pv_nominal=0):
     """Calculate costs for the chosen charging strategy
 
     :param strategy: charging strategy
@@ -151,8 +150,6 @@ def calculate_costs(strategy, voltage_level, interval,
     :type power_schedule_list: list
     :param charging_signal_list: charging signal (True (1): charge, False (0): don't charge)
     :type charging_signal_list: list
-    :param core_standing_time_dict: defined core standing time of the fleet
-    :type core_standing_time_dict: dict
     :param price_sheet_json: path to price sheet
     :type price_sheet_json: str
     :param results_json: path to resulting json
