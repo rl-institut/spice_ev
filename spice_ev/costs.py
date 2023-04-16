@@ -1,8 +1,6 @@
 import json
 import datetime
 
-from spice_ev import util
-
 # constants for grid fee
 
 # constant utilization time of the grid needed in order to find commodity and capacity charge
@@ -149,6 +147,8 @@ def calculate_costs(strategy, voltage_level, interval,
     :type price_list: list
     :param power_fix_load_list: power supplied from the grid for the fixed load
     :type power_fix_load_list: list
+    :param power_schedule_list: power to be supplied or fed-in according to schedule
+    :type power_schedule_list: list
     :param charging_signal_list: charging signal (True (1): charge, False (0): don't charge)
     :type charging_signal_list: list
     :param core_standing_time_dict: defined core standing time of the fleet
@@ -447,8 +447,9 @@ def calculate_costs(strategy, voltage_level, interval,
 
         # positive deviation from schedule concerning grid supply (not feed-in):
         power_grid_supply_schedule_list = [max(v, 0) for v in power_schedule_list]
-        pos_deviation_grid_supply_list = [max(schedule_power - power_grid_supply_list[i], 0) for i, schedule_power in
-                            enumerate(power_grid_supply_schedule_list)]
+        pos_deviation_grid_supply_list = [max(schedule_power - power_grid_supply_list[i], 0)
+                                          for i, schedule_power
+                                          in enumerate(power_grid_supply_schedule_list)]
 
         # prices:
         # set a suitable utilization time in order to use prices for grid friendly charging
