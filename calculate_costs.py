@@ -22,7 +22,7 @@ def read_simulation_csv(csv_file):
     price_list = []  # [€/kWh]
     power_grid_supply_list = []  # [kW]
     power_fix_load_list = []  # [kW]
-    power_pv_feed_in_list = [] # [kW]
+    power_pv_feed_in_list = []  # [kW]
     charging_signal_list = []  # [-]
     with open(csv_file, "r", newline="") as simulation_data:
         reader = csv.DictReader(simulation_data, delimiter=",")
