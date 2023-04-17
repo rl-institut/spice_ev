@@ -386,18 +386,22 @@ def calculate_costs(strategy, voltage_level, interval,
 
     elif strategy == "schedule":
         """Payment model for the charging strategy 'schedule'.
-        For the charging strategy a core standing time is chosen in which the distribution system
-        operator can choose how the GC should draw power. The fixed and flexible load are charged
-        separately.
+        The charging strategy follows a schedule set by the distribution system operator. The fixed
+        and flexible load as well as the total deviation from schedule are charged separately.
         Commodity and capacity costs fixed: The price is depending on the utilization time per year
         (as usual). For the utilization time the maximum fixed load and the energy supply per year
         for the fixed load is used. The commodity charge can be lowered by a flat fee in order to
         reimburse flexibility. Then the fixed commodity and capacity costs are calculated as usual.
-        Commodity and capacity costs flexible: For the flexible load all prices are based on the
-        right column of the price sheet (prices for grid friendly power supply). Then the flexible
-        commodity costs are calculated as usual. The capacity costs for the flexible load are
-        calculated for the times outside of the core standing time only.
+        Commodity costs flexible: For the flexible load the commodity charge is set according to
+        the right column of the price sheet (prices for grid friendly power supply). Then the
+        flexible commodity costs are calculated as usual. A capacity charge is not applied on the
+        flexible load.
+        Capacity related costs for deviation from schedule: A deviation charge is applied on the
+        maximum positive deviation of the total load from the schedule.
         """
+
+        # schedule related charges:
+        schedule_charges = price_sheet["strategy_related_cost_parameters"]["schedule"]
 
         # COSTS FOR FIXED LOAD
 
@@ -422,8 +426,7 @@ def calculate_costs(strategy, voltage_level, interval,
                 find_prices(price_sheet_json, strategy, voltage_level,
                             utilization_time_per_year_fix, energy_supply_per_year_fix,
                             UTILIZATION_TIME_PER_YEAR_EC)
-            reduction_commodity_charge = price_sheet["strategy_related_cost_parameters"][
-                "schedule"]["reduction_of_commodity_charge"]
+            reduction_commodity_charge = schedule_charges["reduction_of_commodity_charge"]
             commodity_charge_fix = commodity_charge_fix - reduction_commodity_charge
 
             # commodity costs for fixed load:
@@ -442,21 +445,12 @@ def calculate_costs(strategy, voltage_level, interval,
         # power of flexible load:
         power_flex_load_list = get_flexible_load(power_grid_supply_list, power_fix_load_list)
 
-        # positive deviation from schedule concerning grid supply (not feed-in):
-        power_grid_supply_schedule_list = [max(v, 0) for v in power_schedule_list]
-        pos_deviation_grid_supply_list = [max(schedule_power - power_grid_supply_list[i], 0)
-                                          for i, schedule_power
-                                          in enumerate(power_grid_supply_schedule_list)]
-
         # prices:
         # set a suitable utilization time in order to use prices for grid friendly charging
         utilization_time_per_year_flex = UTILIZATION_TIME_PER_YEAR_EC
         commodity_charge_flex, capacity_charge_flex, fee_type = \
             find_prices(price_sheet_json, strategy, voltage_level, utilization_time_per_year_flex,
                         energy_supply_per_year, UTILIZATION_TIME_PER_YEAR_EC)
-        # charge for deviation from schedule:
-        schedule_deviation_charge = price_sheet["strategy_related_cost_parameters"][
-            "schedule"]["deviation_charge"]
 
         # commodity costs for flexible load:
         price_list_flex_load = [commodity_charge_flex] * len(power_flex_load_list)
@@ -464,7 +458,18 @@ def calculate_costs(strategy, voltage_level, interval,
             calculate_commodity_costs(price_list_flex_load, power_flex_load_list,
                                       interval, fraction_year)
 
-        # capacity costs for flexible load:
+        # DEVIATION COSTS:
+
+        # positive deviation from schedule concerning grid supply (not feed-in):
+        power_grid_supply_schedule_list = [max(v, 0) for v in power_schedule_list]
+        pos_deviation_grid_supply_list = [max(schedule_power - power_grid_supply_list[i], 0)
+                                          for i, schedule_power
+                                          in enumerate(power_grid_supply_schedule_list)]
+
+        # charge for deviation from schedule:
+        schedule_deviation_charge = schedule_charges["deviation_charge"]
+
+        # capacity related costs for deviation from schedule:
         max_pos_deviation_grid_supply = max(pos_deviation_grid_supply_list)
         capacity_costs_eur_flex = calculate_capacity_costs_rlm(
             schedule_deviation_charge, max_pos_deviation_grid_supply)

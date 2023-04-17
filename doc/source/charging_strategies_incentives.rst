@@ -192,9 +192,10 @@ Schedule-based grid fees
 ------------------------
 
 Similar to the flexible time windows, the tariff for grid friendly charging is applied on the flexible loads such as
-electric vehicles when using schedule-based grid fees. In case off a core standing time, only the load peak outside the
-core standing time is relevant for the capacity charge, since this grid supply was not scheduled by the grid operator.
-
+electric vehicles when using schedule-based grid fees. However, a capacity charge is not applied on the flexible load.
+Instead, the deviation of the total load from the schedule is charged by multiplying the maximum positive deviation
+with a deviation charge. These capacity related costs are determined for grid supply. Deviations in feed-in are not
+taken into account.
 
 
 

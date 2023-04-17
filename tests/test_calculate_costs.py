@@ -228,7 +228,7 @@ class TestSimulationCosts:
             [-1000] + [0]*8,  # single grid supply value
             None,  # empty prices
             [0] * 9,  # empty fix loads
-            [0]*9,  # empty schedule,  # empty schedule
+            [0]*9,  # empty schedule
             None,  # empty charging signal
             TEST_REPO_PATH / 'test_data/input_test_cost_calculation/price_sheet.json')
         # TODO compare expected values
