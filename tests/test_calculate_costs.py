@@ -70,7 +70,7 @@ class TestSimulationCosts:
         timeseries = s.GC1_timeseries
         timeseries_lists = [timeseries.get(k, [0]*s.n_intervals) for k in [
                             "time", "grid supply [kW]", "price [EUR/kWh]",
-                            "local generation [kW]", "generation feed-in [kW]",
+                            "fixed load [kW]", "generation feed-in [kW]",
                             "window signal [-]"]]
         price_sheet = TEST_REPO_PATH / 'test_data/input_test_cost_calculation/price_sheet.json'
 
@@ -118,7 +118,7 @@ class TestSimulationCosts:
             timeseries = s.GC1_timeseries
             timeseries_lists = [timeseries.get(k, [0] * s.n_intervals) for k in [
                             "time", "grid supply [kW]", "price [EUR/kWh]",
-                            "local generation [kW]", "generation feed-in [kW]",
+                            "fixed load [kW]", "generation feed-in [kW]",
                             "window signal [-]"]]
             price_sheet = TEST_REPO_PATH / 'test_data/input_test_cost_calculation/price_sheet.json'
             pv = sum([pv.nominal_power for pv in s.components.photovoltaics.values()])
@@ -137,7 +137,7 @@ class TestSimulationCosts:
         timeseries = s.GC1_timeseries
         timeseries_lists = [timeseries.get(k, [0] * s.n_intervals) for k in [
                             "time", "grid supply [kW]", "price [EUR/kWh]",
-                            "local generation [kW]", "generation feed-in [kW]",
+                            "fixed load [kW]", "generation feed-in [kW]",
                             "window signal [-]"]]
         price_sheet = TEST_REPO_PATH / 'test_data/input_test_cost_calculation/price_sheet.json'
 
@@ -163,7 +163,7 @@ class TestSimulationCosts:
         timeseries = s.GC1_timeseries
         timeseries_lists = [timeseries.get(k, [0] * s.n_intervals) for k in [
                         "time", "grid supply [kW]", "price [EUR/kWh]",
-                        "local generation [kW]", "generation feed-in [kW]", "window signal [-]"]]
+                        "fixed load [kW]", "generation feed-in [kW]", "window signal [-]"]]
         price_sheet = TEST_REPO_PATH / 'test_data/input_test_cost_calculation/price_sheet.json'
 
         pv = sum([pv.nominal_power for pv in s.components.photovoltaics.values()])
@@ -187,7 +187,7 @@ class TestSimulationCosts:
         timeseries = s.GC1_timeseries
         timeseries_lists = [timeseries.get(k, [0] * s.n_intervals) for k in [
             "time", "grid supply [kW]", "price [EUR/kWh]",
-            "local generation [kW]", "generation feed-in [kW]", "window signal [-]"]]
+            "fixed load [kW]", "generation feed-in [kW]", "window signal [-]"]]
         price_sheet = TEST_REPO_PATH / 'test_data/input_test_cost_calculation/price_sheet.json'
 
         pv = sum([pv.nominal_power for pv in s.components.photovoltaics.values()])
@@ -212,7 +212,7 @@ class TestSimulationCosts:
         timeseries = s.GC1_timeseries
         timeseries_lists = [timeseries.get(k, [0] * s.n_intervals) for k in [
             "time", "grid supply [kW]", "price [EUR/kWh]",
-            "local generation [kW]", "generation feed-in [kW]", "window signal [-]"]]
+            "fixed load [kW]", "generation feed-in [kW]", "window signal [-]"]]
         price_sheet = TEST_REPO_PATH / 'test_data/input_test_cost_calculation/price_sheet.json'
 
         pv = sum([pv.nominal_power for pv in s.components.photovoltaics.values()])
@@ -236,7 +236,7 @@ class TestSimulationCosts:
             [-1000] + [0]*8,  # single grid supply value
             None,  # empty prices
             [0] * 9,  # empty fix loads
-            [0] * 9,  # empty local generation
+            [0] * 9,  # empty feed-in from local generation
             None,  # empty charging signal
             None,  # empty CST
             TEST_REPO_PATH / 'test_data/input_test_cost_calculation/price_sheet.json')
@@ -251,7 +251,7 @@ class TestSimulationCosts:
                 [0]*9,  # empty grid supply
                 [1]*9,  # static prices
                 [100] * 9,  # static fixed loads
-                [0] * 9,  # empty local generation
+                [0] * 9,  # empty feed-in from local generation
                 [True]*9,  # always-on charging signal
                 None,  # empty CST
                 TEST_REPO_PATH / 'test_data/input_test_cost_calculation/price_sheet.json')
@@ -271,7 +271,7 @@ class TestSimulationCosts:
                 [pv]*9,  # positive grid supply
                 None,  # empty prices
                 [0] * 9,  # empty fixed loads
-                [0] * 9,  # empty local generation
+                [0] * 9,  # empty feed-in from local generation
                 None,  # no charging signal
                 None,  # empty CST
                 price_sheet,
@@ -286,7 +286,7 @@ class TestSimulationCosts:
                 [1]*9,  # positive grid supply
                 None,  # empty prices
                 [0] * 9,  # empty fixed loads
-                [0] * 9,  # empty local generation
+                [0] * 9,  # empty feed-in from local generation
                 None,  # no charging signal
                 None,  # empty CST
                 price_sheet,
@@ -301,7 +301,7 @@ class TestSimulationCosts:
             [0]*9,  # empty grid supply
             None,  # empty prices
             [0] * 9,  # empty fixed loads
-            [0] * 9,  # empty local generation
+            [0] * 9,  # empty feed-in from local generation
             None,  # no charging signal
             None,  # empty CST
             TEST_REPO_PATH / 'test_data/input_test_cost_calculation/price_sheet.json',
