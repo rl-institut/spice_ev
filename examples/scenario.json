@@ -56,7 +56,7 @@
     }
   },
   "events": {
-    "external_load": {
+    "fixed_load": {
       "building_1": {
         "start_time": "2020-01-02T00:08:00+02:00",
         "step_duration_s": 900,

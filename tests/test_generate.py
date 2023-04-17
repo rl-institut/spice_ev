@@ -61,9 +61,9 @@ class TestGenerate(TestCaseBase):
                 TEST_REPO_PATH / "test_data/input_test_generate/example_load.csv"),
             "include_fixed_load_csv_option": [("column", "value"), ("factor", 0.0001)],
             "include_local_generation_csv": str(
-                TEST_REPO_PATH / "test_data/input_test_generate/example_pv_feedin.csv"),
+                TEST_REPO_PATH / "test_data/input_test_generate/example_pv.csv"),
             "include_local_generation_csv_option": [
-                ("column", "Feed-in Total (kW)"), ("step_duration_s", 60)],
+                ("column", "pv (kW)"), ("step_duration_s", 60)],
             "include_price_csv": str(
                 TEST_REPO_PATH / "test_data/input_test_generate/example_load.csv"),
             "include_price_csv_option": [("column", "value")],
@@ -325,7 +325,7 @@ class TestGenerateSchedule(TestCaseBase):
         # slightly more complex scenario with fixed load and local generation
         # copy scenario and needed files to tmp
         path = TEST_REPO_PATH / "test_data/input_test_generate"
-        for filename in ["scenario_C.json", "example_load.csv", "example_pv_feedin.csv"]:
+        for filename in ["scenario_C.json", "example_load.csv", "example_pv.csv"]:
             (tmp_path / filename).write_text((path / filename).read_text())
         schedule_file = tmp_path / "schedule.json"
         current_arg_values = {

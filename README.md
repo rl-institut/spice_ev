@@ -33,7 +33,7 @@ plots of the results:
 ./simulate.py example.json --strategy greedy --visual
 ```
 
-Include an external load in scenario:
+Include a fixed load in scenario:
 ```sh
 ./generate.py --include-fixed-load-csv fixed_load.csv -o example.json
 ```
