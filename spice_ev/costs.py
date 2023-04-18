@@ -179,8 +179,7 @@ def calculate_costs(strategy, voltage_level, interval,
     # fraction of scenario duration in relation to one year
     fraction_year = len(timestamps_list) * interval / datetime.timedelta(days=365)
 
-    # split power into feed-in and supply (change sign)
-    # power_feed_in_list = [max(v, 0) for v in power_grid_supply_list]
+    # extract actual grid supply (change sign)
     power_grid_supply_list = [max(-v, 0) for v in power_grid_supply_list]
 
     # only consider positive values of fixed load for cost calculation
@@ -558,14 +557,14 @@ def calculate_costs(strategy, voltage_level, interval,
     # energy feed in by PV power plant:
     if power_generation_feed_in_list is None:
         power_generation_feed_in_list = [0] * len(timestamps_list)
-    energy_feed_in_generation_sim = sum(power_generation_feed_in_list)\
-        * interval.total_seconds() / 3600  # [kWh]
+    energy_feed_in_generation_sim = (
+            sum(power_generation_feed_in_list) * interval.total_seconds() / 3600)  # [kWh]
     energy_feed_in_generation_per_year = energy_feed_in_generation_sim / fraction_year  # [kWh]
 
     # costs for PV feed-in:
     pv_feed_in_costs_sim = energy_feed_in_generation_sim * feed_in_charge_pv / 100  # [EUR]
-    pv_feed_in_costs_per_year = energy_feed_in_generation_per_year\
-        * feed_in_charge_pv / 100  # [EUR]
+    pv_feed_in_costs_per_year = (
+            energy_feed_in_generation_per_year * feed_in_charge_pv / 100)  # [EUR]
 
     # COSTS FROM TAXES AND TOTAL COSTS:
 
