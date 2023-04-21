@@ -312,7 +312,7 @@ class TestSimulationCosts:
     def test_write_results(self, tmp_path):
         dst = tmp_path / "results.json"
         dst.write_text("{}")
-        cc.calculate_costs(
+        result = cc.calculate_costs(
             "greedy", "MV", datetime.timedelta(hours=1),
             [None]*9,  # empty timestamps
             [0]*9,  # empty grid supply
@@ -327,8 +327,16 @@ class TestSimulationCosts:
             results_json=dst)
         with dst.open('r') as f:
             results_json = json.load(f)
-            # TODO compare expected values
-            assert results_json is not None
+            assert results_json['costs']['electricity costs']['per year']['total (gross)']\
+                   == result["total_costs_per_year"]
+            assert results_json['costs']['electricity costs']['per year']['grid_fee'][
+                       'commodity costs']['total costs']\
+                   == result["commodity_costs_eur_per_year"]
+            assert results_json['costs']['electricity costs']['per year']['grid_fee'][
+                       'capacity_or_basic_costs']['total costs']\
+                   == result["capacity_costs_eur"]
+            assert results_json['costs']['electricity costs']['per year']['power procurement']\
+                   == result["power_procurement_costs_per_year"]
 
 
 class TestPostSimulationCosts:
