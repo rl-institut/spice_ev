@@ -591,7 +591,8 @@ def calculate_costs(strategy, voltage_level, interval,
     else:
         feed_in_charge_pv = 0  # [ct/kWh]
         if power_generation_feed_in_list is not None:
-            warnings.warn("Nominal power of PV power plant is zero even though there is an existing generation time series")
+            warnings.warn("Nominal power of PV power plant is zero even though there is an "
+                          "existing generation time series")
 
     # remuneration for PV feed-in:
     pv_feed_in_costs_per_year, pv_feed_in_costs_sim = calculate_feed_in_remuneration(
