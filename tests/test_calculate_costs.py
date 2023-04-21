@@ -277,22 +277,22 @@ class TestSimulationCosts:
             price_sheet_json = json.load(ps)
         # iterate over PV ranges
         pv_ranges = price_sheet_json["feed-in_remuneration"]["PV"]["kWp"]
-        for pv in pv_ranges:
+        results = [2733.12, 2654.28, 2076.12]
+        for i, pv in enumerate(pv_ranges):
             result = cc.calculate_costs(
                 "greedy", "MV", datetime.timedelta(hours=1),
                 [None]*9,  # empty timestamps
                 [pv]*9,  # positive grid supply
                 None,  # empty prices
                 [0] * 9,  # empty fixed loads
-                [0] * 9,  # empty feed-in from local generation
+                [5] * 9,  # empty feed-in from local generation
                 [0] * 9,  # empty feed-in from V2G
                 [0] * 9,  # empty feed-in from battery
                 None,  # no charging signal
                 None,  # empty CST
                 price_sheet,
                 power_pv_nominal=pv)
-            # TODO compare expected values
-            assert result is not None
+            assert result["feed_in_remuneration_per_year"] == results[i]
         with pytest.raises(ValueError):
             # PV out of range
             cc.calculate_costs(
@@ -301,7 +301,7 @@ class TestSimulationCosts:
                 [1]*9,  # positive grid supply
                 None,  # empty prices
                 [0] * 9,  # empty fixed loads
-                [0] * 9,  # empty feed-in from local generation
+                [5] * 9,  # empty feed-in from local generation
                 [0] * 9,  # empty feed-in from V2G
                 [0] * 9,  # empty feed-in from battery
                 None,  # no charging signal
