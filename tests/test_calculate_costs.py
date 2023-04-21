@@ -251,8 +251,8 @@ class TestSimulationCosts:
             None,  # empty charging signal
             None,  # empty CST
             TEST_REPO_PATH / 'test_data/input_test_cost_calculation/price_sheet.json')
-        # TODO compare expected values
-        assert result is not None
+        assert result["commodity_costs_eur_per_year"] == 33969.33
+        assert result["capacity_costs_eur"] == 41060
 
     def test_fixed_load(self):
         for strategy in ["balanced_market", "flex_window", "schedule"]:
