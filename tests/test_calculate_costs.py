@@ -268,8 +268,8 @@ class TestSimulationCosts:
                 [True]*9,  # always-on charging signal
                 None,  # empty CST
                 TEST_REPO_PATH / 'test_data/input_test_cost_calculation/price_sheet.json')
-            # TODO compare expected values
-            assert result is not None
+            assert result["commodity_costs_eur_per_year"] == 20323.2
+            assert result["capacity_costs_eur"] == 7014
 
     def test_pv_nominal(self):
         price_sheet = TEST_REPO_PATH / 'test_data/input_test_cost_calculation/price_sheet.json'
