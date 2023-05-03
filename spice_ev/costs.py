@@ -469,13 +469,13 @@ def calculate_costs(strategy, voltage_level, interval,
         # charge for deviation from schedule:
         schedule_deviation_charge = schedule_charges["deviation_charge"]
 
-        # tollerance for charging deviation from schedule:
-        schedule_deviation_tollerance = schedule_charges["deviation_tollerance"]
+        # tolerance for charging deviation from schedule:
+        schedule_deviation_tolerance = schedule_charges["deviation_tolerance"]
 
         # capacity related costs for deviation from schedule:
         max_pos_deviation_grid_supply = max(pos_deviation_grid_supply_list)
         max_grid_supply_schedule = max(power_grid_supply_schedule_list)
-        lower_limit_deviation = max_grid_supply_schedule * schedule_deviation_tollerance
+        lower_limit_deviation = max_grid_supply_schedule * schedule_deviation_tolerance
 
         if max_pos_deviation_grid_supply >= lower_limit_deviation:
             charged_deviation_power = max_pos_deviation_grid_supply - lower_limit_deviation
