@@ -285,7 +285,7 @@ class TestSimulationCosts:
                 [pv]*9,  # positive grid supply
                 None,  # empty prices
                 [0] * 9,  # empty fixed loads
-                [5] * 9,  # empty feed-in from local generation
+                [5] * 9,  # feed-in from local generation
                 [0] * 9,  # empty feed-in from V2G
                 [0] * 9,  # empty feed-in from battery
                 None,  # no charging signal
@@ -327,16 +327,16 @@ class TestSimulationCosts:
             results_json=dst)
         with dst.open('r') as f:
             results_json = json.load(f)
-            assert results_json['costs']['electricity costs']['per year']['total (gross)']\
-                   == result["total_costs_per_year"]
-            assert results_json['costs']['electricity costs']['per year']['grid_fee'][
-                       'commodity costs']['total costs']\
-                   == result["commodity_costs_eur_per_year"]
-            assert results_json['costs']['electricity costs']['per year']['grid_fee'][
-                       'capacity_or_basic_costs']['total costs']\
-                   == result["capacity_costs_eur"]
-            assert results_json['costs']['electricity costs']['per year']['power procurement']\
-                   == result["power_procurement_costs_per_year"]
+            assert (results_json['costs']['electricity costs']['per year']['total (gross)']
+                   == result["total_costs_per_year"])
+            assert (results_json['costs']['electricity costs']['per year']['grid_fee'][
+                       'commodity costs']['total costs']
+                   == result["commodity_costs_eur_per_year"])
+            assert (results_json['costs']['electricity costs']['per year']['grid_fee'][
+                       'capacity_or_basic_costs']['total costs']
+                   == result["capacity_costs_eur"])
+            assert (results_json['costs']['electricity costs']['per year']['power procurement']
+                   == result["power_procurement_costs_per_year"])
 
 
 class TestPostSimulationCosts:

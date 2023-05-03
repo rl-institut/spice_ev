@@ -83,7 +83,7 @@
     "grid_operator_signals": [],
     "fixed_load": {},
     "local_generation": {
-      "PV_feed-in": {
+      "PV_feed-in_KM": {
         "start_time": "2022-04-04T00:00:00+02:00",
         "step_duration_s": 3600,
         "grid_connector_id": "GC1",

@@ -141,7 +141,7 @@
       }
     },
     "local_generation": {
-      "PV_final_zeros": {
+      "PV_DHL_final_zeros": {
         "csv_file": "example_pv_feedin.csv",
         "start_time": "2018-01-01T00:00:00+02:00",
         "step_duration_s": 3600,

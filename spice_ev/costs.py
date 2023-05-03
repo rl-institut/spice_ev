@@ -131,7 +131,7 @@ def calculate_capacity_costs_rlm(capacity_charge, max_power_strategy):
 
 def calculate_feed_in_remuneration(feed_in_charge, power_feed_in_list,
                                    timestamps_list, interval, fraction_year):
-    '''Calculates the feed-in remuneration per year and simulation period
+    """Calculates the feed-in remuneration per year and simulation period
     :param feed_in_charge: feed-in charge
     :type feed_in_charge: float
     :param power_feed_in_list: power fed into the grid
@@ -144,17 +144,15 @@ def calculate_feed_in_remuneration(feed_in_charge, power_feed_in_list,
     :type fraction_year: float
     :return: feed-in remuneration per year and simulation period in Euro
     :rtype: float
-    '''
+    """
     if power_feed_in_list is None:
         power_feed_in_list = [0] * len(timestamps_list)
-    energy_feed_in_sim = (
-            sum(power_feed_in_list) * interval.total_seconds() / 3600)  # [kWh]
+    energy_feed_in_sim = sum(power_feed_in_list) * interval.total_seconds() / 3600  # [kWh]
     energy_feed_in_per_year = energy_feed_in_sim / fraction_year  # [kWh]
 
     # costs for PV feed-in:
     feed_in_costs_sim = energy_feed_in_sim * feed_in_charge / 100  # [EUR]
-    feed_in_costs_per_year = (
-            energy_feed_in_per_year * feed_in_charge / 100)  # [EUR]
+    feed_in_costs_per_year = energy_feed_in_per_year * feed_in_charge / 100  # [EUR]
 
     return feed_in_costs_per_year, feed_in_costs_sim
 
