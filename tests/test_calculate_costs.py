@@ -3,9 +3,11 @@ import json
 import pytest
 from pathlib import Path
 import subprocess
+from argparse import Namespace
 
 from spice_ev import scenario, costs as cc
 from calculate_costs import read_simulation_csv
+from spice_ev.generate import generate_schedule
 
 TEST_REPO_PATH = Path(__file__).parent
 supported_strategies = ["greedy", "balanced", "distributed", "balanced_market",
@@ -217,6 +219,45 @@ class TestSimulationCosts:
         assert result["capacity_costs_eur"] == 0
         assert result["power_procurement_costs_per_year"] == 246.6
         assert result["levies_fees_and_taxes_per_year"] == 226.63
+        assert result["feed_in_remuneration_per_year"] == 0
+
+    def test_calculate_costs_schedule_C(self, tmp_path):
+        scen_path = TEST_REPO_PATH / 'test_data/input_test_strategies/scenario_C3.json'
+        dst = tmp_path / "scenario.json"
+        dst.write_text(scen_path.read_text())
+        schedule = tmp_path / "schedule.csv"
+
+        generate_schedule.generate_schedule(Namespace(
+            scenario=dst,
+            input=TEST_REPO_PATH / "test_data/input_test_generate/example_grid_situation.csv",
+            output=schedule,
+            individual=False,
+            core_standing_time={
+                "times": [{"start": [22, 0], "end": [5, 0]}], "no_drive_days": [6]
+            },
+            visual=False,
+            config=None,
+        ))
+        with dst.open('r') as f:
+            j = json.load(f)
+        s = scenario.Scenario(j, str(tmp_path))
+        s.run('schedule', {"cost_calculation": True})
+        timeseries = s.GC1_timeseries
+        timeseries_lists = [timeseries.get(k, [0] * s.n_intervals) for k in [
+            "time", "grid supply [kW]", "price [EUR/kWh]",
+            "local generation [kW]", "schedule [kW]", "window signal [-]"]]
+        price_sheet = TEST_REPO_PATH / 'test_data/input_test_cost_calculation/price_sheet.json'
+
+        pv = sum([pv.nominal_power for pv in s.components.photovoltaics.values()])
+
+        # check returned values
+        result = cc.calculate_costs("schedule", "MV", s.interval, *timeseries_lists,
+                                    str(price_sheet), None, pv)
+        assert result["total_costs_per_year"] == 2848.26
+        assert result["commodity_costs_eur_per_year"] == 379.63
+        assert result["capacity_costs_eur"] == 0
+        assert result["power_procurement_costs_per_year"] == 1259.99
+        assert result["levies_fees_and_taxes_per_year"] == 1208.62
         assert result["feed_in_remuneration_per_year"] == 0
 
     def test_greedy_rlm(self):
