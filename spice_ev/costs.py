@@ -477,10 +477,7 @@ def calculate_costs(strategy, voltage_level, interval,
         max_grid_supply_schedule = max(power_grid_supply_schedule_list)
         lower_limit_deviation = max_grid_supply_schedule * schedule_deviation_tolerance
 
-        if max_pos_deviation_grid_supply >= lower_limit_deviation:
-            charged_deviation_power = max_pos_deviation_grid_supply - lower_limit_deviation
-        else:
-            charged_deviation_power = 0.0
+        charged_deviation_power = max(max_pos_deviation_grid_supply - lower_limit_deviation, 0)
 
         capacity_costs_eur_flex = calculate_capacity_costs_rlm(
             schedule_deviation_charge, charged_deviation_power)
