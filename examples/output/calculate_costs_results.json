@@ -127,7 +127,8 @@
         },
         "feed-in remuneration": {
           "PV": 0.0,
-          "V2G": "to be implemented"
+          "V2G": 0.0,
+          "battery": 0.0
         },
         "unit": "EUR",
         "info": "energy costs for one year"
@@ -163,7 +164,8 @@
         },
         "feed-in remuneration": {
           "PV": 0.0,
-          "V2G": "to be implemented"
+          "V2G": 0.0,
+          "battery": 0.0
         },
         "unit": "EUR",
         "info": "energy costs for simulation period"

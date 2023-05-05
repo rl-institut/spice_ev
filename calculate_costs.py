@@ -22,6 +22,9 @@ def read_simulation_csv(csv_file):
     price_list = []  # [€/kWh]
     power_grid_supply_list = []  # [kW]
     power_fix_load_list = []  # [kW]
+    power_generation_feed_in_list = []  # [kW]
+    power_v2g_feed_in_list = []  # [kW]
+    power_battery_feed_in_list = []  # [kW]
     charging_signal_list = []  # [-]
     with open(csv_file, "r", newline="") as simulation_data:
         reader = csv.DictReader(simulation_data, delimiter=",")
@@ -32,12 +35,18 @@ def read_simulation_csv(csv_file):
             price = float(row.get("price [EUR/kWh]", 0))
             power_grid_supply = float(row["grid supply [kW]"])
             power_fix_load = float(row["fixed load [kW]"])
+            power_generation_feed_in = float(row.get("generation feed-in [kW]", 0))
+            power_v2g_feed_in = float(row.get("V2G feed-in [kW]", 0))
+            power_battery_feed_in = float(row.get("battery feed-in [kW]", 0))
 
             # append value to the respective list:
             timestamps_list.append(timestamp)
             price_list.append(price)
             power_grid_supply_list.append(power_grid_supply)
             power_fix_load_list.append(power_fix_load)
+            power_generation_feed_in_list.append(power_generation_feed_in)
+            power_v2g_feed_in_list.append(power_v2g_feed_in)
+            power_battery_feed_in_list.append(power_battery_feed_in)
 
             try:
                 charging_signal = bool(int(row["window signal [-]"]))
@@ -50,6 +59,9 @@ def read_simulation_csv(csv_file):
         "price_list": price_list,
         "power_grid_supply_list": power_grid_supply_list,
         "power_fix_load_list": power_fix_load_list,
+        "power_generation_feed_in_list": power_generation_feed_in_list,
+        "power_v2g_feed_in_list": power_v2g_feed_in_list,
+        "power_battery_feed_in_list": power_battery_feed_in_list,
         "charging_signal_list": charging_signal_list,
     }
 

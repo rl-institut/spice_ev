@@ -101,6 +101,12 @@
           ]
         ]
       }
+    },
+    "photovoltaics": {
+      "PV1": {
+        "parent": "GC1",
+        "nominal_power": 100
+      }
     }
   },
   "events": {

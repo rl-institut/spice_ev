@@ -1,5 +1,6 @@
 import json
 import datetime
+import warnings
 
 from spice_ev import util
 
@@ -128,11 +129,40 @@ def calculate_capacity_costs_rlm(capacity_charge, max_power_strategy):
     return capacity_charge * max_power_strategy  # [€]
 
 
+def calculate_feed_in_remuneration(feed_in_charge, power_feed_in_list,
+                                   timestamps_list, interval, fraction_year):
+    """Calculates the feed-in remuneration per year and simulation period
+    :param feed_in_charge: feed-in charge
+    :type feed_in_charge: float
+    :param power_feed_in_list: power fed into the grid
+    :type power_feed_in_list: list
+    :param timestamps_list: timestamps of simulated points in time
+    :type timestamps_list: list
+    :param interval: simulation interval
+    :type interval: timedelta
+    :param fraction_year: simulation time relative to one year
+    :type fraction_year: float
+    :return: feed-in remuneration per year and simulation period in Euro
+    :rtype: float
+    """
+    if power_feed_in_list is None:
+        power_feed_in_list = [0] * len(timestamps_list)
+    energy_feed_in_sim = sum(power_feed_in_list) * interval.total_seconds() / 3600  # [kWh]
+    energy_feed_in_per_year = energy_feed_in_sim / fraction_year  # [kWh]
+
+    # costs for PV feed-in:
+    feed_in_costs_sim = energy_feed_in_sim * feed_in_charge / 100  # [EUR]
+    feed_in_costs_per_year = energy_feed_in_per_year * feed_in_charge / 100  # [EUR]
+
+    return feed_in_costs_per_year, feed_in_costs_sim
+
+
 def calculate_costs(strategy, voltage_level, interval,
                     timestamps_list, power_grid_supply_list,
-                    price_list, power_fix_load_list, charging_signal_list,
-                    core_standing_time_dict, price_sheet_json, results_json=None,
-                    power_pv_nominal=0):
+                    price_list, power_fix_load_list, power_generation_feed_in_list,
+                    power_v2g_feed_in_list, power_battery_feed_in_list,
+                    charging_signal_list, core_standing_time_dict, price_sheet_json,
+                    results_json=None, power_pv_nominal=0):
     """Calculate costs for the chosen charging strategy
 
     :param strategy: charging strategy
@@ -149,6 +179,12 @@ def calculate_costs(strategy, voltage_level, interval,
     :type price_list: list
     :param power_fix_load_list: power supplied from the grid for the fixed load
     :type power_fix_load_list: list
+    :param power_generation_feed_in_list: power fed into the grid from local generation
+    :type power_generation_feed_in_list: list
+    :param power_v2g_feed_in_list: power fed into the grid from V2G
+    :type power_v2g_feed_in_list: list
+    :param power_battery_feed_in_list: power fed into the grid from battery
+    :type power_battery_feed_in_list: list
     :param charging_signal_list: charging signal (True (1): charge, False (0): don't charge)
     :type charging_signal_list: list
     :param core_standing_time_dict: defined core standing time of the fleet
@@ -177,8 +213,7 @@ def calculate_costs(strategy, voltage_level, interval,
     # fraction of scenario duration in relation to one year
     fraction_year = len(timestamps_list) * interval / datetime.timedelta(days=365)
 
-    # split power into feed-in and supply (change sign)
-    power_feed_in_list = [max(v, 0) for v in power_grid_supply_list]
+    # extract actual grid supply (change sign)
     power_grid_supply_list = [max(-v, 0) for v in power_grid_supply_list]
 
     # only consider positive values of fixed load for cost calculation
@@ -533,8 +568,9 @@ def calculate_costs(strategy, voltage_level, interval,
 
     # COSTS FROM FEED-IN REMUNERATION:
 
-    # get nominal power of pv power plant:
+    # feed-in remuneration PV:
 
+    # get nominal power of pv power plant:
     # PV power plant existing:
     if power_pv_nominal != 0:
         # find charge for PV remuneration depending on nominal power pf PV plant:
@@ -552,14 +588,30 @@ def calculate_costs(strategy, voltage_level, interval,
     # PV power plant not existing:
     else:
         feed_in_charge_pv = 0  # [ct/kWh]
+        if power_generation_feed_in_list is not None:
+            warnings.warn("Nominal power of PV power plant is zero even though there is an "
+                          "existing generation time series")
 
-    # energy feed in by PV power plant:
-    energy_feed_in_pv_sim = sum(power_feed_in_list) * interval.total_seconds() / 3600  # [kWh]
-    energy_feed_in_pv_per_year = energy_feed_in_pv_sim / fraction_year  # [kWh]
+    # remuneration for PV feed-in:
+    pv_feed_in_costs_per_year, pv_feed_in_costs_sim = calculate_feed_in_remuneration(
+        feed_in_charge_pv, power_generation_feed_in_list, timestamps_list, interval, fraction_year)
 
-    # costs for PV feed-in:
-    pv_feed_in_costs_sim = energy_feed_in_pv_sim * feed_in_charge_pv / 100  # [EUR]
-    pv_feed_in_costs_per_year = energy_feed_in_pv_per_year * feed_in_charge_pv / 100  # [EUR]
+    # feed-in remuneration V2G:
+
+    # charge for V2G remuneration:
+    feed_in_charge_v2g = price_sheet["feed-in_remuneration"]["V2G"]
+    # remuneration for V2G feed-in:
+    v2g_feed_in_costs_per_year, v2g_feed_in_costs_sim = calculate_feed_in_remuneration(
+        feed_in_charge_v2g, power_v2g_feed_in_list, timestamps_list, interval, fraction_year)
+
+    # feed-in remuneration battery:
+
+    # charge for battery feed-in remuneration:
+    feed_in_charge_battery = price_sheet["feed-in_remuneration"]["battery"]
+    # remuneration for battery feed-in:
+    battery_feed_in_costs_per_year, battery_feed_in_costs_sim = calculate_feed_in_remuneration(
+        feed_in_charge_battery, power_battery_feed_in_list, timestamps_list, interval,
+        fraction_year)
 
     # COSTS FROM TAXES AND TOTAL COSTS:
 
@@ -600,9 +652,18 @@ def calculate_costs(strategy, voltage_level, interval,
 
     # aggregated and rounded values
     round_to_places = 2
-    total_costs_sim = round(costs_total_value_added_eur_sim - pv_feed_in_costs_sim, round_to_places)
+    total_costs_sim = round(
+        costs_total_value_added_eur_sim
+        - pv_feed_in_costs_sim
+        - v2g_feed_in_costs_sim
+        - battery_feed_in_costs_sim,
+        round_to_places)
     total_costs_per_year = round(
-        costs_total_value_added_eur_per_year - pv_feed_in_costs_per_year, round_to_places)
+        costs_total_value_added_eur_per_year
+        - pv_feed_in_costs_per_year
+        - v2g_feed_in_costs_per_year
+        - battery_feed_in_costs_per_year,
+        round_to_places)
 
     commodity_costs_eur_per_year = round(commodity_costs_eur_per_year, round_to_places)
     capacity_costs_eur = round(capacity_costs_eur, round_to_places)
@@ -621,7 +682,11 @@ def calculate_costs(strategy, voltage_level, interval,
         round(value_added_tax_costs_per_year, round_to_places),
         round_to_places)
 
-    feed_in_remuneration_per_year = round(pv_feed_in_costs_per_year, round_to_places)
+    feed_in_remuneration_per_year = round(
+        pv_feed_in_costs_per_year
+        + v2g_feed_in_costs_per_year
+        + battery_feed_in_costs_per_year,
+        round_to_places)
 
     # WRITE ALL COSTS INTO JSON:
     if results_json is not None:
@@ -675,8 +740,9 @@ def calculate_costs(strategy, voltage_level, interval,
                         "tax on electricity": round(electricity_tax_costs_per_year, round_to_places)
                     },
                     "feed-in remuneration": {
-                        "PV": feed_in_remuneration_per_year,
-                        "V2G": "to be implemented"
+                        "PV": round(pv_feed_in_costs_per_year, round_to_places),
+                        "V2G": round(v2g_feed_in_costs_per_year, round_to_places),
+                        "battery": round(battery_feed_in_costs_per_year, round_to_places)
                     },
                     "unit": "EUR",
                     "info": "energy costs for one year",
@@ -715,7 +781,8 @@ def calculate_costs(strategy, voltage_level, interval,
                     },
                     "feed-in remuneration": {
                         "PV": round(pv_feed_in_costs_sim, round_to_places),
-                        "V2G": "to be implemented"
+                        "V2G": round(v2g_feed_in_costs_sim, round_to_places),
+                        "battery": round(battery_feed_in_costs_sim, round_to_places)
                     },
                     "unit": "EUR",
                     "info": "energy costs for simulation period",
