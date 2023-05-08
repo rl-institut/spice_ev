@@ -1,13 +1,14 @@
 
 class LoadingCurve:
-    """ LoadingCurve class.
+    """ LoadingCurve class
 
     The loading curve is described by a 2D graph with given known points.
     Values between known points are computed by linear interpolation.
 
-    x-axis: state of charge [0 - 1]
-    y-axis: possible charging power in kW [0 - ∞ kW]
+    | x-axis: state of charge [0 - 1]
+    | y-axis: possible charging power in kW [0 - ∞ kW]
     """
+
     def __init__(self, points):
         self.points = []
         self.max_power = 0
@@ -19,13 +20,14 @@ class LoadingCurve:
         assert self.points[-1][0] == 1
 
     def power_from_soc(self, soc):
-        """ Perform a lookup
+        """ Perform a lookup.
 
         :param soc: state of charge
         :type soc: numeric
         :return: power
         :rtype: numeric
         """
+
         # allow soc < 0 for ALLOW_NEGATIVE_SOC option
         assert soc <= 1
 
@@ -103,6 +105,7 @@ class LoadingCurve:
                  First section if soc < 0, last section if soc > 1.
         :rtype: (int, int)
         """
+
         idx_1 = 0
         while idx_1 < len(self.points) - 1:
             idx_2 = idx_1 + 1

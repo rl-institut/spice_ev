@@ -3,11 +3,7 @@ from spice_ev.strategy import Strategy
 
 
 class Balanced(Strategy):
-    """Balanced strategy
-
-    Charging strategy that calculates the minimum required charging power to
-    arrive at the desired SOC during the estimated parking time for each vehicle.
-    """
+    """ Charging with minimum required power to reach desired SoC during estimated parking time. """
     def __init__(self, components, start_time, **kwargs):
         # defaults
         self.ITERATIONS = 12
@@ -17,8 +13,7 @@ class Balanced(Strategy):
         self.description = "balanced"
 
     def step(self):
-        """
-        Calculates charging in each timestep.
+        """ Calculates charging power in each timestep.
 
         :return: current time and commands of the charging stations
         :rtype: dict
@@ -60,8 +55,7 @@ class Balanced(Strategy):
 
 
 def load_vehicle(strategy, cs, gc, vehicle, cs_id, charging_stations, avail_bat_power):
-    """
-    Load one vehicle with balanced strategy
+    """ Load one vehicle with balanced charging strategy.
 
     :param strategy: current world state
     :type strategy: Strategy
@@ -120,7 +114,7 @@ def load_vehicle(strategy, cs, gc, vehicle, cs_id, charging_stations, avail_bat_
                 safe = False
                 min_power = power
             else:  # charged_soc >= delta_soc:
-                # power too much or just right (may be possible with less power)
+                # power too high or just right (maybe possible with less power)
                 safe = True
                 max_power = power
 
@@ -131,7 +125,7 @@ def load_vehicle(strategy, cs, gc, vehicle, cs_id, charging_stations, avail_bat_
     if bat_power_used:
         avail_bat_power = max(avail_bat_power - avg_power, 0)
 
-    # can active charging station bear minimum load?
+    # can the active charging station bear minimum load?
     assert cs.max_power >= cs.current_power - strategy.EPS, (
         "{} - {} over maximum load ({} > {})".format(
             strategy.current_time, cs_id, cs.current_power, cs.max_power))

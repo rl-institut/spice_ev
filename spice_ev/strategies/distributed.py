@@ -6,9 +6,7 @@ from spice_ev.strategies import greedy, balanced
 
 
 class Distributed(Strategy):
-    """
-    Strategy that allows for greedy charging at opp stops and balanced charging at depots.
-    """
+    """ Strategy that allows for greedy charging at opp stops and balanced charging at depots. """
     def __init__(self, components, start_time, **kwargs):
         self.PRICE_THRESHOLD = 0.001  # EUR/kWh
         super().__init__(components, start_time, **kwargs)
@@ -20,6 +18,11 @@ class Distributed(Strategy):
         self.v_connect = {gcID: [] for gcID in self.world_state.grid_connectors.keys()}
 
     def step(self):
+        """ Calculates charging power in each timestep.
+
+        :return: current time and commands of the charging stations
+        :rtype: dict
+        """
 
         # get power that can be drawn from battery in this timestep
         avail_bat_power = {gcID: 0 for gcID in self.world_state.grid_connectors}
@@ -32,14 +35,14 @@ class Distributed(Strategy):
         for cs in self.world_state.charging_stations.values():
             cs.current_power = 0
 
-        skip_priorization = {}
+        skip_prioritization = {}
         # rank which vehicles should be loaded at gc
         for gcID, gc in self.world_state.grid_connectors.items():
             if gc.number_cs is None:
-                skip_priorization[gcID] = True
+                skip_prioritization[gcID] = True
                 continue
             else:
-                skip_priorization[gcID] = False
+                skip_prioritization[gcID] = False
             # update v_connect: only vehicles that are connected and below desired SoC remain
             still_connected = []
             for v_id in self.v_connect[gcID]:
@@ -110,7 +113,7 @@ class Distributed(Strategy):
 
         # all vehicles are ranked. Load vehicles that are in v_connect
         for gcID, gc in self.world_state.grid_connectors.items():
-            if not skip_priorization[gcID]:
+            if not skip_prioritization[gcID]:
                 vehicle_list = self.v_connect[gcID]
             else:
                 vehicle_list = []

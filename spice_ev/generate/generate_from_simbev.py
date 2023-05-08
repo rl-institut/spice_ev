@@ -12,13 +12,14 @@ from spice_ev.loading_curve import LoadingCurve
 
 
 def parse_vehicle_types(tech_data):
-    """Get vehicle data from SimBEV metadata
+    """ Get vehicle data from SimBEV metadata.
 
     :param tech_data: dictionary which contains the tech data part of a SimBEV metadata json
     :type tech_data: dict
     :returns: vehicle types
     :rtype: dict
     """
+
     predefined_vehicle_types = {}
     for name, data in tech_data.items():
         max_charge = max(data["max_charging_capacity_slow"], data["max_charging_capacity_fast"])
@@ -33,7 +34,7 @@ def parse_vehicle_types(tech_data):
 
 
 def generate_from_simbev(args):
-    """Generate a scenario JSON from SimBEV results.
+    """ Generate a scenario JSON from SimBEV results.
 
     :param args: input arguments
     :type args: argparse.Namespace

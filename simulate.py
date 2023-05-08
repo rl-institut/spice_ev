@@ -16,7 +16,7 @@ STRATEGIES = [
 
 
 def simulate(args):
-    """Reads in simulation input arguments, sets up scenario and runs the simulation.
+    """ Read simulation input arguments, set up scenario and run the simulation.
 
     :param args: input arguments from simulate.cfg file or command line arguments
     :type args: argparse.Namespace or dictionary

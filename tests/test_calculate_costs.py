@@ -58,7 +58,7 @@ class TestSimulationCosts:
         assert sum(result["power_grid_supply_list"]) == 0
         # fix load: 0
         assert sum(result["power_fix_load_list"]) == 0
-        # feed in from local genration:
+        # feed in from local generation:
         assert sum(result["power_generation_feed_in_list"]) == 0
         # charging signal: depends on schedule, should be all None
         assert not any(result["charging_signal_list"])

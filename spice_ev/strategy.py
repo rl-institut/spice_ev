@@ -14,8 +14,7 @@ def class_from_str(strategy_name):
 
 
 class Strategy():
-    """
-    Parent class for the individual strategies.
+    """ Parent class for the individual strategies.
 
     :param components: class containing the components
     :type components: class
@@ -61,8 +60,7 @@ class Strategy():
         self.margin_counter = 0
 
     def step(self, event_list=[]):
-        """
-        Prepares next timestep for specific charging strategy.
+        """ Prepare next timestep for specific charging strategy.
 
         Processes next events, makes some sanity checks and resets loads at grid connectors.
 
@@ -181,12 +179,12 @@ class Strategy():
                     .format(name, self.current_time))
 
     def distribute_surplus_power(self):
-        """
-        Distribute surplus power to vehicles
+        """ Distribute surplus power to vehicles.
 
         :return: charging commands
         :rtype: dict
         """
+
         commands = dict()
         gc_cheap = {
             gc_id: get_cost(1, gc.cost) <= self.PRICE_THRESHOLD
@@ -220,9 +218,7 @@ class Strategy():
         return commands
 
     def update_batteries(self):
-        """
-        Charge/discharge batteries. In-place, no input/output
-        """
+        """ Charge/discharge batteries. In-place, no input/output """
         gc_cheap = {
             gc_id: get_cost(1, gc.cost) <= self.PRICE_THRESHOLD
             for gc_id, gc in self.world_state.grid_connectors.items()}
@@ -247,9 +243,7 @@ class Strategy():
                 gc.add_load(b_id, -bat_power)
 
     def apply_battery_losses(self):
-        """
-        Regardless of specific strategy, reduce SoC of lossy batteries. In-place.
-        """
+        """ Regardless of specific strategy, reduce SoC of lossy batteries. """
         for battery in (
                         list(self.world_state.batteries.values()) +
                         [v.battery for v in self.world_state.vehicles.values()]):

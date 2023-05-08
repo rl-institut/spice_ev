@@ -8,8 +8,7 @@ from spice_ev import util, costs
 
 
 def read_simulation_csv(csv_file):
-    """
-    Reads prices, power values and charging signals for each timestamp from  simulation results
+    """ Read prices, power values and charging signals for each timestamp from  simulation results.
 
     :param csv_file: csv file with simulation results
     :type csv_file: str

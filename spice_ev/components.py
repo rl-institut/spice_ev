@@ -4,17 +4,17 @@ from spice_ev.events import FixedLoad
 
 
 class Components:
-    """
-    Components class
+    """ Components class
 
-    Collection of all components:
-    - grid_connectors
-    - charging_stations
-    - vehicle_types
-    - vehicles
-    - batteries
-    - photovoltaics
+    | Collection of all components:
+    | - grid_connectors
+    | - charging_stations
+    | - vehicle_types
+    | - vehicles
+    | - batteries
+    | - photovoltaics
     """
+
     def __init__(self, obj):
         self.grid_connectors = dict(
             {k: GridConnector(v) for k, v in obj.get('grid_connectors', {}).items()})
@@ -49,7 +49,7 @@ class GridConnector:
         self.cur_max_power = self.max_power
 
     def add_load(self, key, value):
-        """Add power __value__ to current_loads dict under __key__ , return updated value
+        """ Add power __value__ to current_loads dict under __key__, return updated value.
 
         :param key: key of dictionary
         :type key: str
@@ -58,6 +58,7 @@ class GridConnector:
         :return: updated dict
         :rtype: dict
         """
+
         if key in self.current_loads.keys():
             self.current_loads[key] += value
         else:
@@ -65,13 +66,14 @@ class GridConnector:
         return self.current_loads[key]
 
     def get_current_load(self, exclude=[]):
-        """Get sum of current loads not in exclude list
+        """ Get sum of current loads not in excluded list.
 
         :param exclude: list of keys that should be excluded
         :type exclude: list
         :return: current load
         :rtype: numeric
         """
+
         current_load = 0
         for key, value in self.current_loads.items():
             if key not in exclude:
@@ -79,16 +81,17 @@ class GridConnector:
         return current_load
 
     def add_avg_fixed_load_week(self, fixed_load_list, interval):
-        """Compute average load using EnergyValuesList
+        """ Compute average load using EnergyValuesList.
 
         Each weekday has its own sequence of average values, depending on interval.
-        Multiple fixed loads are added up
+        Multiple fixed loads are added up.
 
         :param fixed_load_list: list of fixed loads
         :type fixed_load_list: list
         :param interval: interval of one timestep
         :type interval: timedelta
         """
+
         # convert EnergyValuesList to event list
         events = fixed_load_list.get_events(None, FixedLoad, has_perfect_foresight=False)
         events_per_day = int(datetime.timedelta(hours=24) / interval)
@@ -131,7 +134,7 @@ class GridConnector:
                 self.avg_fixed_load[i] = [e + v for (e, v) in zip(self.avg_ficed_load[i], values)]
 
     def get_avg_fixed_load(self, dt, interval):
-        """Get average fixed load for specific timeslot
+        """ Get average fixed load for specific timeslot.
 
         :param dt: time
         :type dt: datetime
@@ -140,6 +143,7 @@ class GridConnector:
         :return: average fixed load
         :rtype: dict
         """
+
         # dt: datetime, interval: scenario interval timedelta
         if self.avg_fixed_load is None:
             return 0
@@ -228,16 +232,18 @@ class Vehicle:
         :return: delta_soc
         :rtype: numeric
         """
+
         return self.desired_soc - self.battery.soc
 
     def get_energy_needed(self, full=False):
-        """Calculate energy needed to reach desired SoC (positive or zero)
+        """Calculate energy needed to reach desired SoC (positive or zero).
 
         :param full: True if battery should be charged completely
         :type full: bool
         :return: energy needed to charge battery
         :rtype: numeric
         """
+
         target_soc = 1 if full else self.desired_soc
         return max(target_soc - self.battery.soc, 0) * self.battery.capacity
 

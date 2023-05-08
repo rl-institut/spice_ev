@@ -11,7 +11,7 @@ EPS = 1e-5
 
 
 def generate_flex_band(scenario, gcID, core_standing_time=None):
-    """Generate flexibility potential for vehicle fleet with perfect foresight
+    """ Generate flexibility potential for total vehicle fleet with perfect foresight.
 
     :param scenario: input scenario
     :type scenario: Scenario
@@ -23,6 +23,7 @@ def generate_flex_band(scenario, gcID, core_standing_time=None):
     :return: flex band
     :rtype: dict
     """
+
     s = strategy.Strategy(
         scenario.components, scenario.start_time, **{
             "interval": scenario.interval,
@@ -205,7 +206,7 @@ def generate_flex_band(scenario, gcID, core_standing_time=None):
 
 
 def generate_individual_flex_band(scenario, gcID):
-    """Generate flexibility potential for inidvidual vehicles with perfect foresight
+    """ Generate flexibility potential for individual vehicles with perfect foresight.
 
     :param scenario: input scenario
     :type scenario: Scenario
@@ -214,6 +215,7 @@ def generate_individual_flex_band(scenario, gcID):
     :return: flex band
     :rtype: dict
     """
+
     gc = deepcopy(scenario.components.grid_connectors[gcID])
     interval = scenario.interval
 
@@ -381,8 +383,7 @@ def generate_individual_flex_band(scenario, gcID):
 
 
 def aggressive_round(f, places=0):
-    """
-    Numbers close to zero are truncated to zero.
+    """ Numbers close to zero are truncated to zero.
 
     :param f: number to round
     :type f: numeric
@@ -391,13 +392,14 @@ def aggressive_round(f, places=0):
     :return: rounded number
     :rtype: numeric
     """
+
     if -EPS < f < EPS:
         return 0
     return round(f, places)
 
 
 def generate_schedule(args):
-    """Generate schedule for grid signals based on whole vehicle park
+    """ Generate schedule for grid signals based on total vehicle fleet.
 
     :param args: input arguments
     :type args: argparse.Namespace
@@ -416,7 +418,7 @@ def generate_schedule(args):
 
     # compute flexibility potential (min/max) of single grid connector for each timestep
     gcID, gc = list(s.components.grid_connectors.items())[0]
-    # use different function depending on "inidivual" argument
+    # use different function depending on "individual" argument
     core_standing_time = args.core_standing_time or s.core_standing_time
     if args.individual:
         flex = generate_individual_flex_band(s, gcID)
@@ -462,12 +464,12 @@ def generate_schedule(args):
     vehicle_schedule = {vid: [0] * s.n_intervals for vid in vehicle_ids}
 
     def distribute_energy_balanced(period, energy_needed, v2g, ind_flex, vid=None):
-        """Distribute energy across a time period.
+        """ Distribute energy across a time period.
 
         The algorithm tries to distribute energy such that grid power (residual load) is balanced.
         Curtailment power has priority when charging.
 
-        :param period: timestep indicies when the energy is distributed
+        :param period: timestep indices when the energy is distributed
         :type period: iterable
         :param energy_needed: Amount of energy to be distributed
         :type energy_needed: float
@@ -479,9 +481,10 @@ def generate_schedule(args):
         :type vid: string
         :return: total change in stored energy after distribution completes
         """
+
         power_needed = energy_needed * ts_per_hour
         energy_distributed = 0
-        # lower and upper bounds of indidvidual flex and available power
+        # lower and upper bounds of individual flex and available power
         p_low = min([max(ind_flex[i][0], -avail["min"][j]) for i, j in enumerate(period)])
         p_high = max([min(ind_flex[i][1], avail["max"][j]) for i, j in enumerate(period)])
         # average residual load during period

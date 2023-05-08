@@ -3,23 +3,20 @@ from spice_ev.strategy import Strategy
 
 
 class Greedy(Strategy):
-    """ Greedy strategy
+    """ Uncontrolled charging with max power immediately after connecting to charging station.
 
-    Basic, dumb strategy.
-
-    Charges as much power as possible during each timestep until all desired SOC are reached.
-    No foresight, price does not matter for normal charging.
-    Can store surplus energy (local generation or low energy price) in stationary battery or
-    vehicles.
+    | Charges as much power as possible during each timestep until all desired SoC are reached.
+    | No foresight, price does not matter for normal charging.
+    | Stores surplus energy (local generation, low energy price) in stationary battery or vehicles.
     """
+
     def __init__(self, components, start_time, **kwargs):
         self.PRICE_THRESHOLD = 0.001  # EUR/kWh
         super().__init__(components, start_time, **kwargs)
         self.description = "greedy"
 
     def step(self):
-        """
-        Calculates charging in each timestep.
+        """ Calculate charging power in each timestep.
 
         :return: current time and commands of the charging stations
         :rtype: dict
@@ -59,8 +56,7 @@ class Greedy(Strategy):
 
 
 def load_vehicle(strategy, cs, gc, vehicle, cs_id, charging_stations, avail_bat_power):
-    """
-    Load one vehicle with greedy strategy
+    """ Load one vehicle with greedy strategy.
 
     :param strategy: current world state
     :type strategy: Strategy
@@ -79,6 +75,7 @@ def load_vehicle(strategy, cs, gc, vehicle, cs_id, charging_stations, avail_bat_
     :return: current time and commands of the charging stations
     :rtype: dict
     """
+
     gc_power_left = gc.cur_max_power - gc.get_current_load()
     power = 0
     avg_power = 0

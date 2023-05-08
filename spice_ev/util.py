@@ -6,35 +6,35 @@ import warnings
 
 
 def datetime_from_isoformat(s):
-    """Converts isoformat str to datetime.
+    """Convert isoformat str to datetime.
 
     :param s: date in isoformat
     :type s: str
     :return: datetime or None if input is None
     :rtype: datetime
     """
+
     if s is None:
         return None
     return datetime.datetime.fromisoformat(s)
 
 
 def datetime_within_window(dt, time_windows):
-    """Checks if a given datetime is within any of the given time windows.
+    """Check if a given datetime is within any of the given time windows.
 
-    note:
-    The times pertain to all dates within the window.
-    E.g., 14.03. 9:00 - 14.05. 11:00 means 09:00 - 11:00 for all days in two months
-    14.04. 10:00 is within this eaxmple window, 14.04. 12:00 is not
+    | The times pertain to all dates within the window:
+    | E.g., 14.03. 9:00 - 14.05. 11:00 means 09:00 - 11:00 for all days in two months.
+    | 14.04. 10:00 is within this example window, 14.04. 12:00 is not.
 
     :param dt: time
     :type dt: datetime
     :param time_windows: Structure of time_windows: {season: {"start": datetime with start date and\
-        start time, "end": datetime with end date end end time}}
+        start time, "end": datetime with end date and end time}}
     :type time_windows: dict
     :return: is datetime within time windows?
     :rtype: bool
-
     """
+
     for window in time_windows.values():
         start = window["start"].replace(year=dt.year)
         end = window["end"].replace(year=dt.year)
@@ -45,9 +45,7 @@ def datetime_within_window(dt, time_windows):
 
 
 def dt_within_core_standing_time(dt, core_standing_time):
-    """
-    Checks if datetime dt is in inside core standing time.
-
+    """ Check if datetime dt is in inside core standing time.
 
     :param dt: time to be checked
     :type dt: datetime
@@ -89,7 +87,8 @@ def dt_within_core_standing_time(dt, core_standing_time):
 
 def set_attr_from_dict(source, target, keys, optional_keys):
     """ Set attributes of `target` from a `source` dictionary.
-        None values for optional keys are not converted.
+
+    None values for optional keys are not converted.
 
     :param source: dictionary
     :type source: dict
@@ -99,8 +98,8 @@ def set_attr_from_dict(source, target, keys, optional_keys):
     :type keys: list
     :param optional_keys: parameter list
     :type optional_keys: list
-
     """
+
     for n, conversion in keys:
         setattr(target, n, conversion(source[n]))
     for n, conversion, default in optional_keys:
@@ -111,8 +110,7 @@ def set_attr_from_dict(source, target, keys, optional_keys):
 
 
 def get_cost(x, cost_dict):
-    """
-    Returns cost based on the cost type.
+    """ Return cost based on the cost type.
 
     :param x: coefficient
     :type x: numeric
@@ -122,6 +120,7 @@ def get_cost(x, cost_dict):
     :return: cost
     :rtype: numeric
     """
+
     if cost_dict["type"] == "fixed":
         return cost_dict["value"] * x
     elif cost_dict["type"] == "polynomial":
@@ -136,8 +135,7 @@ def get_cost(x, cost_dict):
 
 
 def get_power(y, cost_dict):
-    """
-    Returns power for a given price.
+    """ Return power for a given price.
 
     :param y: price
     :type y: numeric
@@ -147,6 +145,7 @@ def get_power(y, cost_dict):
     :return: power
     :rtype: numeric
     """
+
     # how much power for a given price?
     if y is None:
         return None
@@ -178,8 +177,7 @@ def get_power(y, cost_dict):
 
 
 def clamp_power(power, vehicle, cs):
-    """
-    Returns power that is actually available at charging station.
+    """ Return power that is actually available at charging station.
 
     :param power: available charging power
     :type power: numeric
@@ -190,6 +188,7 @@ def clamp_power(power, vehicle, cs):
     :return: power
     :rtype: numeric
     """
+
     # how much of power can vehicle at cs actually use
     total_power = min(cs.current_power + power, cs.max_power)
     if total_power < cs.min_power or total_power < vehicle.vehicle_type.min_charging_power:
@@ -201,10 +200,9 @@ def clamp_power(power, vehicle, cs):
 
 
 def set_options_from_config(args, check=None, verbose=True):
-    """
-    Update given options from config file.
+    """ Update given options from config file.
 
-    Read config file, try to parse options, ignore comment lines (begin with #)
+    Read config file, try to parse options, ignore comment lines (begin with #).
 
     :param args: input arguments
     :type args: argparse.Namespace
@@ -216,6 +214,7 @@ def set_options_from_config(args, check=None, verbose=True):
     :raise argparse.ArgumentError: Raised if wrong option values are given
     :raises Exception: Raised if unknown option is given or value could not be converted
     """
+
     if "config" in args and args.config is not None:
         # read options from config file
         with open(args.config, 'r', encoding='utf-8') as f:
@@ -268,10 +267,10 @@ def set_options_from_config(args, check=None, verbose=True):
 
 
 def sanitize(s, chars=''):
-    """
-    Removes special characters from string.
+    """ Remove special characters from string.
 
     Used to make strings safe for file paths.
+
     :param s: input to be sanitized
     :type s: string
     :param chars: characters to replace
@@ -279,22 +278,24 @@ def sanitize(s, chars=''):
     :return: input without special characters in chars
     :rtype: string
     """
+
     if not chars:
         chars = '</|\\>:"?*'
     return s.translate({ord(c): "" for c in chars})
 
 
 def read_grid_file(grid_path):
-    """
-    Reads in grid file.
+    """ Read in grid file.
 
-    Should be CSV with columns "residual load" and curtailment.
-    Optional column "timestamp" in ISO format.
+    | Should be CSV with columns "residual load" and curtailment.
+    | Optional column "timestamp" in ISO format.
+
     :param grid_path: path to grid situation file
     :type: grid_path: str
     :return: residual_load, curtailment and grid_start_time (if timestamps are given, else None)
     :rtype: triple
     """
+
     residual_load = []
     curtailment = []
     curtailment_is_positive = False
