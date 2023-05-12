@@ -9,12 +9,12 @@ from spice_ev import util
 class Events:
     """ Events class
 
-        Sets up events:
-        * fixed_load
-        * local_generation
-        * grid_operator_signals - price
-        * grid_operator_signals - schedule
-        * vehicle_events
+    Sets up events:
+
+    * fixed_load
+    * local_generation
+    * grid_operator_signals - price and schedule
+    * vehicle_events
     """
     def __init__(self, obj, dir_path):
         dir_path = Path(dir_path)
@@ -32,15 +32,14 @@ class Events:
         self.vehicle_events = list([VehicleEvent(x) for x in obj.get('vehicle_events', {})])
 
     def get_event_steps(self, start_time, n_intervals, interval):
-        """
-        Creates list of all events within simulation time.
+        """ Create list of all events within simulation time.
 
         :param start_time: starting time of the simulation
         :type start_time: datetime
         :param n_intervals: total number of intervals
         :type n_intervals: int
         :param interval: length of one interval
-        :type interval: timestemp
+        :type interval: timestamp
         :return: list of all events
         :rtype: list
         """
@@ -120,8 +119,7 @@ class EnergyValuesList:
                     self.values.append(float(row[column]))
 
     def get_events(self, name, value_class, has_perfect_foresight=False):
-        """
-        Sets up local generation and fixed_load events from input.
+        """ Set up local generation and fixed_load events from input.
 
         :param name: name of the input csv file
         :type name: str
@@ -132,6 +130,7 @@ class EnergyValuesList:
         :return: list of events
         :rtype: list
         """
+
         assert value_class in [LocalEnergyGeneration, FixedLoad]
 
         eventlist = []
@@ -167,8 +166,7 @@ class GridOperatorSignal(Event):
 
 
 def get_energy_price_list_from_csv(obj, dir_path):
-    """
-    Get energy price list from input csv.
+    """ Get energy price list from input csv.
 
     :param obj: dictionary with information about input csv
     :type obj: dict
@@ -178,6 +176,7 @@ def get_energy_price_list_from_csv(obj, dir_path):
     :return: grid operator signal events
         list
     """
+
     if not obj:
         return []
     start = util.datetime_from_isoformat(obj["start_time"])
@@ -203,10 +202,10 @@ def get_energy_price_list_from_csv(obj, dir_path):
 
 
 def get_schedule_from_csv(obj, dir_path):
-    """
-    Read out schedule CSV file, generate list of GridOperatorSignal events
-    Only changed target values generate a new event
-    Ignore any timestamp in file, assume constant stride
+    """ Read out schedule CSV file and generate list of GridOperatorSignal events.
+
+    | Only changed target values generate a new event.
+    | Ignore any timestamp in file, assume constant stride.
 
     :param obj: dictionary with information about input csv
     :type obj: dict

@@ -11,22 +11,22 @@ DATETIME_FORMAT = '%Y-%m-%d %H:%M:%S'
 
 
 def generate_from_csv(args):
-    """Generates a scenario JSON from csv rotation schedule of fleets to/from one grid connector.
+    """ Generate a scenario JSON from CSV rotation schedule of fleets to/from one grid connector.
 
-    note: only one grid connector supported. Each line in the csv represents one trip. Each
-    vehicle_id represents one vehicle. If the column vehicle_id is not given, the trips are assigned
-    to the vehicles by the principle: first in, first out. Note that in this case a minimum standing
-    time can be assigned to control the minimum time a vehicle can charge at the depot.
+    Only one grid connector supported. Each line in the csv represents one trip.
+    Each vehicle_id represents one vehicle. If the column vehicle_id is not given,
+    the trips are assigned to the vehicles by the principle: first in, first out.
+    Note that in this case a minimum standing time can be assigned to control the minimum time
+    a vehicle can charge at the depot.
 
     Needed columns:
-    - departure_time in YYYY-MM-DD HH:MM:SS
-    - arrival_time in YYYY-MM-DD HH:MM:SS
-    - vehicle_type (as in examples/vehicle_types.json)
-    - soc (SoC at arrival) or delta_soc in [0,1] (optional, if not given the mileage is taken
-    instead)
-    - vehicle_id (optional, see explanation above)
-    - distance in km (optional, needed if columns soc or delta_soc are not given)
 
+    * departure_time in YYYY-MM-DD HH:MM:SS
+    * arrival_time in YYYY-MM-DD HH:MM:SS
+    * vehicle_type (as in examples/vehicle_types.json)
+    * soc (SoC at arrival) or delta_soc [0,1] (optional, if not given, the mileage is taken)
+    * vehicle_id (optional, see explanation above)
+    * distance in km (optional, needed if columns soc or delta_soc are not given)
 
     :param args: input arguments
     :type args: argparse.Namespace
@@ -315,10 +315,9 @@ def generate_from_csv(args):
 
 
 def csv_to_dict(csv_path):
-    """
-    Reads csv file and returns a dict with each element representing a trip
+    """ Read CSV file and returns a dict with each element representing a trip
 
-    :param csv_path: path to input csv file
+    :param csv_path: path to input CSV file
     :type csv_path: str
     :return: dictionary
     :rtype: dict
@@ -344,9 +343,10 @@ def csv_to_dict(csv_path):
 
 
 def assign_vehicle_id(input, vehicle_types, export=None):
-    """
-    Assigns all rotations to specific vehicles with distinct vehicle_id. The assignment follows the
-    principle "first in, first out". The assignment of a minimum standing time in hours is optional.
+    """ Assign all rotations to specific vehicles with distinct vehicle_id.
+
+    The assignment follows the principle "first in, first out".
+    The assignment of a minimum standing time in hours is optional.
 
     :param input: schedule of rotations
     :type input: dict
@@ -412,7 +412,7 @@ def assign_vehicle_id(input, vehicle_types, export=None):
 
         rot["vehicle_id"] = v_id
         # insert new rotation into list of ongoing rotations
-        # calculate earliest possible new departure time
+        # calculate the earliest possible new departure time
         min_departure_time = arrival_time + min_standing_times[v_type]
         # find place to insert
         i = 0

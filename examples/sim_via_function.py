@@ -15,8 +15,10 @@ from argparse import Namespace
 
 
 def simulate_function(input_file):
-    """Call simulate with a complete Namespace
-    input_file: Path to scenario json as String
+    """ Call simulate with a complete Namespace
+
+    :param input_file: path to scenario json
+    :type input_file: string or Path
     """
     params = Namespace(
         input=input_file, strategy="greedy", margin=0.05, strategy_option=[], visual=False)

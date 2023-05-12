@@ -15,7 +15,7 @@ MAX_ENERGY_SUPPLY_PER_YEAR_SLP = 100000
 
 
 def get_flexible_load(power_grid_supply_list, power_fix_load_list):
-    """Determines power of flexible load
+    """ Determine power of flexible load.
 
     :param power_grid_supply_list: power supplied from the power grid
     :type power_grid_supply_list: list
@@ -33,7 +33,7 @@ def get_flexible_load(power_grid_supply_list, power_fix_load_list):
 
 def find_prices(price_sheet_path, strategy, voltage_level, utilization_time_per_year,
                 energy_supply_per_year, utilization_time_per_year_ec=UTILIZATION_TIME_PER_YEAR_EC):
-    """Reads commodity and capacity charge from price sheets.
+    """ Read commodity and capacity charge from price sheets.
 
     For type 'SLP' the capacity charge is equivalent to the basic charge.
 
@@ -85,7 +85,7 @@ def find_prices(price_sheet_path, strategy, voltage_level, utilization_time_per_
 
 
 def calculate_commodity_costs(price_list, power_supply_list, interval, fraction_year):
-    """Calculates commodity costs for all types of customers
+    """ Calculate commodity costs for all types of customers.
 
     :param price_list: price list with commodity charge per timestamp
     :type price_list: list
@@ -116,7 +116,7 @@ def calculate_commodity_costs(price_list, power_supply_list, interval, fraction_
 
 
 def calculate_capacity_costs_rlm(capacity_charge, max_power_strategy):
-    """Calculates the capacity costs per year and simulation period for RLM customers
+    """ Calculate the capacity costs per year and simulation period for RLM customers.
 
     :param capacity_charge: capacity charge from price sheet
     :type capacity_charge: float
@@ -131,7 +131,8 @@ def calculate_capacity_costs_rlm(capacity_charge, max_power_strategy):
 
 def calculate_feed_in_remuneration(feed_in_charge, power_feed_in_list,
                                    timestamps_list, interval, fraction_year):
-    """Calculates the feed-in remuneration per year and simulation period
+    """ Calculate the feed-in remuneration per year and simulation period.
+
     :param feed_in_charge: feed-in charge
     :type feed_in_charge: float
     :param power_feed_in_list: power fed into the grid
@@ -145,6 +146,7 @@ def calculate_feed_in_remuneration(feed_in_charge, power_feed_in_list,
     :return: feed-in remuneration per year and simulation period in Euro
     :rtype: float
     """
+
     if power_feed_in_list is None:
         power_feed_in_list = [0] * len(timestamps_list)
     energy_feed_in_sim = sum(power_feed_in_list) * interval.total_seconds() / 3600  # [kWh]
@@ -163,7 +165,7 @@ def calculate_costs(strategy, voltage_level, interval,
                     power_v2g_feed_in_list, power_battery_feed_in_list,
                     charging_signal_list, core_standing_time_dict, price_sheet_json,
                     results_json=None, power_pv_nominal=0):
-    """Calculate costs for the chosen charging strategy
+    """ Calculate costs for the chosen charging strategy.
 
     :param strategy: charging strategy
     :type strategy: str

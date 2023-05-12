@@ -19,7 +19,7 @@ class Battery():
         :param efficiency: efficiency of the battery
         :type efficiency: float
         :param unloading_curve: unloading curve of the battery.
-            Defaults to None for backwards-compatability (discharge with maximum
+            Defaults to None for backwards-compatibility (discharge with maximum
             power of loading curve)
         :type unloading_curve: spice_ev.loading_curve.LoadingCurve
         :param loss_rate: adjusted loss rate per timestep. Can have keys
@@ -42,8 +42,7 @@ class Battery():
             self.unloading_curve = copy.deepcopy(unloading_curve)
 
     def load(self, timedelta, max_power=None, target_soc=None, target_power=None):
-        """ Adjust SOC and return average charging power for a given timedelta
-        and maximum charging power.
+        """ Adjust SoC, return average charging power for given timedelta and max charging power.
 
         :param timedelta: time period in which battery can charge
         :type timedelta: timedelta
@@ -56,6 +55,7 @@ class Battery():
         :return: average power and soc_delta
         :rtype: dict
         """
+
         if target_soc is None:
             if target_power is None:
                 # nothing set: just load
@@ -95,10 +95,9 @@ class Battery():
         return {'avg_power': avg_power, 'soc_delta': self.soc - old_soc}
 
     def unload(self, timedelta, max_power=None, target_soc=None, target_power=None):
-        """
-        Discharge battery.
+        """ Discharge battery.
 
-        Adjust SOC and return average power provided for a given timedelta and
+        Adjust SoC and return average power provided for a given timedelta and
         a maximum of power that can be handled by connected device.
         A target SoC or target output power may be given, but not both.
         If neither is provided, the battery just discharges.
@@ -155,8 +154,7 @@ class Battery():
         return {'avg_power': avg_power, 'soc_delta':  old_soc - self.soc}
 
     def load_iterative(self, timedelta, max_charging_power):  # pragma: no cover
-        """Adjust SOC and return average charging power for a given timedelta
-        and maximum charging power.
+        """ Adjust SoC, return average charging power for given timedelta and max charging power.
 
         Numerical approach. Only used to validate analytical methods.
 
@@ -201,14 +199,16 @@ class Battery():
         :return: power
         :rtype: numeric
         """
+
         old_soc = self.soc
         power = self.unload(timedelta)['avg_power']
         self.soc = old_soc
         return power
 
     def _adjust_soc(self, timedelta, charging_curve, target_soc):
-        """ Helper function that loads or unloads battery to a given target SOC
-            keeping track of the duration and stopping the process early if a time limit is reached.
+        """ Helper function that loads or unloads battery to a given target SoC.
+
+        Keeps track of the duration and stops the process early if a time limit is reached.
 
         :param timedelta: Maximum amount of time available for (dis)charge process.
         :type timedelta: datetime.timedelta
@@ -222,6 +222,7 @@ class Battery():
         :return: Average power released/received across entire timedelta.
         :rtype: numeric
         """
+
         # get interval in hours
         total_time = timedelta.total_seconds() / 3600.0
         # hours: available time for charging, initially complete timedelta
@@ -234,7 +235,7 @@ class Battery():
         # find current region in loading curve
         # the boundary soc is either the target soc or the soc at which the current
         # linear section of the (dis)charging curve ends either of which is closer to current soc.
-        # (Note: Ending is a relative concent depending on whether we charge or discharge. During
+        # (Note: Ending is a relative concept depending on whether we charge or discharge. During
         # charging we are looking for the section boundary larger than the current soc, while
         # for discharging we look for the smaller counterpart)
         idx_1, idx_2 = charging_curve.get_section_boundary(self.soc)
@@ -259,7 +260,7 @@ class Battery():
             # charging: self.soc < target; discharging: self.soc > target
             while sign * (boundary_soc - self.soc) <= 0:
                 # soc outside current boundary, get next section
-                # charging: self.soc >= boundary_soc; discharging: self.soc <= boudary_soc
+                # charging: self.soc >= boundary_soc; discharging: self.soc <= boundary_soc
                 boundary_idx += sign
                 if discharge:
                     if boundary_idx >= 0:
@@ -303,7 +304,7 @@ class Battery():
                 new_soc = self.soc + (n/c * t)
             else:
                 # charge power dependent on SOC
-                # inhomogenous differential equation -> exponential function
+                # inhomogeneous differential equation -> exponential function
                 new_soc = -n/m + (n/m + self.soc) * exp(m/c * t)
 
             if discharge:

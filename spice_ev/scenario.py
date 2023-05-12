@@ -8,7 +8,7 @@ from spice_ev import components, events, strategy, util, report
 
 
 class Scenario:
-    """ Sets up a scenario from input json.
+    """ Sets up a scenario from input JSON.
 
     :param json_dict: input dictionary
     :type json_dict: dict
@@ -58,8 +58,9 @@ class Scenario:
             gc.add_avg_fixed_load_week(fixed_load_list, self.interval)
 
     def run(self, strategy_name, options):
-        """
-        Run the scenario. Goes stepwise through all timesteps of the simulation and calls the
+        """ Run the scenario.
+
+        Goes stepwise through all timesteps of the simulation and calls the
         strategy.step method for each timestep. Prints and saves results.
 
         :param strategy_name: name of the charging strategy
@@ -67,6 +68,7 @@ class Scenario:
         :param options: options of the charging strategy defined in simulate.cfg
         :type options: dict
         """
+
         options['interval'] = self.interval
         options['events'] = self.events
         options['core_standing_time'] = self.core_standing_time

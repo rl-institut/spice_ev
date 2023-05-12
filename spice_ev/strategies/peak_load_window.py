@@ -7,22 +7,20 @@ from spice_ev.strategy import Strategy
 
 
 class PeakLoadWindow(Strategy):
-    """PeakLoadWindow strategy
+    """ Charging strategy that prioritizes times outside of high load time windows.
 
-    Charging strategy that prioritizes times outside of high load time windows.
-
-    Charge balanced outside of windows, inside different substrategies are possible.
+    Charge balanced outside of windows. Inside time windows different sub-strategies are possible.
     """
     def __init__(self, components, start_time, **kwargs):
         # defaults, can be overridden by CLO (through kwargs)
 
-        # minimum binary seach depth
+        # minimum binary search depth
         self.ITERATIONS = 12
         self.LOAD_STRAT = 'needy'  # greedy, needy, balanced
 
         # init parent class Strategy. May override defaults
         super().__init__(components, start_time, **kwargs)
-        self.description = "§19stromNEV ({})".format(self.LOAD_STRAT)
+        self.description = "§19.2 StromNEV ({})".format(self.LOAD_STRAT)
 
         # set order of vehicles to load
         if self.LOAD_STRAT == 'greedy':
@@ -59,8 +57,7 @@ class PeakLoadWindow(Strategy):
         assert len(self.world_state.grid_connectors) == 1, "Only one grid connector supported"
 
     def step(self):
-        """
-        Calculates charging in each timestep.
+        """ Calculate charging power in each timestep.
 
         :return: current time and commands of the charging stations
         :rtype: dict
@@ -268,6 +265,7 @@ class PeakLoadWindow(Strategy):
         :return: commands for charging station
         :rtype: dict
         """
+
         # distribute total_power to vehicles in iterable vehicles according to self.LOAD_STRAT
         # energy_needed is
         if not vehicles:
