@@ -8,10 +8,11 @@ from spice_ev import util
 def aggregate_global_results(scenario):
     """ Aggregate and reorder simulation data across grid connectors.
 
-    | Quantities:
-    | - Total load per timestep across grid connectors
-    | - Load per charging station and time
-    | - All loads per grid connector except for charging stations
+    Quantities:
+
+    * Total load per timestep across grid connectors
+    * Load per charging station and time
+    * All loads per grid connector except for charging stations
 
     :param scenario: Scenario for which to aggregate data.
     :type scenario: spice_ev.Scenario
@@ -50,19 +51,20 @@ def aggregate_global_results(scenario):
 def aggregate_local_results(scenario, gcID):
     """ Aggregate results of simulation for a single grid connector.
 
-    | Aggregated Quantities:
-    | - avg flex per window
-    | - sum of energy
-    | - sum of energy per window
-    | - avg standing time
-    | - standing per window
-    | - avg needed energy
-    | - power peaks
-    | - average drawn power
-    | - local generated energy
-    | - max. stored energy in batteries
-    | - stationary battery cycles
-    | - all vehicle battery cycles
+    Aggregated Quantities:
+
+    * avg flex per window
+    * sum of energy
+    * sum of energy per window
+    * avg standing time
+    * standing per window
+    * avg needed energy
+    * power peaks
+    * average drawn power
+    * local generated energy
+    * max. stored energy in batteries
+    * stationary battery cycles
+    * all vehicle battery cycles
 
     :param scenario: Scenario for which to aggregate results.
     :type scenario: spice_ev.Scenario
@@ -348,10 +350,11 @@ def aggregate_local_results(scenario, gcID):
 def split_feedin(grid, generation, cs_sum, round_to_places=3):
     """ Split feed-in to grid into local power generation, V2G and battery for one time step.
 
-    | Order:
-    | 1. feed-in is provided by local generation first
-    | 2. feed-in not locally generated comes from discharging vehicles first
-    | 3. rest of feed-in must come from stationary battery
+    Order:
+
+    #. feed-in is provided by local generation first
+    #. feed-in not locally generated comes from discharging vehicles first
+    #. rest of feed-in must come from stationary battery
 
     :param grid: current total feed-in at grid connector at time step
     :type grid: float
@@ -385,17 +388,18 @@ def split_feedin(grid, generation, cs_sum, round_to_places=3):
 def aggregate_timeseries(scenario, gcID):
     """ Compute various timeseries for a given grid connector.
 
-    | The time series generated are:
-    | - price [EUR/kWh]
-    | - grid power [kW]
-    | - fixed load [kW]
-    | - local generation [kW]
-    | - flex min [kW]
-    | - flex base [kW]
-    | - flex max [kW]
-    | - sum CS power [kW]
-    | - number of occupied CS
-    | - power at CS (one per CS) [kW]
+    The time series generated are:
+
+    * price [EUR/kWh]
+    * grid power [kW]
+    * fixed load [kW]
+    * local generation [kW]
+    * flex min [kW]
+    * flex base [kW]
+    * flex max [kW]
+    * sum CS power [kW]
+    * number of occupied CS
+    * power at CS (one per CS) [kW]
 
     The given scenario gains multiple list attributes used for calculating costs.
 
@@ -604,7 +608,7 @@ def aggregate_timeseries(scenario, gcID):
 
 
 def generate_soc_timeseries(scenario):
-    """ Generate an SoC timeseries for each vehicle.
+    """ Generate SoC timeseries for each vehicle.
 
     :param scenario: The scenario for which to generate SOC timeseries.
     :type scenario: spice_ev.Scenario
@@ -625,12 +629,14 @@ def generate_soc_timeseries(scenario):
 def plot(scenario):
     """ Plot various timeseries collected over the duration of the simulation.
 
-    | Generated plots:
-    | 1. SoC over time per vehicle
-    | 2. Power over time per charging station
-    | 3. Power over time aggregated over all instances of various power sources and sinks like
-         grid connectors, charging stations, local power generation and batteries
-    | 4. Price over time per grid connector
+    Generated plots:
+
+    #. SoC over time per vehicle
+    #. Power over time per charging station
+    #. SoC over time per stationary battery (if present)
+    #. Power over time aggregated over all instances of various power sources and sinks like\
+        grid connectors, charging stations, local power generation and batteries
+    #. Price over time per grid connector
 
     :param scenario: The scenario for which to generate the plots.
     :type scenario: spice_ev.Scenario

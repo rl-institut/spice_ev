@@ -19,14 +19,14 @@ def generate_from_csv(args):
     Note that in this case a minimum standing time can be assigned to control the minimum time
     a vehicle can charge at the depot.
 
-    | Needed columns:
-    | - departure_time in YYYY-MM-DD HH:MM:SS
-    | - arrival_time in YYYY-MM-DD HH:MM:SS
-    | - vehicle_type (as in examples/vehicle_types.json)
-    | - soc (SoC at arrival) or delta_soc [0,1] (optional, if not given, the mileage is taken)
-    | - vehicle_id (optional, see explanation above)
-    | - distance in km (optional, needed if columns soc or delta_soc are not given)
+    Needed columns:
 
+    * departure_time in YYYY-MM-DD HH:MM:SS
+    * arrival_time in YYYY-MM-DD HH:MM:SS
+    * vehicle_type (as in examples/vehicle_types.json)
+    * soc (SoC at arrival) or delta_soc [0,1] (optional, if not given, the mileage is taken)
+    * vehicle_id (optional, see explanation above)
+    * distance in km (optional, needed if columns soc or delta_soc are not given)
 
     :param args: input arguments
     :type args: argparse.Namespace

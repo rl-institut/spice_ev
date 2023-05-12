@@ -9,11 +9,12 @@ from spice_ev import util
 class Events:
     """ Events class
 
-    | Sets up events:
-    | - fixed_load
-    | - local_generation
-    | - grid_operator_signals - price and schedule
-    | - vehicle_events
+    Sets up events:
+
+    * fixed_load
+    * local_generation
+    * grid_operator_signals - price and schedule
+    * vehicle_events
     """
     def __init__(self, obj, dir_path):
         dir_path = Path(dir_path)
@@ -31,7 +32,7 @@ class Events:
         self.vehicle_events = list([VehicleEvent(x) for x in obj.get('vehicle_events', {})])
 
     def get_event_steps(self, start_time, n_intervals, interval):
-        """ Creates list of all events within simulation time.
+        """ Create list of all events within simulation time.
 
         :param start_time: starting time of the simulation
         :type start_time: datetime
@@ -203,8 +204,8 @@ def get_energy_price_list_from_csv(obj, dir_path):
 def get_schedule_from_csv(obj, dir_path):
     """ Read out schedule CSV file and generate list of GridOperatorSignal events.
 
-    Only changed target values generate a new event. Ignore any timestamp in file, assume constant
-    stride.
+    | Only changed target values generate a new event.
+    | Ignore any timestamp in file, assume constant stride.
 
     :param obj: dictionary with information about input csv
     :type obj: dict

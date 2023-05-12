@@ -5,8 +5,8 @@ class LoadingCurve:
     The loading curve is described by a 2D graph with given known points.
     Values between known points are computed by linear interpolation.
 
-    | x-axis: state of charge [0 - 1]
-    | y-axis: possible charging power in kW [0 - ∞ kW]
+    * x-axis: state of charge [0 - 1]
+    * y-axis: possible charging power in kW [0 - ∞ kW]
     """
 
     def __init__(self, points):

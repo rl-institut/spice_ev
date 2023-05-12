@@ -839,15 +839,16 @@ class FlexWindow(Strategy):
         return commands
 
     def distribute_power(self, vehicles, total_power, total_needed):
-        """ Charge vehicle batteries with available power according to LOAD_STRAT.
+        """ Charge vehicle batteries with available power according to *LOAD_STRAT*.
 
-        | Possible LOAD_STRATs are:
-        | - greedy
-        | - needy
-        | - balanced
+        Supported values for *LOAD_STRAT*:
 
-        :param vehicles: vehicle objects (?)
-        :type vehicles: object
+        * greedy (vehicles charge greedy one after the other)
+        * needy (vehicles that need more energy get proportionally more)
+        * balanced (all vehicles are allocated the same amount of power)
+
+        :param vehicles: vehicles to dsitribute power to
+        :type vehicles: list of :py:class:`~spice_ev.components.Vehicle`
         :param total_power: total available power
         :type total_power: numeric
         :param total_needed: total power needed

@@ -6,13 +6,14 @@ from spice_ev.events import FixedLoad
 class Components:
     """ Components class
 
-    | Collection of all components:
-    | - grid_connectors
-    | - charging_stations
-    | - vehicle_types
-    | - vehicles
-    | - batteries
-    | - photovoltaics
+    Collection of all components:
+
+    * grid_connectors
+    * charging_stations
+    * vehicle_types
+    * vehicles
+    * batteries
+    * photovoltaics
     """
 
     def __init__(self, obj):
@@ -49,7 +50,7 @@ class GridConnector:
         self.cur_max_power = self.max_power
 
     def add_load(self, key, value):
-        """ Add power __value__ to current_loads dict under __key__, return updated value.
+        """ Add power *value* to current_loads dict under *key*, return updated value.
 
         :param key: key of dictionary
         :type key: str
@@ -66,7 +67,7 @@ class GridConnector:
         return self.current_loads[key]
 
     def get_current_load(self, exclude=[]):
-        """ Get sum of current loads not in excluded list.
+        """ Get sum of current loads not in *exclude* list.
 
         :param exclude: list of keys that should be excluded
         :type exclude: list
