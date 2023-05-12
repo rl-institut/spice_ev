@@ -337,4 +337,9 @@ class VehicleEvent(Event):
 
         for name, func in conversions:
             if name in self.update:
-                self.update[name] = func(self.update[name])
+                try:
+                    self.update[name] = func(self.update[name])
+                except Exception as e:
+                    raise Exception(
+                        f"Bad conversion: {name} = {func}({self.update[name]})"
+                    ).with_traceback(e.__traceback__)
