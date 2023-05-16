@@ -40,7 +40,7 @@ python simulate.py -h
 ```
 
 ## Quick Start
-Generate a scenario and store it in a JSON. By default, the mode `generate_from_statistics` is used.
+Generate a scenario and store it in a JSON. By default, the mode `statistics` is used.
 ```sh
 python generate.py --output scenario.json
 ```
