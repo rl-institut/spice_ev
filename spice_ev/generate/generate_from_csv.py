@@ -23,7 +23,7 @@ def generate_from_csv(args):
 
     * departure_time in YYYY-MM-DD HH:MM:SS
     * arrival_time in YYYY-MM-DD HH:MM:SS
-    * vehicle_type (as in examples/vehicle_types.json)
+    * vehicle_type (as in examples/data/vehicle_types.json)
     * soc (SoC at arrival) or delta_soc [0,1] (optional, if not given, the mileage is taken)
     * vehicle_id (optional, see explanation above)
     * distance in km (optional, needed if columns soc or delta_soc are not given)
