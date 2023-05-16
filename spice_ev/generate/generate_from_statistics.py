@@ -86,7 +86,7 @@ def generate_trip(v_type_info):
 
 
 def generate_from_statistics(args):
-    """ Generate a scenario JSON from input parameters.
+    """ Generate a scenario JSON with trips from statistical input parameters.
 
     :param args: input arguments
     :type args: argparse.Namespace
