@@ -48,7 +48,8 @@ class TestSimulationCosts:
 
         # check length of result lists
         for k, l in result.items():
-            assert len(l) == s.n_intervals, f"list {k} has wrong length"
+            if l is not None:
+                assert len(l) == s.n_intervals, f"list {k} has wrong length"
 
         # check individual lists
         # timestamps
@@ -70,7 +71,7 @@ class TestSimulationCosts:
         timeseries = s.GC1_timeseries
         timeseries_lists = [timeseries.get(k, [0]*s.n_intervals) for k in [
                             "time", "grid supply [kW]", "price [EUR/kWh]",
-                            "local generation [kW]",  "schedule [kW]", "window signal [-]"]]
+                            "local generation [kW]", "window signal [-]"]]
         price_sheet = TEST_REPO_PATH / 'test_data/input_test_cost_calculation/price_sheet.json'
 
         # test all supported strategies
@@ -114,7 +115,7 @@ class TestSimulationCosts:
             timeseries = s.GC1_timeseries
             timeseries_lists = [timeseries.get(k, [0] * s.n_intervals) for k in [
                             "time", "grid supply [kW]", "price [EUR/kWh]",
-                            "local generation [kW]", "schedule [kW]", "window signal [-]"]]
+                            "local generation [kW]", "window signal [-]"]]
             price_sheet = TEST_REPO_PATH / 'test_data/input_test_cost_calculation/price_sheet.json'
             pv = sum([pv.nominal_power for pv in s.components.photovoltaics.values()])
             result = cc.calculate_costs("greedy", "MV", s.interval, *timeseries_lists,
@@ -132,7 +133,7 @@ class TestSimulationCosts:
         timeseries = s.GC1_timeseries
         timeseries_lists = [timeseries.get(k, [0] * s.n_intervals) for k in [
                             "time", "grid supply [kW]", "price [EUR/kWh]",
-                            "local generation [kW]", "schedule [kW]", "window signal [-]"]]
+                            "local generation [kW]", "window signal [-]"]]
         price_sheet = TEST_REPO_PATH / 'test_data/input_test_cost_calculation/price_sheet.json'
 
         pv = sum([pv.nominal_power for pv in s.components.photovoltaics.values()])
@@ -157,7 +158,7 @@ class TestSimulationCosts:
         timeseries = s.GC1_timeseries
         timeseries_lists = [timeseries.get(k, [0] * s.n_intervals) for k in [
                         "time", "grid supply [kW]", "price [EUR/kWh]",
-                        "local generation [kW]", "schedule [kW]", "window signal [-]"]]
+                        "local generation [kW]", "window signal [-]"]]
         price_sheet = TEST_REPO_PATH / 'test_data/input_test_cost_calculation/price_sheet.json'
 
         pv = sum([pv.nominal_power for pv in s.components.photovoltaics.values()])
@@ -181,7 +182,7 @@ class TestSimulationCosts:
         timeseries = s.GC1_timeseries
         timeseries_lists = [timeseries.get(k, [0] * s.n_intervals) for k in [
             "time", "grid supply [kW]", "price [EUR/kWh]",
-            "local generation [kW]", "schedule [kW]", "window signal [-]"]]
+            "local generation [kW]", "window signal [-]"]]
         price_sheet = TEST_REPO_PATH / 'test_data/input_test_cost_calculation/price_sheet.json'
 
         pv = sum([pv.nominal_power for pv in s.components.photovoltaics.values()])
@@ -206,7 +207,7 @@ class TestSimulationCosts:
         timeseries = s.GC1_timeseries
         timeseries_lists = [timeseries.get(k, [0] * s.n_intervals) for k in [
             "time", "grid supply [kW]", "price [EUR/kWh]",
-            "local generation [kW]", "schedule [kW]", "window signal [-]"]]
+            "local generation [kW]", "window signal [-]"]]
         price_sheet = TEST_REPO_PATH / 'test_data/input_test_cost_calculation/price_sheet.json'
 
         pv = sum([pv.nominal_power for pv in s.components.photovoltaics.values()])
@@ -245,14 +246,14 @@ class TestSimulationCosts:
         timeseries = s.GC1_timeseries
         timeseries_lists = [timeseries.get(k, [0] * s.n_intervals) for k in [
             "time", "grid supply [kW]", "price [EUR/kWh]",
-            "local generation [kW]", "schedule [kW]", "window signal [-]"]]
+            "local generation [kW]", "window signal [-]"]]
         price_sheet = TEST_REPO_PATH / 'test_data/input_test_cost_calculation/price_sheet.json'
 
         pv = sum([pv.nominal_power for pv in s.components.photovoltaics.values()])
 
         # check returned values
         result = cc.calculate_costs("schedule", "MV", s.interval, *timeseries_lists,
-                                    str(price_sheet), None, pv)
+                                    str(price_sheet), None, pv, timeseries.get("schedule [kW]"))
         assert result["total_costs_per_year"] == 2848.26
         assert result["commodity_costs_eur_per_year"] == 379.63
         assert result["capacity_costs_eur"] == 0
@@ -269,7 +270,6 @@ class TestSimulationCosts:
             [-1000] + [0]*8,  # single grid supply value
             None,  # empty prices
             [0] * 9,  # empty fix loads
-            [0]*9,  # empty schedule
             None,  # empty charging signal
             TEST_REPO_PATH / 'test_data/input_test_cost_calculation/price_sheet.json')
         # TODO compare expected values
@@ -283,7 +283,6 @@ class TestSimulationCosts:
                 [0]*9,  # empty grid supply
                 [1]*9,  # static prices
                 [100] * 9,  # static fixed loads
-                [0]*9,  # empty schedule
                 [True]*9,  # always-on charging signal
                 TEST_REPO_PATH / 'test_data/input_test_cost_calculation/price_sheet.json')
             # TODO compare expected values
@@ -302,7 +301,6 @@ class TestSimulationCosts:
                 [pv]*9,  # positive grid supply
                 None,  # empty prices
                 [0] * 9,  # empty fixed loads
-                [0] * 9,  # empty schedule
                 None,  # no charging signal
                 price_sheet,
                 power_pv_nominal=pv)
@@ -316,7 +314,6 @@ class TestSimulationCosts:
                 [1]*9,  # positive grid supply
                 None,  # empty prices
                 [0] * 9,  # empty fixed loads
-                [0] * 9,  # empty schedule
                 None,  # no charging signal
                 price_sheet,
                 power_pv_nominal=pv_ranges[-1]+1)
@@ -330,7 +327,6 @@ class TestSimulationCosts:
             [0]*9,  # empty grid supply
             None,  # empty prices
             [0] * 9,  # empty fixed loads
-            [0] * 9,  # empty schedule
             None,  # no charging signal
             TEST_REPO_PATH / 'test_data/input_test_cost_calculation/price_sheet.json',
             results_json=dst)

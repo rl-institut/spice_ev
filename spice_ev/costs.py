@@ -1,5 +1,6 @@
 import json
 import datetime
+import warnings
 
 # constants for grid fee
 
@@ -128,8 +129,9 @@ def calculate_capacity_costs_rlm(capacity_charge, max_power_strategy):
 
 def calculate_costs(strategy, voltage_level, interval,
                     timestamps_list, power_grid_supply_list,
-                    price_list, power_fix_load_list, power_schedule_list, charging_signal_list,
-                    price_sheet_json, results_json=None, power_pv_nominal=0):
+                    price_list, power_fix_load_list, charging_signal_list,
+                    price_sheet_json, results_json=None, power_pv_nominal=0,
+                    power_schedule_list=None):
     """Calculate costs for the chosen charging strategy
 
     :param strategy: charging strategy
@@ -460,27 +462,31 @@ def calculate_costs(strategy, voltage_level, interval,
 
         # DEVIATION COSTS:
 
-        # positive deviation from schedule concerning grid supply (not feed-in):
-        power_grid_supply_schedule_list = [max(v, 0) for v in power_schedule_list]
-        pos_deviation_grid_supply_list = [max(schedule_power - power_grid_supply_list[i], 0)
-                                          for i, schedule_power
-                                          in enumerate(power_grid_supply_schedule_list)]
+        if power_schedule_list is None:
+            warnings.warn("No schedule is given")
+            capacity_costs_eur_flex = 0.0
+        else:
+            # positive deviation from schedule concerning grid supply (not feed-in):
+            power_grid_supply_schedule_list = [max(v, 0) for v in power_schedule_list]
+            pos_deviation_grid_supply_list = [max(schedule_power - power_grid_supply_list[i], 0)
+                                              for i, schedule_power
+                                              in enumerate(power_grid_supply_schedule_list)]
 
-        # charge for deviation from schedule:
-        schedule_deviation_charge = schedule_charges["deviation_charge"]
+            # charge for deviation from schedule:
+            schedule_deviation_charge = schedule_charges["deviation_charge"]
 
-        # tolerance for charging deviation from schedule:
-        schedule_deviation_tolerance = schedule_charges["deviation_tolerance"]
+            # tolerance for charging deviation from schedule:
+            schedule_deviation_tolerance = schedule_charges["deviation_tolerance"]
 
-        # capacity related costs for deviation from schedule:
-        max_pos_deviation_grid_supply = max(pos_deviation_grid_supply_list)
-        max_grid_supply_schedule = max(power_grid_supply_schedule_list)
-        lower_limit_deviation = max_grid_supply_schedule * schedule_deviation_tolerance
+            # capacity related costs for deviation from schedule:
+            max_pos_deviation_grid_supply = max(pos_deviation_grid_supply_list)
+            max_grid_supply_schedule = max(power_grid_supply_schedule_list)
+            lower_limit_deviation = max_grid_supply_schedule * schedule_deviation_tolerance
 
-        charged_deviation_power = max(max_pos_deviation_grid_supply - lower_limit_deviation, 0)
+            charged_deviation_power = max(max_pos_deviation_grid_supply - lower_limit_deviation, 0)
 
-        capacity_costs_eur_flex = calculate_capacity_costs_rlm(
-            schedule_deviation_charge, charged_deviation_power)
+            capacity_costs_eur_flex = calculate_capacity_costs_rlm(
+                schedule_deviation_charge, charged_deviation_power)
 
         # TOTAL COSTS:
         commodity_costs_eur_sim = commodity_costs_eur_sim_fix + commodity_costs_eur_sim_flex

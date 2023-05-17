@@ -85,11 +85,11 @@ def simulate(args):
                 power_grid_supply_list=timeseries.get("grid supply [kW]"),
                 price_list=timeseries.get("price [EUR/kWh]"),
                 power_fix_load_list=timeseries.get("fixed load [kW]"),
-                power_schedule_list=timeseries.get("schedule [kW]"),
                 charging_signal_list=timeseries.get("window signal [-]"),
                 price_sheet_json=args.get("cost_parameters_file"),
                 results_json=args.get("save_results"),
                 power_pv_nominal=pv,
+                power_schedule_list=timeseries.get("schedule [kW]"),
             )
             print(f"Costs at {gcID}: {costs['total_costs_per_year']} €/a")
 
