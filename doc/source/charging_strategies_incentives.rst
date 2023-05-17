@@ -180,9 +180,10 @@ Schedule-based grid fees
 
 Similar to the flexible time windows, the tariff for grid friendly charging is applied on the flexible loads such as
 electric vehicles when using schedule-based grid fees. However, a capacity charge is not applied on the flexible load.
-Instead, the deviation of the total load from the schedule is charged by multiplying the maximum positive deviation
-with a deviation charge. These capacity related costs are determined for grid supply. Deviations in feed-in are not
-taken into account.
+Instead, the deviation of the total load from the schedule is charged. Taking a deviation tolerance into account, a
+deviation charge is multiplied with the difference of the maximum positive deviation and the tolerated deviation if the
+selected tolerated deviation is exceeded. The capacity related costs are determined for grid supply. Deviations in
+feed-in are not taken into account.
 
 
 
