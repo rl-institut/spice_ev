@@ -52,27 +52,6 @@ class TestBattery:
         bat = battery.Battery(100, lc, 0)
         print(bat)
 
-    """
-    def test_load(self):
-        import matplotlib.pyplot as plt
-
-        points = [(0, 42), (0.5, 42), (1, 0)]
-        lc = loading_curve.LoadingCurve(points)
-        bat = battery.Battery(42, lc, 0)
-
-        x = []
-        y = []
-        tdelta  = datetime.timedelta(seconds=1)
-        for t in range(3600*3):
-            x.append(t)
-            y.append(bat.soc)
-            bat.load(tdelta, 42)
-
-        fig, ax = plt.subplots()
-        ax.plot(x, y)
-        plt.show()
-    """
-
     def test_charging(self):
         points = [(0, 42), (0.5, 42), (1, 1)]
         lc = loading_curve.LoadingCurve(points)
@@ -175,7 +154,7 @@ class TestBattery:
         b = battery.Battery(capacity, lc, 0, efficiency, lc)
 
         # test charging
-        # target = (target_soc, expected power after 1 hour, expected SoC afer 1 hour)
+        # target = (target_soc, expected power after 1 hour, expected SoC after 1 hour)
         target = [
             (-0.6, 0, -0.5),
             (-0.2, 10, -0.45),
@@ -191,7 +170,7 @@ class TestBattery:
             assert pytest.approx(b.soc) == max(initial_soc, t[0])
 
         # test discharging
-        # target = (target_soc, expected power after 1 hour, expected SoC afer 1 hour)
+        # target = (target_soc, expected power after 1 hour, expected SoC after 1 hour)
         target = [
             (-1, 0, -0.5),
             (-0.5, 0, -0.5),

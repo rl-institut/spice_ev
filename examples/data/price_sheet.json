@@ -99,6 +99,7 @@
             "remuneration": [6.24, 6.06, 4.74]
         },
         "V2G": 0,
+        "battery": 0,
         "unit": "ct/kWh",
         "info": "remuneration for power fed into the grid by PV power plants or electric vehicles"
     },

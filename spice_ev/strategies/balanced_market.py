@@ -6,10 +6,7 @@ from spice_ev.strategy import Strategy
 
 
 class BalancedMarket(Strategy):
-    """BalancedMarket Strategy
-
-    Moves all charging events to times with low energy price
-    """
+    """ Price oriented charging at times of low energy price. """
     def __init__(self, components, start_time, **kwargs):
         self.PRICE_THRESHOLD = 0.001  # EUR/kWh
         self.HORIZON = 24  # maximum number of hours ahead
@@ -32,8 +29,7 @@ class BalancedMarket(Strategy):
             print(changed, "events signaled earlier")
 
     def step(self):
-        """
-        Calculates charging in each timestep.
+        """ Calculate charging power in each timestep.
 
         :return: current time and commands of the charging stations
         :rtype: dict
@@ -129,7 +125,7 @@ class BalancedMarket(Strategy):
             sim_vehicle = deepcopy(vehicle)
             power = [0] * len(sorted_ts)
 
-            # iterate timesteps by order of cheapest price to reach desired soc
+            # iterate timesteps by order of the cheapest price to reach desired soc
             sorted_idx = 0
             while sorted_idx < len(sorted_ts):
                 cost, start_idx = sorted_ts[sorted_idx]
@@ -140,7 +136,7 @@ class BalancedMarket(Strategy):
 
                 if sim_vehicle.battery.soc >= desired_soc:
                     # desired SoC reached: no more charging needed.
-                    # dont block time steps for v2g if balanced charging
+                    # don't block time steps for v2g if balanced charging
                     # does not occur in current TS
                     sorted_idx = 0
                     break
@@ -209,7 +205,7 @@ class BalancedMarket(Strategy):
 
             # ---------- VEHICLE TO GRID ---------- #
 
-            # begin vehicle-to-grid/home at time with highest price
+            # begin vehicle-to-grid/home at time with the highest price
             # and stop once it reaches charging timestep
             # off-by-one: v2g_sorted_idx is immediately decreased by one
             v2g_sorted_idx = len(sorted_ts)
@@ -245,7 +241,7 @@ class BalancedMarket(Strategy):
 
                 if v2g_ts_idx == 0:
                     # take note of power if current timestep
-                    # don't immediatley apply power, as it is uncertain if is valid
+                    # don't immediately apply power, as it is uncertain if is valid
                     sim_power = p
 
                 # simulate next timesteps

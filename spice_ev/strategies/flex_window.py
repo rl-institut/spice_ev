@@ -6,12 +6,7 @@ from spice_ev.strategy import Strategy
 
 
 class FlexWindow(Strategy):
-    """FlexWindow Strategy
-
-    if LoadStrat = "balanced": Charges balanced during given time windows.
-    else: peak shaving in given time windows
-    """
-
+    """ Charging during given time windows. """
     def __init__(self, components, start_time, **kwargs):
         self.HORIZON = 24  # hours ahead
         self.LOAD_STRAT = "balanced"  # greedy, needy, balanced
@@ -38,8 +33,7 @@ class FlexWindow(Strategy):
             "Unknown charging strategy: {}".format(self.LOAD_STRAT)
 
     def step(self):
-        """
-        Calculates charging in each timestep.
+        """ Calculate charging power in each timestep.
 
         :return: current time and commands of the charging stations
         :rtype: dict
@@ -91,7 +85,7 @@ class FlexWindow(Strategy):
             fixed_load = gc.get_avg_fixed_load(cur_time, self.interval) \
                 - sum(cur_local_generation.values())
 
-            # save infos for each timestep
+            # save information for each timestep
             timesteps.append(
                 {
                     "timestep_idx": timestep_idx,
@@ -148,7 +142,7 @@ class FlexWindow(Strategy):
         return {"current_time": self.current_time, "commands": commands}
 
     def distribute_balanced_vehicles(self, timesteps):
-        """Charge vehicles with balanced method according to schedule
+        """ Charge vehicles with balanced method according to time windows.
 
         :param timesteps: list of dictionaries for each timestep in horizon
         :type timesteps: list
@@ -243,7 +237,7 @@ class FlexWindow(Strategy):
         return commands
 
     def distribute_balanced_batteries(self, timesteps):
-        """Charge/discharge batteries with balanced method according to schedule
+        """ Charge/discharge stationary batteries with balanced method according to time windows.
 
         :param timesteps: list of dictionaries for each timestep in horizon
         :type timesteps: list
@@ -322,13 +316,14 @@ class FlexWindow(Strategy):
                 timesteps[0]["total_load"] -= discharge
 
     def distribute_balanced_v2g(self, timesteps):
-        """Charge/discharge vehicles with v2g with balanced method according to schedule
+        """ Charge/discharge vehicles with v2g with balanced method according to time windows.
 
         :param timesteps: list of dictionaries for each timestep in horizon
         :type timesteps: list
         :return: commands for charging stations
         :rtype: dict
         """
+
         commands = {}
         gc = list(self.world_state.grid_connectors.values())[0]
         # get all vehicles that are connected in this step and order vehicles
@@ -347,7 +342,7 @@ class FlexWindow(Strategy):
             max_discharge_power = (sim_vehicle.battery.loading_curve.max_power
                                    * sim_vehicle.vehicle_type.v2g_power_factor)
 
-            # check if cehicles can be loaded until desired_soc in connected timesteps
+            # check if vehicles can be loaded until desired_soc in connected timesteps
             old_soc = vehicle.battery.soc
             connected_timesteps = []
             window_change = 0
@@ -460,7 +455,7 @@ class FlexWindow(Strategy):
         return commands
 
     def distribute_peak_shaving_vehicles(self, timesteps):
-        """Charge vehicles with peak shaving method according to schedule
+        """ Charge vehicles with peak shaving method according to time windows.
 
         :param timesteps: list of dictionaries for each timestep in horizon
         :type timesteps: list
@@ -566,11 +561,12 @@ class FlexWindow(Strategy):
         return commands
 
     def distribute_peak_shaving_batteries(self, timesteps):
-        """Charge/discharge batteries with peak shaving method according to schedule
+        """ Charge/discharge batteries with peak shaving method according to time windows.
 
         :param timesteps: list of dictionaries for each timestep in horizon
         :type timesteps: list
         """
+
         discharging_stations = []
         batteries = [b for b in self.world_state.batteries.values()
                      if b.parent is not None]
@@ -686,13 +682,14 @@ class FlexWindow(Strategy):
                 timesteps[0]["total_load"] -= discharge
 
     def distribute_peak_shaving_v2g(self, timesteps):
-        """Charge/discharge vehicles with v2g with peak shaving method according to schedule
+        """ Charge/discharge vehicles with v2g with peak shaving method according to time windows.
 
         :param timesteps: list of dictionaries for each timestep in horizon
         :type timesteps: list
         :return: commands for charging stations
         :rtype: dict
         """
+
         commands = {}
         gc = list(self.world_state.grid_connectors.values())[0]
         # get all vehicles that are connected in this step and order vehicles
@@ -710,7 +707,7 @@ class FlexWindow(Strategy):
             max_discharge_power = (sim_vehicle.battery.loading_curve.max_power
                                    * sim_vehicle.vehicle_type.v2g_power_factor)
 
-            # check if cehicles can be loaded until desired_soc in connected timesteps
+            # check if vehicles can be loaded until desired_soc in connected timesteps
             old_soc = vehicle.battery.soc
             connected_timesteps = []
             window = cur_window
@@ -842,12 +839,16 @@ class FlexWindow(Strategy):
         return commands
 
     def distribute_power(self, vehicles, total_power, total_needed):
-        """Load vehicle batteries with available power according to LOAD_STRAT.
+        """ Charge vehicle batteries with available power according to *LOAD_STRAT*.
 
-        possible LOAD_STRATs: greedy, needy
+        Supported values for *LOAD_STRAT*:
 
-        :param vehicles: vehicle objects (?)
-        :type vehicles: object
+        * greedy (vehicles charge greedy one after the other)
+        * needy (vehicles that need more energy get proportionally more)
+        * balanced (all vehicles are allocated the same amount of power)
+
+        :param vehicles: vehicles to dsitribute power to
+        :type vehicles: list of :py:class:`~spice_ev.components.Vehicle`
         :param total_power: total available power
         :type total_power: numeric
         :param total_needed: total power needed
@@ -856,6 +857,7 @@ class FlexWindow(Strategy):
         :return: commands for charging stations
         :rtype: dict
         """
+
         commands = {}
         if total_power <= 0 or total_needed <= 0:
             return {}
@@ -878,12 +880,12 @@ class FlexWindow(Strategy):
         return commands
 
     def load_surplus_to_batteries(self):
-        """
-        Charge batteries with surplus energy
+        """ Charge batteries with surplus energy.
 
         :return: energy used to charge batteries
         :rtype: numeric
         """
+
         total_energy_used = 0
         for b_id, battery in self.world_state.batteries.items():
             gc = self.world_state.grid_connectors[battery.parent]
@@ -898,12 +900,12 @@ class FlexWindow(Strategy):
         return total_energy_used
 
     def distribute_surplus_to_vehicles(self):
-        """
-        Distribute surplus power to vehicles
+        """ Distribute surplus power to vehicles.
 
         :return: charging commands
         :rtype: dict
         """
+
         commands = dict()
         for vehicle in self.world_state.vehicles.values():
             cs_id = vehicle.connected_charging_station

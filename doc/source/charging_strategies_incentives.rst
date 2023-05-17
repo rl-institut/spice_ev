@@ -19,8 +19,6 @@ stationary batteries, V2G or local generation.
 +--------------------------+-----------------------------+-------------------------------+-------------------------------+
 | Balanced                 | x                           | x                             |  x                            |
 +--------------------------+-----------------------------+-------------------------------+-------------------------------+
-| Greedy market            | x                           | x                             |  x                            |
-+--------------------------+-----------------------------+-------------------------------+-------------------------------+
 | Balanced market          | x                           | x                             |  x                            |
 +--------------------------+-----------------------------+-------------------------------+-------------------------------+
 | Schedule                 | x                           | x                             |  x                            |
@@ -44,15 +42,6 @@ Each vehicle is charged with the minimal possible power over its standing time t
 may be charged above the desired SOC if there is energy surplus from local generation or the energy price falls below the set price threshold.
 A prerequisite for this strategy is an estimate of the standing time. In the simulation model, a perfect foresight is used for
 this purpose. By defining a time horizon, it is possible to specify how far in the future departure times are known.
-
-Greedy market
--------------
-Vehicles are oriented to an external price time series, which extends over a fixed time horizon. An attempt is made to
-shift as much electricity consumption as possible to the times of low prices. Depending on the given price time series,
-this algorithm first determines the cheapest group of time intervals sufficient to charge all vehicles according to
-their needs. All charging events are moved to those time intervals in which the vehicles are charged with full power at
-the first signal for the cheapest price, similar to the `greedy` strategy. The price time series can come, for example,
-from the electricity supplier or distribution grid operator via time-variable grid fees.
 
 Balanced market
 ---------------
@@ -127,8 +116,6 @@ The following table gives an overview of the possible combinations.
 | Greedy                   | x                           |                               |                               |                               |
 +--------------------------+-----------------------------+-------------------------------+-------------------------------+-------------------------------+
 | Balanced                 | x                           |                               |                               |                               |
-+--------------------------+-----------------------------+-------------------------------+-------------------------------+-------------------------------+
-| Greedy Market            | x                           | x                             |                               |                               |
 +--------------------------+-----------------------------+-------------------------------+-------------------------------+-------------------------------+
 | Balanced Market          | x                           | x                             |                               |                               |
 +--------------------------+-----------------------------+-------------------------------+-------------------------------+-------------------------------+

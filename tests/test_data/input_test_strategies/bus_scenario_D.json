@@ -1028,7 +1028,7 @@
       }
     ],
     "fixed_load": {
-      "Building-20210705-20210719": {
+      "building": {
         "csv_file": "example_load.csv",
         "start_time": "2018-01-02T00:06:00+02:00",
         "step_duration_s": 600,
@@ -1037,7 +1037,7 @@
         "factor": 0.001
       }
     },
-    "energy_feed_in": {},
+    "local_generation": {},
     "vehicle_events": [
       {
         "signal_time": "2018-01-02T00:06:00+02:00",

@@ -16,8 +16,7 @@ def datetime_from_string(s):
 
 
 def generate_trip(v_type_info):
-    """
-    Creates randomly generated trips from average input arguments
+    """ Create randomly generated trips from average input arguments.
 
     :param v_type_info: info of used vehicle_type
     :type v_type_info: dict
@@ -87,7 +86,7 @@ def generate_trip(v_type_info):
 
 
 def generate_from_statistics(args):
-    """Generates a scenario JSON from input Parameters
+    """ Generate a scenario JSON with trips from statistical input parameters.
 
     :param args: input arguments
     :type args: argparse.Namespace

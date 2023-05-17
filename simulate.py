@@ -10,16 +10,13 @@ from spice_ev.util import set_options_from_config
 from spice_ev.costs import calculate_costs
 
 STRATEGIES = [
-    'greedy', 'greedy_market',
-    'balanced', 'balanced_market',
-    'peak_load_window', 'flex_window',
-    'schedule', 'schedule_foresight',
-    'distributed',
+    'greedy', 'balanced', 'balanced_market', 'distributed',
+    'peak_load_window', 'flex_window', 'schedule'
 ]
 
 
 def simulate(args):
-    """Reads in simulation input arguments, sets up scenario and runs the simulation.
+    """ Read simulation input arguments, set up scenario and run the simulation.
 
     :param args: input arguments from simulate.cfg file or command line arguments
     :type args: argparse.Namespace or dictionary
@@ -85,6 +82,9 @@ def simulate(args):
                 power_grid_supply_list=timeseries.get("grid supply [kW]"),
                 price_list=timeseries.get("price [EUR/kWh]"),
                 power_fix_load_list=timeseries.get("fixed load [kW]"),
+                power_generation_feed_in_list=timeseries.get("generation feed-in [kW]"),
+                power_v2g_feed_in_list=timeseries.get("V2G feed-in [kW]"),
+                power_battery_feed_in_list=timeseries.get("battery feed-in [kW]"),
                 charging_signal_list=timeseries.get("window signal [-]"),
                 price_sheet_json=args.get("cost_parameters_file"),
                 results_json=args.get("save_results"),

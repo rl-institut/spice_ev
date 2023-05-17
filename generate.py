@@ -18,11 +18,12 @@ MODE_CHOICES = {
 
 
 def update_namespace(args):
-    """
-    Prepare generate-arguments for function call. Various checks and preparations.
+    """ Prepare generate-arguments for function call.
+
     :param args: argparse arguments
     :type args: Namespace
     """
+
     # handle vehicle types file (except simbev, which uses metadata)
     if args.mode != "simbev":
         if args.vehicle_types is None:
@@ -141,14 +142,15 @@ def update_namespace(args):
 
 
 def generate(args):
-    """
-    Generate scenario JSON.
+    """ Generate scenario JSON.
 
     Own function for testing.
+
     :param args: argparse arguments
     :type args: Namespace
     :raises SystemExit: if required arguments are missing
     """
+
     # check for necessary arguments
     required = {
         "csv": ["input_file", "output"],

@@ -8,7 +8,7 @@ from spice_ev import components, events, strategy, util, report
 
 
 class Scenario:
-    """ Sets up a scenario from input json.
+    """ Sets up a scenario from input JSON.
 
     :param json_dict: input dictionary
     :type json_dict: dict
@@ -20,8 +20,13 @@ class Scenario:
         # get components (backwards compatibility: used to be called constants)
         components_dict = json_dict.get("components", json_dict.get("constants", {}))
         self.components = components.Components(components_dict)
-        # get events
-        self.events = events.Events(json_dict.get('events', {}), dir_path)
+        # get events (backwards compatibility: some event fields were renamed)
+        events_dict = json_dict.get('events', {})
+        if "external_load" in events_dict:
+            events_dict["fixed_load"] = events_dict["external_load"]
+        if "energy_feed_in" in events_dict:
+            events_dict["local_generation"] = events_dict["energy_feed_in"]
+        self.events = events.Events(events_dict, dir_path)
 
         scenario = json_dict.get('scenario')
 
@@ -53,8 +58,9 @@ class Scenario:
             gc.add_avg_fixed_load_week(fixed_load_list, self.interval)
 
     def run(self, strategy_name, options):
-        """
-        Run the scenario. Goes stepwise through all timesteps of the simulation and calls the
+        """ Run the scenario.
+
+        Goes stepwise through all timesteps of the simulation and calls the
         strategy.step method for each timestep. Prints and saves results.
 
         :param strategy_name: name of the charging strategy
@@ -62,6 +68,7 @@ class Scenario:
         :param options: options of the charging strategy defined in simulate.cfg
         :type options: dict
         """
+
         options['interval'] = self.interval
         options['events'] = self.events
         options['core_standing_time'] = self.core_standing_time

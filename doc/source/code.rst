@@ -338,6 +338,7 @@ respective options are selected in the `simulate.cfg`.
 
     aggregate_global_results
     aggregate_local_results
+    split_feedin
     aggregate_timeseries
     generate_soc_timeseries
     plot

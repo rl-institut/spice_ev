@@ -8,12 +8,12 @@ from spice_ev.util import clamp_power, dt_within_core_standing_time
 
 
 class Schedule(Strategy):
-    """Schedule strategy"""
+    """ Charging according to a given schedule, that depends on the grid situation. """
     def __init__(self, components, start_time, **kwargs):
         allowed_substrats = ["collective", "individual"]
         self.LOAD_STRAT = "collective"
 
-        # only relevant for substrategy "collective"
+        # only relevant for sub-strategy "collective"
         self.currently_in_core_standing_time = False
         self.overcharge_necessary = False
         # if set, only warn if vehicle not present during core_standing time instead of aborting
@@ -38,11 +38,12 @@ class Schedule(Strategy):
                 "Provide core standing times in the generate_schedule.cfg")
 
     def dt_to_end_of_time_window(self):
-        """Returns timedelta between now and end of core standing time (resolution: one minute)
+        """Return timedelta between now and end of core standing time (resolution: one minute).
 
         :return: duration
         :rtype: timedelta
         """
+
         duration = timedelta()
         interval = timedelta(minutes=1)
 
@@ -52,7 +53,7 @@ class Schedule(Strategy):
         return duration
 
     def sim_balanced_charging(self, vehicle, dt, max_power, delta_soc=None):
-        """Simulates a balanced charging process for a single vehicle.
+        """ Simulate a balanced charging process for a single vehicle.
 
         :param vehicle: vehicle to be charged
         :type vehicle: Vehicle
@@ -110,20 +111,21 @@ class Schedule(Strategy):
                     safe = False
                     min_power = power
                 else:  # charged_soc >= delta_soc:
-                    # power too much or just right (may be possible with less power)
+                    # power too high or just right (maybe possible with less power)
                     safe = True
                     max_power = power
 
         return {"opt_power": power, "charged_soc": charged_soc}
 
     def collect_future_gc_info(self, dt=timedelta(days=1)):
-        """Get grid connector info for each future timestep until all vehicles left
+        """ Get grid connector info for each future timestep until all vehicles left.
 
         :param dt: time period (default: 24 h)
         :type dt: timedelta
-        :return: grid commector info
+        :return: grid connector info
         :rtype: dict
         """
+
         gc = list(self.world_state.grid_connectors.values())[0]
 
         gc_info = [{
@@ -172,18 +174,16 @@ class Schedule(Strategy):
         return gc_info
 
     def evaluate_core_standing_time_ahead(self):
-        """Evaluates how much energy is provided by the schedule at each timestep and how much
-        energy is needed by the vehicles in total.
+        """ Evaluate provided energy per timestep by schedule and needed energy in total.
 
-        This function is called once at the beginning of each core standing time.
-
-        Shortcomings of the schedule are detected early on and battery energy is allocated to
-        help out when necessary.
+        | This function is called once at the beginning of each core standing time.
+        | Shortcomings from schedule are detected early on and battery energy is allocated to help.
 
         :raises Exception: if any vehicle is not available during core standing time
             (use *warn_core_standing_time* to suppress)
         """
-        # get time paramters of next core standing time
+
+        # get time parameters of next core standing time
         dt_to_end_core_standing_time = self.dt_to_end_of_time_window()
         TS_to_end_core_standing_time = dt_to_end_core_standing_time // self.interval
 
@@ -253,18 +253,20 @@ class Schedule(Strategy):
         self.currently_in_core_standing_time = True
 
     def charge_vehicles_during_core_standing_time(self):
-        """ Charges vehicles during core standing time.
+        """ Charge vehicles during core standing time.
 
         1. In case no energy was allocated for vehicles in this timestep, only
         those vehicles get to charge that are expected not to meet their goal at the end
         of the core standing time. In this case the schedule is ignored in favor of fully charged
         vehicles.
+
         2. If the schedule provides enough energy to charge vehicles, vehicles are charged as
         balanced as possible with a higher priority on meeting the schedule requirements.
 
         :return: charging commands
         :rtype: dict
         """
+
         charging_stations = {}
         dt_to_end_core_standing_time = self.dt_to_end_of_time_window()
 
@@ -347,7 +349,7 @@ class Schedule(Strategy):
                 if remaining_power_on_schedule < self.EPS:
                     break
 
-                # can active charging station bear minimum load?
+                # can the active charging station bear minimum load?
                 assert cs.max_power >= cs.current_power - self.EPS, (
                     "{} - {} over maximum load ({} > {})".format(
                         self.current_time, cs_id, cs.current_power, cs.max_power))
@@ -359,7 +361,7 @@ class Schedule(Strategy):
                 if i >= n_vehicles and extra_power < self.EPS:
                     break
 
-                # vehicle didnt get to charge, going to the back of the line
+                # vehicle didn't get to charge, going to the back of the line
                 # allocated power + extra power might be enough to charge in
                 # a second try.
                 if (cs.max_power - cs.current_power > self.EPS and
@@ -389,7 +391,7 @@ class Schedule(Strategy):
                            if (v.connected_charging_station is not None)
                            and (v.vehicle_type.v2g)], key=lambda x: x[1])
 
-        # vehicles that will not be able to charge on schedule to desired SoC anyways
+        # vehicles that will not be able to charge on schedule to desired SoC anyway
         vehicles_with_power_issues = \
             [v for v, p in self.extra_energy_per_vehicle.items() if p > self.EPS]
 
@@ -398,7 +400,7 @@ class Schedule(Strategy):
 
         for vehicle, vehicle_id in vehicles:
             if vehicle_id in vehicles_with_power_issues:
-                # dont use vehicles with charging issues for V2G
+                # don't use vehicles with charging issues for V2G
                 continue
             cs_id = vehicle.connected_charging_station
             cs = self.world_state.charging_stations[cs_id]
@@ -535,7 +537,7 @@ class Schedule(Strategy):
         return commands
 
     def charge_vehicles_after_core_standing_time(self, charging_stations):
-        """Charges vehicles balanced between end of core standing time and departure
+        """ Charge vehicles balanced between end of core standing time and departure.
 
 
         :param charging_stations: Charging_commands previously allocated during this timestep
@@ -585,12 +587,13 @@ class Schedule(Strategy):
         return charging_stations
 
     def charge_vehicles(self):
-        """Charging vehicles.
+        """ Charge vehicles.
 
         :return: charging_stations (An updated version of the input containing total of all\
             charging commands determined until this point.)
         :rtype: dict
         """
+
         charging_stations = {}
 
         vehicles_at_gc = {gc_id: [] for gc_id in self.world_state.grid_connectors.keys()}
@@ -726,8 +729,7 @@ class Schedule(Strategy):
         return charging_stations
 
     def utilize_stationary_batteries(self):
-        """Adjust deviation with batteries
-        """
+        """ Adjust deviation with batteries. """
         for bid, battery in self.world_state.batteries.items():
             gc_id = battery.parent
             gc = self.world_state.grid_connectors[gc_id]
@@ -763,7 +765,7 @@ class Schedule(Strategy):
             gc.add_load(bid, bat_power)
 
     def step(self):
-        """Calculates charging in each timestep.
+        """ Calculate charging power in each timestep.
 
         :return: current time and commands of the charging stations
         :rtype: dict
