@@ -237,7 +237,7 @@ class TestSimulationCosts:
         assert result["feed_in_remuneration_per_year"] == 0
 
     def test_calculate_costs_schedule_C(self, tmp_path):
-        scen_path = TEST_REPO_PATH / 'test_data/input_test_strategies/scenario_C3.json'
+        scen_path = TEST_REPO_PATH / 'test_data/input_test_strategies/scenario_PV_BAT.json'
         dst = tmp_path / "scenario.json"
         dst.write_text(scen_path.read_text())
         schedule = tmp_path / "schedule.csv"
@@ -269,12 +269,12 @@ class TestSimulationCosts:
         # check returned values
         result = cc.calculate_costs("schedule", "MV", s.interval, *timeseries_lists,
                                     str(price_sheet), None, pv, timeseries.get("schedule [kW]"))
-        assert result["total_costs_per_year"] == 2848.26
-        assert result["commodity_costs_eur_per_year"] == 379.63
-        assert result["capacity_costs_eur"] == 0
-        assert result["power_procurement_costs_per_year"] == 1259.99
-        assert result["levies_fees_and_taxes_per_year"] == 1208.62
-        assert result["feed_in_remuneration_per_year"] == 0
+        assert result["total_costs_per_year"] == -3021.29
+        assert result["commodity_costs_eur_per_year"] == 40.88
+        assert result["capacity_costs_eur"] == 28.69
+        assert result["power_procurement_costs_per_year"] == 135.66
+        assert result["levies_fees_and_taxes_per_year"] == 135.58
+        assert result["feed_in_remuneration_per_year"] == 3362.1
 
     def test_greedy_rlm(self):
         # prepare scenario to trigger RLM

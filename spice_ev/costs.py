@@ -474,7 +474,6 @@ def calculate_costs(strategy, voltage_level, interval,
                                           interval, fraction_year)
 
             # capacity costs for fixed load:
-            max_power_grid_supply_fix = min(power_fix_load_list)
             capacity_costs_eur_fix = calculate_capacity_costs_rlm(
                 capacity_charge_fix, max_power_grid_supply_fix)
 
@@ -504,7 +503,7 @@ def calculate_costs(strategy, voltage_level, interval,
         else:
             # positive deviation from schedule concerning grid supply (not feed-in):
             power_grid_supply_schedule_list = [max(v, 0) for v in power_schedule_list]
-            pos_deviation_grid_supply_list = [max(schedule_power - power_grid_supply_list[i], 0)
+            pos_deviation_grid_supply_list = [max(power_grid_supply_list[i] - schedule_power, 0)
                                               for i, schedule_power
                                               in enumerate(power_grid_supply_schedule_list)]
 
