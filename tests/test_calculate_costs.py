@@ -237,7 +237,7 @@ class TestSimulationCosts:
         assert result["feed_in_remuneration_per_year"] == 0
 
     def test_calculate_costs_schedule_C(self, tmp_path):
-        scen_path = TEST_REPO_PATH / 'test_data/input_test_strategies/scenario_PV_BAT.json'
+        scen_path = TEST_REPO_PATH / 'test_data/input_test_strategies/scenario_PV_Bat.json'
         dst = tmp_path / "scenario.json"
         dst.write_text(scen_path.read_text())
         schedule = tmp_path / "schedule.csv"
