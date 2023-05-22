@@ -124,8 +124,6 @@
         }
       }
     ],
-    "fixed_load": {},
-    "energy_feed_in": {},
     "vehicle_events": [
       {
         "signal_time": "2018-01-01T08:47:00+02:00",

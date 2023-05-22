@@ -33,8 +33,11 @@ def read_simulation_csv(csv_file):
             # find values for parameter
             timestamp = datetime.datetime.fromisoformat(row["time"])
             price = float(row.get("price [EUR/kWh]", 0))
-            power_grid_supply = float(row["grid supply [kW]"])
-            power_fix_load = float(row["fixed load [kW]"])
+            power_grid_supply = float(row.get("grid supply [kW]", 0))
+            power_fix_load = max(float(row.get("fixed load [kW]", 0)) +
+                                 min(float(row.get("local generation [kW]", 0)), 0) +
+                                 min(float(row.get("battery power [kW]", 0)), 0) +
+                                 min(float(row.get("sum CS power [kW]", 0)), 0), 0)
             power_generation_feed_in = float(row.get("generation feed-in [kW]", 0))
             power_v2g_feed_in = float(row.get("V2G feed-in [kW]", 0))
             power_battery_feed_in = float(row.get("battery feed-in [kW]", 0))
