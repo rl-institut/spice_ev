@@ -125,6 +125,26 @@
         }
       }
     ],
+    "fixed_load": {
+      "building": {
+        "csv_file": "example_load.csv",
+        "start_time": "2018-01-01T00:00:00+02:00",
+        "step_duration_s": 600,
+        "grid_connector_id": "GC1",
+        "column": "value",
+        "factor": 0.001
+      }
+    },
+    "local_generation": {
+      "example_pv": {
+        "csv_file": "example_pv.csv",
+        "start_time": "2018-01-01T00:00:00+02:00",
+        "step_duration_s": 3600,
+        "grid_connector_id": "GC1",
+        "column": "pv (kW)",
+        "factor": 1
+      }
+    },
     "vehicle_events": [
       {
         "signal_time": "2018-01-01T08:00:00+02:00",

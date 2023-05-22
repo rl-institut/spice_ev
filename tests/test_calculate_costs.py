@@ -103,7 +103,7 @@ class TestSimulationCosts:
         scenarios = {
             "scenario_A.json": [2522.67, 776.54, 65.7, 799.38, 881.06, 0.0],
             "scenario_B.json": [21798.48, 6899.86, 65.7, 7102.8, 7730.12, 0.0],
-            "scenario_C1.json": [3045.54, 942.64, 65.7, 970.36, 1066.84, 0.0],
+            "scenario_C1.json": [22086.7, 6991.42, 65.7, 7197.05, 7832.53, 0.0],
             "scenario_C2.json": [2792.23, 862.17, 65.7, 887.53, 976.85, 0.0],
             "scenario_C3.json": [1887.55, 574.78, 65.7, 591.68, 655.39, 0.0],
             # "bus_scenario_D.json": [0,0,0,0,0,0],  # buggy: can't charge enough
@@ -229,11 +229,11 @@ class TestSimulationCosts:
         # check returned values
         result = cc.calculate_costs("balanced_market", "MV", s.interval, *timeseries_lists,
                                     str(price_sheet), None, pv)
-        assert result["total_costs_per_year"] == 495.31
-        assert result["commodity_costs_eur_per_year"] == 22.08
-        assert result["capacity_costs_eur"] == 0
-        assert result["power_procurement_costs_per_year"] == 246.6
-        assert result["levies_fees_and_taxes_per_year"] == 226.63
+        assert result["total_costs_per_year"] == 24339.52
+        assert result["commodity_costs_eur_per_year"] == 4523.5
+        assert result["capacity_costs_eur"] == 4426.75
+        assert result["power_procurement_costs_per_year"] == 7197.05
+        assert result["levies_fees_and_taxes_per_year"] == 8192.22
         assert result["feed_in_remuneration_per_year"] == 0
 
     def test_calculate_costs_schedule_C(self, tmp_path):
