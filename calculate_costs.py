@@ -25,6 +25,7 @@ def read_simulation_csv(csv_file):
     power_v2g_feed_in_list = []  # [kW]
     power_battery_feed_in_list = []  # [kW]
     charging_signal_list = []  # [-]
+    power_schedule_list = []  # [kW]
     with open(csv_file, "r", newline="") as simulation_data:
         reader = csv.DictReader(simulation_data, delimiter=",")
         for row in reader:
@@ -51,6 +52,13 @@ def read_simulation_csv(csv_file):
                 charging_signal = bool(int(row["window signal [-]"]))
             except KeyError:
                 charging_signal = None
+
+            try:
+                power_schedule = float(row["schedule [kW]"])
+                power_schedule_list.append(power_schedule)
+            except KeyError:
+                power_schedule_list = None
+
             charging_signal_list.append(charging_signal)
 
     return {
@@ -62,6 +70,7 @@ def read_simulation_csv(csv_file):
         "power_v2g_feed_in_list": power_v2g_feed_in_list,
         "power_battery_feed_in_list": power_battery_feed_in_list,
         "charging_signal_list": charging_signal_list,
+        "power_schedule_list": power_schedule_list,
     }
 
 
@@ -108,7 +117,6 @@ if __name__ == "__main__":  # pragma: no cover
         strategy=strategy,
         voltage_level=voltage_level,
         interval=datetime.timedelta(minutes=interval_min),
-        core_standing_time_dict=core_standing_time_dict,
         price_sheet_json=args.cost_parameters_file,
         results_json=args.get_results,
         power_pv_nominal=args.pv_power,
