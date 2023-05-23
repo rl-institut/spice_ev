@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Template:
 ```
-## [0.0.0] - Release - Name of Release - 20YY-MM-DD
+## [0.0.0] - Name of Release - 20YY-MM-DD
 
 ### Added
 - [(#)]()
@@ -26,7 +26,8 @@ Template:
 
 ### Removed
 
-## [1.0.0] Initial Release - SPICE EV - 2023-05-23
+## [1.0.0] - Initial Release SpiceEV - 2023-05-24
 
 ### Added
 - first release! 🎉
+
