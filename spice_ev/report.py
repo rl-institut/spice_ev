@@ -654,8 +654,8 @@ def plot(scenario):
     if scenario.batteryLevels:
         plots_top_row = 3
         ax = plt.subplot(2, plots_top_row, 3)
-        ax.set_title('Batteries')
-        ax.set(ylabel='Stored power in kWh')
+        ax.set_title('Stationary Batteries')
+        ax.set(ylabel='Stored Power in kWh')
         for name, values in scenario.batteryLevels.items():
             ax.plot(xlabels, values, label=name)
         ax.legend()
@@ -687,7 +687,8 @@ def plot(scenario):
     # total power
     ax = plt.subplot(2, 2, 3)
     if any(scenario.sum_cs):
-        ax.step(xlabels, list([sum(cs) for cs in scenario.sum_cs]), label="CS", where='post')
+        ax.step(xlabels, list([sum(cs) for cs in scenario.sum_cs]),
+                label="Charging Stations", where='post')
     gc_ids = scenario.components.grid_connectors.keys()
     for gcID in gc_ids:
         for name, values in scenario.loads[gcID].items():
@@ -706,7 +707,7 @@ def plot(scenario):
                 ax.step(xlabels, schedule, label="Schedule {}".format(gcID), where='post')
 
     ax.step(xlabels, scenario.all_totalLoad, label="Total", where='post')
-    ax.set_title('Power')
+    ax.set_title('Total Power')
     ax.set(ylabel='Power in kW')
     ax.legend()
     ax.xaxis_date()  # xaxis are datetime objects
@@ -715,8 +716,8 @@ def plot(scenario):
     ax = plt.subplot(2, 2, 4)
     prices = list(zip(*scenario.prices.values()))
     lines = ax.step(xlabels, prices, where='post')
-    ax.set_title('Price for 1 kWh')
-    ax.set(ylabel='€')
+    ax.set_title('Price')
+    ax.set(ylabel='Price in €/kWh')
     if len(gc_ids) <= 10:
         ax.legend(lines, sorted(gc_ids))
 
@@ -730,6 +731,7 @@ def plot(scenario):
         ax.set_xlim(scenario.start_time, scenario.stop_time)
         plt.setp(ax.get_xticklabels(), rotation=30, ha='right')
 
+    plt.subplots_adjust(hspace=0.5)
     plt.show()
 
 
