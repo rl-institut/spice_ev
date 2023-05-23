@@ -129,7 +129,7 @@ git commit --amend
 Push your `local` branch on the remote server `origin`. <br>
 If your branch does not exist on the remote server yet, use:
 ```bash
-git push --set-upstream origin feature-1314-my-feature
+git push -u origin feature/my_feature_branch
 ```
 
 Then push regularly with:
