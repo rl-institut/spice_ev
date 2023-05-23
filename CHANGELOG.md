@@ -18,14 +18,6 @@ Template:
 ```
 
 
-## [Unreleased]
-
-### Added
-
-### Changed
-
-### Removed
-
 ## [1.0.0] - Initial Release SpiceEV - 2023-05-24
 
 ### Added
