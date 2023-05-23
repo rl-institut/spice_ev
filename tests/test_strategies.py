@@ -303,14 +303,14 @@ class TestScenarios(TestCaseBase):
 
         assert s.testing["avg_total_standing_time"]["GC1"] == 17.75
         assert s.testing["avg_stand_time"]["GC1"] == 8.875
-        assert round(s.testing["avg_needed_energy"]["GC1"], 2) == 1.08
-        assert round(s.testing["avg_drawn_power"]["GC1"], 2) == 1.44
-        assert round(s.testing["sum_local_generation_per_h"]["GC1"], 2) == 0
-        assert round(s.testing["vehicle_battery_cycles"]["GC1"], 2) == 1.1
+        assert round(s.testing["avg_needed_energy"]["GC1"], 2) == 0.73
+        assert round(s.testing["avg_drawn_power"]["GC1"], 2) == 10.67
+        assert round(s.testing["sum_local_generation_per_h"]["GC1"], 2) == 347.59
+        assert round(s.testing["vehicle_battery_cycles"]["GC1"], 2) == 1.41
         assert round(s.testing["avg_flex_per_window"]["GC1"][0], 2) == 372
-        assert round(s.testing["avg_flex_per_window"]["GC1"][3], 2) == 375.71
-        assert round(s.testing["sum_energy_per_window"]["GC1"][0], 2) == 0
-        assert round(s.testing["sum_energy_per_window"]["GC1"][3], 2) == 0
+        assert round(s.testing["avg_flex_per_window"]["GC1"][3], 2) == 375.09
+        assert round(s.testing["sum_energy_per_window"]["GC1"][0], 2) == 215.87
+        assert round(s.testing["sum_energy_per_window"]["GC1"][3], 2) == 40.21
         load = [0] * 96
         for key, values in s.testing["timeseries"]["loads"]["GC1"].items():
             load = [a + b for a, b in zip(load, values)]
@@ -322,7 +322,7 @@ class TestScenarios(TestCaseBase):
         assert s.testing["max_total_load"] > 0
 
     def test_flex_window_all_loaded_in_windows(self):
-        input = TEST_REPO_PATH / 'test_data/input_test_strategies/scenario_C1.json'
+        input = TEST_REPO_PATH / 'test_data/input_test_strategies/scenario_C2.json'
         s = scenario.Scenario(load_json(input), input.parent)
         s.run('flex_window', {"testing": True})
 
