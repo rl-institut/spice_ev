@@ -22,7 +22,7 @@ copyright = '2020, Reiner Lemoine Institute'
 author = 'Reiner Lemoine Institute'
 
 # The full version, including alpha/beta/rc tags
-# release = '0.3.0'
+release = '1.0.0'
 
 # specify the master file, otherwise the build at read the docs fails
 master_doc = 'index'
