@@ -2,7 +2,7 @@
 
 **Simulation program to generate scenarios of electric vehicle fleets and simulate different charging strategies.**
 
-[![Build Status](https://github.com/rl-institut/spice_ev/actions/workflows/pythonpackage.yaml/badge.svg?branch=dev)](https://github.com/BESTenergytrade/smbs/actions/workflows/pythonpackage.yaml) [![Documentation Status](https://readthedocs.org/projects/spice-ev/badge/?version=latest)](https://spice-ev.readthedocs.io/en/latest/?badge=latest)
+[![Build Status](https://github.com/rl-institut/spice_ev/actions/workflows/pythonpackage.yaml/badge.svg?branch=dev)](https://github.com/rl-institut/spice_ev/actions/workflows/pythonpackage.yaml) [![Documentation Status](https://readthedocs.org/projects/spice-ev/badge/?version=latest)](https://spice-ev.readthedocs.io/en/latest/?badge=latest)
 
 # Introduction
 
