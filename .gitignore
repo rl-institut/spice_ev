@@ -1,6 +1,12 @@
 .*.sw[op]
 /__pycache__
 *.pyc
+.DS_Store
 
-tests/
+.coverage
+htmlcov/
+
 docs/
+.vscode/
+_build/
+scenarios/

@@ -1,0 +1,117 @@
+{
+  "scenario": {
+    "start_time": "2022-04-04T00:00:00+02:00",
+    "interval": 15,
+    "n_intervals": 96,
+    "discharge_limit": 0.5
+  },
+  "components": {
+    "vehicle_types": {
+      "sprinter": {
+        "name": "Sprinter",
+        "capacity": 76,
+        "mileage": 40,
+        "charging_curve": [
+          [
+            0,
+            11
+          ],
+          [
+            0.8,
+            11
+          ],
+          [
+            1,
+            11
+          ]
+        ],
+        "min_charging_power": 0.2,
+        "v2g": true,
+        "v2g_power_factor": 0.5
+      }
+    },
+    "vehicles": {
+      "sprinter_0": {
+        "connected_charging_station": "CS_sprinter_0",
+        "estimated_time_of_departure": "2022-04-04T08:47:00+02:00",
+        "desired_soc": 0.8,
+        "soc": 0.8,
+        "vehicle_type": "sprinter"
+      }
+    },
+    "grid_connectors": {
+      "GC1": {
+        "max_power": 100,
+        "voltage_level": "MV",
+        "cost": {
+          "type": "fixed",
+          "value": 0.3
+        }
+      }
+    },
+    "charging_stations": {
+      "CS_sprinter_0": {
+        "max_power": 11,
+        "min_power": 0,
+        "parent": "GC1"
+      }
+    },
+    "batteries": {
+      "BAT1": {
+        "parent": "GC1",
+        "capacity": 100,
+        "charging_curve": [
+          [
+            0,
+            50.0
+          ],
+          [
+            1,
+            50.0
+          ]
+        ]
+      }
+    },
+    "photovoltaics": {
+      "PV1": {
+        "parent": "GC1",
+        "nominal_power": 100
+      }
+    }
+  },
+  "events": {
+    "grid_operator_signals": [],
+    "fixed_load": {},
+    "local_generation": {
+      "example_pv": {
+        "start_time": "2022-04-04T00:00:00+02:00",
+        "step_duration_s": 3600,
+        "grid_connector_id": "GC1",
+        "values": [0,0,0,0,0,0,0,0,15,41,62,58,43,27,0]
+      }
+    },
+    "vehicle_events": [
+      {
+        "signal_time": "2022-04-04T08:47:00+02:00",
+        "start_time": "2022-04-04T08:47:00+02:00",
+        "vehicle_id": "sprinter_0",
+        "event_type": "departure",
+        "update": {
+          "estimated_time_of_arrival": "2022-04-04T19:04:00+02:00"
+        }
+      },
+      {
+        "signal_time": "2022-04-04T19:04:00+02:00",
+        "start_time": "2022-04-04T19:04:00+02:00",
+        "vehicle_id": "sprinter_0",
+        "event_type": "arrival",
+        "update": {
+          "connected_charging_station": "CS_sprinter_0",
+          "estimated_time_of_departure": "2022-04-07T07:51:00+02:00",
+          "desired_soc": 0.8,
+          "soc_delta": -0.25
+        }
+      }
+    ]
+  }
+}
