@@ -236,7 +236,8 @@ class BalancedMarket(Strategy):
 
                 gc_cur_discharge_power_limit = (timesteps[v2g_ts_idx]["power"]
                                                 - 2*timesteps[v2g_ts_idx]["max_power"])
-                p = min(max(gc_cur_discharge_power_limit, p), 0)
+                cs_cur_discharge_power_limit = timesteps[v2g_ts_idx]["power"] - 2*cs.max_power
+                p = min(max(gc_cur_discharge_power_limit, cs_cur_discharge_power_limit, p), 0)
                 power[v2g_ts_idx] = p
 
                 if v2g_ts_idx == 0:
