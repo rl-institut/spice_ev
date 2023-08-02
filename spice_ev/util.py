@@ -243,7 +243,7 @@ def set_options_from_config(args, check=None, verbose=True):
                     except IndexError:
                         raise Exception(f"Unknown option {k}")
                     # check each item in list individually
-                    v_list = [v] if type(v) != list else v
+                    v_list = [v] if type(v) is not list else v
                     for v_item in v_list:
                         # check item. Returns None on success
                         # may raise ArgumentError if not successful
