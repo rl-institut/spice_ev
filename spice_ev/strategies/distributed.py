@@ -160,8 +160,11 @@ class Distributed(strategy.Strategy):
                         continue
 
                     # create new world state with just this GC and relevant vehicles
+                    # GC, CS and vehicles arfe original from this world state (reference)!
                     new_world_state = deepcopy(self.world_state)
                     new_world_state.grid_connectors = {gc_id: gc}
+                    # add available battery power
+                    gc.cur_max_power += avail_bat_power[gc_id]
                     new_world_state.charging_stations = {}
                     new_world_state.vehicles = {}
                     # no batteries (do this here and not in substrategy)
@@ -183,9 +186,13 @@ class Distributed(strategy.Strategy):
                     if type(event) is events.VehicleEvent and event.vehicle_id == v_id:
                         new_world_state.future_events.append(deepcopy(event))
             if strat is not None:
+                # update world state of strategy
+                strat.current_time = self.current_time
                 strat.world_state = new_world_state
                 commands = strat.step()["commands"]
                 charging_stations.update(commands)
+                # revert available battery power
+                gc.cur_max_power -= avail_bat_power[gc_id]
 
         # all vehicles loaded
         charging_stations.update(self.distribute_surplus_power())

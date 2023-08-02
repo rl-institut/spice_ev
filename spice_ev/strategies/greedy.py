@@ -44,59 +44,33 @@ class Greedy(Strategy):
                 continue
 
             cs = self.world_state.charging_stations[cs_id]
-            gc = self.world_state.grid_connectors[cs.parent]
+            gc_id = cs.parent
+            gc = self.world_state.grid_connectors[gc_id]
+            gc_power_left = gc.cur_max_power - gc.get_current_load()
+            power = 0
+            avg_power = 0
+            bat_power_used = False
+            if get_cost(1, gc.cost) <= self.PRICE_THRESHOLD:
+                # low energy price: take max available power from GC without batteries
+                power = clamp_power(gc_power_left, vehicle, cs)
+                avg_power = vehicle.battery.load(self.interval, power)['avg_power']
+            elif vehicle.get_delta_soc() > 0:
+                # vehicle needs charging: take max available power (with batteries)
+                # limit to desired SoC
+                power = gc_power_left + avail_bat_power[gc_id]
+                power = clamp_power(power, vehicle, cs)
+                avg_power = vehicle.battery.load(
+                    self.interval, max_power=power, target_soc=vehicle.desired_soc)['avg_power']
+                bat_power_used = True
 
-            charging_stations, avail_bat_power[cs.parent] = load_vehicle(
-                self, cs, gc, vehicle, cs_id, charging_stations, avail_bat_power[cs.parent])
+            # update CS and GC
+            charging_stations[cs_id] = gc.add_load(cs_id, avg_power)
+            cs.current_power += avg_power
+            if bat_power_used:
+                avail_bat_power[gc_id] = max(avail_bat_power[gc_id] - avg_power, 0)
+
         # all vehicles loaded
         charging_stations.update(self.distribute_surplus_power())
         self.update_batteries()
 
         return {'current_time': self.current_time, 'commands': charging_stations}
-
-
-def load_vehicle(strategy, cs, gc, vehicle, cs_id, charging_stations, avail_bat_power):
-    """ Load one vehicle with greedy strategy.
-
-    :param strategy: current world state
-    :type strategy: Strategy
-    :param cs: charging station dict
-    :type cs: dict
-    :param gc: grid connector dict
-    :type gc: dict
-    :param vehicle: vehicle dict
-    :type vehicle: dict
-    :param cs_id: name of the charging station
-    :type cs_id: str
-    :param charging_stations: charging stations
-    :type charging_stations: dict
-    :param avail_bat_power: available battery power of the gc
-    :type avail_bat_power: float
-    :return: current time and commands of the charging stations
-    :rtype: dict
-    """
-
-    gc_power_left = gc.cur_max_power - gc.get_current_load()
-    power = 0
-    avg_power = 0
-    bat_power_used = False
-    if get_cost(1, gc.cost) <= strategy.PRICE_THRESHOLD:
-        # low energy price: take max available power from GC without batteries
-        power = clamp_power(gc_power_left, vehicle, cs)
-        avg_power = vehicle.battery.load(strategy.interval, max_power=power)['avg_power']
-    elif vehicle.get_delta_soc() > 0:
-        # vehicle needs charging: take max available power (with batteries)
-        # limit to desired SoC
-        power = gc_power_left + avail_bat_power
-        power = clamp_power(power, vehicle, cs)
-        avg_power = vehicle.battery.load(
-            strategy.interval, max_power=power, target_soc=vehicle.desired_soc)['avg_power']
-        bat_power_used = True
-
-    # update CS and GC
-    charging_stations[cs_id] = gc.add_load(cs_id, avg_power)
-    cs.current_power += avg_power
-    if bat_power_used:
-        avail_bat_power = max(avail_bat_power - avg_power, 0)
-
-    return charging_stations, avail_bat_power
