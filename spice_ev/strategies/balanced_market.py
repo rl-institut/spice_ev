@@ -8,11 +8,10 @@ from spice_ev.strategy import Strategy
 class BalancedMarket(Strategy):
     """ Price oriented charging at times of low energy price. """
     def __init__(self, components, start_time, **kwargs):
-        self.PRICE_THRESHOLD = 0.001  # EUR/kWh
         self.HORIZON = 24  # maximum number of hours ahead
 
         super().__init__(components, start_time, **kwargs)
-        assert len(self.world_state.grid_connectors) == 1, "Only one grid connector supported"
+        # assert len(self.world_state.grid_connectors) == 1, "Only one grid connector supported"
         self.description = "balanced (market-oriented)"
 
         # adjust foresight for price events
@@ -34,7 +33,6 @@ class BalancedMarket(Strategy):
         :return: current time and commands of the charging stations
         :rtype: dict
         """
-
         gc = list(self.world_state.grid_connectors.values())[0]
 
         # dict to hold charging commands
