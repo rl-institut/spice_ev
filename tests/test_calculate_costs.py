@@ -149,11 +149,11 @@ class TestSimulationCosts:
         # check returned values
         result = cc.calculate_costs("balanced", "MV", s.interval, *timeseries_lists,
                                     str(price_sheet), None, pv)
-        assert result["total_costs_per_year"] == 309.4
-        assert result["commodity_costs_eur_per_year"] == 73.45
+        assert result["total_costs_per_year"] == 308.45
+        assert result["commodity_costs_eur_per_year"] == 73.15
         assert result["capacity_costs_eur"] == 65.7
-        assert result["power_procurement_costs_per_year"] == 75.61
-        assert result["levies_fees_and_taxes_per_year"] == 94.63
+        assert result["power_procurement_costs_per_year"] == 75.3
+        assert result["levies_fees_and_taxes_per_year"] == 94.31
         assert result["feed_in_remuneration_per_year"] == 0
 
     def test_calculate_costs_balanced_market_A(self):

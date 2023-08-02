@@ -160,7 +160,7 @@ class Distributed(strategy.Strategy):
                         continue
 
                     # create new world state with just this GC and relevant vehicles
-                    # GC, CS and vehicles arfe original from this world state (reference)!
+                    # GC, CS and vehicles are original from this world state (reference)!
                     new_world_state = deepcopy(self.world_state)
                     new_world_state.grid_connectors = {gc_id: gc}
                     # add available battery power
