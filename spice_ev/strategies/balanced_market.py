@@ -78,13 +78,13 @@ class BalancedMarket(Strategy):
                     # not this timestep
                     break
                 event_idx += 1
-                if type(event) == events.GridOperatorSignal:
+                if type(event) is events.GridOperatorSignal:
                     # update GC info
                     if event.max_power is not None:
                         cur_max_power = event.max_power
                     if event.cost is not None:
                         cur_cost = event.cost
-                elif type(event) == events.LocalEnergyGeneration:
+                elif type(event) is events.LocalEnergyGeneration:
                     cur_local_generation[event.name] = event.value
                 # vehicle events ignored (use vehicle info such as estimated_time_of_departure)
 

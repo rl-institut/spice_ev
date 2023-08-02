@@ -160,13 +160,13 @@ class Schedule(Strategy):
                     break
                 # event handled: don't handle again, so increase index
                 event_idx += 1
-                if type(event) == events.GridOperatorSignal:
+                if type(event) is events.GridOperatorSignal:
                     # update GC info
                     gc_info[-1]["target"] = \
                         event.target if event.target is not None else gc_info[-1]["target"]
                     gc_info[-1]["charge"] = \
                         event.window if event.window is not None else gc_info[-1]["charge"]
-                elif type(event) == events.LocalEnergyGeneration:
+                elif type(event) is events.LocalEnergyGeneration:
                     gc_info[-1]["current_loads"][event.name] = -event.value
                 # ignore vehicle events, use vehicle data directly
                 # ignore local generation for now as well
@@ -667,7 +667,7 @@ class Schedule(Strategy):
                         break
                     # event handled: don't handle again, so increase index
                     event_idx += 1
-                    if type(event) == events.VehicleEvent and event.vehicle_id == vid:
+                    if type(event) is events.VehicleEvent and event.vehicle_id == vid:
                         if event.event_type == 'schedule':
                             cur_schedule = event.update["schedule"]
                         elif event.event_type == 'departure':

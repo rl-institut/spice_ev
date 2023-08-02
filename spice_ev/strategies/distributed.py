@@ -76,7 +76,7 @@ class Distributed(Strategy):
                 if event.start_time > event.start_time + datetime.timedelta(minutes=self.C_HORIZON):
                     # not this timestep
                     break
-                if type(event) == events.VehicleEvent:
+                if type(event) is events.VehicleEvent:
                     if event.vehicle_id == vehicle_id:
                         # not this vehicle event
                         continue

@@ -59,7 +59,7 @@ def generate_from_simbev(args):
     pathlist.sort()
 
     def datetime_from_timestep(timestep):
-        assert type(timestep) == int
+        assert type(timestep) is int
         return start + (interval * timestep)
 
     # take start time from SimBEV metadata
