@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="spice_ev",
-    version="1.0.0",
+    version="1.0.1",
     description="Simulation Program for Individual Charging Events of Electric Vehicles.",
     url="https://github.com/rl-institut/spice_ev",
     author="Reiner Lemoine Institut",
