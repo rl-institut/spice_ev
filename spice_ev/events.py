@@ -53,6 +53,7 @@ class Events:
                 local_generation_list.get_events(name, LocalEnergyGeneration,
                                                  has_perfect_foresight=True))
 
+        moved = 0
         ignored = 0
 
         for event in all_events:
@@ -60,13 +61,15 @@ class Events:
             index = -((start_time - event.signal_time) // interval)
 
             if index < 0:
-                warn('Event is before start of scenario, placing at first time step: ' + str(event))
+                moved += 1
                 steps[0].append(event)
             elif index >= n_intervals:
                 ignored += 1
             else:
                 steps[index].append(event)
 
+        if moved:
+            warn('{} events before start of scenario, placed at first time step'.format(moved))
         if ignored:
             warn('{} events ignored after end of scenario'.format(ignored))
 

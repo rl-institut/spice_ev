@@ -87,17 +87,17 @@ class Strategy():
             # remove event from list
             ev = self.world_state.future_events.pop(0)
 
-            if type(ev) == events.FixedLoad:
+            if type(ev) is events.FixedLoad:
                 connector = self.world_state.grid_connectors[ev.grid_connector_id]
                 assert ev.name not in self.world_state.charging_stations, (
                     "Fixed load must not be from charging station")
                 connector.current_loads[ev.name] = ev.value  # not reset after last event
-            elif type(ev) == events.LocalEnergyGeneration:
+            elif type(ev) is events.LocalEnergyGeneration:
                 assert ev.name not in self.world_state.charging_stations, (
                     "Local energy generation must not be from charging station")
                 connector = self.world_state.grid_connectors[ev.grid_connector_id]
                 connector.current_loads[ev.name] = -ev.value
-            elif type(ev) == events.GridOperatorSignal:
+            elif type(ev) is events.GridOperatorSignal:
                 connector = self.world_state.grid_connectors[ev.grid_connector_id]
                 if ev.cost is not None:
                     # set power cost
@@ -114,7 +114,7 @@ class Strategy():
                 else:
                     # connector max power not set
                     connector.cur_max_power = ev.max_power
-            elif type(ev) == events.VehicleEvent:
+            elif type(ev) is events.VehicleEvent:
                 vehicle = self.world_state.vehicles[ev.vehicle_id]
                 # update vehicle attributes
                 for k, v in ev.update.items():

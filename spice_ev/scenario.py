@@ -96,6 +96,7 @@ class Scenario:
 
         begin = datetime.datetime.now()
         error = None
+        step_i = -1
         for step_i in range(self.n_intervals):
 
             if options.get("timing", False):
