@@ -114,6 +114,19 @@ class TestScenarios(TestCaseBase):
             # GC has neither cost nor schedule
             strat.step()
 
+    def test_zero_intervals(self):
+        test_json = {
+            "scenario": {
+                "start_time": "1970-01-01T00:00:00+00:00",
+                "interval": 15,
+                "n_intervals": 0
+            }
+        }
+        s = scenario.Scenario(test_json)
+        s.run('greedy', {})
+        assert s.n_intervals == 0
+        assert s.step_i == 0
+
     def test_file(self):
         # open from file
         input = TEST_REPO_PATH / 'test_data/input_test_strategies/scenario_A.json'

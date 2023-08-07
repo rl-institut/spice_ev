@@ -24,7 +24,7 @@ def simulate(args):
     :raises NotImplementedError: if unknown strategy is given
     """
 
-    if type(args) == argparse.Namespace:
+    if type(args) is argparse.Namespace:
         # cast arguments to dictionary for default handling
         args = vars(args)
 

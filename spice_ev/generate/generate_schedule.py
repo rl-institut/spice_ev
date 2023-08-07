@@ -300,13 +300,13 @@ def generate_individual_flex_band(scenario, gcID):
         if idx != 0:
             flex["vehicles"].append([])
         for event in timestep:
-            if type(event) == events.FixedLoad and event.grid_connector_id == gcID:
+            if type(event) is events.FixedLoad and event.grid_connector_id == gcID:
                 # fixed load event at this GC
                 gc.current_loads[event.name] = event.value
-            elif type(event) == events.LocalEnergyGeneration and event.grid_connector_id == gcID:
+            elif type(event) is events.LocalEnergyGeneration and event.grid_connector_id == gcID:
                 # local generation event behind this GC
                 gc.current_loads[event.name] = -event.value
-            elif type(event) == events.GridOperatorSignal and event.grid_connector_id == gcID:
+            elif type(event) is events.GridOperatorSignal and event.grid_connector_id == gcID:
                 # grid op event at this GC
                 if gc.max_power:
                     if event.max_power is None:
@@ -317,7 +317,7 @@ def generate_individual_flex_band(scenario, gcID):
                 else:
                     # connector max power not set
                     gc.cur_max_power = event.max_power
-            elif type(event) == events.VehicleEvent:
+            elif type(event) is events.VehicleEvent:
                 # vehicle event: check if this GC
                 vid = event.vehicle_id
                 vehicle = vehicles[vid]
