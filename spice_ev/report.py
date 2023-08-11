@@ -1,6 +1,7 @@
 import datetime
 import json
 from pathlib import Path
+import warnings
 
 from spice_ev import util
 
@@ -784,6 +785,8 @@ def generate_reports(scenario, options):
             if len(gc_ids) > 1:
                 # extend file name by GC name (without special characters)
                 fpath = fpath.parent / f"{fpath.stem}_{util.sanitize(gcID)}{fpath.suffix}"
+            if len(str(fpath.resolve())) > 260:
+                warnings.warn(f"Path length of {gcID} results exceeds 260 characters.")
             with fpath.open('w') as results_file:
                 json.dump(results_file_content, results_file, indent=2)
         if save_timeseries:
@@ -791,6 +794,8 @@ def generate_reports(scenario, options):
             fpath = Path(save_timeseries)
             if len(gc_ids) > 1:
                 fpath = fpath.parent / f"{fpath.stem}_{util.sanitize(gcID)}{fpath.suffix}"
+            if len(str(fpath.resolve())) > 260:
+                warnings.warn(f"Path length of {gcID} timeseries exceeds 260 characters.")
             with fpath.open('w') as timeseries_file:
                 # write header
                 timeseries_file.write(','.join(agg_ts["header"]))
@@ -807,6 +812,8 @@ def generate_reports(scenario, options):
     if save_soc:
         # write vehicle SoC per timestep to file
         vids = sorted(scenario.components.vehicles.keys())
+        if len(str(Path(save_soc).resolve())) > 260:
+            warnings.warn("Path length of SoC timeseries exceeds 260 characters.")
         with open(save_soc, "w") as soc_file:
             # write header
             header = ["timestep", "time"] + vids
