@@ -11,7 +11,7 @@ from spice_ev.costs import calculate_costs
 
 STRATEGIES = [
     'greedy', 'balanced', 'balanced_market', 'distributed',
-    'peak_load_window', 'flex_window', 'schedule'
+    'peak_load_window', 'peak_shaving', 'flex_window', 'schedule'
 ]
 
 
