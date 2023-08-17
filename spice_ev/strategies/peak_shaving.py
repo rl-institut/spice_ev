@@ -160,14 +160,20 @@ class PeakShaving(Strategy):
 
         charging_stations = {}
 
+        # make certain each vehicle has a depart_idx
+        for vehicle_info in vehicle_arrivals:
+            if vehicle_info["depart_idx"] is None:
+                delta_t = vehicle_info["vehicle"].estimated_time_of_departure - self.current_time
+                vehicle_info["depart_idx"] = delta_t // self.interval
+
+        # order vehicles by standing time => charge those with least standing time first
+        vehicle_arrivals = sorted(vehicle_arrivals, key=lambda v: v["depart_idx"] - v["arrival_idx"])
+
         # --- ADJUST POWER CURVE --- #
         for v_info in vehicle_arrivals:
             # get arrival/departure
             arrival_idx = v_info["arrival_idx"]
             depart_idx = v_info["depart_idx"]
-            if depart_idx is None:
-                delta_t = v_info["vehicle"].estimated_time_of_departure - self.current_time
-                depart_idx = delta_t // self.interval
             if arrival_idx == depart_idx:
                 continue
 
