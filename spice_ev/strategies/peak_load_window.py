@@ -220,7 +220,8 @@ class PeakLoadWindow(Strategy):
                 for ts_idx, ts in enumerate(connected_ts):
                     if ts["window"]:
                         # use up to peak power
-                        p, power_levels[ts_idx] = charge_vehicle(self.peak_power[gc_id], ts_info)
+                        power = self.peak_power[gc_id] - ts["power"]
+                        p, power_levels[ts_idx] = charge_vehicle(power, ts)
                         if ts_idx == 0:
                             cur_power = p
                 # greedy might not have been enough, need to increase peak load
@@ -237,7 +238,7 @@ class PeakLoadWindow(Strategy):
                         if ts["window"]:
                             # load window: get difference between opt power and current power
                             power = max(target_power - ts["power"], 0)
-                            p, power_levels[ts_idx] = charge_vehicle(power, ts_info)
+                            p, power_levels[ts_idx] = charge_vehicle(power, ts)
                             if ts_idx == 0:
                                 cur_power = p
                     if vehicle.desired_soc - vehicle.battery.soc < self.EPS:
