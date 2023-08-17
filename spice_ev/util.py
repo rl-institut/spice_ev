@@ -34,13 +34,31 @@ def datetime_within_window(dt, time_windows):
     :return: is datetime within time windows?
     :rtype: bool
     """
-
     for window in time_windows.values():
         start = window["start"].replace(year=dt.year)
         end = window["end"].replace(year=dt.year)
         if start.date() <= dt.date() <= end.date():
             # this season
             return start.time() <= dt.time() < end.time()
+    return False
+
+
+def datetime_within_power_level_window(dt, time_windows, power_level):
+    # structure: season -> start (date), end (date), windows -> power level -> [[start, end], ...]
+    for season in time_windows.values():
+        if season["start"] <= dt.date() <= season["end"]:
+            # same season: check times of power level
+            windows = season.get("windows", {}).get(power_level, [])
+            for window in windows:
+                if window[1] < window[0]:
+                    # crossing midnight
+                    if dt.time() >= window[0] or dt.time() < window[1]:
+                        return True
+                elif window[0] <= dt.time() < window[1]:
+                    # within interval
+                    return True
+            # same season, but not within time windows: skip other seasons
+            return False
     return False
 
 

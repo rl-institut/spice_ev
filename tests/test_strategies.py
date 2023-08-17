@@ -269,25 +269,32 @@ class TestScenarios(TestCaseBase):
     def test_scenario_A(self):
         input = TEST_REPO_PATH / 'test_data/input_test_strategies/scenario_A.json'
         s = scenario.Scenario(load_json(input), input.parent)
-        for strat in ['greedy', 'balanced', 'balanced_market', 'flex_window', 'peak_load_window']:
+        for strat in ['greedy', 'balanced', 'balanced_market', 'flex_window']:
             s.run(strat, {})
 
     # TEST with battery, local generation, fixed load and V2G (Scenario B)
     def test_scenario_B(self):
         input = TEST_REPO_PATH / 'test_data/input_test_strategies/scenario_B.json'
         s = scenario.Scenario(load_json(input), input.parent)
-        for strat in ['greedy', 'balanced', 'balanced_market', 'flex_window', 'peak_load_window']:
+        for strat in ['greedy', 'balanced', 'balanced_market', 'flex_window']:
             s.run(strat, {})
 
     # TEST with battery, local generation, fixed load, V2G and schedule (Scenario C)
     def test_scenario_C1(self):
         input = TEST_REPO_PATH / 'test_data/input_test_strategies/scenario_C1.json'
         s = scenario.Scenario(load_json(input), input.parent)
-        for strat in ['greedy', 'balanced', 'balanced_market', 'flex_window', 'peak_load_window']:
+        for strat in ['greedy', 'balanced', 'balanced_market', 'flex_window']:
             s.run(strat, {"testing": True})
             for gcID, gc in s.components.grid_connectors.items():
                 assert s.testing["max_total_load"] <= s.components.grid_connectors[gcID].max_power
                 assert s.testing["max_total_load"] > 0
+
+    def test_peak_load_window(self):
+        for scenario_file in ["scenario_A.json", "scenario_B.json", "scenario_C1.json"]:
+            input = TEST_REPO_PATH / f"test_data/input_test_strategies/{scenario_file}"
+            s = scenario.Scenario(load_json(input), input.parent)
+            s.run("peak_load_window", {"time_windows":
+                  TEST_REPO_PATH / "test_data/input_test_strategies/time_windows_example.json"})
 
     def test_distributed_D(self):
         input = TEST_REPO_PATH / 'test_data/input_test_strategies/bus_scenario_D.json'

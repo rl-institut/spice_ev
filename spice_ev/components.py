@@ -43,7 +43,8 @@ class GridConnector:
             ('cost', dict, {}),
             ('target', float, None),
             ('window', bool, None),
-            ('voltage_level', str, None)
+            ('voltage_level', str, None),
+            ('grid_operator', str, None),
         ]
         util.set_attr_from_dict(obj, self, keys, optional_keys)
         self.avg_fixed_load = None
