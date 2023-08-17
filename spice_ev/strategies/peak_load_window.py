@@ -14,7 +14,7 @@ class PeakLoadWindow(Strategy):
     """
     def __init__(self, components, start_time, **kwargs):
         self.time_windows = None
-        self.simulate_socs = True
+        self.LOAD_STRAT = "greedy"  # peak_shaving or greedy
         super().__init__(components, start_time, **kwargs)
         self.description = "§19.2 StromNEV"
 
@@ -82,6 +82,19 @@ class PeakLoadWindow(Strategy):
         if changed:
             print(changed, "events signaled earlier")
         self.events = sorted(local_events, key=lambda ev: ev.start_time)
+
+        # find highest peak of GC power
+        current_loads = {gc_id: deepcopy(gc.current_loads)
+                         for gc_id, gc in self.world_state.grid_connectors.items()}
+        peak_power = {gc: sum(loads) for gc, loads in current_loads.items()}
+        for event in self.events:
+            gc = event.grid_connector_id
+            if type(event) is events.LocalEnergyGeneration:
+                current_loads[gc][event.name] = -event.value
+            elif type(event) is events.FixedLoad:
+                current_loads[gc][event.name] = event.value
+                peak_power[gc] = max(peak_power[gc], sum(current_loads[gc].values()))
+        self.peak_power = peak_power
 
     def step(self):
         """ Calculate charging power in each timestep.
@@ -176,6 +189,13 @@ class PeakLoadWindow(Strategy):
             departure = vehicle.estimated_time_of_departure
             depart_idx = -((departure - self.current_time) // -self.interval)
             connected_ts = timesteps[:depart_idx]
+
+            def charge_vehicle(power, ts_info):
+                p = util.clamp_power(power, vehicle, cs)
+                p = min(p, ts_info["max_power"] - ts_info["power"])
+                avg_power = vehicle.battery.load(self.interval, target_power=p)["avg_power"]
+                return p, avg_power
+
             # try to charge balanced outside of load windows
             num_outside_ts = sum([not ts["window"] for ts in connected_ts])
             for ts_idx, ts_info in enumerate(connected_ts):
@@ -184,12 +204,9 @@ class PeakLoadWindow(Strategy):
                     power = vehicle.get_energy_needed() * ts_per_hour / num_outside_ts
                     # scale with efficiency, as this is what actually affects the SoC
                     power /= vehicle.battery.efficiency
-                    # limited by GC/CS/vehicle
-                    power = util.clamp_power(power, vehicle, cs)
-                    power = min(power, ts_info["max_power"] - ts_info["power"])
-                    avg_power = vehicle.battery.load(self.interval, target_power=power)["avg_power"]
-                    num_outside_ts -= 1
+                    power, avg_power = charge_vehicle(power, ts_info)
                     ts_info["power"] += avg_power
+                    num_outside_ts -= 1
                     if ts_idx == 0:
                         cur_power = power
 
@@ -198,39 +215,45 @@ class PeakLoadWindow(Strategy):
             # take note of soc after out-of-window charging
             intermediate_soc = vehicle.battery.soc
             # not enough: peak shaving within load windows
-            if needs_charging and self.simulate_socs:
+            power_levels = [0]*depart_idx
+            if needs_charging and self.LOAD_STRAT == "greedy":
+                for ts_idx, ts in enumerate(connected_ts):
+                    if ts["window"]:
+                        # use up to peak power
+                        p, power_levels[ts_idx] = charge_vehicle(self.peak_power[gc_id], ts_info)
+                        if ts_idx == 0:
+                            cur_power = p
+                # greedy might not have been enough, need to increase peak load
+                # => fall back to peak shaving
+                needs_charging = vehicle.desired_soc - vehicle.battery.soc > self.EPS
+            if needs_charging:
                 # find optimum power level through binary search
                 min_power = min([ts["power"] for ts in connected_ts])
                 max_power = max([ts["max_power"] for ts in connected_ts])
-                power_levels = [0]*depart_idx
                 while max_power - min_power > self.EPS:
                     vehicle.battery.soc = intermediate_soc
-                    power = (max_power + min_power) / 2
+                    target_power = (max_power + min_power) / 2
                     for ts_idx, ts in enumerate(connected_ts):
                         if ts["window"]:
                             # load window: get difference between opt power and current power
-                            p1 = max(power - ts["power"], 0)
-                            # limited by GC/CS/vehicle
-                            p2 = util.clamp_power(p1, vehicle, cs)
-                            p3 = min(p2, ts_info["max_power"] - ts_info["power"])
-                            p4 = vehicle.battery.load(self.interval, target_power=p3)["avg_power"]
+                            power = max(target_power - ts["power"], 0)
+                            p, power_levels[ts_idx] = charge_vehicle(power, ts_info)
                             if ts_idx == 0:
-                                cur_power = p3
-                            power_levels[ts_idx] = p4
+                                cur_power = p
                     if vehicle.desired_soc - vehicle.battery.soc < self.EPS:
                         # charged enough: decrease power
-                        max_power = power
+                        max_power = target_power
                     else:
                         # not charged enough: increase power
-                        min_power = power
-                # add power levels to gc info
-                for ts_idx, ts_info in enumerate(connected_ts):
-                    ts_info["power"] += power_levels[ts_idx]
-            elif needs_charging and not self.simulate_socs:
-                # find optimum power level through computation (might be error prone)
-                # get power over standing time, sort ascending
-                # TODO
-                pass
+                        min_power = target_power
+
+            # add power levels to gc info
+            for ts_idx, ts_info in enumerate(connected_ts):
+                ts_info["power"] += power_levels[ts_idx]
+                # might have to increase global max power
+                if ts_info["window"] and ts_info["power"] > self.peak_power[gc_id]:
+                    # warnings.warn(f"{gc_id}: increase peak power to {ts_info["power"]}")
+                    self.peak_power[gc_id] = ts_info["power"]
 
             # --- charge for real --- #
             vehicle.battery.soc = old_soc
