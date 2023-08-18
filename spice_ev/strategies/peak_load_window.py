@@ -200,16 +200,17 @@ class PeakLoadWindow(Strategy):
                 avg_power = vehicle.battery.load(self.interval, target_power=p)["avg_power"]
                 return p, avg_power
 
+            power_levels = [0]*depart_idx
             # try to charge balanced outside of load windows
             num_outside_ts = sum([not ts["window"] for ts in connected_ts])
-            for ts_idx, ts_info in enumerate(connected_ts):
-                if not ts_info["window"]:
+            for ts_idx, ts in enumerate(connected_ts):
+                if not ts["window"]:
                     # distribute power evenly over remaining standing time
                     power = vehicle.get_energy_needed() * ts_per_hour / num_outside_ts
                     # scale with efficiency, as this is what actually affects the SoC
                     power /= vehicle.battery.efficiency
-                    power, avg_power = charge_vehicle(power, ts_info)
-                    ts_info["power"] += avg_power
+                    power, avg_power = charge_vehicle(power, ts)
+                    power_levels[ts_idx] = avg_power
                     num_outside_ts -= 1
                     if ts_idx == 0:
                         cur_power = power
@@ -219,12 +220,13 @@ class PeakLoadWindow(Strategy):
             # take note of soc after out-of-window charging
             intermediate_soc = vehicle.battery.soc
             # not enough: peak shaving within load windows
-            power_levels = [0]*depart_idx
             if needs_charging and self.LOAD_STRAT == "greedy":
                 for ts_idx, ts in enumerate(connected_ts):
                     if ts["window"]:
-                        # use up to peak power
-                        power = self.peak_power[gc_id] - ts["power"]
+                        # use up to peak power, but not more than needed
+                        power = min(
+                            vehicle.get_energy_needed() * ts_per_hour / vehicle.battery.efficiency,
+                            self.peak_power[gc_id] - ts["power"])
                         p, power_levels[ts_idx] = charge_vehicle(power, ts)
                         if ts_idx == 0:
                             cur_power = p
