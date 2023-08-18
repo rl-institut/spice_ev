@@ -17,6 +17,7 @@ class PeakLoadWindow(Strategy):
         self.LOAD_STRAT = "greedy"  # peak_shaving or greedy
         super().__init__(components, start_time, **kwargs)
         self.description = "§19.2 StromNEV"
+        self.uses_window = True
 
         if self.time_windows is None:
             raise Exception("Need time windows for Peak Load Window strategy")
@@ -176,6 +177,9 @@ class PeakLoadWindow(Strategy):
                         cur_time, self.time_windows[gc.grid_operator], gc.voltage_level)
                 }
             )
+
+        gc.window = util.datetime_within_power_level_window(
+            self.current_time, self.time_windows[gc.grid_operator], gc.voltage_level)
 
         # sort vehicles by length of standing time
         # (in case out-of-window-charging is not enough, use peak shaving)
