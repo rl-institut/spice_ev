@@ -651,19 +651,19 @@ def plot(scenario):
     for r in scenario.results:
         xlabels.append(r['current_time'])
 
-    # batteries
+    # plot stationary batteries
     if scenario.batteryLevels:
         plots_top_row = 3
         ax = plt.subplot(2, plots_top_row, 3)
         ax.set_title('Stationary Batteries')
-        ax.set(ylabel='Stored Power in kWh')
+        ax.set(ylabel='Stored power in kWh')
         for name, values in scenario.batteryLevels.items():
             ax.plot(xlabels, values, label=name)
         ax.legend()
     else:
         plots_top_row = 2
 
-    # vehicles
+    # plot vehicles
     ax = plt.subplot(2, plots_top_row, 1)
     ax.set_title('Vehicles')
     ax.set(ylabel='SoC')
@@ -676,7 +676,7 @@ def plot(scenario):
         if len(scenario.components.vehicles) <= 10:
             ax.legend(lines, sorted(scenario.components.vehicles.keys()))
 
-    # charging stations
+    # plot charging stations
     ax = plt.subplot(2, plots_top_row, 2)
     ax.set_title('Charging Stations')
     ax.set(ylabel='Power in kW')
@@ -685,35 +685,50 @@ def plot(scenario):
         if len(scenario.components.charging_stations) <= 10:
             ax.legend(lines, sorted(scenario.components.charging_stations.keys()))
 
-    # total power
+    # plot all power sources
     ax = plt.subplot(2, 2, 3)
+    # charging stations
     if any(scenario.sum_cs):
         ax.step(xlabels, list([sum(cs) for cs in scenario.sum_cs]),
                 label="Charging Stations", where='post')
+    # other loads
     gc_ids = scenario.components.grid_connectors.keys()
     for gcID in gc_ids:
         for name, values in scenario.loads[gcID].items():
             ax.step(xlabels, values, label=name, where='post')
-    # draw schedule
+    # draw time windows
     if scenario.strat.uses_window:
-        for gcID, schedule in scenario.gcWindowSchedule.items():
-            if all(s is not None for s in schedule):
-                # schedule exists
-                window_values = [v * int(max(scenario.totalLoad[gcID])) for v in schedule]
-                ax.step(xlabels, window_values, label="window {}".format(gcID),
-                        linestyle='--', where='post')
+        # get list with boolean values for timesteps inside/outside window for each grid connector
+        for gcID, w_list in scenario.gcWindowSchedule.items():
+            if all(s is not None for s in w_list):
+                # add shaded background based on the boolean values
+                color = 'red' if w_list[0] else 'lightgreen'
+                # add only one label for each type of time window
+                i = 0
+                window_label = ('_'*i+'Inside window') if w_list[0] else ("_"*i+"Outside window")
+                start_date = xlabels[0]
+                for date, v in zip(xlabels[0:], w_list[0:]):
+                    if v != w_list[xlabels.index(start_date)]:
+                        ax.axvspan(start_date, date, label=window_label, facecolor=color, alpha=0.2)
+                        start_date = date
+                        color = 'red' if v else 'lightgreen'
+                        window_label = ('_'*i+'Inside window') if v else ("_"*i+"Outside window")
+                        i += 1
+                # handle the last window if it extends to the end
+                ax.axvspan(start_date, xlabels[-1], label=window_label, facecolor=color, alpha=0.2)
+    # draw schedule
     if scenario.strat.uses_schedule:
         for gcID, schedule in scenario.gcPowerSchedule.items():
             if any(s is not None for s in schedule):
                 ax.step(xlabels, schedule, label="Schedule {}".format(gcID), where='post')
-
+    # total power
     ax.step(xlabels, scenario.all_totalLoad, label="Total", where='post')
     ax.set_title('Total Power')
     ax.set(ylabel='Power in kW')
     ax.legend()
     ax.xaxis_date()  # xaxis are datetime objects
 
-    # price
+    # plot prices
     ax = plt.subplot(2, 2, 4)
     prices = list(zip(*scenario.prices.values()))
     lines = ax.step(xlabels, prices, where='post')
