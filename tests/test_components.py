@@ -273,3 +273,10 @@ class TestBattery:
         b.soc = 0.8981399672579304
         p = b.load(td, target_power=target_power)['avg_power']
         assert pytest.approx(p) == target_power
+
+        # third test: charging curve is zero => no charging
+        lc = loading_curve.LoadingCurve([(0, 0.0), (0.8, 0.0), (1, 0.0)])
+        b = battery.Battery(350, lc, 0.8)
+        td = datetime.timedelta(minutes=15)
+        p = b.load(td)["avg_power"]
+        assert p == 0

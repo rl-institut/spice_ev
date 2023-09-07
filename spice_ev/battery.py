@@ -280,6 +280,10 @@ class Battery():
             dx = x2 - x1
             dy = y2 - y1
 
+            if y1 == y2 == 0:
+                # no energy in current linear section: stop charging
+                break
+
             m = dy / dx
             n = y1 - m * x1
             c = self.capacity
