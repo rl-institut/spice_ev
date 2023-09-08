@@ -69,8 +69,9 @@ class Scenario:
         :type options: dict
         """
 
-        options['interval'] = self.interval
         options['events'] = self.events
+        options['interval'] = self.interval
+        options['n_intervals'] = self.n_intervals
         options['core_standing_time'] = self.core_standing_time
         options['DISCHARGE_LIMIT'] = options.get('DISCHARGE_LIMIT', self.discharge_limit)
         strat = strategy.class_from_str(strategy_name)(self.components, self.start_time, **options)

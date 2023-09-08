@@ -85,17 +85,36 @@ class PeakLoadWindow(Strategy):
             print(changed, "events signaled earlier")
         self.events = sorted(local_events, key=lambda ev: ev.start_time)
 
-        # find highest peak of GC power
-        current_loads = {gc_id: deepcopy(gc.current_loads)
-                         for gc_id, gc in self.world_state.grid_connectors.items()}
-        peak_power = {gc: sum(loads) for gc, loads in current_loads.items()}
-        for event in self.events:
-            gc = event.grid_connector_id
+        # find highest peak of GC power within time windows
+        current_loads = {}
+        peak_power = {}
+        for gc_id, gc in self.world_state.grid_connectors.items():
+            current_loads[gc_id] = deepcopy(gc.current_loads)
+            peak_power[gc_id] = 0
+        cur_time = start_time - self.interval
+        event_idx = 0
+        for i in range(self.n_intervals):
+            cur_time += self.interval
+            try:
+                event = self.events[event_idx]
+            except IndexError:
+                # no more events
+                break
+            if event.start_time > cur_time:
+                # not this timestep
+                break
+            event_idx += 1
+            gc_id = event.grid_connector_id
+            gc = self.world_state.grid_connectors[gc_id]
             if type(event) is events.LocalEnergyGeneration:
-                current_loads[gc][event.name] = -event.value
+                current_loads[gc_id][event.name] = -event.value
             elif type(event) is events.FixedLoad:
-                current_loads[gc][event.name] = event.value
-                peak_power[gc] = max(peak_power[gc], sum(current_loads[gc].values()))
+                current_loads[gc_id][event.name] = event.value
+            is_window = util.datetime_within_power_level_window(
+                cur_time, self.time_windows[gc.grid_operator], gc.voltage_level)
+            if is_window:
+                peak_power[gc_id] = max(peak_power[gc_id], sum(current_loads[gc_id].values()))
+
         self.peak_power = peak_power
 
     def step(self):
