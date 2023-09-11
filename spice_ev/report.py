@@ -700,22 +700,27 @@ def plot(scenario):
     if scenario.strat.uses_window:
         # get list with boolean values for timesteps inside/outside window for each grid connector
         for gcID, w_list in scenario.gcWindowSchedule.items():
-            if all(s is not None for s in w_list):
-                # add shaded background based on the boolean values
-                color = 'red' if w_list[0] else 'lightgreen'
-                # add only one label for each type of time window
-                i = 0
-                window_label = ('_'*i+'Inside window') if w_list[0] else ("_"*i+"Outside window")
-                start_date = xlabels[0]
-                for date, v in zip(xlabels[0:], w_list[0:]):
-                    if v != w_list[xlabels.index(start_date)]:
-                        ax.axvspan(start_date, date, label=window_label, facecolor=color, alpha=0.2)
-                        start_date = date
-                        color = 'red' if v else 'lightgreen'
-                        window_label = ('_'*i+'Inside window') if v else ("_"*i+"Outside window")
-                        i += 1
-                # handle the last window if it extends to the end
-                ax.axvspan(start_date, xlabels[-1], label=window_label, facecolor=color, alpha=0.2)
+            # add shaded background based on the boolean values, no background if no values
+            start_idx = 0
+            # show each label only once
+            label_shown = [False, False]
+            for i in range(scenario.n_intervals):
+                if w_list[i] != w_list[start_idx] or i == (scenario.n_intervals-1):
+                    # window value changed or end of scenario: plot new interval
+                    window = w_list[start_idx]
+                    if window is not None:
+                        color = 'red' if window else 'lightgreen'
+                        label = 'Inside window' if window else 'Outside window'
+                        if label_shown[window]:
+                            # labels starting with underscores are ignored
+                            label = '_' + label
+                        else:
+                            # show label once, then set flag
+                            label_shown[window] = True
+                        # draw colored rectangle for window
+                        ax.axvspan(xlabels[start_idx], xlabels[i], label=label, facecolor=color,
+                                   alpha=0.2)
+                        start_idx = i
     # draw schedule
     if scenario.strat.uses_schedule:
         for gcID, schedule in scenario.gcPowerSchedule.items():
