@@ -83,9 +83,11 @@ class PeakLoadWindow(Strategy):
             changed += event.signal_time < old_signal_time
         if changed:
             print(changed, "events signaled earlier")
-        self.events = sorted(local_events, key=lambda ev: ev.start_time)
+        local_events = sorted(local_events, key=lambda ev: ev.start_time)
 
-        # find highest peak of GC power within time windows
+        # restructure events (like event_steps): list with events for each timestep
+        # also, find highest peak of GC power within time windows
+        self.events = []
         current_loads = {}
         peak_power = {}
         for gc_id, gc in self.world_state.grid_connectors.items():
@@ -93,28 +95,31 @@ class PeakLoadWindow(Strategy):
             peak_power[gc_id] = 0
         cur_time = start_time - self.interval
         event_idx = 0
-        for i in range(self.n_intervals):
+        while cur_time <= self.stop_time:
+            cur_events = []
             cur_time += self.interval
-            try:
-                event = self.events[event_idx]
-            except IndexError:
-                # no more events
-                break
-            if event.start_time > cur_time:
-                # not this timestep
-                break
-            event_idx += 1
-            gc_id = event.grid_connector_id
-            gc = self.world_state.grid_connectors[gc_id]
-            if type(event) is events.LocalEnergyGeneration:
-                current_loads[gc_id][event.name] = -event.value
-            elif type(event) is events.FixedLoad:
-                current_loads[gc_id][event.name] = event.value
-            is_window = util.datetime_within_power_level_window(
-                cur_time, self.time_windows[gc.grid_operator], gc.voltage_level)
-            if is_window:
-                peak_power[gc_id] = max(peak_power[gc_id], sum(current_loads[gc_id].values()))
-
+            while True:
+                try:
+                    event = local_events[event_idx]
+                except IndexError:
+                    # no more events
+                    break
+                if event.start_time > cur_time:
+                    # not this timestep
+                    break
+                event_idx += 1
+                cur_events.append(event)
+                gc_id = event.grid_connector_id
+                gc = self.world_state.grid_connectors[gc_id]
+                if type(event) is events.LocalEnergyGeneration:
+                    current_loads[gc_id][event.name] = -event.value
+                elif type(event) is events.FixedLoad:
+                    current_loads[gc_id][event.name] = event.value
+                is_window = util.datetime_within_power_level_window(
+                    cur_time, self.time_windows[gc.grid_operator], gc.voltage_level)
+                if is_window:
+                    peak_power[gc_id] = max(peak_power[gc_id], sum(current_loads[gc_id].values()))
+            self.events.append(cur_events)
         self.peak_power = peak_power
 
     def step(self):
@@ -124,6 +129,8 @@ class PeakLoadWindow(Strategy):
         :rtype: dict
         """
         commands = dict()
+        # ignore current events
+        self.events = self.events[1:]
         for gc_id, gc in self.world_state.grid_connectors.items():
             assert gc.voltage_level is not None
             commands.update(self.step_gc(gc_id, gc))
@@ -156,24 +163,33 @@ class PeakLoadWindow(Strategy):
         # find upcoming load windows (not from events), take note of expected GC load
         timesteps_ahead = -((max_standing - self.current_time) // -self.interval)
         timesteps = []
-        event_idx = 0
-        cur_time = self.current_time - self.interval
         cur_loads = deepcopy(gc.current_loads)
         cur_max_power = gc.cur_max_power
 
-        for timestep_idx in range(timesteps_ahead):
+        # are there stationary batteries for this GC?
+        stationary_batteries = {
+            bid: b for bid, b in self.world_state.batteries.items() if b.parent == gc_id}
+
+        def within_window(dt):
+            return util.datetime_within_power_level_window(
+                dt, self.time_windows[gc.grid_operator], gc.voltage_level)
+
+        gc.window = within_window(self.current_time)
+        if stationary_batteries:
+            # stat. batteries present: find next change of time window (or end of scenario)
+            cur_time = self.current_time + self.interval
+            ts_until_window_change = 1
+            while within_window(cur_time) == gc.window and cur_time <= self.stop_time:
+                cur_time += self.interval
+                ts_until_window_change += 1
+            if gc.window:
+                # may have to append timesteps (all vehicles left during window)
+                timesteps_ahead = max(timesteps_ahead, ts_until_window_change)
+
+        cur_time = self.current_time - self.interval
+        for event_list in [[]] + self.events[:timesteps_ahead]:
             cur_time += self.interval
-            # peek into future events
-            while True:
-                try:
-                    event = self.events[event_idx]
-                except IndexError:
-                    # no more events
-                    break
-                if event.start_time > cur_time:
-                    # not this timestep
-                    break
-                event_idx += 1
+            for event in event_list:
                 if type(event) is events.LocalEnergyGeneration:
                     if event.grid_connector_id != gc_id:
                         continue
@@ -186,7 +202,7 @@ class PeakLoadWindow(Strategy):
                     if event.grid_connector_id != gc_id or event.max_power is None:
                         continue
                     cur_max_power = event.max_power
-                # vehicle events ignored (use vehicle info such as estimated_time_of_departure)
+                    # vehicle events ignored (use vehicle info such as estimated_time_of_departure)
 
             # save information for each timestep
             timesteps.append(
@@ -288,5 +304,78 @@ class PeakLoadWindow(Strategy):
                 power = vehicle.battery.load(self.interval, target_power=cur_power)["avg_power"]
                 charging_stations[cs_id] = power
                 gc.add_load(cs_id, power)
+
+        # use stationary batteries
+        for b_id, battery in stationary_batteries.items():
+            if gc.window:
+                # within window: discharge for peak shaving
+                # sort power levels descending
+                power_levels = sorted(
+                    [max(ts_info["power"], 0) for ts_info in timesteps[:ts_until_window_change]],
+                    reverse=True)
+                # add dummy power level of 0 (discharge to baseline)
+                # this also means there are now more power_levels than ts_until_window_change!
+                power_levels.append(0)
+
+                battery_energy = battery.soc * battery.capacity * battery.efficiency
+                if battery_energy == 0:
+                    continue
+                # find identical power levels to increase them evenly
+                energy = 0
+                lvl_idx = 0
+                power_level = 0
+                while lvl_idx < len(power_levels):
+                    p = power_levels[lvl_idx]
+                    p2 = p
+                    lvl_idx += 1
+                    while lvl_idx < len(power_levels):
+                        p2 = power_levels[lvl_idx]
+                        if p - p2 > self.EPS:
+                            num_ts = min(lvl_idx, ts_until_window_change)
+                            new_energy = (p - p2) * num_ts / ts_per_hour
+                            break
+                        lvl_idx += 1
+                    else:
+                        # no different power level until end of window
+                        new_energy = p * ts_until_window_change / ts_per_hour
+
+                    if new_energy == 0:
+                        continue
+
+                    # decrease to p2
+                    if energy + new_energy < battery_energy:
+                        # battery sufficient to support p2
+                        energy += new_energy
+                        continue
+                    # battery not sufficient to decrease to p2: discharge fraction
+                    f = (battery_energy - energy) / new_energy
+                    assert 0 < f < 1
+                    power_level = p - (p - p2) * f
+                    break
+                else:
+                    # all timesteps can be fulfilled: just use battery energy throughout
+                    # target power is last power level
+                    power_level = p2
+
+                # charge inside window (simulate whole window in case of multiple batteries)
+                for ts_idx, ts_info in enumerate(timesteps[:ts_until_window_change]):
+                    power = max(ts_info["power"] - power_level, 0)
+                    power = battery.unload(self.interval, target_power=power)["avg_power"]
+                    ts_info["power"] -= power
+                    if ts_idx == 0:
+                        old_soc = battery.soc
+                        gc.add_load(b_id, -power)
+                    # revert soc, keeping current timestep
+                    battery.soc = old_soc
+            else:
+                # outside of window: charge balanced until window change
+                # only current timestep computed, no look-ahead
+                energy_needed = (1 - battery.soc) * battery.capacity
+                p = energy_needed * ts_per_hour / battery.efficiency / ts_until_window_change
+                p2 = min(gc.max_power - gc.get_current_load(), p)
+                p3 = 0
+                if p2 >= battery.min_charging_power:
+                    p3 = battery.load(self.interval, target_power=p2)["avg_power"]
+                    gc.add_load(b_id, p3)
 
         return charging_stations
