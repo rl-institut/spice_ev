@@ -255,10 +255,10 @@ class Battery():
         # compute average power for each linear section
         # update SOC
         # computes for whole time or until target is reached
-        while remaining_hours > self.EPS and sign * (target_soc - self.soc) > 0:
+        while remaining_hours > self.EPS and sign * (target_soc - self.soc) > self.EPS:
             # target soc not yet reached
             # charging: self.soc < target; discharging: self.soc > target
-            while sign * (boundary_soc - self.soc) <= 0:
+            while sign * (boundary_soc - self.soc) < self.EPS:
                 # soc outside current boundary, get next section
                 # charging: self.soc >= boundary_soc; discharging: self.soc <= boundary_soc
                 boundary_idx += sign
@@ -279,6 +279,10 @@ class Battery():
             y2 = charging_curve.power_from_soc(x2)
             dx = x2 - x1
             dy = y2 - y1
+
+            if y1 == y2 == 0:
+                # no energy in current linear section: stop charging
+                break
 
             m = dy / dx
             n = y1 - m * x1
@@ -313,6 +317,7 @@ class Battery():
                 assert new_soc >= self.soc, f"Charge: {new_soc} should be greater than {self.soc}"
 
             energy_delta = abs(new_soc - self.soc) * c
+            assert energy_delta > 0
             self.soc = new_soc
             remaining_hours -= abs(t)
             # remember amount of energy loaded into battery

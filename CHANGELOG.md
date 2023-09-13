@@ -17,6 +17,11 @@ Template:
 - [(#)]()
 ```
 
+## [1.0.2] - Unreleased - 2023-08-21
+
+### Changed
+- plotting time windows with shaded backgrounds
+
 ## [1.0.1] - Minor Fixes - 2023-08-04
 
 ### Changed
