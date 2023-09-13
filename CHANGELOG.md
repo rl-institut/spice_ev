@@ -17,9 +17,20 @@ Template:
 - [(#)]()
 ```
 
+## [1.0.2] - Unreleased - 2023-08-21
+
+### Changed
+- plotting time windows with shaded backgrounds
+
+## [1.0.1] - Minor Fixes - 2023-08-04
+
+### Changed
+- fixed bug if scenario has no timesteps
+- fixed bug regarding V2G discharge power computation in balanced_market
+- give summary of adjusted event times instead of warning for every affected event
+- flake8 compatibility
 
 ## [1.0.0] - Initial Release SpiceEV - 2023-05-24
 
 ### Added
 - first release! 🎉
-

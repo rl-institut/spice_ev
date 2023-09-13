@@ -253,3 +253,46 @@ class TestBattery:
         b.soc = -0.5
         b.unload(td, target_soc=0)
         assert b.soc == -0.5
+
+    def test_changing_charging_curve(self):
+        # weird charging curve
+        # at soc boundaries, charging with target power lead to very small increments,
+        # leading to long waiting times
+        lc = loading_curve.LoadingCurve([[0, 50], [0.7, 30], [0.9, 50], [1, 5]])
+        capacity = 315
+        efficiency = 0.95
+        soc = 0.8901509450820835
+        target_power = 39.73487345356215
+        b = battery.Battery(capacity, lc, soc, efficiency, lc)
+        td = datetime.timedelta(minutes=1)
+        # first test failed because soc was always very close to target_soc
+        p = b.load(td, target_power=target_power)['avg_power']
+        assert pytest.approx(p) == target_power
+
+        # second test failed because soc was always very close to boundary (0.9)
+        b.soc = 0.8981399672579304
+        p = b.load(td, target_power=target_power)['avg_power']
+        assert pytest.approx(p) == target_power
+
+        # third test: charging curve is zero => no charging
+        lc = loading_curve.LoadingCurve([(0, 0.0), (0.8, 0.0), (1, 0.0)])
+        b = battery.Battery(350, lc, 0.8)
+        td = datetime.timedelta(minutes=15)
+        p = b.load(td)["avg_power"]
+        assert p == 0
+
+    def test_infinite_capacity(self):
+        lc = loading_curve.LoadingCurve([(0, 100), (1, 100)])
+        b = battery.Battery(capacity=2**64, loading_curve=lc, soc=0, efficiency=1)
+        target = 50
+        td = datetime.timedelta(minutes=60)
+        p = b.load(td, target_power=target)["avg_power"]
+        assert pytest.approx(p) == target
+
+        # does it work for a range of capacities?
+        for i in range(0, 65):
+            capacity = 2**i
+            b = battery.Battery(capacity=capacity, loading_curve=lc, soc=0, efficiency=1)
+            p = b.load(td, target_power=target)["avg_power"]
+            target_p = min(capacity, target)
+            assert pytest.approx(p) == target_p, f"Capacity: {2**i} (2^{i}). {target_p} != {p}"

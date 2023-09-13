@@ -98,7 +98,9 @@ def generate_flex_band(scenario, gcID, core_standing_time=None):
     prev_vehicles_present = False
 
     for step_i in range(scenario.n_intervals):
-        s.step(event_steps[step_i])
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore', UserWarning)
+            s.step(event_steps[step_i])
 
         current_datetime = scenario.start_time + scenario.interval * step_i
         currently_in_core_standing_time = \

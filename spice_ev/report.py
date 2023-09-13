@@ -1,6 +1,7 @@
 import datetime
 import json
 from pathlib import Path
+import warnings
 
 from spice_ev import util
 
@@ -650,19 +651,19 @@ def plot(scenario):
     for r in scenario.results:
         xlabels.append(r['current_time'])
 
-    # batteries
+    # plot stationary batteries
     if scenario.batteryLevels:
         plots_top_row = 3
         ax = plt.subplot(2, plots_top_row, 3)
         ax.set_title('Stationary Batteries')
-        ax.set(ylabel='Stored Power in kWh')
+        ax.set(ylabel='Stored power in kWh')
         for name, values in scenario.batteryLevels.items():
             ax.plot(xlabels, values, label=name)
         ax.legend()
     else:
         plots_top_row = 2
 
-    # vehicles
+    # plot vehicles
     ax = plt.subplot(2, plots_top_row, 1)
     ax.set_title('Vehicles')
     ax.set(ylabel='SoC')
@@ -675,7 +676,7 @@ def plot(scenario):
         if len(scenario.components.vehicles) <= 10:
             ax.legend(lines, sorted(scenario.components.vehicles.keys()))
 
-    # charging stations
+    # plot charging stations
     ax = plt.subplot(2, plots_top_row, 2)
     ax.set_title('Charging Stations')
     ax.set(ylabel='Power in kW')
@@ -684,35 +685,55 @@ def plot(scenario):
         if len(scenario.components.charging_stations) <= 10:
             ax.legend(lines, sorted(scenario.components.charging_stations.keys()))
 
-    # total power
+    # plot all power sources
     ax = plt.subplot(2, 2, 3)
+    # charging stations
     if any(scenario.sum_cs):
         ax.step(xlabels, list([sum(cs) for cs in scenario.sum_cs]),
                 label="Charging Stations", where='post')
+    # other loads
     gc_ids = scenario.components.grid_connectors.keys()
     for gcID in gc_ids:
         for name, values in scenario.loads[gcID].items():
             ax.step(xlabels, values, label=name, where='post')
-    # draw schedule
+    # draw time windows
     if scenario.strat.uses_window:
-        for gcID, schedule in scenario.gcWindowSchedule.items():
-            if all(s is not None for s in schedule):
-                # schedule exists
-                window_values = [v * int(max(scenario.totalLoad[gcID])) for v in schedule]
-                ax.step(xlabels, window_values, label="window {}".format(gcID),
-                        linestyle='--', where='post')
+        # get list with boolean values for timesteps inside/outside window for each grid connector
+        for gcID, w_list in scenario.gcWindowSchedule.items():
+            # add shaded background based on the boolean values, no background if no values
+            start_idx = 0
+            # show each label only once
+            label_shown = [False, False]
+            for i in range(scenario.step_i):
+                if w_list[i] != w_list[start_idx] or i == (scenario.step_i-1):
+                    # window value changed or end of scenario: plot new interval
+                    window = w_list[start_idx]
+                    if window is not None:
+                        color = 'red' if window else 'lightgreen'
+                        label = 'Inside window' if window else 'Outside window'
+                        if label_shown[window]:
+                            # labels starting with underscores are ignored
+                            label = '_' + label
+                        else:
+                            # show label once, then set flag
+                            label_shown[window] = True
+                        # draw colored rectangle for window
+                        ax.axvspan(xlabels[start_idx], xlabels[i], label=label, facecolor=color,
+                                   alpha=0.2)
+                        start_idx = i
+    # draw schedule
     if scenario.strat.uses_schedule:
         for gcID, schedule in scenario.gcPowerSchedule.items():
             if any(s is not None for s in schedule):
                 ax.step(xlabels, schedule, label="Schedule {}".format(gcID), where='post')
-
+    # total power
     ax.step(xlabels, scenario.all_totalLoad, label="Total", where='post')
     ax.set_title('Total Power')
     ax.set(ylabel='Power in kW')
     ax.legend()
     ax.xaxis_date()  # xaxis are datetime objects
 
-    # price
+    # plot prices
     ax = plt.subplot(2, 2, 4)
     prices = list(zip(*scenario.prices.values()))
     lines = ax.step(xlabels, prices, where='post')
@@ -784,6 +805,8 @@ def generate_reports(scenario, options):
             if len(gc_ids) > 1:
                 # extend file name by GC name (without special characters)
                 fpath = fpath.parent / f"{fpath.stem}_{util.sanitize(gcID)}{fpath.suffix}"
+            if len(str(fpath.resolve())) > 260:
+                warnings.warn(f"Path length of {gcID} results exceeds 260 characters.")
             with fpath.open('w') as results_file:
                 json.dump(results_file_content, results_file, indent=2)
         if save_timeseries:
@@ -791,6 +814,8 @@ def generate_reports(scenario, options):
             fpath = Path(save_timeseries)
             if len(gc_ids) > 1:
                 fpath = fpath.parent / f"{fpath.stem}_{util.sanitize(gcID)}{fpath.suffix}"
+            if len(str(fpath.resolve())) > 260:
+                warnings.warn(f"Path length of {gcID} timeseries exceeds 260 characters.")
             with fpath.open('w') as timeseries_file:
                 # write header
                 timeseries_file.write(','.join(agg_ts["header"]))
@@ -807,6 +832,8 @@ def generate_reports(scenario, options):
     if save_soc:
         # write vehicle SoC per timestep to file
         vids = sorted(scenario.components.vehicles.keys())
+        if len(str(Path(save_soc).resolve())) > 260:
+            warnings.warn("Path length of SoC timeseries exceeds 260 characters.")
         with open(save_soc, "w") as soc_file:
             # write header
             header = ["timestep", "time"] + vids
