@@ -29,7 +29,6 @@ class Battery():
         :type loss_rate: dict
         """
         # epsilon for floating point comparison
-        self.EPS = 1e-5
         self.capacity = capacity
         self.loading_curve = copy.deepcopy(loading_curve)
         self.soc = soc
@@ -40,6 +39,12 @@ class Battery():
                                                  [1, self.loading_curve.max_power]])
         else:
             self.unloading_curve = copy.deepcopy(unloading_curve)
+
+        if self.capacity > 1e6:
+            # batteries with high/infinite capacity: lower EPS for loading
+            self.EPS = 1 / self.capacity
+        else:
+            self.EPS = 1e-5
 
     def load(self, timedelta, max_power=None, target_soc=None, target_power=None):
         """ Adjust SoC, return average charging power for given timedelta and max charging power.

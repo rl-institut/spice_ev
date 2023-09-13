@@ -704,8 +704,8 @@ def plot(scenario):
             start_idx = 0
             # show each label only once
             label_shown = [False, False]
-            for i in range(scenario.n_intervals):
-                if w_list[i] != w_list[start_idx] or i == (scenario.n_intervals-1):
+            for i in range(scenario.step_i):
+                if w_list[i] != w_list[start_idx] or i == (scenario.step_i-1):
                     # window value changed or end of scenario: plot new interval
                     window = w_list[start_idx]
                     if window is not None:
