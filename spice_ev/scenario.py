@@ -71,6 +71,7 @@ class Scenario:
 
         options['events'] = self.events
         options['interval'] = self.interval
+        options['stop_time'] = self.stop_time
         options['n_intervals'] = self.n_intervals
         options['core_standing_time'] = self.core_standing_time
         options['DISCHARGE_LIMIT'] = options.get('DISCHARGE_LIMIT', self.discharge_limit)
@@ -83,10 +84,9 @@ class Scenario:
         socs = []
         prices = {gcID: [] for gcID in gc_ids}
         results = []
-        fixedLoads = {gcID: [] for gcID in gc_ids}
         totalLoad = {gcID: [] for gcID in gc_ids}
         disconnect = []
-        localGenerationPower = {gcID: [] for gcID in gc_ids}
+        fixedLoads = {gcID: [] for gcID in gc_ids}
         stepsPerHour = datetime.timedelta(hours=1) / self.interval
         batteryLevels = {k: [] for k in self.components.batteries.keys()}
         connChargeByTS = {gcID: [] for gcID in gc_ids}
@@ -94,6 +94,7 @@ class Scenario:
         gcWindowSchedule = {gcID: [] for gcID in gc_ids}
         departed_vehicles = {}
         gcWithinPowerLimit = True
+        localGenerationPower = {gcID: [] for gcID in gc_ids}
 
         begin = datetime.datetime.now()
         error = None

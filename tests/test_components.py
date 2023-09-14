@@ -280,3 +280,19 @@ class TestBattery:
         td = datetime.timedelta(minutes=15)
         p = b.load(td)["avg_power"]
         assert p == 0
+
+    def test_infinite_capacity(self):
+        lc = loading_curve.LoadingCurve([(0, 100), (1, 100)])
+        b = battery.Battery(capacity=2**64, loading_curve=lc, soc=0, efficiency=1)
+        target = 50
+        td = datetime.timedelta(minutes=60)
+        p = b.load(td, target_power=target)["avg_power"]
+        assert pytest.approx(p) == target
+
+        # does it work for a range of capacities?
+        for i in range(0, 65):
+            capacity = 2**i
+            b = battery.Battery(capacity=capacity, loading_curve=lc, soc=0, efficiency=1)
+            p = b.load(td, target_power=target)["avg_power"]
+            target_p = min(capacity, target)
+            assert pytest.approx(p) == target_p, f"Capacity: {2**i} (2^{i}). {target_p} != {p}"
