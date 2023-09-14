@@ -285,7 +285,7 @@ class Battery():
             dx = x2 - x1
             dy = y2 - y1
 
-            if y1 == y2 == 0:
+            if y1 < self.EPS and y2 < self.EPS:
                 # no energy in current linear section: stop charging
                 break
 
