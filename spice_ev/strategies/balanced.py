@@ -122,16 +122,17 @@ def load_vehicle(strategy, cs, gc, vehicle, cs_id, charging_stations, avail_bat_
     avg_power = vehicle.battery.load(strategy.interval, target_power=power)['avg_power']
     charging_stations[cs_id] = gc.add_load(cs_id, avg_power)
     cs.current_power += avg_power
-    if bat_power_used:
-        avail_bat_power = max(avail_bat_power - avg_power, 0)
 
     # can the active charging station bear minimum load?
-    assert cs.max_power >= cs.current_power - strategy.EPS, (
+    assert cs.max_power + avail_bat_power >= cs.current_power - strategy.EPS, (
         "{} - {} over maximum load ({} > {})".format(
             strategy.current_time, cs_id, cs.current_power, cs.max_power))
     # can grid connector bear load?
-    assert gc.cur_max_power >= gc.get_current_load() - strategy.EPS, (
+    assert gc.cur_max_power + avail_bat_power >= gc.get_current_load() - strategy.EPS, (
         "{} - {} over maximum load ({} > {})".format(
             strategy.current_time, cs.parent, gc.get_current_load(), gc.cur_max_power))
+
+    if bat_power_used:
+        avail_bat_power = max(avail_bat_power - avg_power, 0)
 
     return charging_stations, avail_bat_power

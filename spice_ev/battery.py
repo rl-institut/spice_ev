@@ -29,7 +29,6 @@ class Battery():
         :type loss_rate: dict
         """
         # epsilon for floating point comparison
-        self.EPS = 1e-5
         self.capacity = capacity
         self.loading_curve = copy.deepcopy(loading_curve)
         self.soc = soc
@@ -40,6 +39,12 @@ class Battery():
                                                  [1, self.loading_curve.max_power]])
         else:
             self.unloading_curve = copy.deepcopy(unloading_curve)
+
+        if self.capacity > 1e6:
+            # batteries with high/infinite capacity: lower EPS for loading
+            self.EPS = 1 / self.capacity
+        else:
+            self.EPS = 1e-5
 
     def load(self, timedelta, max_power=None, target_soc=None, target_power=None):
         """ Adjust SoC, return average charging power for given timedelta and max charging power.
@@ -255,10 +260,10 @@ class Battery():
         # compute average power for each linear section
         # update SOC
         # computes for whole time or until target is reached
-        while remaining_hours > self.EPS and sign * (target_soc - self.soc) > 0:
+        while remaining_hours > self.EPS and sign * (target_soc - self.soc) > self.EPS:
             # target soc not yet reached
             # charging: self.soc < target; discharging: self.soc > target
-            while sign * (boundary_soc - self.soc) <= 0:
+            while sign * (boundary_soc - self.soc) < self.EPS:
                 # soc outside current boundary, get next section
                 # charging: self.soc >= boundary_soc; discharging: self.soc <= boundary_soc
                 boundary_idx += sign
@@ -279,6 +284,10 @@ class Battery():
             y2 = charging_curve.power_from_soc(x2)
             dx = x2 - x1
             dy = y2 - y1
+
+            if y1 < self.EPS and y2 < self.EPS:
+                # no energy in current linear section: stop charging
+                break
 
             m = dy / dx
             n = y1 - m * x1
@@ -313,6 +322,7 @@ class Battery():
                 assert new_soc >= self.soc, f"Charge: {new_soc} should be greater than {self.soc}"
 
             energy_delta = abs(new_soc - self.soc) * c
+            assert energy_delta > 0
             self.soc = new_soc
             remaining_hours -= abs(t)
             # remember amount of energy loaded into battery

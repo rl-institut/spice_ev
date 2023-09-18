@@ -384,6 +384,7 @@ class TestScenarios(TestCaseBase):
             assert s.testing["timeseries"]["schedule"]["GC1"][idx] is False
 
     def test_distributed_C3_prioritization(self):
+        # scenario with really low GC power, but supporting stationary battery
         input = TEST_REPO_PATH / 'test_data/input_test_strategies/scenario_C3.json'
         s = scenario.Scenario(load_json(input), input.parent)
         s.run('distributed', {"testing": True})
