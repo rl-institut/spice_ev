@@ -699,11 +699,21 @@ def plot(scenario):
     # draw time windows
     if scenario.strat.uses_window:
         # get list with boolean values for timesteps inside/outside window for each grid connector
-        for gcID, w_list in scenario.gcWindowSchedule.items():
+        for gc_idx, (gcID, w_list) in enumerate(scenario.gcWindowSchedule.items()):
+            # get GC loads when time window is active
+            window_loads = [l for (l, w) in zip(scenario.totalLoad[gcID], w_list) if w]
+            try:
+                # plot dashed line at peak power
+                # show label only once in legend
+                plt.axhline(y=max(window_loads), color='k', linestyle='--',
+                            label=f"{gc_idx * '_'}peak power")
+            except ValueError:
+                # window_loads may be empty, can't use max then -> no line
+                pass
             # add shaded background based on the boolean values, no background if no values
             start_idx = 0
             # show each label only once
-            label_shown = [False, False]
+            label_shown = [gc_idx, gc_idx]
             for i in range(scenario.step_i):
                 if w_list[i] != w_list[start_idx] or i == (scenario.step_i-1):
                     # window value changed or end of scenario: plot new interval
