@@ -36,7 +36,7 @@ class Distributed(Strategy):
             cs.current_power = 0
 
         skip_prioritization = {}
-        # rank which vehicles should be loaded at gc
+        # rank which vehicles should be charged at gc
         for gcID, gc in self.world_state.grid_connectors.items():
             if gc.number_cs is None:
                 skip_prioritization[gcID] = True
@@ -55,7 +55,7 @@ class Distributed(Strategy):
             # number of charging vehicles must not exceed maximum allowed for this GC
             assert len(self.v_connect[gcID]) <= self.world_state.grid_connectors[gcID].number_cs
 
-            # check if available loading stations are already taken
+            # check if available charging stations are already taken
             if len(self.v_connect[gcID]) == gc.number_cs:
                 continue
 
@@ -111,7 +111,7 @@ class Distributed(Strategy):
                     free_spots = gc.number_cs - len(self.v_connect[gcID])
                 timesteps = [i for i in timesteps if not (i['vehicle_id'] == v_id_min)]
 
-        # all vehicles are ranked. Load vehicles that are in v_connect
+        # all vehicles are ranked. Charge vehicles that are in v_connect
         for gcID, gc in self.world_state.grid_connectors.items():
             if not skip_prioritization[gcID]:
                 vehicle_list = self.v_connect[gcID]
@@ -136,18 +136,18 @@ class Distributed(Strategy):
                 station_type = cs_id.split("_")[-1]
                 if station_type == "opps":
                     charging_stations, avail_bat_power[gcID] = \
-                        greedy.load_vehicle(self, cs, gc, v, cs_id, charging_stations,
-                                            avail_bat_power[gcID])
+                        greedy.charge_vehicle(
+                            self, cs, gc, v, cs_id, charging_stations, avail_bat_power[gcID])
                 elif station_type == "deps":
                     charging_stations, avail_bat_power[gcID] = \
-                        balanced.load_vehicle(self, cs, gc, v, cs_id, charging_stations,
-                                              avail_bat_power[gcID])
+                        balanced.charge_vehicle(
+                            self, cs, gc, v, cs_id, charging_stations, avail_bat_power[gcID])
                 else:
                     print(f"The station {cs.parent} has no declaration such as 'opps' or 'deps'"
                           f"attached. Please make sure the ending of the station name is one of the"
                           f"mentioned.")
 
-        # all vehicles loaded
+        # all vehicles charged
         charging_stations.update(self.distribute_surplus_power())
         # use bus specific strategy for charging stationary batteries
         # always charge battery if power is available on gc
@@ -160,13 +160,13 @@ class Distributed(Strategy):
                 # GC suffices to meet busses needs
                 power = gc.cur_max_power - gc_current_load
                 power = 0 if power < battery.min_charging_power else power
-                avg_power = battery.load(self.interval, max_power=power)['avg_power']
+                avg_power = battery.charge(self.interval, max_power=power)['avg_power']
                 gc.add_load(b_id, avg_power)
             else:
                 # current load > max load, use battery to support GC
                 # current load never rises above sum of max load of GC and available battery power
                 power_needed = gc_current_load - gc.cur_max_power
-                bat_power = battery.unload(self.interval, target_power=power_needed)
+                bat_power = battery.discharge(self.interval, target_power=power_needed)
                 gc.add_load(b_id, -bat_power['avg_power'])
 
         return {'current_time': self.current_time, 'commands': charging_stations}

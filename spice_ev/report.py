@@ -873,7 +873,7 @@ def generate_reports(scenario, options):
                                                   / scenario.stepsPerHour) for gcID in gc_ids},
             "vehicle_battery_cycles": {
                 # battery cycle: full charge of battery
-                # => total cycles: how often can batteries be fully charged with loaded energy
+                # => total cycles: how often can batteries be fully charged with used energy
                 # avoid div0 if no vehicles are present
                 gcID: scenario.total_vehicle_energy[gcID] / max(scenario.total_vehicle_cap[gcID], 1)
                 for gcID in gc_ids

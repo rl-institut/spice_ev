@@ -366,7 +366,7 @@ def assign_vehicle_id(input, vehicle_types, export=None):
     v_type_counts = {v_type: 0 for v_type in vehicle_types.keys()}
 
     # calculate min_standing_time at a charging station for each vehicle type
-    # CS power is identical for all vehicles per type: maximum of loading curve
+    # CS power is identical for all vehicles per type: maximum of charging curve
     cs_power = {v_type: max([v[1] for v in v_info["charging_curve"]])
                 for v_type, v_info in vehicle_types.items()}
     min_standing_times = {

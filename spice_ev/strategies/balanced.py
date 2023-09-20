@@ -44,18 +44,18 @@ class Balanced(Strategy):
             cs = self.world_state.charging_stations[cs_id]
             gc = self.world_state.grid_connectors[cs.parent]
 
-            charging_stations, avail_bat_power[cs.parent] = load_vehicle(
+            charging_stations, avail_bat_power[cs.parent] = charge_vehicle(
                 self, cs, gc, vehicle, cs_id, charging_stations, avail_bat_power[cs.parent])
 
-        # all vehicles loaded
+        # all vehicles charged
         charging_stations.update(self.distribute_surplus_power())
         self.update_batteries()
 
         return {'current_time': self.current_time, 'commands': charging_stations}
 
 
-def load_vehicle(strategy, cs, gc, vehicle, cs_id, charging_stations, avail_bat_power):
-    """ Load one vehicle with balanced charging strategy.
+def charge_vehicle(strategy, cs, gc, vehicle, cs_id, charging_stations, avail_bat_power):
+    """ Charge one vehicle with balanced charging strategy.
 
     :param strategy: current world state
     :type strategy: Strategy
@@ -104,8 +104,8 @@ def load_vehicle(strategy, cs, gc, vehicle, cs_id, charging_stations, avail_bat_
             idx += 1
             # get new power value (binary search: use average)
             power = (max_power + min_power) / 2
-            # load whole time with same power
-            charged_soc = vehicle.battery.load(dt, target_power=power)["soc_delta"]
+            # charge whole time with same power
+            charged_soc = vehicle.battery.charge(dt, target_power=power)["soc_delta"]
             # reset SOC
             vehicle.battery.soc = old_soc
 
@@ -118,8 +118,8 @@ def load_vehicle(strategy, cs, gc, vehicle, cs_id, charging_stations, avail_bat_
                 safe = True
                 max_power = power
 
-    # load with power
-    avg_power = vehicle.battery.load(strategy.interval, target_power=power)['avg_power']
+    # charge with power
+    avg_power = vehicle.battery.charge(strategy.interval, target_power=power)['avg_power']
     charging_stations[cs_id] = gc.add_load(cs_id, avg_power)
     cs.current_power += avg_power
 

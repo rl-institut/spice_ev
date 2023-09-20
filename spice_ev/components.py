@@ -1,5 +1,5 @@
 import datetime
-from spice_ev import battery, loading_curve, util
+from spice_ev import battery, charging_curve, util
 from spice_ev.events import FixedLoad
 
 
@@ -132,7 +132,7 @@ class GridConnector:
         else:
             # multiple fixed loads: add up
             for i, values in enumerate(avg_values_by_weekday):
-                self.avg_fixed_load[i] = [e + v for (e, v) in zip(self.avg_ficed_load[i], values)]
+                self.avg_fixed_load[i] = [e + v for (e, v) in zip(self.avg_fixed_load[i], values)]
 
     def get_avg_fixed_load(self, dt, interval):
         """ Get average fixed load for specific timeslot.
@@ -185,14 +185,14 @@ class VehicleType:
         keys = [
             ('name', str),
             ('capacity', float),
-            ('charging_curve', loading_curve.LoadingCurve),
+            ('charging_curve', charging_curve.ChargingCurve),
         ]
         optional_keys = [
             ('min_charging_power', float, 0.0),
             ('battery_efficiency', float, 0.95),
             ('v2g', bool, False),
             ('v2g_power_factor', float, 0.5),
-            ('discharge_curve', loading_curve.LoadingCurve, None),
+            ('discharge_curve', charging_curve.ChargingCurve, None),
             ('loss_rate', float, 0),
         ]
         util.set_attr_from_dict(obj, self, keys, optional_keys)
@@ -219,10 +219,10 @@ class Vehicle:
         # Add battery object to vehicles
         self.battery = battery.Battery(
             capacity=self.vehicle_type.capacity,
-            loading_curve=self.vehicle_type.charging_curve,
+            charging_curve=self.vehicle_type.charging_curve,
             soc=self.soc,
             efficiency=self.vehicle_type.battery_efficiency,
-            unloading_curve=self.vehicle_type.discharge_curve,
+            discharging_curve=self.vehicle_type.discharge_curve,
             loss_rate=self.vehicle_type.loss_rate,
         )
         del self.soc
@@ -253,7 +253,7 @@ class StationaryBattery(battery.Battery):
     """StationaryBattery class"""
     def __init__(self, obj):
         keys = [
-            ('charging_curve', loading_curve.LoadingCurve),
+            ('charging_curve', charging_curve.ChargingCurve),
             ('parent', str),
         ]
         optional_keys = [
@@ -261,7 +261,7 @@ class StationaryBattery(battery.Battery):
             ('min_charging_power', float, 0.0),
             ('soc', float, 0.0),
             ('efficiency', float, 0.95),
-            ('discharge_curve', loading_curve.LoadingCurve, None),
+            ('discharge_curve', charging_curve.ChargingCurve, None),
             ('loss_rate', dict, {}),
         ]
         util.set_attr_from_dict(obj, self, keys, optional_keys)

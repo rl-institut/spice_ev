@@ -198,7 +198,7 @@ simulation will abort in such a case. If `ALLOW_NEGATIVE_SOC` is set, the simula
 hybrids. NOTE: For SOC<0 batteries are charged/discharge with the amount of power specified on the charging/discharging
 curve at SOC=0. Make sure that Power(SOC=0) > 0, in case you want use the strategy option `ALLOW_NEGATIVE_SOC`.
 NOTE: By default, discharging below SOC=0 only applies to vehicles while driving. To discharge below SOC=0 for
-stationary batteries or V2G, you need to set the target SOC parameter of the battery.unload function accordingly.
+stationary batteries or V2G, you need to set the target SOC parameter of the battery.discharge function accordingly.
 
 .. _strategy_options:
 
@@ -224,9 +224,9 @@ stationary batteries or V2G, you need to set the target SOC parameter of the bat
     +---------------------+----------------------------+---------------------------------------------------------+-------------+--------------+---------------------+--------------+---------------------+------------------+-----------------+
     | ALLOW_NEGATIVE_SOC  |   False                    | simulation does not abort if SOC becomes negative       |             |              |                     |              |                     |                  | x               |
     +---------------------+----------------------------+---------------------------------------------------------+-------------+--------------+---------------------+--------------+---------------------+------------------+-----------------+
-    |   C-HORIZON         |      3                     | loading time in min reserved for vehicle if number of cs|             |              |                     |              |                     |                  | x               |
+    |   C-HORIZON         |      3                     | charging time in min reserved for vehicle if number of  |             |              |                     |              |                     |                  | x               |
     |                     |                            |                                                         |             |              |                     |              |                     |                  |                 |
-    |                     |                            | is limited                                              |             |              |                     |              |                     |                  |                 |
+    |                     |                            | cs is limited                                           |             |              |                     |              |                     |                  |                 |
     +---------------------+----------------------------+---------------------------------------------------------+-------------+--------------+---------------------+--------------+---------------------+------------------+-----------------+
     |  V2G_POWER_FACTOR   |      1                     | Fraction of max battery power used for discharge        |             |              |                     |              |                     |                  | x               |
     |                     |                            | process [0-1]                                           |             |              |                     |              |                     |                  |                 |
@@ -350,5 +350,3 @@ simulate.py
     +----------------------------------------------+------------------------------------------------------------------------------+
     | CS _ *vehicle type* _ *grid connector* [kW]  |	power at each charging station                                            |
     +----------------------------------------------+------------------------------------------------------------------------------+
-
-

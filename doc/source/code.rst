@@ -138,7 +138,6 @@ surplus from local generation or if the energy price falls below a certain PRICE
 
     Balanced
     Balanced.step
-    load_vehicle
 
 Balanced Market
 ...............
@@ -187,7 +186,7 @@ operator. During these time windows the vehicles are charged with a sub-strategy
     FlexWindow.distribute_peak_shaving_batteries
     FlexWindow.distribute_peak_shaving_v2g
     FlexWindow.distribute_power
-    FlexWindow.load_surplus_to_batteries
+    FlexWindow.charge_surplus_to_batteries
 
 Greedy
 ......
@@ -200,8 +199,6 @@ the maximum permitted power at the GC, multiple vehicles may be charged in one t
 
     Greedy
     Greedy.step
-    load_vehicle
-
 
 Peak load window
 ................
@@ -248,9 +245,9 @@ This module contains the class `Battery` and its methods which describe the beha
     :toctree: temp/
 
     Battery
-    Battery.load
-    Battery.unload
-    Battery.load_iterative
+    Battery.charge
+    Battery.discharge
+    Battery.charge_iterative
     Battery.get_available_power
     Battery._adjust_soc
 
@@ -313,18 +310,18 @@ This module sets up the events for the simulation period.
     VehicleEvent
 
 
-Loading curve
+Charging curve
 -------------
-This module contains the class `LoadingCurve` and its methods which are needed for the batteries.
+This module contains the class `ChargingCurve` and its methods which are needed for the batteries.
 
-.. currentmodule:: spice_ev.loading_curve
+.. currentmodule:: spice_ev.charging_curve
 .. autosummary::
     :toctree: temp/
 
-    LoadingCurve
-    LoadingCurve.power_from_soc
-    LoadingCurve.clamped
-    LoadingCurve.get_section_boundary
+    ChargingCurve
+    ChargingCurve.power_from_soc
+    ChargingCurve.clamped
+    ChargingCurve.get_section_boundary
 
 
 Report

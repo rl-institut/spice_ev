@@ -163,7 +163,7 @@ class BalancedMarket(Strategy):
                     p = timesteps[ts_idx]["power"]
                     p = util.clamp_power(p, vehicle, cs)
                     power[ts_idx] = p
-                    sim_vehicle.battery.load(self.interval, max_power=p)
+                    sim_vehicle.battery.charge(self.interval, max_power=p)
 
                 if sim_vehicle.battery.soc >= desired_soc:
                     # above desired SoC: find optimum power
@@ -184,7 +184,7 @@ class BalancedMarket(Strategy):
                             p = min(timesteps[ts_idx]["power"], cur_power)
                             p = util.clamp_power(p, vehicle, cs)
                             power[ts_idx] = p
-                            sim_vehicle.battery.load(self.interval, target_power=p)
+                            sim_vehicle.battery.charge(self.interval, target_power=p)
                         safe = sim_vehicle.battery.soc >= desired_soc
                         if not safe:
                             # not charged enough
@@ -195,7 +195,7 @@ class BalancedMarket(Strategy):
                 if start_idx == 0 and power[0]:
                     # current timestep: charge vehicle for real
                     p = power[0]
-                    avg_power = vehicle.battery.load(self.interval, target_power=p)['avg_power']
+                    avg_power = vehicle.battery.charge(self.interval, target_power=p)['avg_power']
                     charging_stations[cs_id] = gc.add_load(cs_id, avg_power)
                     cs.current_power += avg_power
                     # don't have to simulate further
@@ -222,11 +222,11 @@ class BalancedMarket(Strategy):
                 old_sorted_idx = sorted_idx
 
                 # discharge with maximum power (scaled with power factor)
-                p = -(vehicle.battery.loading_curve.max_power
+                p = -(vehicle.battery.charging_curve.max_power
                       * vehicle.vehicle_type.v2g_power_factor)
                 # limit to GC discharge power
                 # derivation and reasoning:
-                # max unload power is symmetric to max load
+                # max discharging power is symmetric to max load
                 # timestep.power is available power without exceeding GC power
                 # therefore, currently allocated power cur_power = max_power - timestep.power
                 # V2G can compensate allocated power and additionally discharge to -max_power:
@@ -250,10 +250,10 @@ class BalancedMarket(Strategy):
                 for cur_idx, cur_power in enumerate(power):
                     if cur_power > 0:
                         # charge (even above desired)
-                        sim_vehicle.battery.load(self.interval, target_power=cur_power)
+                        sim_vehicle.battery.charge(self.interval, target_power=cur_power)
                     elif cur_power < 0:
                         # discharge
-                        sim_vehicle.battery.unload(
+                        sim_vehicle.battery.discharge(
                             self.interval, max_power=-cur_power, target_soc=self.DISCHARGE_LIMIT)
 
                 # try to charge enough to offset V2G
@@ -285,10 +285,10 @@ class BalancedMarket(Strategy):
                     for cur_idx, cur_power in enumerate(power):
                         if cur_power > 0:
                             # charge (even above desired)
-                            sim_vehicle.battery.load(self.interval, target_power=cur_power)
+                            sim_vehicle.battery.charge(self.interval, target_power=cur_power)
                         elif cur_power < 0:
                             # discharge
-                            sim_vehicle.battery.unload(
+                            sim_vehicle.battery.discharge(
                                 self.interval, max_power=-cur_power, target_soc=self.DISCHARGE_LIMIT
                             )
                 else:
@@ -304,11 +304,11 @@ class BalancedMarket(Strategy):
                     avg_power = 0
                     if sim_power > 0:
                         # charge
-                        avg_power = vehicle.battery.load(
+                        avg_power = vehicle.battery.charge(
                             self.interval, target_power=sim_power)['avg_power']
                     elif sim_power < 0:
                         # discharge
-                        info = vehicle.battery.unload(
+                        info = vehicle.battery.discharge(
                             self.interval, max_power=-sim_power, target_soc=self.DISCHARGE_LIMIT)
                         avg_power = -info["avg_power"]
                         discharging_stations.append(cs_id)
@@ -324,12 +324,12 @@ class BalancedMarket(Strategy):
             for cur_idx, cur_power in enumerate(power):
                 if cur_power > 0:
                     # charge (even above desired)
-                    avg_power = sim_vehicle.battery.load(
+                    avg_power = sim_vehicle.battery.charge(
                         self.interval, target_power=cur_power)["avg_power"]
                     timesteps[cur_idx]["power"] -= avg_power
                 elif cur_power < 0:
                     # discharge
-                    avg_power = sim_vehicle.battery.unload(
+                    avg_power = sim_vehicle.battery.discharge(
                         self.interval, max_power=-cur_power, target_soc=self.DISCHARGE_LIMIT
                     )["avg_power"]
                     timesteps[cur_idx]["power"] += avg_power
@@ -338,7 +338,7 @@ class BalancedMarket(Strategy):
 
         # ---------- DISTRIBUTE SURPLUS ---------- #
 
-        # all vehicles loaded
+        # all vehicles charged
         # distribute surplus power to vehicles
         # power is clamped to CS max_power
         for vid, vehicle in vehicles:
@@ -346,9 +346,9 @@ class BalancedMarket(Strategy):
             cs = self.world_state.charging_stations[cs_id]
             avail_power = gc.get_current_load(exclude=discharging_stations)
             if avail_power < -self.EPS and cs_id not in discharging_stations:
-                # vehicle is not discharging: load greedy with surplus power
+                # vehicle is not discharging: charge greedy with surplus power
                 power = util.clamp_power(-avail_power, vehicle, cs)
-                avg_power = vehicle.battery.load(self.interval, max_power=power)['avg_power']
+                avg_power = vehicle.battery.charge(self.interval, max_power=power)['avg_power']
                 charging_stations[cs_id] = gc.add_load(cs_id, avg_power)
                 cs.current_power += avg_power
 
@@ -369,7 +369,7 @@ class BalancedMarket(Strategy):
             for i in range(num_cheap_ts):
                 p = timesteps[i]["power"]  # ts[0] contains feed-in
                 p = 0 if p < battery.min_charging_power else p
-                battery.load(self.interval, max_power=p)
+                battery.charge(self.interval, max_power=p)
                 if i == 0:
                     bat_power = p
             if battery.soc > (1 - self.EPS):
@@ -385,7 +385,7 @@ class BalancedMarket(Strategy):
                     for i in range(0, num_cheap_ts):
                         p = min(timesteps[i]["power"], power)
                         p = 0 if p < battery.min_charging_power else p
-                        battery.load(self.interval, target_power=p)
+                        battery.charge(self.interval, target_power=p)
                         if i == 0:
                             bat_power = p
                     if battery.soc > (1 - self.EPS):
@@ -395,13 +395,13 @@ class BalancedMarket(Strategy):
 
             # charge for real
             battery.soc = old_soc
-            avg_power = battery.load(self.interval, target_power=bat_power)["avg_power"]
+            avg_power = battery.charge(self.interval, target_power=bat_power)["avg_power"]
             gc.add_load(bat_id, avg_power)
 
             if avail_power > 0 and num_cheap_ts == 0 and battery.soc > 0:
                 # no surplus, no cheap price: support GC by discharging
                 bat_power = min(avail_power, gc.max_power + gc.get_current_load())
-                bat_power = battery.unload(self.interval, target_power=bat_power)['avg_power']
+                bat_power = battery.charge(self.interval, target_power=bat_power)['avg_power']
                 gc.add_load(bat_id, -bat_power)
                 discharging_stations.append(bat_id)
 

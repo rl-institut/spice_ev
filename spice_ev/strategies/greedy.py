@@ -46,17 +46,17 @@ class Greedy(Strategy):
             cs = self.world_state.charging_stations[cs_id]
             gc = self.world_state.grid_connectors[cs.parent]
 
-            charging_stations, avail_bat_power[cs.parent] = load_vehicle(
+            charging_stations, avail_bat_power[cs.parent] = charge_vehicle(
                 self, cs, gc, vehicle, cs_id, charging_stations, avail_bat_power[cs.parent])
-        # all vehicles loaded
+        # all vehicles charged
         charging_stations.update(self.distribute_surplus_power())
         self.update_batteries()
 
         return {'current_time': self.current_time, 'commands': charging_stations}
 
 
-def load_vehicle(strategy, cs, gc, vehicle, cs_id, charging_stations, avail_bat_power):
-    """ Load one vehicle with greedy strategy.
+def charge_vehicle(strategy, cs, gc, vehicle, cs_id, charging_stations, avail_bat_power):
+    """ Charge one vehicle with greedy strategy.
 
     :param strategy: current world state
     :type strategy: Strategy
@@ -83,13 +83,13 @@ def load_vehicle(strategy, cs, gc, vehicle, cs_id, charging_stations, avail_bat_
     if get_cost(1, gc.cost) <= strategy.PRICE_THRESHOLD:
         # low energy price: take max available power from GC without batteries
         power = clamp_power(gc_power_left, vehicle, cs)
-        avg_power = vehicle.battery.load(strategy.interval, max_power=power)['avg_power']
+        avg_power = vehicle.battery.charge(strategy.interval, max_power=power)['avg_power']
     elif vehicle.get_delta_soc() > 0:
         # vehicle needs charging: take max available power (with batteries)
         # limit to desired SoC
         power = gc_power_left + avail_bat_power
         power = clamp_power(power, vehicle, cs)
-        avg_power = vehicle.battery.load(
+        avg_power = vehicle.battery.charge(
             strategy.interval, max_power=power, target_soc=vehicle.desired_soc)['avg_power']
         bat_power_used = True
 

@@ -1,8 +1,8 @@
 
-class LoadingCurve:
-    """ LoadingCurve class
+class ChargingCurve:
+    """ ChargingCurve class
 
-    The loading curve is described by a 2D graph with given known points.
+    The charging curve is described by a 2D graph with given known points.
     Values between known points are computed by linear interpolation.
 
     * x-axis: state of charge [0 - 1]
@@ -57,7 +57,7 @@ class LoadingCurve:
         :type pre_scale: numeric
         :param post_scale: scaling factor applied to all points after clamping
         :type post_scale: numeric
-        :return: loating curve
+        :return: charging curve
         :rtype: object
         """
 
@@ -94,7 +94,7 @@ class LoadingCurve:
 
         post_scaled = [(p[0], post_scale*p[1]) for p in new_points]
 
-        return LoadingCurve(post_scaled)
+        return ChargingCurve(post_scaled)
 
     def get_section_boundary(self, soc):
         """ Find linear section where given SOC value is located.
@@ -118,4 +118,4 @@ class LoadingCurve:
         return idx_1, idx_2
 
     def __str__(self):
-        return 'LoadingCurve {}'.format(vars(self))
+        return 'ChargingCurve {}'.format(vars(self))

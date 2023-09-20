@@ -101,8 +101,8 @@ class Schedule(Strategy):
                 idx += 1
                 # get new power value (binary search: use average)
                 power = (max_power + min_power) / 2
-                # load whole time with same power
-                charged_soc = vehicle.battery.load(dt, target_power=power)["soc_delta"]
+                # charge whole time with same power
+                charged_soc = vehicle.battery.charge(dt, target_power=power)["soc_delta"]
                 # reset SOC
                 vehicle.battery.soc = old_soc
 
@@ -230,7 +230,7 @@ class Schedule(Strategy):
             cs = self.world_state.charging_stations[cs_id]
             max_charging_power = min(vehicle.vehicle_type.charging_curve.max_power, cs.max_power)
             old_soc = vehicle.battery.soc
-            vehicle.battery.load(
+            vehicle.battery.charge(
                 timedelta=TS_to_charge_vehicles * self.interval,
                 max_power=max_charging_power, target_soc=vehicle.desired_soc)
             delta_soc = vehicle.get_delta_soc()
@@ -292,8 +292,8 @@ class Schedule(Strategy):
                 power = self.sim_balanced_charging(
                     vehicle, dt, vehicle.vehicle_type.charging_curve.max_power,
                     delta_soc=delta_soc)["opt_power"]
-                # load with power
-                avg_power, charged_soc = vehicle.battery.load(
+                # charge with power
+                avg_power, charged_soc = vehicle.battery.charge(
                     self.interval, target_power=power).values()
                 self.extra_energy_per_vehicle[vehicle_id] -= charged_soc
                 charging_stations[cs_id] = cs.current_power = gc.add_load(cs_id, avg_power)
@@ -341,8 +341,8 @@ class Schedule(Strategy):
                 power = min(remaining_power_on_schedule, power_alloc_for_vehicle)
                 power = clamp_power(power, vehicle, cs)
 
-                # load with power
-                avg_power, charged_soc = vehicle.battery.load(
+                # charge with power
+                avg_power, charged_soc = vehicle.battery.charge(
                     self.interval, target_power=power).values()
                 charging_stations[cs_id] = cs.current_power = gc.add_load(cs_id, avg_power)
                 remaining_power_on_schedule -= avg_power
@@ -406,10 +406,10 @@ class Schedule(Strategy):
             cs = self.world_state.charging_stations[cs_id]
             sim_vehicle = deepcopy(vehicle)
             cur_time = self.current_time - self.interval
-            max_discharge_power = (sim_vehicle.battery.loading_curve.max_power
+            max_discharge_power = (sim_vehicle.battery.discharging_curve.max_power
                                    * sim_vehicle.vehicle_type.v2g_power_factor)
 
-            # check if vehicles can be loaded until desired_soc in connected timesteps
+            # check if vehicles can be charged until desired_soc in connected timesteps
             old_soc = vehicle.battery.soc
             connected_timesteps = []
             window_change = 0
@@ -439,10 +439,10 @@ class Schedule(Strategy):
                     for charge_TS in connected_timesteps:
                         if charge_TS:
                             power = clamp_power(gc.cur_max_power, sim_vehicle, cs)
-                            sim_vehicle.battery.load(self.interval, max_power=power)["avg_power"]
+                            sim_vehicle.battery.charge(self.interval, max_power=power)["avg_power"]
                         else:
                             power = min(cs.max_power, max_discharge_power)
-                            sim_vehicle.battery.unload(
+                            sim_vehicle.battery.discharge(
                                 self.interval, max_power=power, target_soc=discharge_limit
                             )["avg_power"]
                     if sim_vehicle.battery.soc <= sim_vehicle.desired_soc - self.EPS:
@@ -483,11 +483,11 @@ class Schedule(Strategy):
                     if total_power > 0:
                         if charge_now:
                             power = clamp_power(total_power, sim_vehicle, cs)
-                            sim_vehicle.battery.load(self.interval, max_power=power)["avg_power"]
+                            sim_vehicle.battery.charge(self.interval, max_power=power)["avg_power"]
                         else:
                             power = clamp_power(total_power, sim_vehicle, cs)
                             power = min(power, max_discharge_power)
-                            sim_vehicle.battery.unload(
+                            sim_vehicle.battery.discharge(
                                 self.interval, max_power=power, target_soc=discharge_limit
                             )["avg_power"]
                     if charge_now:
@@ -518,7 +518,7 @@ class Schedule(Strategy):
                     charge = 0
                 else:
                     power = clamp_power(total_power, vehicle, cs)
-                    charge = vehicle.battery.load(self.interval, max_power=power)["avg_power"]
+                    charge = vehicle.battery.charge(self.interval, max_power=power)["avg_power"]
                 commands[cs_id] = gc.add_load(cs_id, charge)
                 cs.current_power += charge
             if not charge_now:
@@ -527,7 +527,7 @@ class Schedule(Strategy):
                 else:
                     power = clamp_power(total_power, vehicle, cs)
                     power = min(power, max_discharge_power)
-                    discharge = vehicle.battery.unload(
+                    discharge = vehicle.battery.discharge(
                         self.interval, max_power=power, target_soc=discharge_limit)["avg_power"]
                 commands[cs_id] = gc.add_load(cs_id, -discharge)
                 cs.current_power -= discharge
@@ -579,7 +579,7 @@ class Schedule(Strategy):
             )['opt_power']
 
             power = clamp_power(power, vehicle, cs)
-            avg_power = vehicle.battery.load(
+            avg_power = vehicle.battery.charge(
                 self.interval, max_power=power, target_soc=vehicle.desired_soc)["avg_power"]
             cs_id = vehicle.connected_charging_station
             charging_stations[cs_id] = cs.current_power = gc.add_load(cs_id, avg_power)
@@ -627,7 +627,7 @@ class Schedule(Strategy):
                 # charge vehicles with available power from local generation
                 power = max(-gc.get_current_load(), 0)
                 power = clamp_power(power, vehicle, cs)
-                avg_power = vehicle.battery.load(
+                avg_power = vehicle.battery.charge(
                     self.interval, max_power=power, target_soc=vehicle.desired_soc)["avg_power"]
                 cs_id = vehicle.connected_charging_station
                 charging_stations[cs_id] = cs.current_power = gc.add_load(cs_id, avg_power)
@@ -689,7 +689,7 @@ class Schedule(Strategy):
             gc_power_left = gc.cur_max_power - gc.get_current_load()
             for s in schedule:
                 power = clamp_power(s, vehicle, cs)
-                vehicle.battery.load(self.interval, target_power=power)
+                vehicle.battery.charge(self.interval, target_power=power)
 
             if standing is None or standing > len(schedule):
                 # not entire schedule known / standing longer than current schedule:
@@ -713,7 +713,7 @@ class Schedule(Strategy):
                     vehicle.battery.soc = old_soc
                     for s in schedule:
                         power = clamp_power(s + add_power, vehicle, cs)
-                        vehicle.battery.load(self.interval, target_power=power)
+                        vehicle.battery.charge(self.interval, target_power=power)
                     if vehicle.get_delta_soc() < self.EPS:
                         max_power = add_power
                     else:
@@ -724,7 +724,7 @@ class Schedule(Strategy):
             power = clamp_power(vehicle.schedule + add_power, vehicle, cs)
             # don't exceed GC max power
             power = min(power, gc_power_left)
-            avg_power = vehicle.battery.load(self.interval, target_power=power)["avg_power"]
+            avg_power = vehicle.battery.charge(self.interval, target_power=power)["avg_power"]
             charging_stations[cs_id] = cs.current_power = gc.add_load(cs_id, avg_power)
         return charging_stations
 
@@ -749,7 +749,7 @@ class Schedule(Strategy):
                 power = -needed_power
                 # don't exceed GC limit
                 power = min(power, avail_neg_power)
-                bat_power = -battery.unload(self.interval, target_power=power)["avg_power"]
+                bat_power = -battery.discharge(self.interval, target_power=power)["avg_power"]
             elif needed_power > self.EPS:
                 # not enough power drawn: charge battery
                 power = needed_power
@@ -757,7 +757,7 @@ class Schedule(Strategy):
                 power = min(power, avail_pos_power)
                 if power < battery.min_charging_power:
                     power = 0
-                bat_power = battery.load(self.interval, max_power=power)["avg_power"]
+                bat_power = battery.charge(self.interval, max_power=power)["avg_power"]
             else:
                 # target already reached
                 bat_power = 0

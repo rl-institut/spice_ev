@@ -8,7 +8,7 @@ import random
 import warnings
 
 from spice_ev.battery import Battery
-from spice_ev.loading_curve import LoadingCurve
+from spice_ev.charging_curve import ChargingCurve
 
 
 def parse_vehicle_types(tech_data):
@@ -191,7 +191,7 @@ def generate_from_simbev(args):
                     }
                     battery = Battery(
                         capacity=vehicle_capacity,
-                        loading_curve=LoadingCurve(vehicle_types[v_type]["charging_curve"]),
+                        charging_curve=ChargingCurve(vehicle_types[v_type]["charging_curve"]),
                         soc=vehicle_soc,
                         efficiency=vehicle_types[v_type].get("efficiency", 0.95)
                     )
@@ -239,7 +239,7 @@ def generate_from_simbev(args):
                         # set battery SoC to level when arriving
                         battery.soc = float(row["soc_start"])
                         charge_duration = int(row["event_time"]) * interval
-                        battery.load(charge_duration, max_power=cs_power)
+                        battery.charge(charge_duration, max_power=cs_power)
                         if battery.soc < float(row["soc_end"]) and args.verbose > 0:
                             warnings.warn(f"Can't fulfill charging request for {v_id} in "
                                           f"ts {row['timestamp']}. Desired SoC is set to "

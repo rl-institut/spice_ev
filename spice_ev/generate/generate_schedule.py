@@ -85,7 +85,7 @@ def generate_flex_band(scenario, gcID, core_standing_time=None):
         if b.capacity > 2**50:
             warnings.warn("battery without capacity detected")
         flex["batteries"]["stored"] += b.soc * b.capacity
-        flex["batteries"]["power"] += b.loading_curve.max_power
+        flex["batteries"]["power"] += b.charging_curve.max_power
         flex["batteries"]["free"] += (1 - b.soc) * b.capacity
         flex["batteries"]["efficiency"] += b.efficiency
         b.soc = 1
@@ -126,7 +126,7 @@ def generate_flex_band(scenario, gcID, core_standing_time=None):
                 if cs.parent == gcID:
                     if vehicles[vid][0] == 0:
                         # just arrived
-                        charging_power = min(v.battery.loading_curve.max_power, cs.max_power)
+                        charging_power = min(v.battery.charging_curve.max_power, cs.max_power)
                         delta_soc = max(v.get_delta_soc(), 0)
                         # scale with remaining steps
                         if v.estimated_time_of_departure is not None:
@@ -254,7 +254,7 @@ def generate_individual_flex_band(scenario, gcID):
         if b.capacity > 2**50:
             warnings.warn("WARNING: battery without capacity detected")
         flex["batteries"]["stored"] += b.soc * b.capacity
-        flex["batteries"]["power"] += b.loading_curve.max_power
+        flex["batteries"]["power"] += b.charging_curve.max_power
         flex["batteries"]["free"] += (1 - b.soc) * b.capacity
         flex["batteries"]["efficiency"] += b.efficiency
         b.soc = 1
@@ -294,7 +294,7 @@ def generate_individual_flex_band(scenario, gcID):
             "desired_soc": v.desired_soc,
             "efficiency": v.battery.efficiency,
             "p_min": max(cs.min_power, v.vehicle_type.min_charging_power),
-            "p_max": min(cs.max_power, v.battery.loading_curve.max_power),
+            "p_max": min(cs.max_power, v.battery.charging_curve.max_power),
         })
 
     # update flex based on events
@@ -358,7 +358,7 @@ def generate_individual_flex_band(scenario, gcID):
                         "desired_soc": event.update["desired_soc"],
                         "efficiency": vehicle.battery.efficiency,
                         "p_min": max(cs.min_power, vehicle.vehicle_type.min_charging_power),
-                        "p_max": min(cs.max_power, vehicle.battery.loading_curve.max_power),
+                        "p_max": min(cs.max_power, vehicle.battery.charging_curve.max_power),
                     })
                     vehicle.battery.soc = max(vehicle.battery.soc, event.update["desired_soc"])
                 else:

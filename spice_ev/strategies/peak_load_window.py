@@ -175,9 +175,10 @@ class PeakLoadWindow(Strategy):
                     # support with batteries to reach target
                     for battery in sim_batteries.values():
                         if power > 0:
-                            power -= battery.load(self.interval, target_power=power)["avg_power"]
+                            power -= battery.charge(self.interval, target_power=power)["avg_power"]
                         else:
-                            power += battery.unload(self.interval, target_power=-power)["avg_power"]
+                            power += battery.discharge(
+                                self.interval, target_power=-power)["avg_power"]
                     continue
 
                 # outside of window: charge balanced
@@ -196,11 +197,11 @@ class PeakLoadWindow(Strategy):
                     # clamp power
                     power = min(util.clamp_power(power, vehicle, cs), gc_power)
                     # charging
-                    power = v.battery.load(self.interval, target_power=power)["avg_power"]
+                    power = v.battery.charge(self.interval, target_power=power)["avg_power"]
                     gc_power = max(gc_power - power, 0)
                 for battery in sim_batteries.values():
                     # charge batteries
-                    power = battery.load(self.interval, max_power=gc_power)["avg_power"]
+                    power = battery.charge(self.interval, max_power=gc_power)["avg_power"]
                     gc_power = max(gc_power - power, 0)
 
             if not safe:
@@ -218,9 +219,9 @@ class PeakLoadWindow(Strategy):
             # support with batteries to reach target
             for bid, battery in self.world_state.batteries.items():
                 if gc_power > 0:
-                    power = battery.load(self.interval, max_power=gc_power)["avg_power"]
+                    power = battery.charge(self.interval, max_power=gc_power)["avg_power"]
                 else:
-                    power = -battery.unload(self.interval, max_power=-gc_power)["avg_power"]
+                    power = -battery.discharge(self.interval, max_power=-gc_power)["avg_power"]
                 gc_power -= power
                 gc.add_load(bid, power)
         else:
@@ -239,12 +240,12 @@ class PeakLoadWindow(Strategy):
                 cs = self.world_state.charging_stations[cs_id]
                 power = min(gc_power, util.clamp_power(power, v, cs))
                 # charging
-                power = v.battery.load(self.interval, target_power=power)["avg_power"]
+                power = v.battery.charge(self.interval, target_power=power)["avg_power"]
                 commands[cs_id] = power
                 gc_power = max(gc_power - power, 0)
             # charge batteries
             for bid, battery in self.world_state.batteries.items():
-                power = battery.load(self.interval, max_power=gc_power)["avg_power"]
+                power = battery.charge(self.interval, max_power=gc_power)["avg_power"]
                 gc_power = min(gc_power - power, 0)
                 gc.add_load(bid, power)
         # update GC loads
@@ -297,7 +298,7 @@ class PeakLoadWindow(Strategy):
             cs = self.world_state.charging_stations[cs_id]
             power = util.clamp_power(power, vehicle, cs)
             # charging
-            avg_power = vehicle.battery.load(
+            avg_power = vehicle.battery.charge(
                 self.interval, max_power=power, target_soc=vehicle.desired_soc)["avg_power"]
             commands[cs_id] = avg_power
             available_power -= avg_power
