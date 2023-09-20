@@ -11,11 +11,13 @@ class Distributed(strategy.Strategy):
         super().__init__(components, start_time, **kwargs)
         # create distinct strategies for depot and stations that get updated each step
         strat_opps = kwargs.get("strategy_opps", "greedy")
-        strat_options_opps = kwargs.get("strategy_options_opps", dict())
-        strat_options_opps.update(kwargs)
+        # get substrategy options that override general options
+        strat_options_opps = kwargs.pop("strategy_options_opps", dict())
+        strat_options_deps = kwargs.pop("strategy_options_deps", dict())
+        # dict.update does not return a value, use dict creation to retain values
+        strat_options_opps = dict(deepcopy(kwargs), **strat_options_opps)
         strat_deps = kwargs.get("strategy_deps", "balanced")
-        strat_options_deps = kwargs.get("strategy_options_deps", dict())
-        strat_options_deps.update(kwargs)
+        strat_options_deps = dict(deepcopy(kwargs), **strat_options_deps)
         self.description = f"distributed {strat_opps}/{strat_deps}"
         self.strat_opps = strategy.class_from_str(strat_opps)(
             components, start_time, **strat_options_opps)
