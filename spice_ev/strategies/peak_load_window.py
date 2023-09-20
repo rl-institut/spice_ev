@@ -102,6 +102,7 @@ class PeakLoadWindow(Strategy):
         self.events = []
         current_loads = {}
         peak_power = {}
+        peak_time = {gc_id: self.current_time for gc_id in self.world_state.grid_connectors.items()}
         for gc_id, gc in self.world_state.grid_connectors.items():
             current_loads[gc_id] = deepcopy(gc.current_loads)
             peak_power[gc_id] = 0
@@ -127,12 +128,21 @@ class PeakLoadWindow(Strategy):
                     current_loads[gc_id][event.name] = -event.value
                 elif type(event) is events.FixedLoad:
                     current_loads[gc_id][event.name] = event.value
+            # end of events for this timestep
+            # update peak power
+            for gc_id, gc in self.world_state.grid_connectors.items():
                 is_window = util.datetime_within_power_level_window(
                     cur_time, self.time_windows[gc.grid_operator], gc.voltage_level)
-                if is_window:
-                    peak_power[gc_id] = max(peak_power[gc_id], sum(current_loads[gc_id].values()))
+                gc_sum_loads = sum(current_loads[gc_id].values())
+                if is_window and gc_sum_loads > peak_power[gc_id]:
+                    # new peak power
+                    peak_power[gc_id] = gc_sum_loads
+                    peak_time[gc_id] = cur_time
             self.events.append(cur_events)
         self.peak_power = peak_power
+        for gc_id, t in peak_time.items():
+            if t > self.stop_time:
+                warnings.warn(f"Peak power of {gc_id} is not within simulation time, but at {t}")
 
     def step(self):
         """ Calculate charging power in each timestep.
