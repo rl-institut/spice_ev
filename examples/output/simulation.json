@@ -86,7 +86,7 @@
   "all vehicle battery cycles": {
     "value": 0.04210526315789478,
     "unit": null,
-    "info": "Number of load cycles per vehicle (averaged)"
+    "info": "Number of charging cycles per vehicle (averaged)"
   },
   "times below desired soc": {
     "without margin": 0,

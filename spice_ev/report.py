@@ -122,8 +122,8 @@ def aggregate_local_results(scenario, gcID):
     }
 
     # gather info about standing and power in specific time windows
-    load_count = [[0] for _ in scenario.components.vehicles]
-    load_window = [[] for _ in range(4)]
+    charge_count = [[0] for _ in scenario.components.vehicles]
+    load_windows = [[] for _ in range(4)]
     count_window = [[0]*len(scenario.components.vehicles) for _ in range(4)]
 
     cur_time = scenario.start_time - scenario.interval
@@ -144,17 +144,21 @@ def aggregate_local_results(scenario, gcID):
             cur_load_window = (flex["max"][idx] - flex["min"][idx], scenario.totalLoad[gcID][idx])
         except KeyError:
             cur_load_window = (0, scenario.totalLoad[gcID][idx])
-        load_window[widx].append(cur_load_window)
+        load_windows[widx].append(cur_load_window)
 
+        # add number of connected vehicles to count_window
         count_window[widx] = list(map(
             lambda c, t: c + (t is not None),
             count_window[widx], scenario.socs[idx]))
 
+        # increase vehicle standing counter if connected
         for i, soc in enumerate(scenario.socs[idx]):
-            if soc is None and load_count[i][-1] > 0:
-                load_count[i].append(0)
+            if soc is None and charge_count[i][-1] > 0:
+                # vehicle just left: set up next standing counter
+                charge_count[i].append(0)
             else:
-                load_count[i][-1] += (soc is not None)
+                # increase counter if connected
+                charge_count[i][-1] += (soc is not None)
 
         fixed_load = sum([v for k, v in scenario.fixedLoads[gcID][idx].items() if
                           k in scenario.events.fixed_load_lists or
@@ -165,7 +169,7 @@ def aggregate_local_results(scenario, gcID):
 
     # avg flex per window
     scenario.avg_flex_per_window[gcID] = [sum([t[0] for t in w]) / len(w) if w else 0
-                                          for w in load_window]
+                                          for w in load_windows]
     json_results["avg flex per window"] = {
         "04-10": scenario.avg_flex_per_window[gcID][0],
         "10-16": scenario.avg_flex_per_window[gcID][1],
@@ -184,7 +188,7 @@ def aggregate_local_results(scenario, gcID):
 
     # sum of used energy per window
     scenario.sum_energy_per_window[gcID] = [sum([t[1] for t in w]) / stepsPerHour
-                                            for w in load_window]
+                                            for w in load_windows]
     json_results["sum of energy per window"] = {
         "04-10": scenario.sum_energy_per_window[gcID][0],
         "10-16": scenario.sum_energy_per_window[gcID][1],
@@ -197,13 +201,13 @@ def aggregate_local_results(scenario, gcID):
     # avg standing time
     # don't use info from flex band, as standing times might be interleaved
     # remove last empty standing count
-    for counts in load_count:
+    for counts in charge_count:
         if counts[-1] == 0:
             counts = counts[:-1]
-    num_loads = sum(map(len, load_count))
+    sum_charging = sum(map(len, charge_count))
     avg_stand_time = scenario.avg_stand_time
-    if num_loads > 0:
-        avg_stand_time[gcID] = sum(map(sum, load_count)) / stepsPerHour / num_loads
+    if sum_charging > 0:
+        avg_stand_time[gcID] = sum(map(sum, charge_count)) / stepsPerHour / sum_charging
     else:
         avg_stand_time[gcID] = 0
     # avg total standing time
@@ -322,7 +326,7 @@ def aggregate_local_results(scenario, gcID):
         json_results["stationary battery cycles"] = {
             "value": total_bat_energy / total_bat_cap,
             "unit": None,
-            "info": "Number of load cycles of stationary batteries (averaged)"
+            "info": "Number of charging cycles of stationary batteries (averaged)"
         }
     # vehicles
     vehicle_cap = sum([v.battery.capacity for v in scenario.components.vehicles.values()])
@@ -334,7 +338,7 @@ def aggregate_local_results(scenario, gcID):
     json_results["all vehicle battery cycles"] = {
         "value": battery_cycles,
         "unit": None,
-        "info": "Number of load cycles per vehicle (averaged)"
+        "info": "Number of charging cycles per vehicle (averaged)"
     }
 
     json_results["times below desired soc"] = {
