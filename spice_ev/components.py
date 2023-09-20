@@ -199,7 +199,7 @@ class VehicleType:
         max_power = self.charging_curve.max_power
         assert self.min_charging_power <= max_power
         if self.discharge_curve is None:
-            # no info: use power factor to scale charging curve for discharging
+            # no info: use V2G power factor to scale charging curve for discharging
             self.discharge_curve = self.charging_curve.clamped(
                 max_power, pre_scale=self.v2g_power_factor)
 
