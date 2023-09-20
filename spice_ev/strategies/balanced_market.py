@@ -221,9 +221,8 @@ class BalancedMarket(Strategy):
                 old_power = deepcopy(power)
                 old_sorted_idx = sorted_idx
 
-                # discharge with maximum power (scaled with power factor)
-                p = -(vehicle.battery.loading_curve.max_power
-                      * vehicle.vehicle_type.v2g_power_factor)
+                # discharge with maximum power
+                p = -vehicle.battery.unloading_curve.max_power
                 # limit to GC discharge power
                 # derivation and reasoning:
                 # max unload power is symmetric to max load

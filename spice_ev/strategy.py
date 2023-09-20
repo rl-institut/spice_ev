@@ -37,7 +37,6 @@ class Strategy():
         self.PRICE_THRESHOLD = 0
         self.ALLOW_NEGATIVE_SOC = False
         self.RESET_NEGATIVE_SOC = False
-        self.V2G_POWER_FACTOR = 0.5
         # check if strategy uses grid signals & enable/disable plotting of schedule or window
         self.uses_schedule = False
         self.uses_window = False
@@ -210,9 +209,7 @@ class Strategy():
                     and cs.current_power < self.EPS
                     and not gc_cheap[cs.parent]):
                 # GC draws power, surplus in vehicle and V2G capable: support GC
-                discharge_power = min(
-                    -gc_surplus,
-                    vehicle.battery.loading_curve.max_power * vehicle.vehicle_type.v2g_power_factor)
+                discharge_power = min(-gc_surplus, vehicle.battery.unloading_curve.max_power)
                 target_soc = max(vehicle.desired_soc, self.DISCHARGE_LIMIT)
                 avg_power = vehicle.battery.unload(
                     self.interval, max_power=discharge_power, target_soc=target_soc)['avg_power']

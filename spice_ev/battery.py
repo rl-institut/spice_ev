@@ -1,8 +1,6 @@
 import copy
 from math import exp, log
 
-from spice_ev.loading_curve import LoadingCurve
-
 
 class Battery():
     """Battery class"""
@@ -35,8 +33,8 @@ class Battery():
         self.efficiency = efficiency
         self.loss_rate = loss_rate
         if unloading_curve is None:
-            self.unloading_curve = LoadingCurve([[0, self.loading_curve.max_power],
-                                                 [1, self.loading_curve.max_power]])
+            # no info: mirror charging curve
+            self.unloading_curve = copy.deepcopy(loading_curve)
         else:
             self.unloading_curve = copy.deepcopy(unloading_curve)
 
