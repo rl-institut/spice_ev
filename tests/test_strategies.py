@@ -423,13 +423,13 @@ class TestScenarios(TestCaseBase):
             dst = tmp_path / "scenario.json"
             dst.write_text(src.read_text())
             schedule = tmp_path / "schedule.csv"
-            for load_strat in ["collective", "individual"]:
+            for SUB_STRAT in ["collective", "individual"]:
                 # create schedule
                 generate_schedule.generate_schedule(Namespace(
                     scenario=dst,
                     input=TEST_REPO_PATH/"test_data/input_test_generate/example_grid_situation.csv",
                     output=schedule,
-                    individual=load_strat == "individual",
+                    individual=SUB_STRAT == "individual",
                     core_standing_time={
                         "times": [{"start": [22, 0], "end": [5, 0]}], "no_drive_days": [6]
                     },
@@ -439,7 +439,7 @@ class TestScenarios(TestCaseBase):
                 with dst.open('r') as f:
                     j = json.load(f)
                 s = scenario.Scenario(j, tmp_path)
-                s.run('schedule', {"LOAD_STRAT": load_strat})
+                s.run('schedule', {"SUB_STRAT": SUB_STRAT})
 
     def test_schedule_battery(self):
         test_json = {
@@ -467,13 +467,13 @@ class TestScenarios(TestCaseBase):
         }
         s = scenario.Scenario(test_json)
         # schedule too high => charge battery (must not overflow)
-        s.run('schedule', {"LOAD_STRAT": "individual", "testing": True})
+        s.run('schedule', {"SUB_STRAT": "individual", "testing": True})
         # test battery
         assert pytest.approx(s.batteryLevels["BAT"][-1]) == 10
 
         # schedule too low => discharge battery (must not become negative)
         s.components.grid_connectors["GC"].target = -5
-        s.run('schedule', {"LOAD_STRAT": "individual", "testing": True})
+        s.run('schedule', {"SUB_STRAT": "individual", "testing": True})
         # test battery
         assert pytest.approx(s.batteryLevels["BAT"][-1]) == 0
 

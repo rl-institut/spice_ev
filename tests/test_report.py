@@ -137,7 +137,7 @@ class TestReport:
                 }}
             }
         })
-        s.run('schedule', {"LOAD_STRAT": "individual"})
+        s.run('schedule', {"SUB_STRAT": "individual"})
         assert s.strat.world_state.vehicles["t1"].battery.soc > 0.3
         assert s.strat.world_state.batteries["BAT"].soc > 0.5
         report.aggregate_global_results(s)

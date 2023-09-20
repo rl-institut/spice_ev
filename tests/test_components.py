@@ -49,7 +49,7 @@ class TestBattery:
         # basic battery instance
         points = [(0, 42), (0.5, 42), (1, 0)]
         lc = charging_curve.ChargingCurve(points)
-        bat = battery.Battery(100, lc, 0)
+        battery.Battery(100, lc, 0)
 
     def test_charging(self):
         points = [(0, 42), (0.5, 42), (1, 1)]

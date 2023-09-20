@@ -9,29 +9,29 @@ class FlexWindow(Strategy):
     """ Charging during given time windows. """
     def __init__(self, components, start_time, **kwargs):
         self.HORIZON = 24  # hours ahead
-        self.LOAD_STRAT = "balanced"  # greedy, needy, balanced
+        self.SUB_STRAT = "balanced"  # greedy, needy, balanced
 
         super().__init__(components, start_time, **kwargs)
         assert (len(self.world_state.grid_connectors) == 1), "Only one grid connector supported"
         self.description = "Flex Window ({}, {} hour horizon)".format(
-            self.LOAD_STRAT, self.HORIZON)
+            self.SUB_STRAT, self.HORIZON)
         self.uses_window = True
 
-        if self.LOAD_STRAT == "greedy":
+        if self.SUB_STRAT == "greedy":
             # charge vehicles in need first, then by order of departure
             self.sort_key = lambda v: (
                 v.battery.soc >= v.desired_soc,
                 v.estimated_time_of_departure)
-        elif self.LOAD_STRAT == "needy":
+        elif self.SUB_STRAT == "needy":
             # charge vehicles with not much power needed first, may leave more for others
             self.sort_key = lambda v: v.get_delta_soc() * v.battery.capacity
-        elif self.LOAD_STRAT == "balanced":
+        elif self.SUB_STRAT == "balanced":
             # default, simple strategy: charge vehicles balanced during windows
             self.sort_key = lambda v: (
                 v.battery.soc < v.desired_soc,
                 v.estimated_time_of_departure)
         else:
-            "Unknown charging strategy: {}".format(self.LOAD_STRAT)
+            "Unknown charging strategy: {}".format(self.SUB_STRAT)
 
     def step(self):
         """ Calculate charging power in each timestep.
@@ -102,7 +102,7 @@ class FlexWindow(Strategy):
         gc.window = timesteps[0]["window"]
         # v2g_used is True if there was V2G discharge
         v2g_used = False
-        if self.LOAD_STRAT == "balanced":
+        if self.SUB_STRAT == "balanced":
             # charge vehicle with balanced strategy
             commands = self.distribute_balanced_vehicles(timesteps)
             # check if there is surplus power available
@@ -840,9 +840,9 @@ class FlexWindow(Strategy):
         return commands
 
     def distribute_power(self, vehicles, total_power, total_needed):
-        """ Charge vehicle batteries with available power according to *LOAD_STRAT*.
+        """ Charge vehicle batteries with available power according to *SUB_STRAT*.
 
-        Supported values for *LOAD_STRAT*:
+        Supported values for *SUB_STRAT*:
 
         * greedy (vehicles charge greedy one after the other)
         * needy (vehicles that need more energy get proportionally more)
@@ -854,7 +854,7 @@ class FlexWindow(Strategy):
         :type total_power: numeric
         :param total_needed: total power needed
         :type total_needed: numeric
-        :raises NotImplementedError: if *LOAD_STRAT* is not supported
+        :raises NotImplementedError: if *SUB_STRAT* is not supported
         :return: commands for charging stations
         :rtype: dict
         """
@@ -865,9 +865,9 @@ class FlexWindow(Strategy):
         for v in vehicles:
             cs_id = v.connected_charging_station
             cs = self.world_state.charging_stations[cs_id]
-            if self.LOAD_STRAT == "greedy":
+            if self.SUB_STRAT == "greedy":
                 power = total_power
-            elif self.LOAD_STRAT == "needy":
+            elif self.SUB_STRAT == "needy":
                 energy_needed = v.get_energy_needed(full=True)
                 f = energy_needed / total_needed if total_needed > 0 else 0
                 power = f * total_power

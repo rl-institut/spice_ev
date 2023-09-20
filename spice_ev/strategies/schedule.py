@@ -11,7 +11,7 @@ class Schedule(Strategy):
     """ Charging according to a given schedule, that depends on the grid situation. """
     def __init__(self, components, start_time, **kwargs):
         allowed_substrats = ["collective", "individual"]
-        self.LOAD_STRAT = "collective"
+        self.SUB_STRAT = "collective"
 
         # only relevant for sub-strategy "collective"
         self.currently_in_core_standing_time = False
@@ -23,15 +23,15 @@ class Schedule(Strategy):
         super().__init__(components, start_time, **kwargs)
         self.TS_per_hour = (timedelta(hours=1) / self.interval)
 
-        self.description = "schedule ({})".format(self.LOAD_STRAT)
+        self.description = "schedule ({})".format(self.SUB_STRAT)
         self.uses_schedule = True
 
-        assert self.LOAD_STRAT in allowed_substrats, (
-            f"Unknown charging strategy: {self.LOAD_STRAT}. "
+        assert self.SUB_STRAT in allowed_substrats, (
+            f"Unknown charging strategy: {self.SUB_STRAT}. "
             f"Possible options: {', '.join(allowed_substrats)}")
         self.sort_key = lambda v: v[0].get_delta_soc() * v[0].battery.capacity
 
-        if self.LOAD_STRAT == "collective":
+        if self.SUB_STRAT == "collective":
             assert len(self.world_state.grid_connectors.values()) == 1, (
                     "Only one grid connector allowed for collective sub-strategy")
             assert self.core_standing_time is not None, (
@@ -777,7 +777,7 @@ class Schedule(Strategy):
 
         charging_stations = {}
 
-        if self.LOAD_STRAT == "collective":
+        if self.SUB_STRAT == "collective":
             if dt_within_core_standing_time(self.current_time, self.core_standing_time):
                 # only run in first TS of core standing time
                 if not self.currently_in_core_standing_time:
@@ -794,7 +794,7 @@ class Schedule(Strategy):
                 if self.overcharge_necessary:
                     charging_stations = self.charge_vehicles_after_core_standing_time(
                         charging_stations)
-        elif self.LOAD_STRAT == "individual":
+        elif self.SUB_STRAT == "individual":
             charging_stations = self.charge_individually()
 
         # always try to charge/discharge stationary batteries

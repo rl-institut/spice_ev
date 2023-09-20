@@ -16,21 +16,21 @@ class PeakLoadWindow(Strategy):
 
         # minimum binary search depth
         self.ITERATIONS = 12
-        self.LOAD_STRAT = 'needy'  # greedy, needy, balanced
+        self.SUB_STRAT = 'needy'  # greedy, needy, balanced
 
         # init parent class Strategy. May override defaults
         super().__init__(components, start_time, **kwargs)
-        self.description = "§19.2 StromNEV ({})".format(self.LOAD_STRAT)
+        self.description = "§19.2 StromNEV ({})".format(self.SUB_STRAT)
 
         # set order of vehicles to load
-        if self.LOAD_STRAT == 'greedy':
+        if self.SUB_STRAT == 'greedy':
             self.sort_key = lambda v: (v.estimated_time_of_departure)
-        elif self.LOAD_STRAT == 'needy':
+        elif self.SUB_STRAT == 'needy':
             self.sort_key = lambda v: -v.get_energy_needed()
-        elif self.LOAD_STRAT == 'balanced':
+        elif self.SUB_STRAT == 'balanced':
             self.sort_key = lambda v: v.get_energy_needed(full=False)
         else:
-            raise NotImplementedError(self.LOAD_STRAT)
+            raise NotImplementedError(self.SUB_STRAT)
 
         # define time windows where drawing from grid is discouraged
         year = start_time.year
@@ -255,7 +255,7 @@ class PeakLoadWindow(Strategy):
         return {'current_time': self.current_time, 'commands': commands}
 
     def distribute_power(self, vehicles, total_power, energy_needed):
-        """Distribute total_power to vehicles in iterable vehicles according to self.LOAD_STRAT
+        """Distribute total_power to vehicles in iterable vehicles according to self.SUB_STRAT
 
         :param vehicles: vehicles object
         :type vehicles: object
@@ -267,7 +267,7 @@ class PeakLoadWindow(Strategy):
         :rtype: dict
         """
 
-        # distribute total_power to vehicles in iterable vehicles according to self.LOAD_STRAT
+        # distribute total_power to vehicles in iterable vehicles according to self.SUB_STRAT
         # energy_needed is
         if not vehicles:
             return {}
@@ -281,16 +281,16 @@ class PeakLoadWindow(Strategy):
         vehicles_to_charge = len(vehicles)
 
         for vehicle in sorted(vehicles, key=self.sort_key):
-            if self.LOAD_STRAT == "greedy":
+            if self.SUB_STRAT == "greedy":
                 # use maximum of given power
                 power = available_power
-            elif self.LOAD_STRAT == "needy":
+            elif self.SUB_STRAT == "needy":
                 # get fraction of precalculated power need to overall power need
                 vehicle_energy_needed = vehicle.get_energy_needed(full=False)
                 frac = vehicle_energy_needed / energy_needed if energy_needed > self.EPS else 0
                 power = available_power * frac
                 energy_needed -= vehicle_energy_needed
-            elif self.LOAD_STRAT == "balanced":
+            elif self.SUB_STRAT == "balanced":
                 # distribute total power over vehicles
                 power = available_power / vehicles_to_charge
 
