@@ -311,7 +311,7 @@ This module sets up the events for the simulation period.
 
 
 Charging curve
--------------
+--------------
 This module contains the class `ChargingCurve` and its methods which are needed for the batteries.
 
 .. currentmodule:: spice_ev.charging_curve
