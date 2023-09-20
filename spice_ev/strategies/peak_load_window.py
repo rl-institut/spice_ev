@@ -144,7 +144,8 @@ class PeakLoadWindow(Strategy):
         self.peak_power = peak_power
         for gc_id, t in peak_time.items():
             if t > self.stop_time:
-                warnings.warn(f"Peak power of {gc_id} is not within simulation time, but at {t}")
+                warnings.warn(f"Peak power of {peak_power[gc_id]} kW at {gc_id} "
+                              f"is not within simulation time, but at {t}")
 
     def step(self):
         """ Calculate charging power in each timestep.
