@@ -224,6 +224,7 @@ class PeakLoadWindow(Strategy):
 
         gc.window = util.datetime_within_power_level_window(
             self.current_time, self.time_windows[gc.grid_operator], gc.voltage_level)
+        peak_power = self.peak_power[gc_id]
 
         # sort vehicles by length of standing time
         # (in case out-of-window-charging is not enough, use peak shaving)
@@ -272,7 +273,7 @@ class PeakLoadWindow(Strategy):
                         # use up to peak power, but not more than needed
                         power = min(
                             vehicle.get_energy_needed() * ts_per_hour / vehicle.battery.efficiency,
-                            self.peak_power[gc_id] - ts["power"])
+                            peak_power - ts["power"])
                         p, power_levels[ts_idx] = charge_vehicle(power, ts)
                         if ts_idx == 0:
                             cur_power = p
@@ -307,12 +308,9 @@ class PeakLoadWindow(Strategy):
             # add power levels to gc info
             for ts_idx, ts_info in enumerate(connected_ts):
                 ts_info["power"] += power_levels[ts_idx]
-                # might have to increase global max power
-                if ts_info["window"] and ts_info["power"] - self.peak_power[gc_id] > self.EPS:
-                    # warnings.warn(
-                    # f"{self.current_time} ({gc_id}): increase peak power "
-                    # f"from {self.peak_power[gc_id]} to {ts_info['power']}")
-                    self.peak_power[gc_id] = ts_info["power"]
+                # adjust peak power prognose (might be reduced with batteries)
+                if ts_info["window"] and ts_info["power"] - peak_power > self.EPS:
+                    peak_power = ts_info["power"]
 
             # --- charge for real --- #
             vehicle.battery.soc = old_soc
@@ -324,65 +322,77 @@ class PeakLoadWindow(Strategy):
         # use stationary batteries
         for b_id, battery in stationary_batteries.items():
             if gc.window:
-                # within window: discharge for peak shaving
-                # sort power levels descending
-                power_levels = sorted(
-                    [max(ts_info["power"], 0) for ts_info in timesteps[:ts_until_window_change]],
-                    reverse=True)
-                # add dummy power level of 0 (discharge to baseline)
-                # this also means there are now more power_levels than ts_until_window_change!
-                power_levels.append(0)
-
-                battery_energy = battery.soc * battery.capacity * battery.efficiency
-                if battery_energy == 0:
-                    continue
-                # find identical power levels to increase them evenly
-                energy = 0
-                lvl_idx = 0
-                power_level = 0
-                while lvl_idx < len(power_levels):
-                    p = power_levels[lvl_idx]
-                    p2 = p
-                    lvl_idx += 1
-                    while lvl_idx < len(power_levels):
-                        p2 = power_levels[lvl_idx]
-                        if p - p2 > self.EPS:
-                            num_ts = min(lvl_idx, ts_until_window_change)
-                            new_energy = (p - p2) * num_ts / ts_per_hour
-                            break
-                        lvl_idx += 1
-                    else:
-                        # no different power level until end of window
-                        new_energy = p * ts_until_window_change / ts_per_hour
-
-                    if new_energy == 0:
-                        continue
-
-                    # decrease to p2
-                    if energy + new_energy < battery_energy:
-                        # battery sufficient to support p2
-                        energy += new_energy
-                        continue
-                    # battery not sufficient to decrease to p2: discharge fraction
-                    f = (battery_energy - energy) / new_energy
-                    assert 0 < f < 1
-                    power_level = p - (p - p2) * f
-                    break
-                else:
-                    # all timesteps can be fulfilled: just use battery energy throughout
-                    # target power is last power level
-                    power_level = p2
-
-                # charge inside window (simulate whole window in case of multiple batteries)
-                for ts_idx, ts_info in enumerate(timesteps[:ts_until_window_change]):
-                    power = max(ts_info["power"] - power_level, 0)
-                    power = battery.unload(self.interval, target_power=power)["avg_power"]
-                    ts_info["power"] -= power
-                    if ts_idx == 0:
-                        old_soc = battery.soc
+                if self.LOAD_STRAT == "greedy":
+                    # charge when below peak load, discharge when above
+                    power = gc.get_current_load() - self.peak_power[gc_id]
+                    if power > battery.min_charging_power:
+                        # current load above peak power within window: discharge
+                        power = battery.unload(self.interval, target_power=power)["avg_power"]
                         gc.add_load(b_id, -power)
-                    # revert soc, keeping current timestep
-                    battery.soc = old_soc
+                    elif power < -battery.min_charging_power:
+                        # current load below peak power: charge up to peak power
+                        power = battery.load(self.interval, target_power=-power)["avg_power"]
+                        gc.add_load(b_id, power)
+                elif self.LOAD_STRAT == "peak_shaving":
+                    # within window: discharge for peak shaving
+                    # sort power levels descending
+                    power_levels = sorted(
+                        [max(ts["power"], 0) for ts in timesteps[:ts_until_window_change]],
+                        reverse=True)
+                    # add dummy power level of 0 (discharge to baseline)
+                    # this also means there are now more power_levels than ts_until_window_change!
+                    power_levels.append(0)
+
+                    battery_energy = battery.soc * battery.capacity * battery.efficiency
+                    if battery_energy == 0:
+                        continue
+                    # find identical power levels to increase them evenly
+                    energy = 0
+                    lvl_idx = 0
+                    power_level = 0
+                    while lvl_idx < len(power_levels):
+                        p = power_levels[lvl_idx]
+                        p2 = p
+                        lvl_idx += 1
+                        while lvl_idx < len(power_levels):
+                            p2 = power_levels[lvl_idx]
+                            if p - p2 > self.EPS:
+                                num_ts = min(lvl_idx, ts_until_window_change)
+                                new_energy = (p - p2) * num_ts / ts_per_hour
+                                break
+                            lvl_idx += 1
+                        else:
+                            # no different power level until end of window
+                            new_energy = p * ts_until_window_change / ts_per_hour
+
+                        if new_energy == 0:
+                            continue
+
+                        # decrease to p2
+                        if energy + new_energy < battery_energy:
+                            # battery sufficient to support p2
+                            energy += new_energy
+                            continue
+                        # battery not sufficient to decrease to p2: discharge fraction
+                        f = (battery_energy - energy) / new_energy
+                        assert 0 < f < 1
+                        power_level = p - (p - p2) * f
+                        break
+                    else:
+                        # all timesteps can be fulfilled: just use battery energy throughout
+                        # target power is last power level
+                        power_level = p2
+
+                    # charge inside window (simulate whole window in case of multiple batteries)
+                    for ts_idx, ts_info in enumerate(timesteps[:ts_until_window_change]):
+                        power = max(ts_info["power"] - power_level, 0)
+                        power = battery.unload(self.interval, target_power=power)["avg_power"]
+                        ts_info["power"] -= power
+                        if ts_idx == 0:
+                            old_soc = battery.soc
+                            gc.add_load(b_id, -power)
+                        # revert soc, keeping current timestep
+                        battery.soc = old_soc
             else:
                 # outside of window: charge balanced until window change
                 # only current timestep computed, no look-ahead
@@ -393,5 +403,9 @@ class PeakLoadWindow(Strategy):
                 if p2 >= battery.min_charging_power:
                     p3 = battery.load(self.interval, target_power=p2)["avg_power"]
                     gc.add_load(b_id, p3)
+
+        # might have to increase peak power when within window
+        if gc.window:
+            self.peak_power[gc_id] = max(self.peak_power[gc_id], gc.get_current_load())
 
         return charging_stations
