@@ -109,6 +109,7 @@
       "GC1": {
         "max_power": 100,
         "voltage_level": "MV",
+        "grid_operator": null,
         "cost": {
           "type": "fixed",
           "value": 0.3

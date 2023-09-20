@@ -45,6 +45,7 @@ def update_namespace(args):
         "GC1": {
             "max_power": vars(args).get("gc_power", 100),
             "voltage_level": voltage_level,
+            "grid_operator": vars(args).get("grid_operator"),
             "cost": {"type": "fixed", "value": 0.3},
         }
     }
@@ -56,7 +57,6 @@ def update_namespace(args):
             "PV1": {
                 "parent": "GC1",
                 "nominal_power": pv_power,
-                "grid_operator": args.grid_operator,
             }
         }
     else:
