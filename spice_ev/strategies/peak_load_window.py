@@ -61,7 +61,9 @@ class PeakLoadWindow(Strategy):
                         for t in windows]
                 self.time_windows[grid_operator][season] = info
 
-        for gc_id, gc in self.world_state.grid_connectors.items():
+        gcs = self.world_state.grid_connectors
+
+        for gc_id, gc in gcs.items():
             if gc.voltage_level is None:
                 warnings.warn(f"GC {gc_id} has no voltage level, might not find time window")
                 warnings.warn("SETTING VOLTAGE LEVEL TO MV")
@@ -102,8 +104,8 @@ class PeakLoadWindow(Strategy):
         self.events = []
         current_loads = {}
         peak_power = {}
-        peak_time = {gc_id: self.current_time for gc_id in self.world_state.grid_connectors.items()}
-        for gc_id, gc in self.world_state.grid_connectors.items():
+        peak_time = {gc_id: self.current_time for gc_id in gcs}
+        for gc_id, gc in gcs.items():
             current_loads[gc_id] = deepcopy(gc.current_loads)
             peak_power[gc_id] = 0
         cur_time = start_time - self.interval
@@ -123,14 +125,14 @@ class PeakLoadWindow(Strategy):
                 event_idx += 1
                 cur_events.append(event)
                 gc_id = event.grid_connector_id
-                gc = self.world_state.grid_connectors[gc_id]
+                gc = gcs[gc_id]
                 if type(event) is events.LocalEnergyGeneration:
                     current_loads[gc_id][event.name] = -event.value
                 elif type(event) is events.FixedLoad:
                     current_loads[gc_id][event.name] = event.value
             # end of events for this timestep
             # update peak power
-            for gc_id, gc in self.world_state.grid_connectors.items():
+            for gc_id, gc in gcs.items():
                 is_window = util.datetime_within_power_level_window(
                     cur_time, self.time_windows[gc.grid_operator], gc.voltage_level)
                 gc_sum_loads = sum(current_loads[gc_id].values())
