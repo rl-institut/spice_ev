@@ -192,7 +192,7 @@ class VehicleType:
             ('battery_efficiency', float, 0.95),
             ('v2g', bool, False),
             ('v2g_power_factor', float, 0.5),
-            ('discharge_curve', charging_curve.ChargingCurve, None),
+            ('discharging_curve', charging_curve.ChargingCurve, None),
             ('loss_rate', float, 0),
         ]
         util.set_attr_from_dict(obj, self, keys, optional_keys)
@@ -222,7 +222,7 @@ class Vehicle:
             charging_curve=self.vehicle_type.charging_curve,
             soc=self.soc,
             efficiency=self.vehicle_type.battery_efficiency,
-            discharging_curve=self.vehicle_type.discharge_curve,
+            discharging_curve=self.vehicle_type.discharging_curve,
             loss_rate=self.vehicle_type.loss_rate,
         )
         del self.soc
@@ -261,7 +261,7 @@ class StationaryBattery(battery.Battery):
             ('min_charging_power', float, 0.0),
             ('soc', float, 0.0),
             ('efficiency', float, 0.95),
-            ('discharge_curve', charging_curve.ChargingCurve, None),
+            ('discharging_curve', charging_curve.ChargingCurve, None),
             ('loss_rate', dict, {}),
         ]
         util.set_attr_from_dict(obj, self, keys, optional_keys)
@@ -273,6 +273,6 @@ class StationaryBattery(battery.Battery):
             self.charging_curve,
             self.soc,
             self.efficiency,
-            self.discharge_curve,
+            self.discharging_curve,
             self.loss_rate,
         )
