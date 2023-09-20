@@ -115,7 +115,10 @@ class Strategy():
                     # connector max power not set
                     connector.cur_max_power = ev.max_power
             elif type(ev) is events.VehicleEvent:
-                vehicle = self.world_state.vehicles[ev.vehicle_id]
+                vehicle = self.world_state.vehicles.get(ev.vehicle_id)
+                if vehicle is None:
+                    # skip events without vehicle
+                    continue
                 # update vehicle attributes
                 for k, v in ev.update.items():
                     setattr(vehicle, k, v)
