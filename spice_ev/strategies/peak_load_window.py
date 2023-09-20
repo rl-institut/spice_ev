@@ -16,7 +16,11 @@ class PeakLoadWindow(Strategy):
         self.time_windows = None
         self.LOAD_STRAT = "greedy"  # peak_shaving or greedy
         super().__init__(components, start_time, **kwargs)
-        self.description = "§19.2 StromNEV"
+        load_strats = ["greedy", "peak_shaving"]
+        assert self.LOAD_STRAT in load_strats, (
+            f"Unknown charging strategy '{self.LOAD_STRAT}'. Allowed: {', '.join(load_strats)}")
+
+        self.description = f"§19.2 StromNEV ({self.LOAD_STRAT})"
         self.uses_window = True
 
         if self.time_windows is None:
@@ -268,7 +272,8 @@ class PeakLoadWindow(Strategy):
                 for ts_idx, ts in enumerate(connected_ts):
                     if not ts["window"]:
                         # apply balanced charging
-                        vehicle.battery.load(self.interval, target_power=power_levels[ts_idx])
+                        power_levels[ts_idx] = vehicle.battery.load(
+                            self.interval, target_power=power_levels[ts_idx])["avg_power"]
                     else:
                         # use up to peak power, but not more than needed
                         power = min(
@@ -285,13 +290,17 @@ class PeakLoadWindow(Strategy):
                 # find optimum power level through binary search
                 min_power = min([ts["power"] for ts in connected_ts])
                 max_power = max([ts["max_power"] for ts in connected_ts])
+                power_levels_copy = deepcopy(power_levels)
                 while max_power - min_power > self.EPS:
                     vehicle.battery.soc = old_soc
                     target_power = (max_power + min_power) / 2
                     for ts_idx, ts in enumerate(connected_ts):
                         if not ts["window"]:
                             # apply balanced charging
-                            vehicle.battery.load(self.interval, target_power=power_levels[ts_idx])
+                            # might change (different part of charging curve),
+                            # but more important to target balanced power
+                            power_levels[ts_idx] = vehicle.battery.load(
+                                self.interval, target_power=power_levels_copy[ts_idx])["avg_power"]
                         else:
                             # load window: get difference between opt power and current power
                             power = max(target_power - ts["power"], 0)
