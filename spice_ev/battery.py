@@ -42,7 +42,7 @@ class Battery():
 
         if self.capacity > 1e6:
             # batteries with high/infinite capacity: lower EPS for loading
-            self.EPS = 1 / self.capacity
+            self.EPS = 0.1 / self.capacity
         else:
             self.EPS = 1e-5
 
