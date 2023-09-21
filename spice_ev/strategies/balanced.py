@@ -15,7 +15,7 @@ class Balanced(Strategy):
         :return: current time and commands of the charging stations
         :rtype: dict
         """
-        # get power that can be drawn from battery in this timestep
+        # get power that can be drawn from stationary battery in this timestep
         avail_bat_power = {}
         for gcID, gc in self.world_state.grid_connectors.items():
             avail_bat_power[gcID] = 0
@@ -41,12 +41,13 @@ class Balanced(Strategy):
             gc_id = cs.parent
             gc = self.world_state.grid_connectors[gc_id]
             gc_power_left = gc.cur_max_power - gc.get_current_load()
+            delta_soc = vehicle.get_delta_soc()
+            # initialize variables
             power = 0
             bat_power_used = False
-            delta_soc = vehicle.get_delta_soc()
 
             if get_cost(1, gc.cost) <= self.PRICE_THRESHOLD:
-                # low energy price: take max available power from GC without batteries
+                # low energy price: take max available power from GC (without stationary batteries)
                 power = clamp_power(gc_power_left, vehicle, cs)
             elif delta_soc > self.EPS:
                 # vehicle needs charging: compute minimum required power
@@ -54,19 +55,23 @@ class Balanced(Strategy):
                 # time until departure
                 dt = vehicle.estimated_time_of_departure - self.current_time
                 timesteps = -(dt // -self.interval)
-                energy_needed = delta_soc*vehicle.battery.capacity / vehicle.battery.efficiency
+                # calculate desired energy for charging
+                energy_needed = delta_soc * vehicle.battery.capacity / vehicle.battery.efficiency
                 if timesteps > 0:
                     power = energy_needed / self.ts_per_hour / timesteps
                     power = clamp_power(power, vehicle, cs)
                 else:
-                    # past estimated time of departure, but still needs charging: greedy
+                    # past estimated time of departure, but still needs charging: charge greedy
                     power = clamp_power(gc.cur_max_power, vehicle, cs)
 
-            # load with power
+            # charge with power
             avg_power = vehicle.battery.load(self.interval, target_power=power)['avg_power']
+            # add load to charging station
             charging_stations[cs_id] = gc.add_load(cs_id, avg_power)
             cs.current_power += avg_power
+
             if bat_power_used:
+                # check for power from stationary battery
                 avail_bat_power[gc_id] = max(avail_bat_power[gc_id] - avg_power, 0)
 
             # can active charging station bear minimum load?
@@ -78,7 +83,7 @@ class Balanced(Strategy):
                 "{} - {} over maximum load ({} > {})".format(
                     self.current_time, cs.parent, gc.get_current_load(), gc.cur_max_power))
 
-        # all vehicles loaded
+        # all vehicles charged
         charging_stations.update(self.distribute_surplus_power())
         self.update_batteries()
 
