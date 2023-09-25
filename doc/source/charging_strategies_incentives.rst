@@ -64,13 +64,13 @@ Two different sub-strategies can be used:
 
 Peak load window
 ----------------
-Given a time window of high load, this strategy tries to charge outside of this window. Different sub-strategies are
-supported:
-
-- Greedy: The vehicles charge as much as possible, one after the other (vehicles below desired SOC charge first).
-- Needy: The power is allocated according to the missing power needed to reach the desired SOC.
-- Balanced: The power is distributed evenly among the vehicles below the desired SOC. Surplus is then distributed evenly
-  among all vehicles.
+Given time windows of high load, this strategy tries to charge outside of these windows. The time windows are given in
+the JSON `examples/data/time_windows.json`. In a first step the peak power inside these time windows is calculated.
+Usually this peak power is set by a fix load at the grid connector (e.g. a load from the building). If there are no
+fix loads, the peak power is set to zero.
+The strategy tries to draw power outside the windows, using a balanced approach.
+Inside the time windows the consumers like electriv vehicles or stationary batteries can draw power up to the peak power.
+If this energy is not sufficient, a peak shaving algorithm tries to keep the peak power as low as possible.
 
 Flex Window
 -----------
@@ -121,7 +121,7 @@ The following table gives an overview of the possible combinations.
 +--------------------------+-----------------------------+-------------------------------+-------------------------------+-------------------------------+
 | Schedule                 | x                           |                               |                               | x                             |
 +--------------------------+-----------------------------+-------------------------------+-------------------------------+-------------------------------+
-| Peak load window         | x                           |                               |  x                            |                               |
+| Peak load window         | x                           |                               |                               |                               |
 +--------------------------+-----------------------------+-------------------------------+-------------------------------+-------------------------------+
 | Flex window              | x                           |                               |  x                            |                               |
 +--------------------------+-----------------------------+-------------------------------+-------------------------------+-------------------------------+
@@ -141,7 +141,6 @@ fees are only applied on them. Fixed loads are charged according to the state of
 
 State of the art
 ----------------
-
 Today a commodity charge is applied on the amount of electrical energy supplied from the grid. Additionally SLP
 customers (standard load profile) have to pay a fixed basic charge per year. RLM customers (consumption metering) pay a
 capacity charge instead which is multiplied with the maximum power supplied at the grid connector in one year. Depending
@@ -165,7 +164,6 @@ friendly charging is used.
 
 Flexible time windows
 ---------------------
-
 Based on the forecast grid situation, low tariff windows and high tariff windows are defined. If curtailment of
 renewable power plants is forecast or local generation outweighs load, these periods become low tariff windows.
 
@@ -177,7 +175,6 @@ is encouraged.
 
 Schedule-based grid fees
 ------------------------
-
 Similar to the flexible time windows, the tariff for grid friendly charging is applied on the flexible loads such as
 electric vehicles when using schedule-based grid fees. However, a capacity charge is not applied on the flexible load.
 Instead, the deviation of the total load from the schedule is charged. Taking a deviation tolerance into account, a

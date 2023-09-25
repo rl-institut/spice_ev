@@ -21,7 +21,7 @@ class PeakLoadWindow(Strategy):
         assert self.LOAD_STRAT in load_strats, (
             f"Unknown charging strategy '{self.LOAD_STRAT}'. Allowed: {', '.join(load_strats)}")
 
-        self.description = f"§19.2 StromNEV ({self.LOAD_STRAT})"
+        self.description = f"peak load window ({self.LOAD_STRAT})"
         self.uses_window = True
 
         if self.time_windows is None:
