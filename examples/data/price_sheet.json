@@ -103,7 +103,21 @@
         "unit": "ct/kWh",
         "info": "remuneration for power fed into the grid by PV power plants or electric vehicles"
     },
-    "strategy_related_cost_parameters": {
+    "strategy_related": {
+        "peak_load_window": {
+            "significance_threshold": {
+                "eHV": 5,
+                "eHV/HV": 10,
+                "HV": 10,
+                "HV/MV": 20,
+                "MV": 20,
+                "MV/LV": 30,
+                "LV": 30,
+                "unit": "%",
+                "info": ["significance threshold between overall peak power and peak power ",
+                    "inside time window to see if cost calculation for strategy can be applied"]
+            }
+        },
         "balanced_market": {
             "low_tariff_factor": 0.68,
             "medium_tariff_factor": 1,

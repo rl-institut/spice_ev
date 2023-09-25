@@ -214,7 +214,7 @@ are supported.
 
     PeakLoadWindow
     PeakLoadWindow.step
-    PeakLoadWindow.distribute_power
+    PeakLoadWindow.step_gc
 
 
 Schedule

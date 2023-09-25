@@ -224,7 +224,7 @@ def calculate_costs(strategy, voltage_level, interval,
     energy_supply_per_year = energy_supply_sim / fraction_year
 
     # COSTS FROM COMMODITY AND CAPACITY CHARGE DEPENDING ON CHARGING STRATEGY:
-    if strategy in ["greedy", "balanced", "distributed"]:
+    if strategy in ["greedy", "balanced", "distributed", "peak_load_window"]:
         """
         Calculates costs in accordance with existing payment models.
         For SLP customers the variable capacity_charge is equivalent to the basic charge
@@ -232,6 +232,23 @@ def calculate_costs(strategy, voltage_level, interval,
 
         # maximum power supplied from the grid:
         max_power_grid_supply = max(power_grid_supply_list)
+
+        if strategy == "peak_load_window":
+            # get peak power inside time windows
+            window_loads = [l for (l, w) in zip(power_grid_supply_list, charging_signal_list) if w]
+            peak_power_in_windows = max(window_loads)
+            # check if cost calculation for peak_load_window can be applied: significance_threshold
+            significance_threshold = ((max_power_grid_supply - peak_power_in_windows) /
+                                      max_power_grid_supply) * 100
+            significance_threshold_price_sheet = (price_sheet["strategy_related"][strategy]
+                                                  ["significance_threshold"][voltage_level])
+            if significance_threshold > significance_threshold_price_sheet:
+                # only use peak power inside windows for calculation of capacity costs
+                max_power_grid_supply = peak_power_in_windows
+            # save threshold from price sheet to update json file
+            json_results_windows = {
+                "significance threshold from price sheet": significance_threshold_price_sheet
+            }
 
         # prices:
         if max_power_grid_supply == 0:
@@ -439,7 +456,7 @@ def calculate_costs(strategy, voltage_level, interval,
         """
 
         # schedule related charges:
-        schedule_charges = price_sheet["strategy_related_cost_parameters"]["schedule"]
+        schedule_charges = price_sheet["strategy_related"]["schedule"]
 
         # COSTS FOR FIXED LOAD
 
@@ -577,7 +594,6 @@ def calculate_costs(strategy, voltage_level, interval,
     interruptible_loads_costs_per_year = interruptible_loads_costs_sim / fraction_year  # [EUR]
 
     # COSTS FROM CONCESSION FEE:
-
     concession_fee = price_sheet["concession_fee"]["charge"]  # [ct/kWh]
     concession_fee_costs_sim = concession_fee * energy_supply_sim / 100  # [EUR]
     concession_fee_costs_per_year = concession_fee_costs_sim / fraction_year  # [EUR]
@@ -709,7 +725,7 @@ def calculate_costs(strategy, voltage_level, interval,
 
         capacity_or_basic_costs = "capacity costs"
 
-        if strategy in ["greedy", "balanced", "distributed"]:
+        if strategy in ["greedy", "balanced", "distributed", "peak_load_window"]:
             # strategies without differentiation between fixed and flexible load
             information_fix_flex = "no differentiation between fixed and flexible load"
             commodity_costs_eur_per_year_fix = information_fix_flex
@@ -809,6 +825,8 @@ def calculate_costs(strategy, voltage_level, interval,
         # add dictionary to json with simulation data:
         with open(results_json, "r", newline="") as sj:
             simulation_json = json.load(sj)
+        if strategy == "peak_load_window":  # ToDo: add flex_window?
+            simulation_json["peak load time windows"].update(json_results_windows)
         simulation_json.update(json_results_costs)
         with open(results_json, "w", newline="") as sj:
             json.dump(simulation_json, sj, indent=2)
