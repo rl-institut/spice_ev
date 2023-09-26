@@ -64,12 +64,12 @@ Two different sub-strategies can be used:
 
 Peak load window
 ----------------
-Given time windows of high load, this strategy tries to charge outside of these windows. The time windows are given in
-the JSON `examples/data/time_windows.json`. In a first step the peak power inside these time windows is calculated.
-Usually this peak power is set by a fix load at the grid connector (e.g. a load from the building). If there are no
-fix loads, the peak power is set to zero.
+Given time windows of high load, this strategy tries to charge outside of these windows. The example time windows are
+given in the JSON `examples/data/time_windows.json`. In a first step the peak power inside these time windows is calculated.
+Usually this peak power is set by a fixed load at the grid connector (e.g. a load from the building). If there are no
+fixed loads, the peak power is set to zero.
 The strategy tries to draw power outside the windows, using a balanced approach.
-Inside the time windows the consumers like electriv vehicles or stationary batteries can draw power up to the peak power.
+Inside time windows, consumers like electric vehicles or stationary batteries can draw power up to the peak power.
 If this energy is not sufficient, a peak shaving algorithm tries to keep the peak power as low as possible.
 
 Flex Window

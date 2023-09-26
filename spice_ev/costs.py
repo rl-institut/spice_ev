@@ -236,7 +236,10 @@ def calculate_costs(strategy, voltage_level, interval,
         if strategy == "peak_load_window":
             # get peak power inside time windows
             window_loads = [l for (l, w) in zip(power_grid_supply_list, charging_signal_list) if w]
-            peak_power_in_windows = max(window_loads)
+            try:
+                peak_power_in_windows = max(window_loads)
+            except ValueError:
+                warnings.warn("No time windows found. Please provide time windows in extra file.")
             # check if cost calculation for peak_load_window can be applied: significance_threshold
             significance_threshold = ((max_power_grid_supply - peak_power_in_windows) /
                                       max_power_grid_supply) * 100
