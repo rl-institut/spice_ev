@@ -205,21 +205,19 @@ stationary batteries or V2G, you need to set the target SOC parameter of the bat
 **Strategy options**
 
     +---------------------+----------------------------+---------------------------------------------------------+-------------+--------------+---------------------+--------------+---------------------+------------------+-----------------+
-    | **Strategy option** | **Default**                |              **Explanation**                            | **Greedy**  | **Balanced** | **Balanced Market** | **Schedule** | **Peak load window**| **Flex window**  | **Distributed** |
+    | **Strategy option** | **Default**                |              **Explanation**                            | **Greedy**  | **Balanced** | **Balanced Market** | **Schedule** | **Peak Load Window**| **Flex Window**  | **Distributed** |
     +---------------------+----------------------------+---------------------------------------------------------+-------------+--------------+---------------------+--------------+---------------------+------------------+-----------------+
     |   CONCURRENCY       |     1.0                    | Reduce maximum available power at each charging station.| x           |              | x                   |              |                     | x                |                 |
     |                     |                            |                                                         |             |              |                     |              |                     |                  |                 |
     |                     |                            | A value of 0.5 means only half the power is available.  |             |              |                     |              |                     |                  |                 |
     +---------------------+----------------------------+---------------------------------------------------------+-------------+--------------+---------------------+--------------+---------------------+------------------+-----------------+
-    |   PRICE_THRESHOLD   |    0.001                   | A price below this is considered cheap. Unit: € / 1 kWh | x           | x            | x                   |              |                     | x                | x               |
-    +---------------------+----------------------------+---------------------------------------------------------+-------------+--------------+---------------------+--------------+---------------------+------------------+-----------------+
-    |   ITERATIONS        |     12                     | Minimum depth of binary search to find charging power   |             | x            |                     |              |                     |                  |                 |
+    |   PRICE_THRESHOLD   |    0.001                   | A price below this is considered cheap. Unit: EUR/kWh   | x           | x            | x                   |              |                     | x                | x               |
     +---------------------+----------------------------+---------------------------------------------------------+-------------+--------------+---------------------+--------------+---------------------+------------------+-----------------+
     |   HORIZON           |      24                    | number of hours to look ahead                           |             |              | x                   |              |                     | x                |                 |
     +---------------------+----------------------------+---------------------------------------------------------+-------------+--------------+---------------------+--------------+---------------------+------------------+-----------------+
     |   DISCHARGE_LIMIT   |      0                     | V2G: maximum depth of discharge [0-1]                   |             |              | x                   |              |                     | x                | x               |
     +---------------------+----------------------------+---------------------------------------------------------+-------------+--------------+---------------------+--------------+---------------------+------------------+-----------------+
-    | V2G_POWER_FACTOR    |      1                     | Fraction of max battery power used for discharge        |             |              | x                   |              |                     | x                |                 |
+    | V2G_POWER_FACTOR    |      1                     | Fraction of max battery power used for discharge        |             |              | x                   |              |                     | x                | x               |
     |                     |                            | process [0-1]                                           |             |              |                     |              |                     |                  |                 |
     +---------------------+----------------------------+---------------------------------------------------------+-------------+--------------+---------------------+--------------+---------------------+------------------+-----------------+
     | ALLOW_NEGATIVE_SOC  |   False                    | simulation does not abort if SOC becomes negative       |             |              |                     |              |                     |                  | x               |
@@ -228,14 +226,9 @@ stationary batteries or V2G, you need to set the target SOC parameter of the bat
     |                     |                            |                                                         |             |              |                     |              |                     |                  |                 |
     |                     |                            | is limited                                              |             |              |                     |              |                     |                  |                 |
     +---------------------+----------------------------+---------------------------------------------------------+-------------+--------------+---------------------+--------------+---------------------+------------------+-----------------+
-    |  V2G_POWER_FACTOR   |      1                     | Fraction of max battery power used for discharge        |             |              |                     |              |                     |                  | x               |
-    |                     |                            | process [0-1]                                           |             |              |                     |              |                     |                  |                 |
-    +---------------------+----------------------------+---------------------------------------------------------+-------------+--------------+---------------------+--------------+---------------------+------------------+-----------------+
     |   LOAD_STRAT        |  Flex window: "balanced"   | Sub-strategies for behaviour within charging windows    |             |              |                     | x            | x                   | x                |                 |
     |                     |                            |                                                         |             |              |                     |              |                     |                  |                 |
     |                     |  Schedule: "collective"    | (see description above for options and explanations)    |             |              |                     |              |                     |                  |                 |
-    |                     |                            |                                                         |             |              |                     |              |                     |                  |                 |
-    |                     |  Peak load window: "needy" |                                                         |             |              |                     |              |                     |                  |                 |
     +---------------------+----------------------------+---------------------------------------------------------+-------------+--------------+---------------------+--------------+---------------------+------------------+-----------------+
 
 
@@ -250,7 +243,7 @@ input is part of the repository, as some data is classified and/or should be cre
 generate.py
 -----------
 
-**Input for mode `statistics` and `simbev`**
+**Input for mode STATISTICS and SIMBEV**
 
 - Fixed load (CSV): This file needs one column with the drawn power in kW (can have more columns, but only one is
   relevant). The file is read line-by-line, with events starting at start_time and updating every interval
@@ -263,13 +256,13 @@ generate.py
   (configurable).
 - Configuration (CFG): Refer to `generate_from_statistics.cfg` and `generate_from_simbev.cfg` in the`examples` folder.
 
-**Output for mode `statistics` and `simbev`**
+**Output for mode STATISTICS and SIMBEV**
 
 - Scenario (JSON): This file is used in `simulate.py`. It defines the general information (start_time, interval,
   n_intervals), components (vehicle types, vehicles, grid connectors, charging stations, batteries) and events (fixed
   loads, local generation, grid operator signals and vehicle events).
 
-**Input for mode `csv`**
+**Input for mode CSV**
 
 - Trips schedule (CSV): Each row in the CSV file represents one trip. The following columns are needed: "departure_time"
   (datetime), "arrival_time" (datetime), "vehicle_type" (str), "soc" (numeric) / "delta_soc" (numeric) / "distance"
@@ -277,7 +270,7 @@ generate.py
 - Configuration (CFG): Refer to `generate_from_csv.cfg` in the `examples` folder or the `generate_from_csv_template.csv`
   in the subfolder `data`.
 
-**Output for mode `csv`**
+**Output for mode CSV**
 
 - Scenario (JSON): This file is used in `simulate.py`. It defines the general information (start_time, interval,
   n_intervals), components (vehicle types, vehicles, grid connectors, charging stations, batteries) and events (fixed

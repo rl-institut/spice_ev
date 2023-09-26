@@ -23,9 +23,7 @@
                     "MV/LV": 44.26,
                     "LV": 44.26,
                     "unit": "EUR/(kW*a)",
-                    "info": ["capacity charge depending on the voltage level for RLM",
-                        "(Registrierende Leistungsmessung, engl.: consumption metering) customers with",
-                        "annual utilization time < 2500 h/a"]
+                    "info": "capacity charge depending on the voltage level for RLM (Registrierende Leistungsmessung, engl.: consumption metering) customers with annual utilization time < 2500 h/a"
                 },
                 "commodity_charge_ct/kWh": {
                     "HV": 2.3,
@@ -34,9 +32,7 @@
                     "MV/LV": 4.39,
                     "LV": 4.83,
                     "unit": "ct/kWh",
-                    "info": ["commodity charge depending on the voltage level for RLM",
-                        "(Registrierende Leistungsmessung, engl.: consumption metering) customers with",
-                        "annual utilization time < 2500 h/a"]
+                    "info": "commodity charge depending on the voltage level for RLM (Registrierende Leistungsmessung, engl.: consumption metering) customers with annual utilization time < 2500 h/a"
                 }
             },
             ">=2500_h/a": {
@@ -47,8 +43,7 @@
                     "MV/LV": 97.01,
                     "LV": 64.33,
                     "unit": "EUR/(kW*a)",
-                    "info": ["capacity charge depending on the voltage level for RLM customers with",
-                        "annual utilization time >= 2500 h/a"]
+                    "info": "capacity charge depending on the voltage level for RLM customers with annual utilization time >= 2500 h/a"
                 },
                 "commodity_charge_ct/kWh": {
                     "HV": 0.81,
@@ -57,8 +52,7 @@
                     "MV/LV": 2.28,
                     "LV": 4.03,
                     "unit": "ct/kWh",
-                    "info": ["commodity charge depending on the voltage level for RLM customers with",
-                        "annual utilization time >= 2500 h/a"]
+                    "info": "commodity charge depending on the voltage level for RLM customers with annual utilization time >= 2500 h/a"
                 }
             },
             "additional_costs": {
@@ -80,7 +74,7 @@
         "offshore_levy": 0.419,
         "interruptible_loads_levy": 0.003,
         "unit": "ct/kWh",
-        "info": ["levies on energy supplied from the power grid"]
+        "info": "levies on energy supplied from the power grid"
     },
     "concession_fee": {
         "charge": 1.32,
@@ -103,22 +97,32 @@
         "unit": "ct/kWh",
         "info": "remuneration for power fed into the grid by PV power plants or electric vehicles"
     },
-    "strategy_related_cost_parameters": {
+    "strategy_related": {
+        "peak_load_window": {
+            "significance_threshold": {
+                "eHV": 5,
+                "eHV/HV": 10,
+                "HV": 10,
+                "HV/MV": 20,
+                "MV": 20,
+                "MV/LV": 30,
+                "LV": 30,
+                "unit": "%",
+                "info": "significance threshold between overall peak power and peak power inside time window to see if cost calculation for strategy can be applied"
+            }
+        },
         "balanced_market": {
             "low_tariff_factor": 0.68,
             "medium_tariff_factor": 1,
             "unit": "-",
-            "info": ["factor sets commodity charge for low and medium tariff window by being multiplied with the ",
-                "commodity charge in the price sheet"]
+            "info": "factor sets commodity charge for low and medium tariff window by being multiplied with the commodity charge in the price sheet"
         },
         "schedule": {
             "reduction_of_commodity_charge": 0,
             "deviation_charge": 70.14,
             "deviation_tolerance": 0.1,
             "unit": "ct/kWh (reduction_of_commodity_charge), EUR/(kW*a) (deviation_charge), - (deviation_tolerance)",
-            "info": ["'reduction of commodity charge' can be subtracted from commodity charge (reimburse flexibility), ",
-                "'deviation charge' is applied on deviations from schedule, 'deviation_tolerance' is multiplied with ",
-                "the schedule power and defines the lower limit from which a deviation is to be charged"]
+            "info": "'reduction of commodity charge' can be subtracted from commodity charge (reimburse flexibility), 'deviation charge' is applied on deviations from schedule, 'deviation_tolerance' is multiplied with the schedule power and defines the lower limit from which a deviation is to be charged"
         }
     }
 }

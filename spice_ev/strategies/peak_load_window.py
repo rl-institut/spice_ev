@@ -12,6 +12,7 @@ class PeakLoadWindow(Strategy):
 
     Charge balanced outside of windows. Inside time windows different sub-strategies are possible.
     """
+
     def __init__(self, components, start_time, **kwargs):
         self.time_windows = None
         self.LOAD_STRAT = "greedy"  # peak_shaving or greedy
@@ -20,7 +21,7 @@ class PeakLoadWindow(Strategy):
         assert self.LOAD_STRAT in load_strats, (
             f"Unknown charging strategy '{self.LOAD_STRAT}'. Allowed: {', '.join(load_strats)}")
 
-        self.description = f"§19.2 StromNEV ({self.LOAD_STRAT})"
+        self.description = f"peak load window ({self.LOAD_STRAT})"
         self.uses_window = True
 
         if self.time_windows is None:
@@ -262,7 +263,7 @@ class PeakLoadWindow(Strategy):
                 avg_power = vehicle.battery.load(self.interval, target_power=p)["avg_power"]
                 return p, avg_power
 
-            power_levels = [0]*depart_idx
+            power_levels = [0] * depart_idx
             # try to charge balanced outside of load windows
             num_outside_ts = sum([not ts["window"] for ts in connected_ts])
             for ts_idx, ts in enumerate(connected_ts):
@@ -330,7 +331,7 @@ class PeakLoadWindow(Strategy):
             # add power levels to gc info
             for ts_idx, ts_info in enumerate(connected_ts):
                 ts_info["power"] += power_levels[ts_idx]
-                # adjust peak power prognose (might be reduced with batteries)
+                # adjust peak power prognosis (might be reduced with batteries)
                 if ts_info["window"] and ts_info["power"] - peak_power > self.EPS:
                     peak_power = ts_info["power"]
 
