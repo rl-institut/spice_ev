@@ -231,7 +231,7 @@ def calculate_costs(strategy, voltage_level, interval,
         """
 
         # maximum power supplied from the grid:
-        max_power_grid_supply = max(power_grid_supply_list)
+        max_power_grid_supply = max(power_grid_supply_list + [0])
 
         if strategy == "peak_load_window":
             # get peak power inside time windows
@@ -296,7 +296,7 @@ def calculate_costs(strategy, voltage_level, interval,
         # COSTS FOR FIXED LOAD
 
         # maximum fixed power supplied from the grid [kW]:
-        max_power_grid_supply_fix = max(power_fix_load_list)
+        max_power_grid_supply_fix = max(power_fix_load_list + [0])
 
         if max_power_grid_supply_fix == 0:  # no fix load existing
             commodity_costs_eur_per_year_fix = 0
@@ -375,7 +375,7 @@ def calculate_costs(strategy, voltage_level, interval,
         # COSTS FOR FIXED LOAD
 
         # maximum fixed power supplied from the grid [kW]
-        max_power_grid_supply_fix = max(power_fix_load_list)
+        max_power_grid_supply_fix = max(power_fix_load_list + [0])
 
         if max_power_grid_supply_fix == 0:
             # no fix load existing
@@ -464,7 +464,7 @@ def calculate_costs(strategy, voltage_level, interval,
         # COSTS FOR FIXED LOAD
 
         # maximum fixed power supplied from the grid:
-        max_power_grid_supply_fix = max(power_fix_load_list)
+        max_power_grid_supply_fix = max(power_fix_load_list + [0])
 
         if max_power_grid_supply_fix == 0:
             # no fixed load existing
