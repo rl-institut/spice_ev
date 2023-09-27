@@ -271,6 +271,7 @@ class TestScenarios(TestCaseBase):
         s = scenario.Scenario(load_json(input), input.parent)
         for strat in ['greedy', 'balanced', 'balanced_market', 'flex_window', 'peak_load_window']:
             s.run(strat, {})
+            assert s.step_i == s.n_intervals
 
     # TEST with battery, local generation, fixed load and V2G (Scenario B)
     def test_scenario_B(self):
@@ -278,6 +279,7 @@ class TestScenarios(TestCaseBase):
         s = scenario.Scenario(load_json(input), input.parent)
         for strat in ['greedy', 'balanced', 'balanced_market', 'flex_window', 'peak_load_window']:
             s.run(strat, {})
+            assert s.step_i == s.n_intervals
 
     # TEST with battery, local generation, fixed load, V2G and schedule (Scenario C)
     def test_scenario_C1(self):
@@ -285,6 +287,7 @@ class TestScenarios(TestCaseBase):
         s = scenario.Scenario(load_json(input), input.parent)
         for strat in ['greedy', 'balanced', 'balanced_market', 'flex_window', 'peak_load_window']:
             s.run(strat, {"testing": True})
+            assert s.step_i == s.n_intervals
             for gcID, gc in s.components.grid_connectors.items():
                 assert s.testing["max_total_load"] <= s.components.grid_connectors[gcID].max_power
                 assert s.testing["max_total_load"] > 0
@@ -294,6 +297,7 @@ class TestScenarios(TestCaseBase):
         s = scenario.Scenario(load_json(input), input.parent)
         s.run('distributed', {"testing": True, "strategy_option": [["ALLOW_NEGATIVE_SOC", True]],
                               "margin": 1})
+        assert s.step_i == s.n_intervals
         max_power = 0
         for gcID, gc in s.components.grid_connectors.items():
             max_power += s.components.grid_connectors[gcID].max_power
@@ -440,6 +444,7 @@ class TestScenarios(TestCaseBase):
                     j = json.load(f)
                 s = scenario.Scenario(j, tmp_path)
                 s.run('schedule', {"LOAD_STRAT": load_strat})
+                assert s.step_i == s.n_intervals
 
     def test_schedule_battery(self):
         test_json = {
