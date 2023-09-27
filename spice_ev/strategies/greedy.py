@@ -11,7 +11,6 @@ class Greedy(Strategy):
     """
 
     def __init__(self, components, start_time, **kwargs):
-        self.PRICE_THRESHOLD = 0.001  # EUR/kWh
         super().__init__(components, start_time, **kwargs)
         self.description = "greedy"
 
@@ -59,7 +58,7 @@ class Greedy(Strategy):
                 power = clamp_power(gc_power_left, vehicle, cs)
                 # charge with power
                 avg_power = vehicle.battery.load(self.interval, power)['avg_power']
-            elif delta_soc > 0:
+            elif delta_soc > self.EPS:
                 # vehicle needs charging: take max available power (with stationary batteries)
                 power = gc_power_left + avail_bat_power[gc_id]
                 power = clamp_power(power, vehicle, cs)

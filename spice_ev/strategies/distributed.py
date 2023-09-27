@@ -7,7 +7,6 @@ from spice_ev import events, strategy
 class Distributed(strategy.Strategy):
     """ Strategy that allows for greedy charging at opp stops and balanced charging at depots. """
     def __init__(self, components, start_time, **kwargs):
-        self.PRICE_THRESHOLD = 0.001  # EUR/kWh
         super().__init__(components, start_time, **kwargs)
         # create distinct strategies for depot and stations that get updated each step
         strat_opps = kwargs.get("strategy_opps", "greedy")
