@@ -8,7 +8,6 @@ from spice_ev.strategy import Strategy
 class BalancedMarket(Strategy):
     """ Price oriented charging at times of low energy price. """
     def __init__(self, components, start_time, **kwargs):
-        self.PRICE_THRESHOLD = 0.001  # EUR/kWh
         self.HORIZON = 24  # maximum number of hours ahead
 
         super().__init__(components, start_time, **kwargs)

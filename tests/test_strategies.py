@@ -392,9 +392,9 @@ class TestScenarios(TestCaseBase):
         input = TEST_REPO_PATH / 'test_data/input_test_strategies/scenario_C3.json'
         s = scenario.Scenario(load_json(input), input.parent)
         s.run('distributed', {"testing": True})
-        max_power = 0
-        for gcID, gc in s.components.grid_connectors.items():
-            max_power += s.components.grid_connectors[gcID].max_power
+        # GC power must always be max (use battery)
+        for load in s.testing["timeseries"]["total_load"]:
+            assert pytest.approx(load) == pytest.approx(s.testing["max_total_load"]) == 5
         cs = s.testing["timeseries"]["sum_cs"]
         cs_1 = [x for x in cs if x[0] != 0]
         cs_2 = [x for x in cs if x[1] != 0]
