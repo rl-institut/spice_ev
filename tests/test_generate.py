@@ -14,6 +14,7 @@ ARG_VALUES1 = {
     "vehicles": [[1, "golf"], [1, "sprinter"]],
     "days": 2,
     "interval": 15,
+    "gc_power": 100,
     "min_soc": 0.8,
     "min_soc_threshold": 0.05,
     "battery": [[350, 0.5]],
@@ -25,6 +26,7 @@ ARG_VALUES1 = {
     "export_vehicle_id_csv": None,
     "seed": None,
     "verbose": 0,
+    "grid_operator": "default_grid_operator",
     "voltage_level": "MV",
     # generate_schedule
     "core_standing_time": None,

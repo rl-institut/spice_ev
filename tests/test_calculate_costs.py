@@ -12,6 +12,7 @@ from spice_ev.generate import generate_schedule
 TEST_REPO_PATH = Path(__file__).parent
 supported_strategies = ["greedy", "balanced", "distributed", "balanced_market",
                         "schedule", "flex_window"]
+grid_operator = "default_grid_operator"
 
 
 def get_test_json():
@@ -76,21 +77,21 @@ class TestSimulationCosts:
                             "fixed load [kW]", "generation feed-in [kW]",
                             "V2G feed-in [kW]", "battery feed-in [kW]",
                             "window signal [-]"]]
-        price_sheet = TEST_REPO_PATH / 'test_data/input_test_cost_calculation/price_sheet.json'
+        price_sheet_path = TEST_REPO_PATH / 'test_data/input_test_cost_calculation/price_sheet.json'
 
         # test all supported strategies
         for strategy in supported_strategies:
-            cc.calculate_costs(strategy, "MV", s.interval, *timeseries_lists,
-                               price_sheet_json=str(price_sheet))
+            cc.calculate_costs(grid_operator, strategy, "MV", s.interval, *timeseries_lists,
+                               price_sheet_path=str(price_sheet_path))
 
         # test error for non-supported strategy
         with pytest.raises(Exception):
-            cc.calculate_costs("strategy", "MV", s.interval, *timeseries_lists,
-                               price_sheet_json=str(price_sheet))
+            cc.calculate_costs(grid_operator, "strategy", "MV", s.interval, *timeseries_lists,
+                               price_sheet_path=str(price_sheet_path))
 
         # check returned values
-        result = cc.calculate_costs(supported_strategies[0], "MV", s.interval, *timeseries_lists,
-                                    price_sheet_json=str(price_sheet))
+        result = cc.calculate_costs(grid_operator, supported_strategies[0], "MV", s.interval,
+                                    *timeseries_lists, price_sheet_path=str(price_sheet_path))
         assert result["total_costs_per_year"] == 78.18
         assert result["commodity_costs_eur_per_year"] == 0
         assert result["capacity_costs_eur"] == 65.7
@@ -122,10 +123,11 @@ class TestSimulationCosts:
                             "fixed load [kW]", "generation feed-in [kW]",
                             "V2G feed-in [kW]", "battery feed-in [kW]",
                             "window signal [-]"]]
-            price_sheet = TEST_REPO_PATH / 'test_data/input_test_cost_calculation/price_sheet.json'
+            price_sheet_path = TEST_REPO_PATH / 'test_data/input_test_cost_calculation/' \
+                                                'price_sheet.json'
             pv = sum([pv.nominal_power for pv in s.components.photovoltaics.values()])
-            result = cc.calculate_costs("greedy", "MV", s.interval, *timeseries_lists,
-                                        str(price_sheet), None, pv)
+            result = cc.calculate_costs(grid_operator, "greedy", "MV", s.interval,
+                                        *timeseries_lists, str(price_sheet_path), None, pv)
 
             for i, value in enumerate(result.values()):
                 assert value == expected[i]
@@ -142,13 +144,13 @@ class TestSimulationCosts:
                             "fixed load [kW]", "generation feed-in [kW]",
                             "V2G feed-in [kW]", "battery feed-in [kW]",
                             "window signal [-]"]]
-        price_sheet = TEST_REPO_PATH / 'test_data/input_test_cost_calculation/price_sheet.json'
+        price_sheet_path = TEST_REPO_PATH / 'test_data/input_test_cost_calculation/price_sheet.json'
 
         pv = sum([pv.nominal_power for pv in s.components.photovoltaics.values()])
 
         # check returned values
-        result = cc.calculate_costs("balanced", "MV", s.interval, *timeseries_lists,
-                                    str(price_sheet), None, pv)
+        result = cc.calculate_costs(grid_operator, "balanced", "MV", s.interval, *timeseries_lists,
+                                    str(price_sheet_path), None, pv)
         assert result["total_costs_per_year"] == 309.4
         assert result["commodity_costs_eur_per_year"] == 73.45
         assert result["capacity_costs_eur"] == 65.7
@@ -169,13 +171,13 @@ class TestSimulationCosts:
                         "fixed load [kW]", "generation feed-in [kW]",
                         "V2G feed-in [kW]", "battery feed-in [kW]",
                         "window signal [-]"]]
-        price_sheet = TEST_REPO_PATH / 'test_data/input_test_cost_calculation/price_sheet.json'
+        price_sheet_path = TEST_REPO_PATH / 'test_data/input_test_cost_calculation/price_sheet.json'
 
         pv = sum([pv.nominal_power for pv in s.components.photovoltaics.values()])
 
         # check returned values
-        result = cc.calculate_costs("balanced_market", "MV", s.interval, *timeseries_lists,
-                                    str(price_sheet), None, pv)
+        result = cc.calculate_costs(grid_operator, "balanced_market", "MV", s.interval,
+                                    *timeseries_lists, str(price_sheet_path), None, pv)
         assert result["total_costs_per_year"] == 323.14
         assert result["commodity_costs_eur_per_year"] == 14.41
         assert result["capacity_costs_eur"] == 0
@@ -195,13 +197,13 @@ class TestSimulationCosts:
             "fixed load [kW]", "generation feed-in [kW]",
             "V2G feed-in [kW]", "battery feed-in [kW]",
             "window signal [-]"]]
-        price_sheet = TEST_REPO_PATH / 'test_data/input_test_cost_calculation/price_sheet.json'
+        price_sheet_path = TEST_REPO_PATH / 'test_data/input_test_cost_calculation/price_sheet.json'
 
         pv = sum([pv.nominal_power for pv in s.components.photovoltaics.values()])
 
         # check returned values
-        result = cc.calculate_costs("flex_window", "MV", s.interval, *timeseries_lists,
-                                    str(price_sheet), None, pv)
+        result = cc.calculate_costs(grid_operator, "flex_window", "MV", s.interval,
+                                    *timeseries_lists, str(price_sheet_path), None, pv)
         assert result["total_costs_per_year"] == 3932.83
         assert result["commodity_costs_eur_per_year"] == 279.44
         assert result["capacity_costs_eur"] == 1543.08
@@ -222,13 +224,13 @@ class TestSimulationCosts:
             "fixed load [kW]", "generation feed-in [kW]",
             "V2G feed-in [kW]", "battery feed-in [kW]",
             "window signal [-]"]]
-        price_sheet = TEST_REPO_PATH / 'test_data/input_test_cost_calculation/price_sheet.json'
+        price_sheet_path = TEST_REPO_PATH / 'test_data/input_test_cost_calculation/price_sheet.json'
 
         pv = sum([pv.nominal_power for pv in s.components.photovoltaics.values()])
 
         # check returned values
-        result = cc.calculate_costs("balanced_market", "MV", s.interval, *timeseries_lists,
-                                    str(price_sheet), None, pv)
+        result = cc.calculate_costs(grid_operator, "balanced_market", "MV", s.interval,
+                                    *timeseries_lists, str(price_sheet_path), None, pv)
         assert result["total_costs_per_year"] == 24339.52
         assert result["commodity_costs_eur_per_year"] == 4523.5
         assert result["capacity_costs_eur"] == 4426.75
@@ -262,13 +264,14 @@ class TestSimulationCosts:
             "time", "grid supply [kW]", "price [EUR/kWh]",
             "fixed load [kW]", "generation feed-in [kW]",
             "V2G feed-in [kW]", "battery feed-in [kW]", "window signal [-]"]]
-        price_sheet = TEST_REPO_PATH / 'test_data/input_test_cost_calculation/price_sheet.json'
+        price_sheet_path = TEST_REPO_PATH / 'test_data/input_test_cost_calculation/price_sheet.json'
 
         pv = sum([pv.nominal_power for pv in s.components.photovoltaics.values()])
 
         # check returned values
-        result = cc.calculate_costs("schedule", "MV", s.interval, *timeseries_lists,
-                                    str(price_sheet), None, pv, timeseries.get("schedule [kW]"))
+        result = cc.calculate_costs(grid_operator, "schedule", "MV", s.interval, *timeseries_lists,
+                                    str(price_sheet_path), None, pv,
+                                    timeseries.get("schedule [kW]"))
         assert result["total_costs_per_year"] == -3021.29
         assert result["commodity_costs_eur_per_year"] == 40.88
         assert result["capacity_costs_eur"] == 28.69
@@ -280,7 +283,7 @@ class TestSimulationCosts:
         # prepare scenario to trigger RLM
         # energy_supply_per_year > 100000, but utilization_time_per_year < 2500
         result = cc.calculate_costs(
-            "greedy", "MV", datetime.timedelta(hours=1),
+            grid_operator, "greedy", "MV", datetime.timedelta(hours=1),
             [None]*9,  # empty timestamps
             [-1000] + [0]*8,  # single grid supply value
             None,  # empty prices
@@ -296,7 +299,7 @@ class TestSimulationCosts:
     def test_fixed_load(self):
         for strategy in ["balanced_market", "flex_window", "schedule"]:
             result = cc.calculate_costs(
-                strategy, "MV", datetime.timedelta(hours=1),
+                grid_operator, strategy, "MV", datetime.timedelta(hours=1),
                 [None]*9,  # empty timestamps
                 [0]*9,  # empty grid supply
                 [1]*9,  # static prices
@@ -310,15 +313,15 @@ class TestSimulationCosts:
             assert result["capacity_costs_eur"] == 7014
 
     def test_pv_nominal(self):
-        price_sheet = TEST_REPO_PATH / 'test_data/input_test_cost_calculation/price_sheet.json'
-        with price_sheet.open('r') as ps:
-            price_sheet_json = json.load(ps)
+        price_sheet_path = TEST_REPO_PATH / 'test_data/input_test_cost_calculation/price_sheet.json'
+        with price_sheet_path.open('r') as ps:
+            price_sheet = json.load(ps)
         # iterate over PV ranges
-        pv_ranges = price_sheet_json["feed-in_remuneration"]["PV"]["kWp"]
+        pv_ranges = price_sheet[grid_operator]["feed-in_remuneration"]["PV"]["kWp"]
         results = [2733.12, 2654.28, 2076.12]
         for i, pv in enumerate(pv_ranges):
             result = cc.calculate_costs(
-                "greedy", "MV", datetime.timedelta(hours=1),
+                grid_operator, "greedy", "MV", datetime.timedelta(hours=1),
                 [None]*9,  # empty timestamps
                 [pv]*9,  # positive grid supply
                 None,  # empty prices
@@ -327,13 +330,13 @@ class TestSimulationCosts:
                 [0] * 9,  # empty feed-in from V2G
                 [0] * 9,  # empty feed-in from battery
                 None,  # no charging signal
-                price_sheet,
+                price_sheet_path,
                 power_pv_nominal=pv)
             assert result["feed_in_remuneration_per_year"] == results[i]
         with pytest.raises(ValueError):
             # PV out of range
             cc.calculate_costs(
-                "greedy", "MV", datetime.timedelta(hours=1),
+                grid_operator, "greedy", "MV", datetime.timedelta(hours=1),
                 [None]*9,  # empty timestamps
                 [1]*9,  # positive grid supply
                 None,  # empty prices
@@ -342,14 +345,14 @@ class TestSimulationCosts:
                 [0] * 9,  # empty feed-in from V2G
                 [0] * 9,  # empty feed-in from battery
                 None,  # no charging signal
-                price_sheet,
+                price_sheet_path,
                 power_pv_nominal=pv_ranges[-1]+1)
 
     def test_write_results(self, tmp_path):
         dst = tmp_path / "results.json"
         dst.write_text("{}")
         result = cc.calculate_costs(
-            "greedy", "MV", datetime.timedelta(hours=1),
+            grid_operator, "greedy", "MV", datetime.timedelta(hours=1),
             [None]*9,  # empty timestamps
             [0]*9,  # empty grid supply
             None,  # empty prices
@@ -380,7 +383,7 @@ class TestPostSimulationCosts:
         s = scenario.Scenario(j)
         save_results = tmp_path / "save_results.json"
         save_timeseries = tmp_path / "save_timeseries.csv"
-        price_sheet = TEST_REPO_PATH / 'test_data/input_test_cost_calculation/price_sheet.json'
+        price_sheet_path = TEST_REPO_PATH / 'test_data/input_test_cost_calculation/price_sheet.json'
 
         s.run("greedy", {
             "save_results": str(save_results),
@@ -393,7 +396,7 @@ class TestPostSimulationCosts:
             "--voltage-level", "MV",
             "--get-results", save_results,
             "--get-timeseries", save_timeseries,
-            "--cost-parameters-file", price_sheet
+            "--cost-parameters-file", price_sheet_path
         ]) == 0
         with save_results.open() as f:
             results = json.load(f)

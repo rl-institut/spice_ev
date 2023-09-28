@@ -1,128 +1,138 @@
 {
-    "grid_fee":{
-        "SLP": {
-            "basic_charge_EUR/a": {
-                "net_price": 65.7,
-                "gross_price": 78.18,
-                "unit": "EUR/a",
-                "info": "basic charge for SLP (standard load profile) customers."
-            },
-            "commodity_charge_ct/kWh": {
-                "net_price": 7.48,
-                "gross_price": 8.9,
-                "unit": "ct/kWh",
-                "info": "commodity costs for SLP (standard load profile) customers"
-            }
-        },
-        "RLM": {
-            "<2500_h/a": {
-                "capacity_charge_EUR/kW*a": {
-                    "HV": 19.13,
-                    "HV/MV": 25.25,
-                    "MV": 41.06,
-                    "MV/LV": 44.26,
-                    "LV": 44.26,
-                    "unit": "EUR/(kW*a)",
-                    "info": "capacity charge depending on the voltage level for RLM (Registrierende Leistungsmessung, engl.: consumption metering) customers with annual utilization time < 2500 h/a"
+    "default_grid_operator": {
+        "grid_fee": {
+            "SLP": {
+                "basic_charge_EUR/a": {
+                    "net_price": 65.7,
+                    "gross_price": 78.18,
+                    "unit": "EUR/a",
+                    "info": "basic charge for SLP (standard load profile) customers."
                 },
                 "commodity_charge_ct/kWh": {
-                    "HV": 2.3,
-                    "HV/MV": 3.81,
-                    "MV": 3.49,
-                    "MV/LV": 4.39,
-                    "LV": 4.83,
+                    "net_price": 7.48,
+                    "gross_price": 8.9,
                     "unit": "ct/kWh",
-                    "info": "commodity charge depending on the voltage level for RLM (Registrierende Leistungsmessung, engl.: consumption metering) customers with annual utilization time < 2500 h/a"
+                    "info": "commodity costs for SLP (standard load profile) customers"
                 }
             },
-            ">=2500_h/a": {
-                "capacity_charge_EUR/kW*a": {
-                    "HV": 56.33,
-                    "HV/MV": 101.52,
-                    "MV": 70.14,
-                    "MV/LV": 97.01,
-                    "LV": 64.33,
-                    "unit": "EUR/(kW*a)",
-                    "info": "capacity charge depending on the voltage level for RLM customers with annual utilization time >= 2500 h/a"
+            "RLM": {
+                "<2500_h/a": {
+                    "capacity_charge_EUR/kW*a": {
+                        "HV": 19.13,
+                        "HV/MV": 25.25,
+                        "MV": 41.06,
+                        "MV/LV": 44.26,
+                        "LV": 44.26,
+                        "unit": "EUR/(kW*a)",
+                        "info": "capacity charge depending on the voltage level for RLM (Registrierende Leistungsmessung, engl.: consumption metering) customers with annual utilization time < 2500 h/a"
+                    },
+                    "commodity_charge_ct/kWh": {
+                        "HV": 2.3,
+                        "HV/MV": 3.81,
+                        "MV": 3.49,
+                        "MV/LV": 4.39,
+                        "LV": 4.83,
+                        "unit": "ct/kWh",
+                        "info": "commodity charge depending on the voltage level for RLM (Registrierende Leistungsmessung, engl.: consumption metering) customers with annual utilization time < 2500 h/a"
+                    }
                 },
-                "commodity_charge_ct/kWh": {
-                    "HV": 0.81,
-                    "HV/MV": 0.76,
-                    "MV": 2.32,
-                    "MV/LV": 2.28,
-                    "LV": 4.03,
-                    "unit": "ct/kWh",
-                    "info": "commodity charge depending on the voltage level for RLM customers with annual utilization time >= 2500 h/a"
+                ">=2500_h/a": {
+                    "capacity_charge_EUR/kW*a": {
+                        "HV": 56.33,
+                        "HV/MV": 101.52,
+                        "MV": 70.14,
+                        "MV/LV": 97.01,
+                        "LV": 64.33,
+                        "unit": "EUR/(kW*a)",
+                        "info": "capacity charge depending on the voltage level for RLM customers with annual utilization time >= 2500 h/a"
+                    },
+                    "commodity_charge_ct/kWh": {
+                        "HV": 0.81,
+                        "HV/MV": 0.76,
+                        "MV": 2.32,
+                        "MV/LV": 2.28,
+                        "LV": 4.03,
+                        "unit": "ct/kWh",
+                        "info": "commodity charge depending on the voltage level for RLM customers with annual utilization time >= 2500 h/a"
+                    }
+                },
+                "additional_costs": {
+                    "costs": 0,
+                    "unit": "EUR",
+                    "info": "additional costs for RLM customers per year (f.i. costs for metering point operation)"
+                }
+            }
+        },
+        "power_procurement": {
+            "charge": 7.7,
+            "unit": "ct/kWh",
+            "info": "charge for power generation, power procurement and sales"
+        },
+        "levies": {
+            "EEG_levy": 0,
+            "chp_levy": 0.378,
+            "individual_charge_levy": 0.437,
+            "offshore_levy": 0.419,
+            "interruptible_loads_levy": 0.003,
+            "unit": "ct/kWh",
+            "info": "levies on energy supplied from the power grid"
+        },
+        "concession_fee": {
+            "charge": 1.32,
+            "unit": "ct/kWh",
+            "info": "concession fee depending on the tariff and the size of the municipality"
+        },
+        "taxes": {
+            "value_added_tax": 19,
+            "tax_on_electricity": 2.05,
+            "unit": "value added tax: %, tax on electricity: ct/kWh",
+            "info": "taxes on energy supplied from the power grid"
+        },
+        "feed-in_remuneration": {
+            "PV": {
+                "kWp": [
+                    10,
+                    40,
+                    100
+                ],
+                "remuneration": [
+                    6.24,
+                    6.06,
+                    4.74
+                ]
+            },
+            "V2G": 0,
+            "battery": 0,
+            "unit": "ct/kWh",
+            "info": "remuneration for power fed into the grid by PV power plants or electric vehicles"
+        },
+        "strategy_related": {
+            "peak_load_window": {
+                "significance_threshold": {
+                    "eHV": 5,
+                    "eHV/HV": 10,
+                    "HV": 10,
+                    "HV/MV": 20,
+                    "MV": 20,
+                    "MV/LV": 30,
+                    "LV": 30,
+                    "unit": "%",
+                    "info": "significance threshold between overall peak power and peak power inside time window to see if cost calculation for strategy can be applied"
                 }
             },
-            "additional_costs": {
-                "costs": 0,
-                "unit": "EUR",
-                "info": "additional costs for RLM customers per year (f.i. costs for metering point operation)"
+            "balanced_market": {
+                "low_tariff_factor": 0.68,
+                "medium_tariff_factor": 1,
+                "unit": "-",
+                "info": "factor sets commodity charge for low and medium tariff window by being multiplied with the commodity charge in the price sheet"
+            },
+            "schedule": {
+                "reduction_of_commodity_charge": 0,
+                "deviation_charge": 70.14,
+                "deviation_tolerance": 0.1,
+                "unit": "ct/kWh (reduction_of_commodity_charge), EUR/(kW*a) (deviation_charge), - (deviation_tolerance)",
+                "info": "'reduction of commodity charge' can be subtracted from commodity charge (reimburse flexibility), 'deviation charge' is applied on deviations from schedule, 'deviation_tolerance' is multiplied with the schedule power and defines the lower limit from which a deviation is to be charged"
             }
-        }
-    },
-    "power_procurement": {
-        "charge": 7.7,
-        "unit": "ct/kWh",
-        "info": "charge for power generation, power procurement and sales"
-    },
-    "levies": {
-        "EEG-levy": 0,
-        "chp_levy": 0.378,
-        "individual_charge_levy": 0.437,
-        "offshore_levy": 0.419,
-        "interruptible_loads_levy": 0.003,
-        "unit": "ct/kWh",
-        "info": "levies on energy supplied from the power grid"
-    },
-    "concession_fee": {
-        "charge": 1.32,
-        "unit": "ct/kWh",
-        "info": "concession fee depending on the tariff and the size of the municipality"
-    },
-    "taxes": {
-        "value_added_tax": 19,
-        "tax_on_electricity": 2.05,
-        "unit": "value added tax: %, tax on electricity: ct/kWh",
-        "info": "taxes on energy supplied from the power grid"
-    },
-    "feed-in_remuneration": {
-        "PV": {
-            "kWp": [10, 40, 100],
-            "remuneration": [6.24, 6.06, 4.74]
-        },
-        "V2G": 0,
-        "battery": 0,
-        "unit": "ct/kWh",
-        "info": "remuneration for power fed into the grid by PV power plants or electric vehicles"
-    },
-    "strategy_related": {
-        "peak_load_window": {
-            "significance_threshold": {
-                "eHV": 5,
-                "eHV/HV": 10,
-                "HV": 10,
-                "HV/MV": 20,
-                "MV": 20,
-                "MV/LV": 30,
-                "LV": 30,
-                "unit": "%",
-                "info": "significance threshold between overall peak power and peak power inside time window to see if cost calculation for strategy can be applied"
-            }
-        },
-        "balanced_market": {
-            "low_tariff_factor": 0.68,
-            "medium_tariff_factor": 1,
-            "unit": "-",
-            "info": "factor sets commodity charge for low and medium tariff window by being multiplied with the commodity charge in the price sheet"
-        },
-        "schedule": {
-            "reduction_of_commodity_charge": 0,
-            "deviation_charge": 70.14,
-            "deviation_tolerance": 0.1,
-            "unit": "ct/kWh (reduction_of_commodity_charge), EUR/(kW*a) (deviation_charge), - (deviation_tolerance)",
-            "info": "'reduction of commodity charge' can be subtracted from commodity charge (reimburse flexibility), 'deviation charge' is applied on deviations from schedule, 'deviation_tolerance' is multiplied with the schedule power and defines the lower limit from which a deviation is to be charged"
         }
     }
 }

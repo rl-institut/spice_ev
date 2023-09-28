@@ -89,6 +89,7 @@ def simulate(args):
 
             # Calculate costs
             costs = calculate_costs(
+                grid_operator=gc.grid_operator,
                 strategy=strategy_name,
                 voltage_level=gc.voltage_level,
                 interval=s.interval,
@@ -100,7 +101,7 @@ def simulate(args):
                 power_v2g_feed_in_list=timeseries.get("V2G feed-in [kW]"),
                 power_battery_feed_in_list=timeseries.get("battery feed-in [kW]"),
                 charging_signal_list=timeseries.get("window signal [-]"),
-                price_sheet_json=args.get("cost_parameters_file"),
+                price_sheet_path=args.get("cost_parameters_file"),
                 results_json=args.get("save_results"),
                 power_pv_nominal=pv,
                 power_schedule_list=timeseries.get("schedule [kW]"),
