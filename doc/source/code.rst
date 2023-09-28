@@ -138,7 +138,6 @@ surplus from local generation or if the energy price falls below a certain PRICE
 
     Balanced
     Balanced.step
-    load_vehicle
 
 Balanced Market
 ...............
@@ -200,7 +199,6 @@ the maximum permitted power at the GC, multiple vehicles may be charged in one t
 
     Greedy
     Greedy.step
-    load_vehicle
 
 
 Peak load window

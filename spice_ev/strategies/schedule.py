@@ -406,8 +406,7 @@ class Schedule(Strategy):
             cs = self.world_state.charging_stations[cs_id]
             sim_vehicle = deepcopy(vehicle)
             cur_time = self.current_time - self.interval
-            max_discharge_power = (sim_vehicle.battery.loading_curve.max_power
-                                   * sim_vehicle.vehicle_type.v2g_power_factor)
+            max_discharge_power = sim_vehicle.battery.unloading_curve.max_power
 
             # check if vehicles can be loaded until desired_soc in connected timesteps
             old_soc = vehicle.battery.soc
