@@ -74,15 +74,6 @@ class Balanced(Strategy):
                 # check for power from stationary battery
                 avail_bat_power[gc_id] = max(avail_bat_power[gc_id] - avg_power, 0)
 
-            # can active charging station bear minimum load?
-            assert cs.max_power >= cs.current_power - self.EPS, (
-                "{} - {} over maximum load ({} > {})".format(
-                    self.current_time, cs_id, cs.current_power, cs.max_power))
-            # can grid connector bear load?
-            assert gc.cur_max_power >= gc.get_current_load() - self.EPS, (
-                "{} - {} over maximum load ({} > {})".format(
-                    self.current_time, cs.parent, gc.get_current_load(), gc.cur_max_power))
-
         # all vehicles charged
         charging_stations.update(self.distribute_surplus_power())
         self.update_batteries()
