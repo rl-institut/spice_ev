@@ -29,7 +29,7 @@ def get_flexible_load(power_grid_supply_list, power_fix_load_list):
     return power_flex_load_list
 
 
-def find_prices(price_sheet_path, strategy, voltage_level, utilization_time_per_year,
+def find_prices(price_sheet_path, grid_operator, strategy, voltage_level, utilization_time_per_year,
                 energy_supply_per_year, utilization_time_per_year_ec=UTILIZATION_TIME_PER_YEAR_EC):
     """ Read commodity and capacity charge from price sheets.
 
@@ -37,6 +37,8 @@ def find_prices(price_sheet_path, strategy, voltage_level, utilization_time_per_
 
     :param price_sheet_path: path of price sheet
     :type price_sheet_path: str
+    :param grid_operator: grid operator at grid connector
+    :type grid_operator: str
     :param strategy: charging strategy for the electric vehicles
     :type strategy: str
     :param voltage_level: voltage level of the power grid
@@ -58,24 +60,26 @@ def find_prices(price_sheet_path, strategy, voltage_level, utilization_time_per_
     if strategy in ["greedy", "balanced", "distributed"] and energy_below_slp:
         # customer type 'SLP'
         fee_type = "SLP"
-        commodity_charge = price_sheet["grid_fee"]["SLP"]["commodity_charge_ct/kWh"]["net_price"]
-        capacity_charge = price_sheet["grid_fee"]["SLP"]["basic_charge_EUR/a"]["net_price"]
+        commodity_charge = (price_sheet[grid_operator]["grid_fee"]["SLP"]
+                                       ["commodity_charge_ct/kWh"]["net_price"])
+        capacity_charge = (price_sheet[grid_operator]["grid_fee"]["SLP"]
+                                      ["basic_charge_EUR/a"]["net_price"])
     elif utilization_time_per_year < utilization_time_per_year_ec:
         # customer type 'RLM' with utilization_time_per_year < utilization_time_per_year_ec
         fee_type = "RLM"
-        commodity_charge = price_sheet["grid_fee"]["RLM"][
+        commodity_charge = price_sheet[grid_operator]["grid_fee"]["RLM"][
             "<" + str(utilization_time_per_year_ec) + "_h/a"][
             "commodity_charge_ct/kWh"][voltage_level]
-        capacity_charge = price_sheet["grid_fee"]["RLM"][
+        capacity_charge = price_sheet[grid_operator]["grid_fee"]["RLM"][
             "<" + str(utilization_time_per_year_ec) + "_h/a"][
             "capacity_charge_EUR/kW*a"][voltage_level]
     else:
         # customer type 'RLM' with utilization_time_per_year >= utilization_time_per_year_ec
         fee_type = "RLM"
-        commodity_charge = price_sheet["grid_fee"]["RLM"][
+        commodity_charge = price_sheet[grid_operator]["grid_fee"]["RLM"][
             ">=" + str(utilization_time_per_year_ec) + "_h/a"][
             "commodity_charge_ct/kWh"][voltage_level]
-        capacity_charge = price_sheet["grid_fee"]["RLM"][
+        capacity_charge = price_sheet[grid_operator]["grid_fee"]["RLM"][
             ">=" + str(utilization_time_per_year_ec) + "_h/a"][
             "capacity_charge_EUR/kW*a"][voltage_level]
 
@@ -157,14 +161,16 @@ def calculate_feed_in_remuneration(feed_in_charge, power_feed_in_list,
     return feed_in_costs_per_year, feed_in_costs_sim
 
 
-def calculate_costs(strategy, voltage_level, interval,
+def calculate_costs(grid_operator, strategy, voltage_level, interval,
                     timestamps_list, power_grid_supply_list,
                     price_list, power_fix_load_list, power_generation_feed_in_list,
                     power_v2g_feed_in_list, power_battery_feed_in_list, charging_signal_list,
-                    price_sheet_json, results_json=None, power_pv_nominal=0,
+                    price_sheet_path, results_json=None, power_pv_nominal=0,
                     power_schedule_list=None):
     """Calculate costs for the chosen charging strategy.
 
+    :param grid_operator: grid operator at grid connector
+    :type grid_operator: str
     :param strategy: charging strategy
     :type strategy: str
     :param voltage_level: voltage level of the power grid the fleet is connected to
@@ -187,8 +193,8 @@ def calculate_costs(strategy, voltage_level, interval,
     :type power_battery_feed_in_list: list
     :param charging_signal_list: charging signal (True (1): charge, False (0): don't charge)
     :type charging_signal_list: list
-    :param price_sheet_json: path to price sheet
-    :type price_sheet_json: str
+    :param price_sheet_path: path to price sheet
+    :type price_sheet_path: str
     :param results_json: path to resulting json
     :type results_json: str
     :param power_pv_nominal: nominal power of pv power plant
@@ -203,10 +209,10 @@ def calculate_costs(strategy, voltage_level, interval,
 
     # sanity checks
     assert voltage_level is not None, "Voltage level must be set for cost calculation"
-    assert price_sheet_json is not None, "Price sheet must be given"
+    assert price_sheet_path is not None, "Price sheet must be given"
 
     # PRICE SHEET
-    with open(price_sheet_json, "r", newline="") as ps:
+    with open(price_sheet_path, "r", newline="") as ps:
         price_sheet = json.load(ps)
 
     # TEMPORAL PARAMETERS
@@ -240,8 +246,9 @@ def calculate_costs(strategy, voltage_level, interval,
             # check if cost calculation for peak_load_window can be applied: significance_threshold
             significance_threshold = ((max_power_grid_supply - peak_power_in_windows) /
                                       max_power_grid_supply) * 100
-            significance_threshold_price_sheet = (price_sheet["strategy_related"][strategy]
-                                                  ["significance_threshold"][voltage_level])
+            significance_threshold_price_sheet = (price_sheet[grid_operator]["strategy_related"]
+                                                             [strategy]["significance_threshold"]
+                                                             [voltage_level])
             if significance_threshold > significance_threshold_price_sheet:
                 # only use peak power inside windows for calculation of capacity costs
                 max_power_grid_supply = peak_power_in_windows
@@ -255,14 +262,10 @@ def calculate_costs(strategy, voltage_level, interval,
             utilization_time_per_year = 0
         else:
             utilization_time_per_year = abs(energy_supply_per_year / max_power_grid_supply)  # [h/a]
-        commodity_charge, capacity_charge, fee_type = find_prices(
-            price_sheet_json,
-            strategy,
-            voltage_level,
-            utilization_time_per_year,
-            energy_supply_per_year,
-            UTILIZATION_TIME_PER_YEAR_EC
-        )
+        commodity_charge, capacity_charge, fee_type = \
+            find_prices(price_sheet_path, grid_operator, strategy, voltage_level,
+                        utilization_time_per_year, energy_supply_per_year,
+                        UTILIZATION_TIME_PER_YEAR_EC)
 
         # CAPACITY COSTS:
         if fee_type == "SLP":
@@ -308,7 +311,7 @@ def calculate_costs(strategy, voltage_level, interval,
             utilization_time_per_year_fix = abs(
                 energy_supply_per_year_fix / max_power_grid_supply_fix)  # [h/a]
             commodity_charge_fix, capacity_charge_fix, fee_type = \
-                find_prices(price_sheet_json, strategy, voltage_level,
+                find_prices(price_sheet_path, grid_operator, strategy, voltage_level,
                             utilization_time_per_year_fix, energy_supply_per_year_fix,
                             UTILIZATION_TIME_PER_YEAR_EC)
 
@@ -340,8 +343,9 @@ def calculate_costs(strategy, voltage_level, interval,
         # set a suitable utilization time in order to use prices for grid friendly charging
         utilization_time_per_year = UTILIZATION_TIME_PER_YEAR_EC
         commodity_charge_flex, capacity_charge_flex, fee_type = \
-            find_prices(price_sheet_json, strategy, voltage_level, utilization_time_per_year,
-                        energy_supply_per_year, UTILIZATION_TIME_PER_YEAR_EC)
+            find_prices(price_sheet_path, grid_operator, strategy, voltage_level,
+                        utilization_time_per_year, energy_supply_per_year,
+                        UTILIZATION_TIME_PER_YEAR_EC)
         capacity_costs_eur_flex = \
             calculate_capacity_costs_rlm(capacity_charge_flex, max_power_high_tariff)
 
@@ -389,7 +393,7 @@ def calculate_costs(strategy, voltage_level, interval,
             utilization_time_per_year_fix = abs(
                 energy_supply_per_year_fix / max_power_grid_supply_fix)  # [h/a]
             commodity_charge_fix, capacity_charge_fix, fee_type = \
-                find_prices(price_sheet_json, strategy, voltage_level,
+                find_prices(price_sheet_path, grid_operator, strategy, voltage_level,
                             utilization_time_per_year_fix, energy_supply_per_year_fix,
                             UTILIZATION_TIME_PER_YEAR_EC)
 
@@ -411,8 +415,9 @@ def calculate_costs(strategy, voltage_level, interval,
         # set a suitable utilization time in order to use prices for grid friendly charging
         utilization_time_per_year_flex = UTILIZATION_TIME_PER_YEAR_EC
         commodity_charge_flex, capacity_charge_flex, fee_type = \
-            find_prices(price_sheet_json, strategy, voltage_level, utilization_time_per_year_flex,
-                        energy_supply_per_year, UTILIZATION_TIME_PER_YEAR_EC)
+            find_prices(price_sheet_path, grid_operator, strategy, voltage_level,
+                        utilization_time_per_year_flex, energy_supply_per_year,
+                        UTILIZATION_TIME_PER_YEAR_EC)
 
         # commodity costs for flexible load:
         price_list_flex_load = [commodity_charge_flex] * len(power_flex_load_list)
@@ -456,7 +461,7 @@ def calculate_costs(strategy, voltage_level, interval,
         """
 
         # schedule related charges:
-        schedule_charges = price_sheet["strategy_related"]["schedule"]
+        schedule_charges = price_sheet[grid_operator]["strategy_related"]["schedule"]
 
         # COSTS FOR FIXED LOAD
 
@@ -478,7 +483,7 @@ def calculate_costs(strategy, voltage_level, interval,
             utilization_time_per_year_fix = abs(
                 energy_supply_per_year_fix / max_power_grid_supply_fix)  # [h/a]
             commodity_charge_fix, capacity_charge_fix, fee_type = \
-                find_prices(price_sheet_json, strategy, voltage_level,
+                find_prices(price_sheet_path, grid_operator, strategy, voltage_level,
                             utilization_time_per_year_fix, energy_supply_per_year_fix,
                             UTILIZATION_TIME_PER_YEAR_EC)
             reduction_commodity_charge = schedule_charges["reduction_of_commodity_charge"]
@@ -503,8 +508,9 @@ def calculate_costs(strategy, voltage_level, interval,
         # set a suitable utilization time in order to use prices for grid friendly charging
         utilization_time_per_year_flex = UTILIZATION_TIME_PER_YEAR_EC
         commodity_charge_flex, capacity_charge_flex, fee_type = \
-            find_prices(price_sheet_json, strategy, voltage_level, utilization_time_per_year_flex,
-                        energy_supply_per_year, UTILIZATION_TIME_PER_YEAR_EC)
+            find_prices(price_sheet_path, grid_operator, strategy, voltage_level,
+                        utilization_time_per_year_flex, energy_supply_per_year,
+                        UTILIZATION_TIME_PER_YEAR_EC)
 
         # commodity costs for flexible load:
         price_list_flex_load = [commodity_charge_flex] * len(power_flex_load_list)
@@ -552,32 +558,33 @@ def calculate_costs(strategy, voltage_level, interval,
 
     # ADDITIONAL COSTS FOR RLM-CONSUMERS:
     if fee_type == "RLM":
-        additional_costs_per_year = price_sheet["grid_fee"]["RLM"]["additional_costs"]["costs"]
+        additional_costs_per_year = (price_sheet[grid_operator]["grid_fee"]["RLM"]
+                                                ["additional_costs"]["costs"])
         additional_costs_sim = additional_costs_per_year * fraction_year
     else:
         additional_costs_per_year = 0
         additional_costs_sim = 0
 
     # COSTS FOR POWER PROCUREMENT:
-    power_procurement_charge = price_sheet["power_procurement"]["charge"]  # [ct/kWh]
+    power_procurement_charge = price_sheet[grid_operator]["power_procurement"]["charge"]  # [ct/kWh]
     power_procurement_costs_sim = (power_procurement_charge * energy_supply_sim / 100)  # [EUR]
     power_procurement_costs_per_year = (power_procurement_costs_sim / fraction_year)  # [EUR]
 
     # COSTS FROM LEVIES:
 
-    # prices:
-    eeg_levy = price_sheet["levies"]["EEG-levy"]  # [ct/kWh]
-    chp_levy = price_sheet["levies"]["chp_levy"]  # [ct/kWh], chp: combined heat and power
-    individual_charge_levy = price_sheet["levies"]["individual_charge_levy"]  # [ct/kWh]
-    offshore_levy = price_sheet["levies"]["offshore_levy"]  # [ct/kWh]
-    interruptible_loads_levy = price_sheet["levies"]["interruptible_loads_levy"]  # [ct/kWh]
+    # prices [ct/kWh]:
+    eeg_levy = price_sheet[grid_operator]["levies"]["EEG_levy"]
+    chp_levy = price_sheet[grid_operator]["levies"]["chp_levy"]
+    individual_charge_levy = price_sheet[grid_operator]["levies"]["individual_charge_levy"]
+    offshore_levy = price_sheet[grid_operator]["levies"]["offshore_levy"]
+    interruptible_loads_levy = price_sheet[grid_operator]["levies"]["interruptible_loads_levy"]
 
-    # costs for simulation_period:
-    eeg_costs_sim = eeg_levy * energy_supply_sim / 100  # [EUR]
-    chp_costs_sim = chp_levy * energy_supply_sim / 100  # [EUR]
-    individual_charge_costs_sim = (individual_charge_levy * energy_supply_sim / 100)  # [EUR]
-    offshore_costs_sim = offshore_levy * energy_supply_sim / 100  # [EUR]
-    interruptible_loads_costs_sim = (interruptible_loads_levy * energy_supply_sim / 100)  # [EUR]
+    # costs for simulation_period [EUR]:
+    eeg_costs_sim = eeg_levy * energy_supply_sim / 100
+    chp_costs_sim = chp_levy * energy_supply_sim / 100
+    individual_charge_costs_sim = (individual_charge_levy * energy_supply_sim / 100)
+    offshore_costs_sim = offshore_levy * energy_supply_sim / 100
+    interruptible_loads_costs_sim = (interruptible_loads_levy * energy_supply_sim / 100)
     levies_costs_total_sim = (
         eeg_costs_sim
         + chp_costs_sim
@@ -586,15 +593,15 @@ def calculate_costs(strategy, voltage_level, interval,
         + interruptible_loads_costs_sim
     )
 
-    # costs per year:
-    eeg_costs_per_year = eeg_costs_sim / fraction_year  # [EUR]
-    chp_costs_per_year = chp_costs_sim / fraction_year  # [EUR]
-    individual_charge_costs_per_year = individual_charge_costs_sim / fraction_year  # [EUR]
-    offshore_costs_per_year = offshore_costs_sim / fraction_year  # [EUR]
-    interruptible_loads_costs_per_year = interruptible_loads_costs_sim / fraction_year  # [EUR]
+    # costs per year [EUR]:
+    eeg_costs_per_year = eeg_costs_sim / fraction_year
+    chp_costs_per_year = chp_costs_sim / fraction_year
+    individual_charge_costs_per_year = individual_charge_costs_sim / fraction_year
+    offshore_costs_per_year = offshore_costs_sim / fraction_year
+    interruptible_loads_costs_per_year = interruptible_loads_costs_sim / fraction_year
 
     # COSTS FROM CONCESSION FEE:
-    concession_fee = price_sheet["concession_fee"]["charge"]  # [ct/kWh]
+    concession_fee = price_sheet[grid_operator]["concession_fee"]["charge"]  # [ct/kWh]
     concession_fee_costs_sim = concession_fee * energy_supply_sim / 100  # [EUR]
     concession_fee_costs_per_year = concession_fee_costs_sim / fraction_year  # [EUR]
 
@@ -606,8 +613,8 @@ def calculate_costs(strategy, voltage_level, interval,
     # PV power plant existing:
     if power_pv_nominal != 0:
         # find charge for PV remuneration depending on nominal power pf PV plant:
-        pv_nominal_power_max = price_sheet["feed-in_remuneration"]["PV"]["kWp"]
-        pv_remuneration = price_sheet["feed-in_remuneration"]["PV"]["remuneration"]
+        pv_nominal_power_max = price_sheet[grid_operator]["feed-in_remuneration"]["PV"]["kWp"]
+        pv_remuneration = price_sheet[grid_operator]["feed-in_remuneration"]["PV"]["remuneration"]
         if power_pv_nominal <= pv_nominal_power_max[0]:
             feed_in_charge_pv = pv_remuneration[0]  # [ct/kWh]
         elif power_pv_nominal <= pv_nominal_power_max[1]:
@@ -631,7 +638,7 @@ def calculate_costs(strategy, voltage_level, interval,
     # feed-in remuneration V2G:
 
     # charge for V2G remuneration:
-    feed_in_charge_v2g = price_sheet["feed-in_remuneration"]["V2G"]
+    feed_in_charge_v2g = price_sheet[grid_operator]["feed-in_remuneration"]["V2G"]
     # remuneration for V2G feed-in:
     v2g_feed_in_costs_per_year, v2g_feed_in_costs_sim = calculate_feed_in_remuneration(
         feed_in_charge_v2g, power_v2g_feed_in_list, timestamps_list, interval, fraction_year)
@@ -639,7 +646,7 @@ def calculate_costs(strategy, voltage_level, interval,
     # feed-in remuneration battery:
 
     # charge for battery feed-in remuneration:
-    feed_in_charge_battery = price_sheet["feed-in_remuneration"]["battery"]
+    feed_in_charge_battery = price_sheet[grid_operator]["feed-in_remuneration"]["battery"]
     # remuneration for battery feed-in:
     battery_feed_in_costs_per_year, battery_feed_in_costs_sim = calculate_feed_in_remuneration(
         feed_in_charge_battery, power_battery_feed_in_list, timestamps_list, interval,
@@ -648,12 +655,12 @@ def calculate_costs(strategy, voltage_level, interval,
     # COSTS FROM TAXES AND TOTAL COSTS:
 
     # electricity tax:
-    electricity_tax = price_sheet["taxes"]["tax_on_electricity"]  # [ct/kWh]
+    electricity_tax = price_sheet[grid_operator]["taxes"]["tax_on_electricity"]  # [ct/kWh]
     electricity_tax_costs_sim = electricity_tax * energy_supply_sim / 100  # [EUR]
     electricity_tax_costs_per_year = electricity_tax_costs_sim / fraction_year  # [EUR]
 
     # value added tax:
-    value_added_tax_percent = price_sheet["taxes"]["value_added_tax"]  # [%]
+    value_added_tax_percent = price_sheet[grid_operator]["taxes"]["value_added_tax"]  # [%]
     value_added_tax = value_added_tax_percent / 100  # [-]
 
     # total costs without value added tax (commodity costs and capacity costs included):
@@ -758,7 +765,7 @@ def calculate_costs(strategy, voltage_level, interval,
                     },
                     "power procurement": power_procurement_costs_per_year,
                     "levies": {
-                        "EEG-levy": round(eeg_costs_per_year, round_to_places),
+                        "EEG levy": round(eeg_costs_per_year, round_to_places),
                         "chp levy": round(chp_costs_per_year, round_to_places),
                         "individual charge levy": round(individual_charge_costs_per_year,
                                                         round_to_places),
@@ -798,7 +805,7 @@ def calculate_costs(strategy, voltage_level, interval,
                     },
                     "power procurement": power_procurement_costs_sim,
                     "levies": {
-                        "EEG-levy": round(eeg_costs_sim, round_to_places),
+                        "EEG levy": round(eeg_costs_sim, round_to_places),
                         "chp levy": round(chp_costs_sim, round_to_places),
                         "individual charge levy": round(individual_charge_costs_sim,
                                                         round_to_places),

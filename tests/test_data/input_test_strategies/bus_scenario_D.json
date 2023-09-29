@@ -266,6 +266,8 @@
     "grid_connectors": {
       "S+U Wuhletal": {
         "max_power": 200,
+        "grid_operator": "default_grid_operator",
+        "voltage_level": "MV",
         "cost": {
           "type": "fixed",
           "value": 0.3
@@ -274,6 +276,8 @@
       },
       "Betriebshof A": {
         "max_power": 10000,
+        "grid_operator": "default_grid_operator",
+        "voltage_level": "MV",
         "cost": {
           "type": "fixed",
           "value": 0.3
@@ -282,6 +286,8 @@
       },
       "S+U Hermannstr.": {
         "max_power": 400,
+        "grid_operator": "default_grid_operator",
+        "voltage_level": "MV",
         "cost": {
           "type": "fixed",
           "value": 0.3
@@ -290,6 +296,8 @@
       },
       "S Buch": {
         "max_power": 500,
+        "grid_operator": "default_grid_operator",
+        "voltage_level": "MV",
         "cost": {
           "type": "fixed",
           "value": 0.3
@@ -298,6 +306,8 @@
       },
       "S Adlershof": {
         "max_power": 300,
+        "grid_operator": "default_grid_operator",
+        "voltage_level": "MV",
         "cost": {
           "type": "fixed",
           "value": 0.3
@@ -306,6 +316,8 @@
       },
       "U Rohrdamm": {
         "max_power": 400,
+        "grid_operator": "default_grid_operator",
+        "voltage_level": "MV",
         "cost": {
           "type": "fixed",
           "value": 0.3
@@ -314,6 +326,8 @@
       },
       "S Grunewald": {
         "max_power": 500,
+        "grid_operator": "default_grid_operator",
+        "voltage_level": "MV",
         "cost": {
           "type": "fixed",
           "value": 0.3
@@ -322,6 +336,8 @@
       },
       "Alt-Kladow": {
         "max_power": 300,
+        "grid_operator": "default_grid_operator",
+        "voltage_level": "MV",
         "cost": {
           "type": "fixed",
           "value": 0.3
@@ -330,6 +346,8 @@
       },
       "Betriebshof Indira-Gandhi-Str.": {
         "max_power": 10000,
+        "grid_operator": "default_grid_operator",
+        "voltage_level": "MV",
         "cost": {
           "type": "fixed",
           "value": 0.3

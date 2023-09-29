@@ -6,10 +6,11 @@
   },
   "grid_connector": {
     "gcID": "GC1",
-    "voltage_level": "MV"
+    "grid operator": "default_grid_operator",
+    "voltage level": "MV"
   },
   "photovoltaics": {
-    "nominal_power": 0,
+    "nominal power": 0,
     "unit": "kWp",
     "info": "Nominal power of PV power plants"
   },
@@ -114,7 +115,7 @@
         },
         "power procurement": 40.99,
         "levies": {
-          "EEG-levy": 0.0,
+          "EEG levy": 0.0,
           "chp levy": 2.01,
           "individual charge levy": 2.33,
           "Offshore levy": 2.23,
@@ -151,7 +152,7 @@
         },
         "power procurement": 0.11,
         "levies": {
-          "EEG-levy": 0.0,
+          "EEG levy": 0.0,
           "chp levy": 0.01,
           "individual charge levy": 0.01,
           "Offshore levy": 0.01,

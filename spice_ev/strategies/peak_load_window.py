@@ -343,9 +343,9 @@ class PeakLoadWindow(Strategy):
             vehicle.schedule -= min(timesteps[0]["power"], 0)
             if vehicle.schedule > 0:
                 cs_id = vehicle.connected_charging_station
-                power = vehicle.battery.load(self.interval, target_power=vehicle.schedule)["avg_power"]
-                charging_stations[cs_id] = power
-                gc.add_load(cs_id, power)
+                p = vehicle.battery.load(self.interval, target_power=vehicle.schedule)["avg_power"]
+                charging_stations[cs_id] = p
+                gc.add_load(cs_id, p)
 
         bat_info = dict()
         gc_loads = gc.current_loads.copy()

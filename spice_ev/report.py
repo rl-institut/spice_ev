@@ -104,14 +104,15 @@ def aggregate_local_results(scenario, gcID):
 
     json_results["grid_connector"] = {
         "gcID": gcID,
-        "voltage_level": scenario.components.grid_connectors[gcID].voltage_level
+        "grid operator": scenario.components.grid_connectors[gcID].grid_operator,
+        "voltage level": scenario.components.grid_connectors[gcID].voltage_level
     }
 
     pvs = scenario.components.photovoltaics.values()
     nominal_pv_power = sum([pv.nominal_power for pv in pvs if pv.parent == gcID])
 
     json_results["photovoltaics"] = {
-        "nominal_power": nominal_pv_power,
+        "nominal power": nominal_pv_power,
         "unit": "kWp",
         "info": "Nominal power of PV power plants"
     }
