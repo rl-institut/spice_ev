@@ -251,7 +251,7 @@ class PeakLoadWindow(Strategy):
         for v_id, vehicle in vehicles.items():
             cs_id = vehicle.connected_charging_station
             cs = self.world_state.charging_stations[cs_id]
-            cur_power = 0  # power for actual current timestep (idx=0)
+            vehicle.schedule = 0  # planned power for actual current timestep (idx=0)
             old_soc = vehicle.battery.soc
             departure = vehicle.estimated_time_of_departure
             depart_idx = -((departure - self.current_time) // -self.interval)
@@ -276,7 +276,7 @@ class PeakLoadWindow(Strategy):
                     power_levels[ts_idx] = avg_power
                     num_outside_ts -= 1
                     if ts_idx == 0:
-                        cur_power = power
+                        vehicle.schedule = power
 
             needs_charging = vehicle.desired_soc - vehicle.battery.soc > self.EPS
 
@@ -295,7 +295,7 @@ class PeakLoadWindow(Strategy):
                             peak_power - ts["power"])
                         p, power_levels[ts_idx] = charge_vehicle(power, ts)
                         if ts_idx == 0:
-                            cur_power = p
+                            vehicle.schedule = p
                 # greedy might not have been enough, need to increase peak load
                 # => fall back to peak shaving
                 needs_charging = vehicle.desired_soc - vehicle.battery.soc > self.EPS
@@ -320,7 +320,7 @@ class PeakLoadWindow(Strategy):
                             power = max(target_power - ts["power"], 0)
                             p, power_levels[ts_idx] = charge_vehicle(power, ts)
                             if ts_idx == 0:
-                                cur_power = p
+                                vehicle.schedule = p
                     if vehicle.desired_soc - vehicle.battery.soc < self.EPS:
                         # charged enough: decrease power
                         max_power = target_power
@@ -335,27 +335,38 @@ class PeakLoadWindow(Strategy):
                 if ts_info["window"] and ts_info["power"] - peak_power > self.EPS:
                     peak_power = ts_info["power"]
 
-            # --- charge for real --- #
+            # revert soc to prepare real charging (after surplus considerations)
             vehicle.battery.soc = old_soc
-            if cur_power:
-                power = vehicle.battery.load(self.interval, target_power=cur_power)["avg_power"]
+
+        # use surplus power to charge above desired soc
+        for vehicle in vehicles.values():
+            vehicle.schedule -= min(timesteps[0]["power"], 0)
+            if vehicle.schedule > 0:
+                cs_id = vehicle.connected_charging_station
+                power = vehicle.battery.load(self.interval, target_power=vehicle.schedule)["avg_power"]
                 charging_stations[cs_id] = power
                 gc.add_load(cs_id, power)
 
-        # use stationary batteries
+        bat_info = dict()
+        gc_loads = gc.current_loads.copy()
+
+        # (dis)charging commands for stationary batteries
         for b_id, battery in stationary_batteries.items():
+            bat_info[b_id] = {"soc": battery.soc, "power": 0}
             if gc.window:
                 if self.LOAD_STRAT == "greedy":
                     # charge when below peak load, discharge when above
-                    power = gc.get_current_load() - self.peak_power[gc_id]
-                    if power > battery.min_charging_power:
+                    power = sum(gc_loads.values()) - self.peak_power[gc_id]
+                    if power >= battery.min_charging_power:
                         # current load above peak power within window: discharge
+                        bat_info[b_id]["power"] = -power
                         power = battery.unload(self.interval, target_power=power)["avg_power"]
-                        gc.add_load(b_id, -power)
-                    elif power < -battery.min_charging_power:
+                        gc_loads[b_id] = -power
+                    elif power <= -battery.min_charging_power:
                         # current load below peak power: charge up to peak power
+                        bat_info[b_id]["power"] = -power
                         power = battery.load(self.interval, target_power=-power)["avg_power"]
-                        gc.add_load(b_id, power)
+                        gc_loads[b_id] = power
                 elif self.LOAD_STRAT == "peak_shaving":
                     # within window: discharge for peak shaving
                     # sort power levels descending
@@ -409,23 +420,40 @@ class PeakLoadWindow(Strategy):
                     # charge inside window (simulate whole window in case of multiple batteries)
                     for ts_idx, ts_info in enumerate(timesteps[:ts_until_window_change]):
                         power = max(ts_info["power"] - power_level, 0)
-                        power = battery.unload(self.interval, target_power=power)["avg_power"]
-                        ts_info["power"] -= power
+                        avg_power = battery.unload(self.interval, target_power=power)["avg_power"]
+                        ts_info["power"] -= avg_power
                         if ts_idx == 0:
-                            old_soc = battery.soc
-                            gc.add_load(b_id, -power)
-                        # revert soc, keeping current timestep
-                        battery.soc = old_soc
+                            bat_info[b_id]["power"] = -power
+                            gc_loads[b_id] = -avg_power
             else:
                 # outside of window: charge balanced until window change
                 # only current timestep computed, no look-ahead
                 energy_needed = (1 - battery.soc) * battery.capacity
                 p = energy_needed * ts_per_hour / battery.efficiency / ts_until_window_change
-                p2 = min(gc.max_power - gc.get_current_load(), p)
+                p2 = min(gc.max_power - sum(gc_loads.values()), p)
                 p3 = 0
                 if p2 >= battery.min_charging_power:
+                    bat_info[b_id]["power"] = p2
                     p3 = battery.load(self.interval, target_power=p2)["avg_power"]
-                    gc.add_load(b_id, p3)
+                    gc_loads[b_id] = p3
+
+        # store surplus power in batteries, apply commands
+        for b_id, battery in stationary_batteries.items():
+            # revert to original soc
+            battery.soc = bat_info[b_id]["soc"]
+            power = bat_info[b_id]["power"]
+            if power >= 0:
+                # idle or charging: use surplus
+                power -= min(sum(gc_loads.values()), 0)
+                if power >= battery.min_charging_power:
+                    power = battery.load(self.interval, target_power=power)["avg_power"]
+                    gc.add_load(b_id, power)
+                    gc_loads[b_id] = power
+            else:
+                # discharging: just do it
+                power = battery.unload(self.interval, target_power=-power)["avg_power"]
+                gc.add_load(b_id, -power)
+                gc_loads[b_id] = -power
 
         # might have to increase peak power when within window
         if gc.window:
