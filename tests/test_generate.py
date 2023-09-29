@@ -26,7 +26,7 @@ ARG_VALUES1 = {
     "export_vehicle_id_csv": None,
     "seed": None,
     "verbose": 0,
-    "grid_operator": "default_grid_operator",
+    "grid_operator": None,
     "voltage_level": "MV",
     # generate_schedule
     "core_standing_time": None,

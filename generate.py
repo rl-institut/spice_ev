@@ -43,7 +43,7 @@ def update_namespace(args):
     # prepare GC
     args.gc = {
         "GC1": {
-            "max_power": vars(args).get("gc_power"),
+            "max_power": vars(args).get("gc_power", 100),
             "grid_operator": vars(args).get("grid_operator"),
             "voltage_level": voltage_level,
             "cost": {"type": "fixed", "value": 0.3},
@@ -195,8 +195,7 @@ if __name__ == '__main__':  # pragma: no cover
                         (-1 for variable capacity, second argument is fixed power))')
     parser.add_argument('--gc-power', type=int, default=100, help='set power at grid connection '
                                                                   'point in kW')
-    parser.add_argument('--grid-operator', '-go', default="default_grid_operator",
-                        help='set grid operator for grid connector')
+    parser.add_argument('--grid-operator', help='set grid operator for grid connector')
     parser.add_argument('--voltage-level', '-vl', help='choose voltage level for cost calculation')
     parser.add_argument('--pv-power', type=int, default=0, help='set nominal power for local '
                                                                 'photovoltaic power plant in kWp')

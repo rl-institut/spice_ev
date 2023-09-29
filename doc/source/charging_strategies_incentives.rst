@@ -105,7 +105,7 @@ again, the process is repeated.
 Incentive schemes
 =================
 
-The electricity costs for a location depend on the chosen charging strategy and incentive scheme. In
+The electricity costs for a location depend on the chosen charging strategy and the incentive scheme. In
 SpiceEV the current system for charging electricity (the state of the art) can be applied on all strategies. Any other
 incentive scheme can only be applied on the corresponding charging strategy which is based on that incentive scheme.
 The following table gives an overview of the possible combinations.
@@ -128,11 +128,12 @@ The following table gives an overview of the possible combinations.
 | Distributed              | x                           |                               |                               |                               |
 +--------------------------+-----------------------------+-------------------------------+-------------------------------+-------------------------------+
 
-The electricity costs consist of the grid fees (sells included), taxes, levies and power
-procurement. In case of V2G or feed-in by a PV power plant the feed-in remuneration is subtracted [#]_. The differences
-between the incentive schemes lie in the way grid fees are handled. Therefore the other cost components are spared
+The electricity costs consist of the grid fees, power procurement, levies, fees and taxes.
+In case of V2G or feed-in by a PV power plant the feed-in remuneration is subtracted [#]_.
+The differences between the incentive schemes lie in the way grid fees are handled. Therefore the other cost components are spared
 out in the following explanations. In all of the incentive schemes the calculation of the grid fee is based on the price sheet of the
-distribution grid operator.
+distribution grid operator. When calculating scenarios with multiple grid connectors with different grid operators, the grid operator
+of each grid connector has to be set, to use its specific price sheet.
 
 In the following the current system for charging electricity as well as the three alternative incentive schemes are
 explained. The alternative schemes differentiate between the fixed and flexible loads and bill them differently. Since

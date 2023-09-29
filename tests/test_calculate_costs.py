@@ -81,16 +81,16 @@ class TestSimulationCosts:
 
         # test all supported strategies
         for strategy in supported_strategies:
-            cc.calculate_costs(grid_operator, strategy, "MV", s.interval, *timeseries_lists,
+            cc.calculate_costs(strategy, "MV", s.interval, *timeseries_lists,
                                price_sheet_path=str(price_sheet_path))
 
         # test error for non-supported strategy
         with pytest.raises(Exception):
-            cc.calculate_costs(grid_operator, "strategy", "MV", s.interval, *timeseries_lists,
+            cc.calculate_costs("strategy", "MV", s.interval, *timeseries_lists,
                                price_sheet_path=str(price_sheet_path))
 
         # check returned values
-        result = cc.calculate_costs(grid_operator, supported_strategies[0], "MV", s.interval,
+        result = cc.calculate_costs(supported_strategies[0], "MV", s.interval,
                                     *timeseries_lists, price_sheet_path=str(price_sheet_path))
         assert result["total_costs_per_year"] == 78.18
         assert result["commodity_costs_eur_per_year"] == 0
@@ -126,8 +126,8 @@ class TestSimulationCosts:
             price_sheet_path = TEST_REPO_PATH / 'test_data/input_test_cost_calculation/' \
                                                 'price_sheet.json'
             pv = sum([pv.nominal_power for pv in s.components.photovoltaics.values()])
-            result = cc.calculate_costs(grid_operator, "greedy", "MV", s.interval,
-                                        *timeseries_lists, str(price_sheet_path), None, pv)
+            result = cc.calculate_costs("greedy", "MV", s.interval, *timeseries_lists,
+                                        str(price_sheet_path), grid_operator, None, pv)
 
             for i, value in enumerate(result.values()):
                 assert value == expected[i]
@@ -149,8 +149,8 @@ class TestSimulationCosts:
         pv = sum([pv.nominal_power for pv in s.components.photovoltaics.values()])
 
         # check returned values
-        result = cc.calculate_costs(grid_operator, "balanced", "MV", s.interval, *timeseries_lists,
-                                    str(price_sheet_path), None, pv)
+        result = cc.calculate_costs("balanced", "MV", s.interval, *timeseries_lists,
+                                    str(price_sheet_path), grid_operator, None, pv)
         assert result["total_costs_per_year"] == 308.45
         assert result["commodity_costs_eur_per_year"] == 73.15
         assert result["capacity_costs_eur"] == 65.7
@@ -176,8 +176,8 @@ class TestSimulationCosts:
         pv = sum([pv.nominal_power for pv in s.components.photovoltaics.values()])
 
         # check returned values
-        result = cc.calculate_costs(grid_operator, "balanced_market", "MV", s.interval,
-                                    *timeseries_lists, str(price_sheet_path), None, pv)
+        result = cc.calculate_costs("balanced_market", "MV", s.interval, *timeseries_lists,
+                                    str(price_sheet_path), grid_operator, None, pv)
         assert result["total_costs_per_year"] == 323.14
         assert result["commodity_costs_eur_per_year"] == 14.41
         assert result["capacity_costs_eur"] == 0
@@ -202,8 +202,8 @@ class TestSimulationCosts:
         pv = sum([pv.nominal_power for pv in s.components.photovoltaics.values()])
 
         # check returned values
-        result = cc.calculate_costs(grid_operator, "flex_window", "MV", s.interval,
-                                    *timeseries_lists, str(price_sheet_path), None, pv)
+        result = cc.calculate_costs("flex_window", "MV", s.interval, *timeseries_lists,
+                                    str(price_sheet_path), grid_operator, None, pv)
         assert result["total_costs_per_year"] == 3932.83
         assert result["commodity_costs_eur_per_year"] == 279.44
         assert result["capacity_costs_eur"] == 1543.08
@@ -229,8 +229,8 @@ class TestSimulationCosts:
         pv = sum([pv.nominal_power for pv in s.components.photovoltaics.values()])
 
         # check returned values
-        result = cc.calculate_costs(grid_operator, "balanced_market", "MV", s.interval,
-                                    *timeseries_lists, str(price_sheet_path), None, pv)
+        result = cc.calculate_costs("balanced_market", "MV", s.interval, *timeseries_lists,
+                                    str(price_sheet_path), grid_operator, None, pv)
         assert result["total_costs_per_year"] == 24339.52
         assert result["commodity_costs_eur_per_year"] == 4523.5
         assert result["capacity_costs_eur"] == 4426.75
@@ -270,8 +270,8 @@ class TestSimulationCosts:
 
         # check returned values
         result = cc.calculate_costs(
-            grid_operator, "schedule", "MV", s.interval, *timeseries_lists,
-            str(price_sheet_path), None, pv, timeseries.get("schedule [kW]"))
+            "schedule", "MV", s.interval, *timeseries_lists,
+            str(price_sheet_path), grid_operator, None, pv, timeseries.get("schedule [kW]"))
         assert result["total_costs_per_year"] == -3023.44
         assert result["commodity_costs_eur_per_year"] == 40.88
         assert result["capacity_costs_eur"] == 28.69
@@ -283,7 +283,7 @@ class TestSimulationCosts:
         # prepare scenario to trigger RLM
         # energy_supply_per_year > 100000, but utilization_time_per_year < 2500
         result = cc.calculate_costs(
-            grid_operator, "greedy", "MV", datetime.timedelta(hours=1),
+            "greedy", "MV", datetime.timedelta(hours=1),
             [None]*9,  # empty timestamps
             [-1000] + [0]*8,  # single grid supply value
             None,  # empty prices
@@ -299,7 +299,7 @@ class TestSimulationCosts:
     def test_fixed_load(self):
         for strategy in ["balanced_market", "flex_window", "schedule"]:
             result = cc.calculate_costs(
-                grid_operator, strategy, "MV", datetime.timedelta(hours=1),
+                strategy, "MV", datetime.timedelta(hours=1),
                 [None]*9,  # empty timestamps
                 [0]*9,  # empty grid supply
                 [1]*9,  # static prices
@@ -315,13 +315,13 @@ class TestSimulationCosts:
     def test_pv_nominal(self):
         price_sheet_path = TEST_REPO_PATH / 'test_data/input_test_cost_calculation/price_sheet.json'
         with price_sheet_path.open('r') as ps:
-            price_sheet = json.load(ps)
+            price_sheet = json.load(ps).get(grid_operator)
         # iterate over PV ranges
-        pv_ranges = price_sheet[grid_operator]["feed-in_remuneration"]["PV"]["kWp"]
+        pv_ranges = price_sheet["feed-in_remuneration"]["PV"]["kWp"]
         results = [2733.12, 2654.28, 2076.12]
         for i, pv in enumerate(pv_ranges):
             result = cc.calculate_costs(
-                grid_operator, "greedy", "MV", datetime.timedelta(hours=1),
+                "greedy", "MV", datetime.timedelta(hours=1),
                 [None]*9,  # empty timestamps
                 [pv]*9,  # positive grid supply
                 None,  # empty prices
@@ -336,7 +336,7 @@ class TestSimulationCosts:
         with pytest.raises(ValueError):
             # PV out of range
             cc.calculate_costs(
-                grid_operator, "greedy", "MV", datetime.timedelta(hours=1),
+                "greedy", "MV", datetime.timedelta(hours=1),
                 [None]*9,  # empty timestamps
                 [1]*9,  # positive grid supply
                 None,  # empty prices
@@ -352,7 +352,7 @@ class TestSimulationCosts:
         dst = tmp_path / "results.json"
         dst.write_text("{}")
         result = cc.calculate_costs(
-            grid_operator, "greedy", "MV", datetime.timedelta(hours=1),
+            "greedy", "MV", datetime.timedelta(hours=1),
             [None]*9,  # empty timestamps
             [0]*9,  # empty grid supply
             None,  # empty prices

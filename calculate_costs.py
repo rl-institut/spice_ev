@@ -80,8 +80,6 @@ def read_simulation_csv(csv_file):
 if __name__ == "__main__":  # pragma: no cover
     parser = argparse.ArgumentParser(
         description='Generate scenarios as JSON files for vehicle charging modelling')
-    parser.add_argument('--grid-operator', '-go', default="default_grid_operator",
-                        help='set grid operator for grid connector')
     parser.add_argument('--voltage-level', '-vl', help='Choose voltage level for cost calculation')
     parser.add_argument('--pv-power', type=int, default=0,
                         help='set nominal power for local photovoltaic power plant in kWp')
@@ -114,20 +112,20 @@ if __name__ == "__main__":  # pragma: no cover
 
     # grid connector
     gc = simulation_json.get("grid_connector", {})
-    # grid operator of grid connector
-    grid_operator = args.grid_operator or gc.get("grid_operator")
-    # voltage level of grid connector:
+    # grid operator of grid connector (default = default_grid_operator)
+    grid_operator = gc.get("grid_operator", "default_grid_operator")
+    # voltage level of grid connector
     voltage_level = args.voltage_level or gc.get("voltage_level")
     assert voltage_level is not None, f"Voltage level is of {gc['gcID']} not defined"
 
     # cost calculation:
     costs.calculate_costs(
-        grid_operator=grid_operator,
         strategy=strategy,
         voltage_level=voltage_level,
         interval=datetime.timedelta(minutes=interval_min),
+        **timeseries_lists,
         price_sheet_path=args.cost_parameters_file,
+        grid_operator=grid_operator,
         results_json=args.get_results,
         power_pv_nominal=args.pv_power,
-        **timeseries_lists
     )
