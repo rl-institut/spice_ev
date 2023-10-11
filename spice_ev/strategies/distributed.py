@@ -2,6 +2,7 @@ from copy import deepcopy
 import datetime
 
 from spice_ev import events, strategy
+from spice_ev.components import Components
 
 
 class Distributed(strategy.Strategy):
@@ -160,9 +161,13 @@ class Distributed(strategy.Strategy):
                               "ending of the station name is one of the mentioned.")
                         continue
 
-                    # create new world state with just this GC and relevant vehicles
-                    # GC, CS and vehicles are original from this world state (reference)!
-                    new_world_state = deepcopy(self.world_state)
+                    # create new empty world state
+                    new_world_state = Components(dict())
+                    # link to vehicle_types and photovoltaics (should not change during simulation)
+                    new_world_state.vehicle_types = self.world_state.vehicle_types
+                    new_world_state.photovoltaics = self.world_state.photovoltaics
+                    # copy reference of current GC and relevant vehicles
+                    # changes during simulation reflect back to original!
                     new_world_state.grid_connectors = {gc_id: gc}
                     # add available battery power
                     gc.cur_max_power += avail_bat_power[gc_id]
