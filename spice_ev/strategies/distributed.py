@@ -1,8 +1,7 @@
 from copy import deepcopy
 import datetime
 
-from spice_ev import events, strategy
-from spice_ev.components import Components
+from spice_ev import components, events, strategy
 
 
 class Distributed(strategy.Strategy):
@@ -28,6 +27,7 @@ class Distributed(strategy.Strategy):
         self.C_HORIZON = 3  # min
         # dict that holds the current vehicles connected to a grid connector for each gc
         self.v_connect = {gc_id: [] for gc_id in self.world_state.grid_connectors.keys()}
+        self.virtual_cs = dict()
 
     def step(self):
         """ Calculates charging power in each timestep.
@@ -35,11 +35,6 @@ class Distributed(strategy.Strategy):
         :return: current time and commands of the charging stations
         :rtype: dict
         """
-
-        # get power that can be drawn from battery in this timestep
-        avail_bat_power = {gc_id: 0 for gc_id in self.world_state.grid_connectors}
-        for bat in self.world_state.batteries.values():
-            avail_bat_power[bat.parent] += bat.get_available_power(self.interval)
 
         # dict to hold charging commands
         charging_stations = {}
@@ -49,6 +44,7 @@ class Distributed(strategy.Strategy):
 
         skip_prioritization = {}
         # rank which vehicles should be loaded at gc
+        still_connected = {gc_id: [] for gc_id in self.world_state.grid_connectors.keys()}
         for gc_id, gc in self.world_state.grid_connectors.items():
             if gc.number_cs is None:
                 skip_prioritization[gc_id] = True
@@ -56,14 +52,13 @@ class Distributed(strategy.Strategy):
             else:
                 skip_prioritization[gc_id] = False
             # update v_connect: only vehicles that are connected and below desired SoC remain
-            still_connected = []
             for v_id in self.v_connect[gc_id]:
                 v = self.world_state.vehicles[v_id]
                 if v.connected_charging_station is not None:
                     cs = self.world_state.charging_stations[v.connected_charging_station]
                     if cs.parent == gc_id and v.get_delta_soc() > self.EPS:
-                        still_connected.append(v_id)
-            self.v_connect[gc_id] = still_connected
+                        still_connected[gc_id].append(v_id)
+            self.v_connect[gc_id] = still_connected[gc_id]
             # number of charging vehicles must not exceed maximum allowed for this GC
             assert len(self.v_connect[gc_id]) <= self.world_state.grid_connectors[gc_id].number_cs
 
@@ -162,19 +157,59 @@ class Distributed(strategy.Strategy):
                         continue
 
                     # create new empty world state
-                    new_world_state = Components(dict())
+                    new_world_state = components.Components(dict())
+
+                    batteries = {b_id: b for b_id, b in self.world_state.batteries.items() if b.parent == gc_id}
+                    if station_type == "deps":
+                        # depot: use stationary batteries according to selected strategy
+                        new_world_state.batteries = batteries
+                    else:
+                        # opportunity: charge until bus arrives, discharge when bus present
+                        # simulate by using virtual V2G vehicle
+                        for b_id, battery in batteries.items():
+                            name = f"stationary_{b_id}"
+                            if name not in self.world_state.vehicle_types:
+                                v2g = components.VehicleType({
+                                    "name": name,
+                                    "capacity": battery.capacity,
+                                    "charging_curve": battery.charging_curve.points,
+                                    "min_charging_power": battery.min_charging_power,
+                                    "battery_efficiency": battery.efficiency,
+                                    "v2g": True,
+                                    "discharge_curve": battery.discharge_curve,
+                                })
+                                self.world_state.vehicle_types[name] = v2g
+                            if name not in self.virtual_cs:
+                                cs = components.ChargingStation({
+                                    "parent": gc_id,
+                                    "max_power": battery.charging_curve.max_power,
+                                    "min_power": battery.min_charging_power,
+                                })
+                                self.virtual_cs[name] = cs
+                            new_world_state.charging_stations[name] = self.virtual_cs[name]
+                            for b_id, battery in batteries.items():
+                                bat_vehicle = components.Vehicle({
+                                    "vehicle_type": name,
+                                    "connected_charging_station": name,
+                                    "soc": battery.soc,
+                                    "estimated_time_of_departure": str(self.current_time + self.interval),
+                                }, self.world_state.vehicle_types)
+                                new_world_state.vehicles[b_id] = bat_vehicle
+                                # bat_vehicle.desired_soc = int(not bool(still_connected))
+                                if still_connected[gc_id]:
+                                    # busses present at station: discharge
+                                    bat_vehicle.desired_soc = 0
+                                else:
+                                    # no busses present: charge greedy
+                                    bat_vehicle.desired_soc = 1
+
                     # link to vehicle_types and photovoltaics (should not change during simulation)
                     new_world_state.vehicle_types = self.world_state.vehicle_types
                     new_world_state.photovoltaics = self.world_state.photovoltaics
                     # copy reference of current GC and relevant vehicles
                     # changes during simulation reflect back to original!
                     new_world_state.grid_connectors = {gc_id: gc}
-                    # add available battery power
-                    gc.cur_max_power += avail_bat_power[gc_id]
-                    new_world_state.charging_stations = {}
-                    new_world_state.vehicles = {}
-                    # no batteries (do this here and not in substrategy)
-                    new_world_state.batteries = {}
+
                     # filter future events for this GC
                     new_world_state.future_events = []
                     for event in self.world_state.future_events:
@@ -195,31 +230,19 @@ class Distributed(strategy.Strategy):
                 # update world state of strategy
                 strat.current_time = self.current_time
                 strat.world_state = new_world_state
+                # run sub-strategy
                 commands = strat.step()["commands"]
+                # update stationary batteries
+                for b_id, battery in self.world_state.batteries.items():
+                    name = f"stationary_{b_id}"
+                    power = commands.pop(name, None)
+                    if power is not None:
+                        gc.add_load(name, -power)
+                        gc.add_load(b_id, power)
+                        battery.soc = strat.world_state.vehicles[b_id].battery.soc
                 charging_stations.update(commands)
-                # revert available battery power
-                gc.cur_max_power -= avail_bat_power[gc_id]
 
         # all vehicles loaded
         charging_stations.update(self.distribute_surplus_power())
-        # use bus specific strategy for charging stationary batteries
-        # always charge battery if power is available on gc
-        # since priority is to keep busses fully charged instead of
-        # reducing peak load to a minimum
-        for b_id, battery in self.world_state.batteries.items():
-            gc = self.world_state.grid_connectors[battery.parent]
-            gc_current_load = gc.get_current_load()
-            if gc_current_load <= gc.cur_max_power:
-                # GC suffices to meet busses needs
-                power = gc.cur_max_power - gc_current_load
-                power = 0 if power < battery.min_charging_power else power
-                avg_power = battery.load(self.interval, max_power=power)['avg_power']
-                gc.add_load(b_id, avg_power)
-            else:
-                # current load > max load, use battery to support GC
-                # current load never rises above sum of max load of GC and available battery power
-                power_needed = gc_current_load - gc.cur_max_power
-                bat_power = battery.unload(self.interval, target_power=power_needed)
-                gc.add_load(b_id, -bat_power['avg_power'])
 
         return {'current_time': self.current_time, 'commands': charging_stations}
