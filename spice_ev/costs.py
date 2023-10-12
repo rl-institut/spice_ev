@@ -56,8 +56,8 @@ def find_prices(price_sheet, strategy, voltage_level, utilization_time_per_year,
     if strategy in ["greedy", "balanced", "distributed"] and energy_below_slp:
         # customer type 'SLP'
         fee_type = "SLP"
-        commodity_charge = (price_sheet["grid_fee"]["SLP"]["commodity_charge_ct/kWh"]["net_price"])
-        capacity_charge = (price_sheet["grid_fee"]["SLP"]["basic_charge_EUR/a"]["net_price"])
+        commodity_charge = price_sheet["grid_fee"]["SLP"]["commodity_charge_ct/kWh"]["net_price"]
+        capacity_charge = price_sheet["grid_fee"]["SLP"]["basic_charge_EUR/a"]["net_price"]
     elif utilization_time_per_year < utilization_time_per_year_ec:
         # customer type 'RLM' with utilization_time_per_year < utilization_time_per_year_ec
         fee_type = "RLM"
@@ -187,7 +187,7 @@ def calculate_costs(strategy, voltage_level, interval,
     :type charging_signal_list: list
     :param price_sheet_path: path to price sheet
     :type price_sheet_path: str
-    :param grid_operator: grid operator of grid connector
+    :param grid_operator: grid operator of grid connection point (default: None)
     :type grid_operator: str
     :param results_json: path to resulting json
     :type results_json: str
@@ -580,7 +580,7 @@ def calculate_costs(strategy, voltage_level, interval,
 
     # ADDITIONAL COSTS FOR RLM-CONSUMERS:
     if fee_type == "RLM":
-        additional_costs_per_year = (price_sheet["grid_fee"]["RLM"]["additional_costs"]["costs"])
+        additional_costs_per_year = price_sheet["grid_fee"]["RLM"]["additional_costs"]["costs"]
         additional_costs_sim = additional_costs_per_year * fraction_year
     else:
         additional_costs_per_year = 0
