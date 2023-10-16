@@ -250,6 +250,9 @@ class PeakLoadWindow(Strategy):
             vehicle.schedule = 0  # planned power for actual current timestep (idx=0)
             old_soc = vehicle.battery.soc
             departure = vehicle.estimated_time_of_departure
+            if departure is None or departure <= self.current_time:
+                # should have left already: assume next timestep as departure
+                departure = self.current_time + self.interval
             depart_idx = -((departure - self.current_time) // -self.interval)
             connected_ts = timesteps[:depart_idx]
 

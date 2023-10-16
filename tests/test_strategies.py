@@ -293,11 +293,13 @@ class TestScenarios(TestCaseBase):
                 assert s.testing["max_total_load"] > 0
 
     def test_peak_load_window(self):
-        for scenario_file in ["scenario_A.json", "scenario_B.json", "scenario_C1.json"]:
+        for scenario_file in [
+                "scenario_A.json", "scenario_B.json", "scenario_C1.json", "scenario_C3.json"]:
             input = TEST_REPO_PATH / f"test_data/input_test_strategies/{scenario_file}"
             s = scenario.Scenario(load_json(input), input.parent)
             s.run("peak_load_window", {"time_windows":
                   TEST_REPO_PATH / "test_data/input_test_strategies/time_windows_example.json"})
+            assert s.step_i == s.n_intervals
 
     def test_distributed_D(self):
         input = TEST_REPO_PATH / 'test_data/input_test_strategies/bus_scenario_D.json'

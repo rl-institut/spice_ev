@@ -211,6 +211,27 @@ class TestSimulationCosts:
         assert result["levies_fees_and_taxes_per_year"] == 1182.84
         assert result["feed_in_remuneration_per_year"] == 0
 
+    def test_peak_load_window_C1(self):
+        input_path = TEST_REPO_PATH / "test_data/input_test_strategies"
+        with (input_path / "scenario_C1.json").open() as f:
+            j = json.load(f)
+        s = scenario.Scenario(j, input_path)
+        s.run('peak_load_window', {
+            "cost_calculation": True,
+            "time_windows": input_path / "time_windows_example.json",
+        })
+        timeseries = s.GC1_timeseries
+        timeseries_lists = [timeseries.get(k, [0] * s.n_intervals) for k in [
+            "time", "grid supply [kW]", "price [EUR/kWh]",
+            "fixed load [kW]", "generation feed-in [kW]",
+            "V2G feed-in [kW]", "battery feed-in [kW]",
+            "window signal [-]"]]
+        price_sheet_path = TEST_REPO_PATH / 'test_data/input_test_cost_calculation/price_sheet.json'
+        result = cc.calculate_costs(
+            "peak_load_window", "MV", s.interval, *timeseries_lists, str(price_sheet_path))
+        assert result["total_costs_per_year"] == 53985.47
+        # -- to be extended -- #
+
     def test_calculate_costs_balanced_market_C(self):
         scen_path = TEST_REPO_PATH / 'test_data/input_test_strategies/scenario_C1.json'
 
