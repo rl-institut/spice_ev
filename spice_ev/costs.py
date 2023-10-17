@@ -234,23 +234,6 @@ def calculate_costs(strategy, voltage_level, interval,
         # maximum power supplied from the grid:
         max_power_grid_supply = max(power_grid_supply_list + [0])
 
-        if strategy == "peak_load_window":
-            # get peak power inside time windows (no time window: peak power is set to 0)
-            window_loads = [l for (l, w) in zip(power_grid_supply_list, charging_signal_list) if w]
-            peak_power_in_windows = max(window_loads + [0])
-            # check if cost calculation for peak_load_window can be applied: significance_threshold
-            significance_threshold = ((max_power_grid_supply - peak_power_in_windows) /
-                                      max_power_grid_supply) * 100
-            significance_threshold_price_sheet = (price_sheet["strategy_related"][strategy]
-                                                  ["significance_threshold"][voltage_level])
-            if significance_threshold > significance_threshold_price_sheet:
-                # only use peak power inside windows for calculation of capacity costs
-                max_power_grid_supply = peak_power_in_windows
-            # save threshold from price sheet to update json file
-            json_results_windows = {
-                "significance threshold from price sheet": significance_threshold_price_sheet
-            }
-
         # prices:
         if max_power_grid_supply == 0:
             utilization_time_per_year = 0
@@ -264,6 +247,25 @@ def calculate_costs(strategy, voltage_level, interval,
             energy_supply_per_year,
             UTILIZATION_TIME_PER_YEAR_EC
         )
+
+        if strategy == "peak_load_window":
+            # get peak power inside time windows (no time window: peak power is set to 0)
+            window_loads = [l for (l, w) in zip(power_grid_supply_list, charging_signal_list) if w]
+            peak_power_in_windows = max(window_loads + [0])
+            # check if cost calculation for peak_load_window can be applied: significance_threshold
+            significance_threshold = ((max_power_grid_supply - peak_power_in_windows) /
+                                      max_power_grid_supply) * 100
+            significance_threshold_price_sheet = (price_sheet["strategy_related"][strategy]
+                                                  ["significance_threshold"][voltage_level])
+            # check if cost model can be applied
+            peak_diff = max_power_grid_supply - peak_power_in_windows
+            if significance_threshold > significance_threshold_price_sheet and peak_diff > 100:
+                # only use peak power inside windows for calculation of capacity costs
+                max_power_grid_supply = peak_power_in_windows
+            # save threshold from price sheet to update json file
+            json_results_windows = {
+                "significance threshold from price sheet": significance_threshold_price_sheet
+            }
 
         # CAPACITY COSTS:
         if fee_type == "SLP":

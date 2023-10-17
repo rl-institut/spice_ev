@@ -229,7 +229,7 @@ class TestSimulationCosts:
         price_sheet_path = TEST_REPO_PATH / 'test_data/input_test_cost_calculation/price_sheet.json'
         result = cc.calculate_costs(
             "peak_load_window", "MV", s.interval, *timeseries_lists, str(price_sheet_path))
-        assert result["total_costs_per_year"] == 53985.47
+        assert result["total_costs_per_year"] == 57851.64
         # -- to be extended -- #
 
     def test_calculate_costs_balanced_market_C(self):
