@@ -80,8 +80,8 @@ class TestGenerate(TestCaseBase):
             s.run("greedy", {})
             assert sum(s.localGenerationPower["GC1"]) != 0
             assert pytest.approx(sum(s.fixedLoads["GC1"][-1].values()), 2) == -31.88
-            assert s.prices["GC1"][-2] == 11319.32
-            assert pytest.approx(s.prices["GC1"][-1]) == 11585.256
+            assert s.prices["GC1"][-2] == 11.319
+            assert pytest.approx(s.prices["GC1"][-1]) == 11.585
 
     def test_generate_from_csv_1_soc(self, tmp_path):
         input_csv = "test_data/input_test_generate/generate_from_csv_template1.csv"

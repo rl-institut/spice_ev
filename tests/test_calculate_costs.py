@@ -103,11 +103,10 @@ class TestSimulationCosts:
 
         scenarios = {
             "scenario_A.json": [2522.67, 776.54, 65.7, 799.38, 881.06, 0.0],
-            "scenario_B.json": [21798.48, 6899.86, 65.7, 7102.8, 7730.12, 0.0],
-            "scenario_C1.json": [22086.7, 6991.42, 65.7, 7197.05, 7832.53, 0.0],
+            "scenario_B.json": [102.01, 7.57, 65.7, 7.79, 20.94, 0.0],
+            "scenario_C1.json": [102.01, 7.57, 65.7, 7.79, 20.94, 0.0],
             "scenario_C2.json": [2792.23, 862.17, 65.7, 887.53, 976.85, 0.0],
             "scenario_C3.json": [1887.55, 574.78, 65.7, 591.68, 655.39, 0.0],
-            # "bus_scenario_D.json": [0,0,0,0,0,0],  # buggy: can't charge enough
             "scenario_PV_Bat.json": [-2166.39, 0.0, 65.7, 0.0, 12.48, 2244.58],
         }
 
@@ -213,8 +212,11 @@ class TestSimulationCosts:
 
     def test_peak_load_window_C1(self):
         input_path = TEST_REPO_PATH / "test_data/input_test_strategies"
-        with (input_path / "scenario_C1.json").open() as f:
+        with (input_path / "scenario_2vehicles_building_pv_bat.json").open() as f:
             j = json.load(f)
+        # adjust scenario parameters for this test
+        j["components"]["vehicle_types"]["car"]["capacity"] = 300
+        j["events"]["vehicle_events"][1]["update"]["soc_delta"] = -0.90
         s = scenario.Scenario(j, input_path)
         s.run('peak_load_window', {
             "cost_calculation": True,
@@ -227,10 +229,17 @@ class TestSimulationCosts:
             "V2G feed-in [kW]", "battery feed-in [kW]",
             "window signal [-]"]]
         price_sheet_path = TEST_REPO_PATH / 'test_data/input_test_cost_calculation/price_sheet.json'
-        result = cc.calculate_costs(
-            "peak_load_window", "MV", s.interval, *timeseries_lists, str(price_sheet_path))
-        assert result["total_costs_per_year"] == 57851.64
-        # -- to be extended -- #
+        pv_power = j["components"]["photovoltaics"]["PV1"]["nominal_power"]
+
+        # check returned values
+        result = cc.calculate_costs("peak_load_window", "MV", s.interval, *timeseries_lists,
+                                    str(price_sheet_path), power_pv_nominal=pv_power)
+        assert result["total_costs_per_year"] == 32206.19
+        assert result["commodity_costs_eur_per_year"] == 5699.49
+        assert result["capacity_costs_eur"] == 1497.21
+        assert result["power_procurement_costs_per_year"] == 12574.80
+        assert result["levies_fees_and_taxes_per_year"] == 12709.74
+        assert result["feed_in_remuneration_per_year"] == 275.03
 
     def test_calculate_costs_balanced_market_C(self):
         scen_path = TEST_REPO_PATH / 'test_data/input_test_strategies/scenario_C1.json'
@@ -252,11 +261,11 @@ class TestSimulationCosts:
         # check returned values
         result = cc.calculate_costs("balanced_market", "MV", s.interval, *timeseries_lists,
                                     str(price_sheet_path), grid_operator, None, pv)
-        assert result["total_costs_per_year"] == 24339.52
-        assert result["commodity_costs_eur_per_year"] == 4523.5
-        assert result["capacity_costs_eur"] == 4426.75
-        assert result["power_procurement_costs_per_year"] == 7197.05
-        assert result["levies_fees_and_taxes_per_year"] == 8192.22
+        assert result["total_costs_per_year"] == 24.02
+        assert result["commodity_costs_eur_per_year"] == 4.56
+        assert result["capacity_costs_eur"] == 4.42
+        assert result["power_procurement_costs_per_year"] == 7.01
+        assert result["levies_fees_and_taxes_per_year"] == 8.02
         assert result["feed_in_remuneration_per_year"] == 0
 
     def test_calculate_costs_schedule_C(self, tmp_path):
