@@ -215,7 +215,7 @@ class Strategy():
                 # GC draws power, surplus in vehicle,
                 # not currently charging and V2G capable: support GC
                 discharge_power = min(-gc_surplus, vehicle.battery.unloading_curve.max_power)
-                target_soc = max(vehicle.desired_soc, self.DISCHARGE_LIMIT)
+                target_soc = max(vehicle.desired_soc, vehicle.vehicle_type.discharge_limit)
                 avg_power = vehicle.battery.unload(
                     self.interval, max_power=discharge_power, target_soc=target_soc)['avg_power']
                 commands[cs_id] = gc.add_load(cs_id, -avg_power)

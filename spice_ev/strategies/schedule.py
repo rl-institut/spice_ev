@@ -431,7 +431,7 @@ class Schedule(Strategy):
                 duration_current_window = len(self.charge_window)
 
             if not charge_now and window_change >= 1:
-                min_soc = self.DISCHARGE_LIMIT
+                min_soc = vehicle.vehicle_type.discharge_limit
                 max_soc = 1
                 while max_soc - min_soc > self.EPS:
                     discharge_limit = (max_soc + min_soc) / 2

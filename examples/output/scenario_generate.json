@@ -2,8 +2,7 @@
   "scenario": {
     "start_time": "2023-01-01T01:00:00+02:00",
     "interval": 15.0,
-    "stop_time": "2023-01-08T01:00:00+02:00",
-    "discharge_limit": 0.5
+    "stop_time": "2023-01-08T01:00:00+02:00"
   },
   "components": {
     "vehicle_types": {
@@ -28,6 +27,7 @@
         "min_charging_power": 0.2,
         "v2g": false,
         "v2g_power_factor": 0.5,
+        "discharge_limit": 0.5,
         "no_drive_days": [
           2
         ]
@@ -53,6 +53,7 @@
         "min_charging_power": 0.2,
         "v2g": false,
         "v2g_power_factor": 0.5,
+        "discharge_limit": 0.5,
         "no_drive_days": [
           5,
           6

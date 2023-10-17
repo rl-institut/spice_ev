@@ -199,8 +199,6 @@ if __name__ == '__main__':  # pragma: no cover
                                                                 'photovoltaic power plant in kWp')
     parser.add_argument('--cs-power-min', type=float, default=None,
                         help='set minimal power at charging station in kW (default: 0.1 * cs_power')
-    parser.add_argument('--discharge-limit', default=0.5,
-                        help='Minimum SoC to discharge to during v2g. [0-1]')
     parser.add_argument('--days', metavar='N', type=int, default=7,
                         help='set duration of scenario as number of days')  # ignored for simbev
     parser.add_argument('--seed', default=None, type=int, help='set random seed')

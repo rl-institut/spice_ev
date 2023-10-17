@@ -417,7 +417,6 @@ def generate_from_simbev(args):
             "start_time": start.isoformat(),
             "interval": args.interval,
             "n_intervals": n_intervals,
-            "discharge_limit": args.discharge_limit,
         },
         "components": {
             "vehicle_types": vehicle_types,

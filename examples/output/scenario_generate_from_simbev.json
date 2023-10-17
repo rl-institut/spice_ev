@@ -2,8 +2,7 @@
   "scenario": {
     "start_time": "2021-09-17T00:00:00",
     "interval": 15,
-    "n_intervals": 1345,
-    "discharge_limit": 0.5
+    "n_intervals": 1345
   },
   "components": {
     "vehicle_types": {
