@@ -17,10 +17,11 @@ Template:
 - [(#)]()
 ```
 
-## [1.0.2] - Unreleased - 2023-08-21
+## [1.0.2] - Unreleased - 2023-10-17
 
 ### Changed
 - distributed strategy: use batteries according to their specific sub-strategies
+- new strategies: peak_load_window
 - plotting time windows with shaded backgrounds
 
 ## [1.0.1] - Minor Fixes - 2023-08-04

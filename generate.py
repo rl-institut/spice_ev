@@ -44,6 +44,7 @@ def update_namespace(args):
     args.gc = {
         "GC1": {
             "max_power": vars(args).get("gc_power", 100),
+            "grid_operator": vars(args).get("grid_operator"),
             "voltage_level": voltage_level,
             "cost": {"type": "fixed", "value": 0.3},
         }
@@ -194,7 +195,8 @@ if __name__ == '__main__':  # pragma: no cover
                         (-1 for variable capacity, second argument is fixed power))')
     parser.add_argument('--gc-power', type=int, default=100, help='set power at grid connection '
                                                                   'point in kW')
-    parser.add_argument('--voltage-level', '-vl', help='Choose voltage level for cost calculation')
+    parser.add_argument('--grid-operator', help='set grid operator for grid connector')
+    parser.add_argument('--voltage-level', '-vl', help='choose voltage level for cost calculation')
     parser.add_argument('--pv-power', type=int, default=0, help='set nominal power for local '
                                                                 'photovoltaic power plant in kWp')
     parser.add_argument('--cs-power-min', type=float, default=None,
@@ -226,11 +228,11 @@ if __name__ == '__main__':  # pragma: no cover
                         help='append additional argument to price signals')
     # errors and warnings
     parser.add_argument('--verbose', '-v', action='count', default=0,
-                        help='Set verbosity level. Use this multiple times for more output. '
+                        help='set verbosity level. Use this multiple times for more output. '
                              'Default: only errors and important warnings, '
                              '1: additional warnings and info')
     # config
-    parser.add_argument('--config', help='Use config file to set arguments')
+    parser.add_argument('--config', help='use config file to set arguments')
 
     # csv options
     parser.add_argument('--input-file', '-f',
@@ -242,7 +244,7 @@ if __name__ == '__main__':  # pragma: no cover
     parser.add_argument('--simbev', metavar='DIR', type=str, help='set directory with SimBEV files')
     parser.add_argument('--region', type=str, help='set name of region')
     parser.add_argument('--ignore-simbev-soc', action='store_true',
-                        help='Don\'t use SoC columns from SimBEV files')
+                        help='do not use SoC columns from SimBEV files')
     parser.add_argument('--min-soc-threshold', type=float, default=0.05,
                         help='SoC below this threshold trigger a warning. Default: 0.05')
 

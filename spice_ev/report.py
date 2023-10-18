@@ -104,14 +104,15 @@ def aggregate_local_results(scenario, gcID):
 
     json_results["grid_connector"] = {
         "gcID": gcID,
-        "voltage_level": scenario.components.grid_connectors[gcID].voltage_level
-        }
+        "grid operator": scenario.components.grid_connectors[gcID].grid_operator,
+        "voltage level": scenario.components.grid_connectors[gcID].voltage_level
+    }
 
     pvs = scenario.components.photovoltaics.values()
     nominal_pv_power = sum([pv.nominal_power for pv in pvs if pv.parent == gcID])
 
     json_results["photovoltaics"] = {
-        "nominal_power": nominal_pv_power,
+        "nominal power": nominal_pv_power,
         "unit": "kWp",
         "info": "Nominal power of PV power plants"
     }
@@ -124,7 +125,7 @@ def aggregate_local_results(scenario, gcID):
     # gather info about standing and power in specific time windows
     load_count = [[0] for _ in scenario.components.vehicles]
     load_window = [[] for _ in range(4)]
-    count_window = [[0]*len(scenario.components.vehicles) for _ in range(4)]
+    count_window = [[0] * len(scenario.components.vehicles) for _ in range(4)]
 
     cur_time = scenario.start_time - scenario.interval
     # maximum power (fixed and variable loads)
@@ -248,6 +249,19 @@ def aggregate_local_results(scenario, gcID):
                 " (averaged over all vehicles and charge events)"
     }
 
+    # data about power in time windows
+    if scenario.strategy_name == "peak_load_window":  # ToDo: Change to scenario.strat.uses_window
+        significance_threshold = ((max(scenario.totalLoad[gcID]) - scenario.strat.peak_power[gcID])
+                                  / max(scenario.totalLoad[gcID])) * 100
+        json_results["peak load time windows"] = {
+            "peak power in time windows": scenario.strat.peak_power[gcID],
+            "unit": "kW",
+            "significance threshold": significance_threshold,
+            "significance threshold from price sheet": "missing data: no cost calculation done",
+            "info": "Maximum drawn power inside time windows and "
+                    "significance threshold to check if cost model for strategy can be applied "
+        }
+
     # power peaks (fixed loads and variable loads)
     if any(scenario.totalLoad[gcID]):
         json_results["power peaks"] = {
@@ -305,7 +319,7 @@ def aggregate_local_results(scenario, gcID):
     total_bat_cap = 0
     for batID, battery in scenario.components.batteries.items():
         if scenario.components.batteries[batID].parent == gcID:
-            if battery.capacity > 2**63:
+            if battery.capacity > 2 ** 63:
                 # unlimited capacity
                 max_cap = max(scenario.batteryLevels[batID])
                 print("Battery {} is unlimited, set capacity to {} kWh".format(
@@ -458,6 +472,7 @@ def aggregate_timeseries(scenario, gcID):
     # any loads except CS present?
     hasFixedLoads = any(scenario.fixedLoads)
     hasSchedule = any(s is not None for s in scenario.gcPowerSchedule[gcID])
+    hasWindows = any(s is not None for s in scenario.gcWindowSchedule[gcID])
     hasGeneration = any(scenario.localGenerationPower[gcID])
     hasV2G = any([v.vehicle_type.v2g for v in scenario.components.vehicles.values()])
     hasBatteries = any([b.parent == gcID for b in scenario.components.batteries.values()])
@@ -485,7 +500,9 @@ def aggregate_timeseries(scenario, gcID):
     header += ["flex band min [kW]", "flex band base [kW]", "flex band max [kW]"]
     # schedule & window
     if hasSchedule:
-        header += ["schedule [kW]", "window signal [-]"]
+        header.append("schedule [kW]")
+    if hasWindows:
+        header.append("window signal [-]")
     # Feed-in to grid per asset
     header += [
         component for has, component in zip(
@@ -558,10 +575,9 @@ def aggregate_timeseries(scenario, gcID):
 
         # schedule + window schedule
         if hasSchedule:
-            row += [
-                round(scenario.gcPowerSchedule[gcID][idx], round_to_places),  # float
-                int(scenario.gcWindowSchedule[gcID][idx]),  # bool -> int
-            ]
+            row.append(round(scenario.gcPowerSchedule[gcID][idx], round_to_places))  # float
+        if hasWindows:
+            row.append(int(scenario.gcWindowSchedule[gcID][idx]))  # bool -> int
 
         # charging power
         # get sum of all current CS power that are connected to gc
@@ -699,13 +715,23 @@ def plot(scenario):
     # draw time windows
     if scenario.strat.uses_window:
         # get list with boolean values for timesteps inside/outside window for each grid connector
-        for gcID, w_list in scenario.gcWindowSchedule.items():
+        for gc_idx, (gcID, w_list) in enumerate(scenario.gcWindowSchedule.items()):
+            # get GC loads when time window is active
+            window_loads = [l for (l, w) in zip(scenario.totalLoad[gcID], w_list) if w]
+            try:
+                # plot dashed line at peak power
+                # show label only once in legend
+                plt.axhline(y=max(window_loads), color='k', linestyle='--',
+                            label=f"{gc_idx * '_'}peak power")
+            except ValueError:
+                # window_loads may be empty, can't use max then -> no line
+                pass
             # add shaded background based on the boolean values, no background if no values
             start_idx = 0
             # show each label only once
-            label_shown = [False, False]
+            label_shown = [gc_idx, gc_idx]
             for i in range(scenario.step_i):
-                if w_list[i] != w_list[start_idx] or i == (scenario.step_i-1):
+                if w_list[i] != w_list[start_idx] or i == (scenario.step_i - 1):
                     # window value changed or end of scenario: plot new interval
                     window = w_list[start_idx]
                     if window is not None:

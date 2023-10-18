@@ -22,40 +22,50 @@ class TestUtil:
     def test_time_window(self):
 
         time_windows = {
-            "autumn": {
-                # 01.09. - 30.11., 16:30 - 20:00
-                "start": datetime.datetime(day=1, month=9, year=1900, hour=16, minute=30),
-                "end": datetime.datetime(day=30, month=11, year=1900, hour=20, minute=0),
-            },
-            # split winter (year changes)
-            "winter1": {
-                # 01.12. - 31.12., 16:30 - 19:30
-                "start": datetime.datetime(day=1, month=12, year=1900, hour=16, minute=30),
-                "end": datetime.datetime(day=31, month=12, year=1900, hour=19, minute=30),
-            },
-            "winter2": {
-                # 01.01. - 28.02., 16:30 - 19:30
-                "start": datetime.datetime(day=1, month=1, year=1900, hour=16, minute=30),
-                "end": datetime.datetime(day=28, month=2, year=1900, hour=19, minute=30),
+            "season": {
+                # everyday in January 11-11:45 and 22-02, except first
+                "start": "2020-01-02",
+                "end": "2020-01-31",
+                "windows": {
+                    "lvl": [["11:00", "11:45"],  ["22:00", "02:00"]],
+                }
             }
         }
 
+        # prepare time windows by converting to date/time objects
+        for season in time_windows.values():
+            season["start"] = datetime.date.fromisoformat(season["start"])
+            season["end"] = datetime.date.fromisoformat(season["end"])
+            for level in season["windows"].values():
+                for window in level:
+                    window[0] = datetime.time.fromisoformat(window[0])
+                    window[1] = datetime.time.fromisoformat(window[1])
+
         not_in_window = [
-            datetime.datetime(2021, 8, 31, 23, 59),
-            datetime.datetime(2022, 9, 1, 0, 00),
-            datetime.datetime(2023, 12, 31, 20, 0),
-            datetime.datetime(2024, 9, 1, 20, 0),
+            "2019-12-31T23:59:59",  # wrong year
+            "2020-02-01T00:00:00",  # wrong month (even if window lasts until 2am)
+            "2020-01-01T00:00:00",  # wrong day
+            "2020-01-15T12:00:00",  # wrong hour
+            "2020-01-15T11:50:00",  # wrong minute
+            "2020-01-15T02:00:00",  # end of time window
         ]
+
         in_window = [
-            datetime.datetime(2021, 9, 1, 16, 30),
-            datetime.datetime(2022, 9, 3, 19, 59),
-            datetime.datetime(2023, 1, 1, 18, 0),
+            "2020-01-15T11:30:00",  # middle of first window
+            "2020-01-02T22:00:00",  # beginning of second window
+            "2020-01-03T00:00:00",  # midnight
+            "2020-01-04T01:00:00",  # past midnight
+            "2020-01-31T23:59:00",  # before midnight
         ]
 
         for dt in not_in_window:
-            assert not util.datetime_within_window(dt, time_windows)
+            dt = datetime.datetime.fromisoformat(dt)
+            assert not util.datetime_within_time_window(dt, time_windows, "lvl")
         for dt in in_window:
-            assert util.datetime_within_window(dt, time_windows)
+            dt = datetime.datetime.fromisoformat(dt)
+            assert util.datetime_within_time_window(dt, time_windows, "lvl")
+            # wrong voltage level
+            assert not util.datetime_within_time_window(dt, time_windows, "not lvl")
 
     def test_core_window(self):
         dt = datetime.datetime(day=1, month=1, year=2020)

@@ -212,7 +212,7 @@ are supported.
 
     PeakLoadWindow
     PeakLoadWindow.step
-    PeakLoadWindow.distribute_power
+    PeakLoadWindow.step_gc
 
 
 Schedule
@@ -379,7 +379,7 @@ This modul contains some utility functions needed by different scripts and modul
     :toctree: temp/
 
     datetime_from_isoformat
-    datetime_within_window
+    datetime_within_time_window
     dt_within_core_standing_time
     set_attr_from_dict
     get_cost
