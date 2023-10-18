@@ -59,7 +59,7 @@ class BalancedMarket(Strategy):
             key=lambda x: (x[1].estimated_time_of_departure, x[0]))
 
         cur_cost = gc.cost
-        cur_local_generation = {k: -v for k, v in gc.current_loads.items() if v < 0}
+        cur_loads = deepcopy(gc.current_loads)
         cur_max_power = gc.cur_max_power
 
         # ---------- GET NEXT EVENTS ---------- #
@@ -93,22 +93,17 @@ class BalancedMarket(Strategy):
                         cur_max_power = event.max_power
                     if event.cost is not None:
                         cur_cost = event.cost
-                elif type(event) is events.LocalEnergyGeneration:
+                elif type(event) in [events.FixedLoad, events.LocalEnergyGeneration]:
                     if event.grid_connector_id != gc_id:
                         continue
-                    cur_local_generation[event.name] = event.value
+                    e = event
+                    cur_loads[e.name] = e.value if type(e) is events.FixedLoad else -e.value
                 # vehicle events ignored (use vehicle info such as estimated_time_of_departure)
 
             # compute available power and associated costs
             # get (predicted) fixed load
-            if timestep_idx == 0:
-                # use actual fixed load
-                fixed_load = gc.get_current_load()
-            else:
-                fixed_load = gc.get_avg_fixed_load(cur_time, self.interval) \
-                           - sum(cur_local_generation.values())
             timesteps.append({
-                "power": cur_max_power - fixed_load,
+                "power": cur_max_power - sum(cur_loads.values()),
                 "max_power": cur_max_power,
                 "cost": cur_cost,
             })

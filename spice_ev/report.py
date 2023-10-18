@@ -157,9 +157,7 @@ def aggregate_local_results(scenario, gcID):
             else:
                 load_count[i][-1] += (soc is not None)
 
-        fixed_load = sum([v for k, v in scenario.fixedLoads[gcID][idx].items() if
-                          k in scenario.events.fixed_load_lists or
-                          k in scenario.events.local_generation_lists])
+        fixed_load = sum(scenario.fixedLoads[gcID][idx].values())
         max_fixed_load = max(max_fixed_load, fixed_load)
         var_load = scenario.totalLoad[gcID][idx] - fixed_load
         max_variable_load = max(max_variable_load, var_load)
@@ -536,9 +534,8 @@ def aggregate_timeseries(scenario, gcID):
         row.append(-1 * round(scenario.totalLoad[gcID][idx], round_to_places))
         # fixed loads
         if hasFixedLoads:
-            sumFixedLoads = sum([
-                v for k, v in scenario.fixedLoads[gcID][idx].items()
-                if k in scenario.events.fixed_load_lists])
+            sumFixedLoads = sum([v for k, v in scenario.fixedLoads[gcID][idx].items()
+                                 if k in scenario.events.fixed_loads])
             row.append(round(sumFixedLoads, round_to_places))
         # local generation (negative since power is fed into system)
         if hasGeneration:

@@ -91,8 +91,8 @@ class TestScenarios(TestCaseBase):
         }}
 
         s = scenario.Scenario(j)
-        assert len(s.events.fixed_load_lists["test"].values) == 1
-        assert len(s.events.local_generation_lists["test"].values) == 2
+        assert len(s.events.fixed_loads["test"]) == 1
+        assert len(s.events.local_generation["test"]) == 2
 
     def test_empty(self):
         test_json = {

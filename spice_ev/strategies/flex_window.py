@@ -46,9 +46,6 @@ class FlexWindow(Strategy):
         for cs in self.world_state.charging_stations.values():
             cs.current_power = 0
 
-        cur_local_generation = {k: -v for k, v in gc.current_loads.items() if v < 0}
-        cur_max_power = gc.cur_max_power
-
         # ---------- GET NEXT EVENTS ---------- #
         timesteps = []
 
@@ -58,7 +55,9 @@ class FlexWindow(Strategy):
         timesteps_ahead = int(datetime.timedelta(hours=self.HORIZON) / self.interval)
 
         cur_time = self.current_time - self.interval
+        cur_loads = deepcopy(gc.current_loads)
         cur_window = gc.window
+        cur_max_power = gc.cur_max_power
 
         for timestep_idx in range(timesteps_ahead):
 
@@ -79,12 +78,13 @@ class FlexWindow(Strategy):
                     cur_max_power = event.max_power or cur_max_power
                     if event.window is not None:
                         cur_window = event.window
+                elif type(event) is events.FixedLoad:
+                    cur_loads[event.name] = event.value
                 elif type(event) is events.LocalEnergyGeneration:
-                    cur_local_generation[event.name] = event.value
+                    cur_loads[event.name] = -event.value
                 # vehicle events ignored (use vehicle info such as estimated_time_of_departure)
 
-            fixed_load = gc.get_avg_fixed_load(cur_time, self.interval) \
-                - sum(cur_local_generation.values())
+            fixed_load = sum(cur_loads.values())
 
             # save information for each timestep
             timesteps.append(

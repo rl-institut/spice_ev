@@ -286,6 +286,7 @@ class TestSimulationCosts:
             j = json.load(f)
         s = scenario.Scenario(j, str(tmp_path))
         s.run('schedule', {"cost_calculation": True})
+        assert s.step_i == s.n_intervals
         timeseries = s.GC1_timeseries
         timeseries_lists = [timeseries.get(k, [0] * s.n_intervals) for k in [
             "time", "grid supply [kW]", "price [EUR/kWh]",
@@ -299,11 +300,12 @@ class TestSimulationCosts:
         result = cc.calculate_costs(
             "schedule", "MV", s.interval, *timeseries_lists,
             str(price_sheet_path), grid_operator, None, pv, timeseries.get("schedule [kW]"))
-        assert result["total_costs_per_year"] == -3023.44
-        assert result["commodity_costs_eur_per_year"] == 40.88
-        assert result["capacity_costs_eur"] == 28.69
-        assert result["power_procurement_costs_per_year"] == 135.66
-        assert result["levies_fees_and_taxes_per_year"] == 135.58
+        print(result)
+        assert result["total_costs_per_year"] == -2584.97
+        assert result["commodity_costs_eur_per_year"] == 46.57
+        assert result["capacity_costs_eur"] == 361.22
+        assert result["power_procurement_costs_per_year"] == 154.58
+        assert result["levies_fees_and_taxes_per_year"] == 216.9
         assert result["feed_in_remuneration_per_year"] == 3364.25
 
     def test_greedy_rlm(self):

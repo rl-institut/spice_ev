@@ -265,8 +265,6 @@ fixed load.
     GridConnector
     GridConnector.add_load
     GridConnector.get_current_load
-    GridConnector.add_avg_fixed_load_week
-    GridConnector.get_avg_fixed_load
     ChargingStation
     Photovoltaics
     VehicleType

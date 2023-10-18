@@ -51,12 +51,6 @@ class Scenario:
         # only relevant for schedule strategy
         self.core_standing_time = scenario.get('core_standing_time', None)
 
-        # compute average load for each timeslot
-        for fixed_load_list in self.events.fixed_load_lists.values():
-            gc_id = fixed_load_list.grid_connector_id
-            gc = self.components.grid_connectors[gc_id]
-            gc.add_avg_fixed_load_week(fixed_load_list, self.interval)
-
     def run(self, strategy_name, options):
         """ Run the scenario.
 
@@ -207,7 +201,7 @@ class Scenario:
                 fixedLoads[gcID].append(stepLoads)
 
                 # sum up total local generation power
-                local_generation_keys = self.events.local_generation_lists.keys()
+                local_generation_keys = self.events.local_generation.keys()
                 curLocalGeneration -= sum([gc.current_loads.get(k, 0)
                                            for k in local_generation_keys])
 

@@ -18,7 +18,6 @@ class Schedule(Strategy):
         self.overcharge_necessary = False
         # if set, only warn if vehicle not present during core_standing time instead of aborting
         self.warn_core_standing_time = False
-        self.ITERATIONS = 12
 
         super().__init__(components, start_time, **kwargs)
         self.TS_per_hour = (timedelta(hours=1) / self.interval)
@@ -94,10 +93,8 @@ class Schedule(Strategy):
             idx = 0
             safe = False
             # converge to optimal power for the duration
-            # at least ITERATIONS cycles
             # must end with slightly too much power used
-            # abort if min_power == max_power (converged to solution)
-            while (idx < self.ITERATIONS or not safe) and max_power - min_power > self.EPS:
+            while (not safe) and max_power - min_power > self.EPS:
                 idx += 1
                 # get new power value (binary search: use average)
                 power = (max_power + min_power) / 2
@@ -127,27 +124,16 @@ class Schedule(Strategy):
         """
 
         gc = list(self.world_state.grid_connectors.values())[0]
-
-        gc_info = [{
-            "current_loads": {},
-            "target": gc.target,
-            "charge": False
-        }]
+        gc_info_list = []
 
         # peek into future events for fixed loads, local generation and schedule
         event_idx = 0
         cur_time = self.current_time - self.interval
+        cur_loads = deepcopy(gc.current_loads)
+        cur_target = gc.target
         timesteps = dt // self.interval
         for timestep_idx in range(timesteps):
             cur_time += self.interval
-
-            if timestep_idx > 0:
-                # copy last GC info
-                gc_info.append(deepcopy(gc_info[-1]))
-
-            # get approximation of fixed load
-            gc_info[-1]["current_loads"]["fixed_load"] = gc.get_avg_fixed_load(cur_time,
-                                                                               self.interval)
             # peek into future events for fixed load or cost changes
             while True:
                 try:
@@ -162,16 +148,18 @@ class Schedule(Strategy):
                 event_idx += 1
                 if type(event) is events.GridOperatorSignal:
                     # update GC info
-                    gc_info[-1]["target"] = \
-                        event.target if event.target is not None else gc_info[-1]["target"]
-                    gc_info[-1]["charge"] = \
-                        event.window if event.window is not None else gc_info[-1]["charge"]
+                    cur_target = event.target if event.target is not None else cur_target
+                elif type(event) is events.FixedLoad:
+                    cur_loads[event.name] = event.value
                 elif type(event) is events.LocalEnergyGeneration:
-                    gc_info[-1]["current_loads"][event.name] = -event.value
+                    cur_loads[event.name] = -event.value
                 # ignore vehicle events, use vehicle data directly
-                # ignore local generation for now as well
             # end of useful events peek into future events for fixed loads, schedule
-        return gc_info
+            gc_info_list.append({
+                "current_load": sum(cur_loads.values()),
+                "target": cur_target,
+            })
+        return gc_info_list
 
     def evaluate_core_standing_time_ahead(self):
         """ Evaluate provided energy per timestep by schedule and needed energy in total.
@@ -190,7 +178,7 @@ class Schedule(Strategy):
         # collect forecasts for all timesteps in this standing time
         gc_infos = self.collect_future_gc_info(dt_to_end_core_standing_time)
         self.power_for_vehicles_per_TS = [
-            gc_info.get("target") - sum(gc_info["current_loads"].values())
+            gc_info["target"] - gc_info["current_load"]
             for gc_info in gc_infos
         ]
         self.charge_window = [x > 0 for x in self.power_for_vehicles_per_TS]

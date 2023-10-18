@@ -74,10 +74,8 @@ class PeakLoadWindow(Strategy):
         # perfect foresight for grid and local load events
         local_events = [e for e in self.events.grid_operator_signals
                         if hasattr(e, "grid_connector_id")]
-        for name, load_list in self.events.fixed_load_lists.items():
-            local_events.extend(load_list.get_events(name, events.FixedLoad))
-        for name, local_generation in self.events.local_generation_lists.items():
-            local_events.extend(local_generation.get_events(name, events.LocalEnergyGeneration))
+        [local_events.extend(v) for v in self.events.fixed_loads.values()]
+        [local_events.extend(v) for v in self.events.local_generation.values()]
         # make these events known in advance
         changed = 0
         for event in local_events:

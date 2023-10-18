@@ -1,6 +1,4 @@
-import datetime
 from spice_ev import battery, loading_curve, util
-from spice_ev.events import FixedLoad
 
 
 class Components:
@@ -81,78 +79,6 @@ class GridConnector:
             if key not in exclude:
                 current_load += value
         return current_load
-
-    def add_avg_fixed_load_week(self, fixed_load_list, interval):
-        """ Compute average load using EnergyValuesList.
-
-        Each weekday has its own sequence of average values, depending on interval.
-        Multiple fixed loads are added up.
-
-        :param fixed_load_list: list of fixed loads
-        :type fixed_load_list: list
-        :param interval: interval of one timestep
-        :type interval: timedelta
-        """
-
-        # convert EnergyValuesList to event list
-        events = fixed_load_list.get_events(None, FixedLoad, has_perfect_foresight=False)
-        events_per_day = int(datetime.timedelta(hours=24) / interval)
-        values_by_weekday = [[[] for _ in range(events_per_day)] for _ in range(7)]
-
-        # iterate over event list, to find which fixed load is present during which interval step
-        # take care when EnergyValuesList.step_duration_s != interval (not in sync)
-        # last event in interval used, similar to strategy implementation
-        cur_time = fixed_load_list.start_time - interval
-        cur_value = None
-        while True:
-            cur_time += interval
-
-            if len(events) == 0:
-                break
-
-            # get last event for this timestep
-            while len(events) > 0 and events[0].start_time <= cur_time:
-                event = events.pop(0)
-                cur_value = event.value
-
-            # insert fixed load value into specific timeslot
-            if cur_value is not None:
-                weekday = cur_time.weekday()
-                midnight = cur_time.replace(hour=0, minute=0)
-                timeslot = int((cur_time - midnight) / interval)
-                values_by_weekday[weekday][timeslot].append(cur_value)
-
-        # compute averages
-        avg_values_by_weekday = [[
-            (sum(v) / len(v)) if len(v) > 0 else 0 for v in day_values
-        ] for day_values in values_by_weekday]
-
-        # set/update avg_fixed_load for this GC
-        if self.avg_fixed_load is None:
-            self.avg_fixed_load = avg_values_by_weekday
-        else:
-            # multiple fixed loads: add up
-            for i, values in enumerate(avg_values_by_weekday):
-                self.avg_fixed_load[i] = [e + v for (e, v) in zip(self.avg_ficed_load[i], values)]
-
-    def get_avg_fixed_load(self, dt, interval):
-        """ Get average fixed load for specific timeslot.
-
-        :param dt: time
-        :type dt: datetime
-        :param interval: interval of one timestep
-        :type interval: timedelta
-        :return: average fixed load
-        :rtype: dict
-        """
-
-        # dt: datetime, interval: scenario interval timedelta
-        if self.avg_fixed_load is None:
-            return 0
-        weekday = dt.weekday()
-        midnight = dt.replace(hour=0, minute=0)
-        timeslot = int((dt - midnight) / interval)
-        return self.avg_fixed_load[weekday][timeslot]
 
 
 class ChargingStation:

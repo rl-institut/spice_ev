@@ -19,10 +19,13 @@ class Events:
     def __init__(self, obj, dir_path):
         dir_path = Path(dir_path)
         # optional
-        self.fixed_load_lists = dict(
-            {k: EnergyValuesList(v, dir_path) for k, v in obj.get('fixed_load', {}).items()})
-        self.local_generation_lists = dict(
-            {k: EnergyValuesList(v, dir_path) for k, v in obj.get('local_generation', {}).items()})
+        self.fixed_loads = dict(
+            {k: EnergyValuesList(v, dir_path).get_events(k, FixedLoad)
+             for k, v in obj.get('fixed_load', {}).items()})
+        self.local_generation = dict(
+            {k: EnergyValuesList(v, dir_path).get_events(
+                k, LocalEnergyGeneration, has_perfect_foresight=True)
+             for k, v in obj.get('local_generation', {}).items()})
         self.grid_operator_signals = list(
             [GridOperatorSignal(x) for x in obj.get('grid_operator_signals', [])])
         self.grid_operator_signals += get_energy_price_list_from_csv(
@@ -46,12 +49,8 @@ class Events:
         steps = list([[] for _ in range(n_intervals)])
 
         all_events = self.vehicle_events + self.grid_operator_signals
-        for name, load_list in self.fixed_load_lists.items():
-            all_events.extend(load_list.get_events(name, FixedLoad))
-        for name, local_generation_list in self.local_generation_lists.items():
-            all_events.extend(
-                local_generation_list.get_events(name, LocalEnergyGeneration,
-                                                 has_perfect_foresight=True))
+        [all_events.extend(v) for v in self.fixed_loads.values()]
+        [all_events.extend(v) for v in self.local_generation.values()]
 
         moved = 0
         ignored = 0
