@@ -130,7 +130,7 @@ class PeakLoadWindow(Strategy):
             # end of events for this timestep
             # update peak power
             for gc_id, gc in gcs.items():
-                is_window = util.datetime_within_power_level_window(
+                is_window = util.datetime_within_time_window(
                     cur_time, self.time_windows[gc.grid_operator], gc.voltage_level)
                 gc_sum_loads = sum(current_loads[gc_id].values())
                 if is_window and gc_sum_loads > peak_power[gc_id]:
@@ -193,7 +193,7 @@ class PeakLoadWindow(Strategy):
             bid: b for bid, b in self.world_state.batteries.items() if b.parent == gc_id}
 
         def within_window(dt):
-            return util.datetime_within_power_level_window(
+            return util.datetime_within_time_window(
                 dt, self.time_windows[gc.grid_operator], gc.voltage_level)
 
         gc.window = within_window(self.current_time)
@@ -231,12 +231,12 @@ class PeakLoadWindow(Strategy):
                 {
                     "power": sum(cur_loads.values()),
                     "max_power": cur_max_power,
-                    "window": util.datetime_within_power_level_window(
+                    "window": util.datetime_within_time_window(
                         cur_time, self.time_windows[gc.grid_operator], gc.voltage_level)
                 }
             )
 
-        gc.window = util.datetime_within_power_level_window(
+        gc.window = util.datetime_within_time_window(
             self.current_time, self.time_windows[gc.grid_operator], gc.voltage_level)
         peak_power = self.peak_power[gc_id]
 
