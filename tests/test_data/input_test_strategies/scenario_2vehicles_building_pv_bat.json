@@ -9,7 +9,7 @@
     "vehicle_types": {
       "car": {
         "name": "car",
-        "capacity": 100,
+        "capacity": 300,
         "mileage": 16,
         "charging_curve": [
           [
@@ -202,7 +202,7 @@
           "connected_charging_station": "CS_car_0",
           "estimated_time_of_departure": "2023-01-02T10:17:00+02:00",
           "desired_soc": 1,
-          "soc_delta": -0.36423890324806824
+          "soc_delta": -0.9
         }
       },
       {

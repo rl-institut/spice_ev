@@ -214,9 +214,6 @@ class TestSimulationCosts:
         input_path = TEST_REPO_PATH / "test_data/input_test_strategies"
         with (input_path / "scenario_2vehicles_building_pv_bat.json").open() as f:
             j = json.load(f)
-        # adjust scenario parameters for this test
-        j["components"]["vehicle_types"]["car"]["capacity"] = 300
-        j["events"]["vehicle_events"][1]["update"]["soc_delta"] = -0.90
         s = scenario.Scenario(j, input_path)
         s.run('peak_load_window', {
             "cost_calculation": True,
