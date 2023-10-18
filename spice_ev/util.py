@@ -19,28 +19,34 @@ def datetime_from_isoformat(s):
     return datetime.datetime.fromisoformat(s)
 
 
-def datetime_within_window(dt, time_windows):
-    """Check if a given datetime is within any of the given time windows.
+def datetime_within_time_window(dt, time_windows, voltage_level):
+    """Check if a given datetime is within time window of a certain voltage level.
 
-    | The times pertain to all dates within the window:
-    | E.g., 14.03. 9:00 - 14.05. 11:00 means 09:00 - 11:00 for all days in two months.
-    | 14.04. 10:00 is within this example window, 14.04. 12:00 is not.
+    structure: season -> start (date), end (date), windows -> voltage level -> [[start, end], ...]
 
     :param dt: time
     :type dt: datetime
-    :param time_windows: Structure of time_windows: {season: {"start": datetime with start date and\
-        start time, "end": datetime with end date and end time}}
+    :param time_windows: time windows to check
     :type time_windows: dict
-    :return: is datetime within time windows?
+    :param voltage_level: voltage level to check
+    :type voltage_level: string
+    :return: is datetime within time window?
     :rtype: bool
     """
-
-    for window in time_windows.values():
-        start = window["start"].replace(year=dt.year)
-        end = window["end"].replace(year=dt.year)
-        if start.date() <= dt.date() <= end.date():
-            # this season
-            return start.time() <= dt.time() < end.time()
+    for season in time_windows.values():
+        if season["start"] <= dt.date() <= season["end"]:
+            # same season: check times of voltage level
+            windows = season.get("windows", {}).get(voltage_level, [])
+            for window in windows:
+                if window[1] < window[0]:
+                    # crossing midnight
+                    if dt.time() >= window[0] or dt.time() < window[1]:
+                        return True
+                elif window[0] <= dt.time() < window[1]:
+                    # within interval
+                    return True
+            # same season, but not within time windows: skip other seasons
+            return False
     return False
 
 

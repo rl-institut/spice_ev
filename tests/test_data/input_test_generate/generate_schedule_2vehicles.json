@@ -36,7 +36,8 @@
     "grid_connectors": {
       "GC1": {
         "max_power": 50,
-        "voltage_level": "MV",
+        "grid operator": "default_grid_operator",
+        "voltage level": "MV",
         "cost": {
           "type": "fixed",
           "value": 0.3

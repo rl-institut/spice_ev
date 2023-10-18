@@ -38,12 +38,13 @@ class GridConnector:
             ('max_power', float),
         ]
         optional_keys = [
+            ('grid_operator', str, "default_grid_operator"),
+            ('voltage_level', str, None),
             ('current_loads', dict, {}),
             ('number_cs', int, None),
             ('cost', dict, {}),
             ('target', float, None),
             ('window', bool, None),
-            ('voltage_level', str, None)
         ]
         util.set_attr_from_dict(obj, self, keys, optional_keys)
         self.avg_fixed_load = None

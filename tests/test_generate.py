@@ -14,6 +14,7 @@ ARG_VALUES1 = {
     "vehicles": [[1, "golf"], [1, "sprinter"]],
     "days": 2,
     "interval": 15,
+    "gc_power": 100,
     "min_soc": 0.8,
     "min_soc_threshold": 0.05,
     "battery": [[350, 0.5]],
@@ -25,6 +26,7 @@ ARG_VALUES1 = {
     "export_vehicle_id_csv": None,
     "seed": None,
     "verbose": 0,
+    "grid_operator": None,
     "voltage_level": "MV",
     # generate_schedule
     "core_standing_time": None,
@@ -78,8 +80,8 @@ class TestGenerate(TestCaseBase):
             s.run("greedy", {})
             assert sum(s.localGenerationPower["GC1"]) != 0
             assert pytest.approx(sum(s.fixedLoads["GC1"][-1].values()), 2) == -31.88
-            assert s.prices["GC1"][-2] == 11319.32
-            assert pytest.approx(s.prices["GC1"][-1]) == 11585.256
+            assert s.prices["GC1"][-2] == 11.319
+            assert pytest.approx(s.prices["GC1"][-1]) == 11.585
 
     def test_generate_from_csv_1_soc(self, tmp_path):
         input_csv = "test_data/input_test_generate/generate_from_csv_template1.csv"
