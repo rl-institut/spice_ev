@@ -102,7 +102,7 @@ class Distributed(strategy.Strategy):
         # take note of currently arrived vehicles, those arriving soon and
         # (if no vehicles are present) when new vehicles will arive
         arriving = {gc_id: [] for gc_id in gcs.keys()}
-        next_arrival = dict()
+        next_arrival = dict()  # dt of next arrival
         for v_id, vehicle in self.world_state.vehicles.items():
             cs_id = vehicle.connected_charging_station
             cs = self.world_state.charging_stations.get(cs_id)
@@ -114,7 +114,7 @@ class Distributed(strategy.Strategy):
                     "soc": vehicle.battery.soc,
                     "arrived": True,
                 })
-                next_arrival[cs.parent] = 0
+                next_arrival[cs.parent] = self.current_time
 
         for event in self.world_state.future_events:
             if type(event) is not events.VehicleEvent:
@@ -139,8 +139,7 @@ class Distributed(strategy.Strategy):
                     })
             if next_arrival.get(event_cs.parent) is None:
                 # no prior arrival
-                arrival_delta = event.start_time - self.current_time
-                next_arrival[event_cs.parent] = -(-arrival_delta // self.interval)
+                next_arrival[event_cs.parent] = event.start_time
 
         # rank which vehicles should be loaded at gc
         skip_prioritization = {}
@@ -221,26 +220,23 @@ class Distributed(strategy.Strategy):
                 else:
                     for b_id, battery in self.gc_battery.get(gc_id, {}).items():
                         name = f"stationary_{b_id}"
+                        departure = next_arrival.get(gc_id, self.current_time + self.A_HORIZON)
                         bat_vehicle = components.Vehicle({
                             "vehicle_type": name,
                             "connected_charging_station": name,
                             "soc": battery.soc,
-                            "estimated_time_of_departure": str(self.current_time + self.interval),
+                            "estimated_time_of_departure": str(departure),
                         }, self.virtual_vt)
                         new_world_state.vehicle_types[name] = self.virtual_vt[name]
                         new_world_state.charging_stations[name] = self.virtual_cs[name]
                         new_world_state.vehicles[b_id] = bat_vehicle
+
                         if connected_vehicles:
                             # busses present at station: discharge
                             bat_vehicle.desired_soc = 0
                         else:
-                            # no busses present: charge balanced until bus arrives
-                            arrival_idx = next_arrival.get(gc_id)
-                            if arrival_idx is None:
-                                # no bus arrives for foreseeable future
-                                arrival_idx = self.A_HORIZON // self.interval
-                            assert arrival_idx > 0
-                            bat_vehicle.desired_soc = battery.soc + (1 - battery.soc) / arrival_idx
+                            # no busses present: charge until bus arrives
+                            bat_vehicle.desired_soc = 1
 
                 # update world state of strategy
                 strat.current_time = self.current_time
