@@ -20,7 +20,8 @@ Template:
 ## [1.0.2] - Unreleased - 2023-10-17
 
 ### Changed
-- distributed strategy: use batteries according to their specific sub-strategies
+- distributed strategy: charge vehicles with any strategy at depot and opportunity stations
+- distributed strategy: battery behavior adapted
 - new strategies: peak_load_window
 - plotting time windows with shaded backgrounds
 
