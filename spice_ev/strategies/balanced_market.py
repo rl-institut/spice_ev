@@ -264,7 +264,8 @@ class BalancedMarket(Strategy):
                     elif cur_power < 0:
                         # discharge
                         sim_vehicle.battery.unload(
-                            self.interval, max_power=-cur_power, target_soc=self.DISCHARGE_LIMIT)
+                            self.interval, max_power=-cur_power,
+                            target_soc=sim_vehicle.vehicle_type.discharge_limit)
 
                 # try to charge enough to offset V2G
                 # check all timesteps with price below that of V2G TS
@@ -299,8 +300,8 @@ class BalancedMarket(Strategy):
                         elif cur_power < 0:
                             # discharge
                             sim_vehicle.battery.unload(
-                                self.interval, max_power=-cur_power, target_soc=self.DISCHARGE_LIMIT
-                            )
+                                self.interval, max_power=-cur_power,
+                                target_soc=sim_vehicle.vehicle_type.discharge_limit)
                 else:
                     # loop finished without getting break from discharge compensation:
                     # vehicle could not be charged enough to offset discharge
@@ -319,7 +320,8 @@ class BalancedMarket(Strategy):
                     elif sim_power < 0:
                         # discharge
                         info = vehicle.battery.unload(
-                            self.interval, max_power=-sim_power, target_soc=self.DISCHARGE_LIMIT)
+                            self.interval, max_power=-sim_power,
+                            target_soc=vehicle.vehicle_type.discharge_limit)
                         avg_power = -info["avg_power"]
                         discharging_stations.append(cs_id)
                     charging_stations[cs_id] = gc.add_load(cs_id, avg_power)
@@ -340,7 +342,8 @@ class BalancedMarket(Strategy):
                 elif cur_power < 0:
                     # discharge
                     avg_power = sim_vehicle.battery.unload(
-                        self.interval, max_power=-cur_power, target_soc=self.DISCHARGE_LIMIT
+                        self.interval, max_power=-cur_power,
+                        target_soc=sim_vehicle.vehicle_type.discharge_limit
                     )["avg_power"]
                     timesteps[cur_idx]["power"] += avg_power
 

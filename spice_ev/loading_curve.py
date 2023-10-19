@@ -64,10 +64,7 @@ class LoadingCurve:
         pre_scaled_points = [(p[0], pre_scale*p[1]) for p in self.points]
 
         new_points = []
-        for i, p in enumerate(pre_scaled_points):
-            if i + 1 >= len(pre_scaled_points):
-                new_points.append((p[0], min(max_power, p[1])))
-                break
+        for i, p in enumerate(pre_scaled_points[:-1]):
             next_point = self.points[i + 1]
 
             soc_a = p[0]
@@ -91,6 +88,9 @@ class LoadingCurve:
                 t = (max_power - pow_a) / (pow_b - pow_a)
                 soc = soc_a + (soc_b - soc_a) * t
                 new_points.append((soc, max_power))
+        else:
+            # append last point
+            new_points.append((1.0, min(max_power, next_point[1])))
 
         post_scaled = [(p[0], post_scale*p[1]) for p in new_points]
 

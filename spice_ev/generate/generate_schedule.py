@@ -61,7 +61,6 @@ def generate_flex_band(scenario, gcID, core_standing_time=None):
         "base": [],
         "max": [],
         "vehicles": {
-            "discharge_limit": scenario.discharge_limit,
             "capacity": total_vehicle_capacity,
             "desired_energy": total_desired_energy,
             "v2g": v2g_enabled,
