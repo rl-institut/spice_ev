@@ -24,11 +24,11 @@ class Distributed(strategy.Strategy):
             comps, start_time, **strat_options_deps)
 
         # adjust foresight for vehicle events (known one hour in advance)
-        self.A_HORIZON = datetime.timedelta(hours=1)
+        self.ARRIVAL_HORIZON = datetime.timedelta(hours=1)
         # minimum charging time at depot; time to look into the future for prioritization
-        self.C_HORIZON = datetime.timedelta(minutes=3)
+        self.CHARGE_HORIZON = datetime.timedelta(minutes=3)
         for event in self.events.vehicle_events:
-            event.signal_time = min(event.signal_time, event.start_time-self.A_HORIZON)
+            event.signal_time = min(event.signal_time, event.start_time-self.ARRIVAL_HORIZON)
 
         # keep track of connected vehicles per GC (more vehicles might have arrived than CS)
         self.connected = {gc_id: dict() for gc_id in self.world_state.grid_connectors.keys()}
@@ -123,7 +123,7 @@ class Distributed(strategy.Strategy):
             event_cs = self.world_state.charging_stations.get(event_cs_id)
             if event_cs is None:
                 continue
-            if event.start_time <= self.current_time + self.C_HORIZON:
+            if event.start_time <= self.current_time + self.CHARGE_HORIZON:
                 # arrival within charging horizon
                 v_id = event.vehicle_id
                 soc = self.world_state.vehicles[v_id].battery.soc - event.update["soc_delta"]
@@ -138,7 +138,7 @@ class Distributed(strategy.Strategy):
                 # no prior arrival
                 next_arrival[event_cs.parent] = event.start_time
 
-        # rank which vehicles should be loaded at gc
+        # rank which vehicles should be charged at gc
         skip_prioritization = {}
         for gc_id, gc in gcs.items():
             if gc.number_cs is None:
@@ -168,7 +168,7 @@ class Distributed(strategy.Strategy):
             assert len(conn) <= gc.number_cs
             self.connected[gc_id] = conn
 
-        # all vehicles are ranked. Load vehicles that are connected
+        # all vehicles are ranked. Charge vehicles that are connected
         for gc_id, gc in self.world_state.grid_connectors.items():
             # find all vehicles that are actually connected
             vehicles = self.world_state.vehicles if skip_prioritization else self.connected[gc_id]
@@ -228,13 +228,13 @@ class Distributed(strategy.Strategy):
                         else:
                             # vacant station: charge with strategy until vehicle arrives
                             name = f"stationary_{b_id}"
-                            arrival = next_arrival.get(gc_id, self.current_time + self.A_HORIZON)
+                            arrive = next_arrival.get(gc_id, self.current_time+self.ARRIVAL_HORIZON)
                             bat_vehicle = components.Vehicle({
                                 "vehicle_type": name,
                                 "connected_charging_station": name,
                                 "soc": battery.soc,
                                 "desired_soc": 1,
-                                "estimated_time_of_departure": str(arrival),
+                                "estimated_time_of_departure": str(arrive),
                             }, self.virtual_vt)
                             new_world_state.vehicle_types[name] = self.virtual_vt[name]
                             new_world_state.charging_stations[name] = self.virtual_cs[name]
@@ -247,7 +247,7 @@ class Distributed(strategy.Strategy):
                 commands = strat.step()["commands"]
                 # update stationary batteries
                 if station_type == "opps":
-                    for b_id, battery in self.world_state.batteries.items():
+                    for b_id, battery in self.gc_battery.get(gc_id, {}).items():
                         power = avail_bat_power.get(b_id)
                         if power is not None:
                             # battery used to support GC -> revert max_power, discharge
@@ -257,15 +257,18 @@ class Distributed(strategy.Strategy):
                             gc.add_load(b_id, -power['avg_power'])
                             continue
                         name = f"stationary_{b_id}"
-                        power = commands.pop(name, None)
-                        if power is not None:
+                        if name in commands:
                             # battery is simulated as vehicle -> apply changes
-                            gc.add_load(name, -power)
-                            gc.add_load(b_id, power)
+                            # remove from commands
+                            del commands[name]
+                            # and add as battery
+                            # this will crash if virtual CS power has not been added correctly to GC
+                            gc.add_load(b_id, gc.current_loads.pop(name))
+                            # update battery SoC
                             battery.soc = strat.world_state.vehicles[b_id].battery.soc
                 charging_stations.update(commands)
 
-        # all vehicles loaded
+        # all vehicles charged
         charging_stations.update(self.distribute_surplus_power())
 
         return {'current_time': self.current_time, 'commands': charging_stations}

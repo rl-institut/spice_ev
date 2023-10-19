@@ -413,8 +413,8 @@ class TestScenarios(TestCaseBase):
         assert [x[1] == 0 for x in cs_1]
         assert [x[0] == 0 for x in cs_2]
         # assert that vehicles are charged balanced
-        # assert len(set([round(x[0], 2) for x in cs_1])) == 1
-        # assert len(set([round(x[1], 2) for x in cs_2])) == 1
+        assert len(set([round(x[0], 2) for x in cs_1])) == 1
+        # not enough power for both vehicles and battery won't support in depot
 
     def test_distributed_C3_outputs(self, tmp_path):
         input = TEST_REPO_PATH / 'test_data/input_test_strategies/scenario_C3.json'
