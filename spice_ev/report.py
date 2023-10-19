@@ -707,11 +707,17 @@ def plot(scenario):
     if any(scenario.sum_cs):
         ax.step(xlabels, list([sum(cs) for cs in scenario.sum_cs]),
                 label="Charging Stations", where='post')
-    # other loads
+    if scenario.batteryLevels:
+        # sum up battery power
+        bat_power = [0]*len(xlabels)
+        for b_id, battery in scenario.components.batteries.items():
+            bat_power = [sum(v) for v in zip(bat_power, scenario.loads[battery.parent][b_id])]
+        ax.step(xlabels, bat_power, label="Batteries", where='post')
+    # GC loads (sum)
     gc_ids = scenario.components.grid_connectors.keys()
-    for gcID in gc_ids:
-        for name, values in scenario.loads[gcID].items():
-            ax.step(xlabels, values, label=name, where='post')
+    if len(gc_ids) > 1:
+        for gcID, load in scenario.totalLoad.items():
+            ax.step(xlabels, load, label=gcID, where='post')
     # draw time windows
     if scenario.strat.uses_window:
         # get list with boolean values for timesteps inside/outside window for each grid connector
