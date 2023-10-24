@@ -938,9 +938,9 @@ def generate_reports(scenario, options):
         if save_plots:
             file_name = str(save_plots)
             gc_id = util.sanitize(gcID)
-            if file_name.find('%s') >= 0:
-                # wildcard: replace %s with gc ID
-                file_name = file_name.replace('%s', gc_id)
+            if file_name.find('%gc') >= 0:
+                # wildcard: replace %gc with gc ID
+                file_name = file_name.replace('%gc', gc_id)
             else:
                 # no wildcard: append gc ID
                 dot_pos = max(file_name.rfind('.'), 0)
