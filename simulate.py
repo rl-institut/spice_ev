@@ -37,9 +37,10 @@ def simulate(args):
     options = {
         'cost_calculation': args.get("cost_calc"),
         'margin': args.get("margin"),
-        'save_timeseries': args.get("save_timeseries"),
         'save_soc': args.get("save_soc"),
+        'save_plots': args.get("save_plots"),
         'save_results': args.get("save_results"),
+        'save_timeseries': args.get("save_timeseries"),
         'testing': args.get("testing"),
         'timing': args.get("eta"),
         'visual': args.get("visual"),
@@ -137,6 +138,7 @@ if __name__ == "__main__":
     parser.add_argument('--output', '-o', help='Deprecated, use save-timeseries instead')
     parser.add_argument('--save-timeseries', help='Write timesteps to file')
     parser.add_argument('--save-results', help='Write general info to file')
+    parser.add_argument('--save-plots', help="Save plots (one for each GC)")
     parser.add_argument('--save-soc', help='Write SoCs of vehicles to file')
     parser.add_argument('--testing', help='Stores testing results', action='store_true')
     parser.add_argument('--config', help='Use config file to set arguments')
