@@ -37,6 +37,7 @@
     "grid_connectors": {
         "GC1": {
           "max_power": 200,
+          "grid_operator": null,
           "voltage_level": "MV"
         }
     },

@@ -38,12 +38,13 @@ class GridConnector:
             ('max_power', float),
         ]
         optional_keys = [
+            ('grid_operator', str, "default_grid_operator"),
+            ('voltage_level', str, None),
             ('current_loads', dict, {}),
             ('number_cs', int, None),
             ('cost', dict, {}),
             ('target', float, None),
             ('window', bool, None),
-            ('voltage_level', str, None)
         ]
         util.set_attr_from_dict(obj, self, keys, optional_keys)
         self.avg_fixed_load = None
@@ -192,12 +193,17 @@ class VehicleType:
             ('battery_efficiency', float, 0.95),
             ('v2g', bool, False),
             ('v2g_power_factor', float, 0.5),
+            ('discharge_limit', float, 0.5),
             ('discharge_curve', loading_curve.LoadingCurve, None),
             ('loss_rate', float, 0),
         ]
         util.set_attr_from_dict(obj, self, keys, optional_keys)
-
-        assert self.min_charging_power <= self.charging_curve.max_power
+        max_power = self.charging_curve.max_power
+        assert self.min_charging_power <= max_power
+        if self.discharge_curve is None:
+            # no info: use V2G power factor to scale charging curve for discharging
+            self.discharge_curve = self.charging_curve.clamped(
+                max_power, pre_scale=self.v2g_power_factor)
 
 
 class Vehicle:

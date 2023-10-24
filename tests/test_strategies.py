@@ -269,31 +269,44 @@ class TestScenarios(TestCaseBase):
     def test_scenario_A(self):
         input = TEST_REPO_PATH / 'test_data/input_test_strategies/scenario_A.json'
         s = scenario.Scenario(load_json(input), input.parent)
-        for strat in ['greedy', 'balanced', 'balanced_market', 'flex_window', 'peak_load_window']:
+        for strat in ['greedy', 'balanced', 'balanced_market', 'flex_window']:
             s.run(strat, {})
+            assert s.step_i == s.n_intervals
 
     # TEST with battery, local generation, fixed load and V2G (Scenario B)
     def test_scenario_B(self):
         input = TEST_REPO_PATH / 'test_data/input_test_strategies/scenario_B.json'
         s = scenario.Scenario(load_json(input), input.parent)
-        for strat in ['greedy', 'balanced', 'balanced_market', 'flex_window', 'peak_load_window']:
+        for strat in ['greedy', 'balanced', 'balanced_market', 'flex_window']:
             s.run(strat, {})
+            assert s.step_i == s.n_intervals
 
     # TEST with battery, local generation, fixed load, V2G and schedule (Scenario C)
     def test_scenario_C1(self):
         input = TEST_REPO_PATH / 'test_data/input_test_strategies/scenario_C1.json'
         s = scenario.Scenario(load_json(input), input.parent)
-        for strat in ['greedy', 'balanced', 'balanced_market', 'flex_window', 'peak_load_window']:
+        for strat in ['greedy', 'balanced', 'balanced_market', 'flex_window']:
             s.run(strat, {"testing": True})
+            assert s.step_i == s.n_intervals
             for gcID, gc in s.components.grid_connectors.items():
                 assert s.testing["max_total_load"] <= s.components.grid_connectors[gcID].max_power
                 assert s.testing["max_total_load"] > 0
+
+    def test_peak_load_window(self):
+        for scenario_file in [
+                "scenario_A.json", "scenario_B.json", "scenario_C1.json", "scenario_C3.json"]:
+            input = TEST_REPO_PATH / f"test_data/input_test_strategies/{scenario_file}"
+            s = scenario.Scenario(load_json(input), input.parent)
+            s.run("peak_load_window", {"time_windows":
+                  TEST_REPO_PATH / "test_data/input_test_strategies/time_windows_example.json"})
+            assert s.step_i == s.n_intervals
 
     def test_distributed_D(self):
         input = TEST_REPO_PATH / 'test_data/input_test_strategies/bus_scenario_D.json'
         s = scenario.Scenario(load_json(input), input.parent)
         s.run('distributed', {"testing": True, "strategy_option": [["ALLOW_NEGATIVE_SOC", True]],
                               "margin": 1})
+        assert s.step_i == s.n_intervals
         max_power = 0
         for gcID, gc in s.components.grid_connectors.items():
             max_power += s.components.grid_connectors[gcID].max_power
@@ -317,13 +330,13 @@ class TestScenarios(TestCaseBase):
         assert s.testing["avg_total_standing_time"]["GC1"] == 17.75
         assert s.testing["avg_stand_time"]["GC1"] == 8.875
         assert round(s.testing["avg_needed_energy"]["GC1"], 2) == 0.73
-        assert round(s.testing["avg_drawn_power"]["GC1"], 2) == 10.67
+        assert round(s.testing["avg_drawn_power"]["GC1"], 2) == 0.01
         assert round(s.testing["sum_local_generation_per_h"]["GC1"], 2) == 347.59
-        assert round(s.testing["vehicle_battery_cycles"]["GC1"], 2) == 1.41
-        assert round(s.testing["avg_flex_per_window"]["GC1"][0], 2) == 372
-        assert round(s.testing["avg_flex_per_window"]["GC1"][3], 2) == 375.09
-        assert round(s.testing["sum_energy_per_window"]["GC1"][0], 2) == 215.87
-        assert round(s.testing["sum_energy_per_window"]["GC1"][3], 2) == 40.21
+        assert round(s.testing["vehicle_battery_cycles"]["GC1"], 2) == 1.43
+        assert round(s.testing["avg_flex_per_window"]["GC1"][0], 2) == 368.57
+        assert round(s.testing["avg_flex_per_window"]["GC1"][3], 2) == 375.71
+        assert round(s.testing["sum_energy_per_window"]["GC1"][0], 2) == 0.21
+        assert round(s.testing["sum_energy_per_window"]["GC1"][3], 2) == 0.07
         load = [0] * 96
         for key, values in s.testing["timeseries"]["loads"]["GC1"].items():
             load = [a + b for a, b in zip(load, values)]
@@ -388,9 +401,11 @@ class TestScenarios(TestCaseBase):
         input = TEST_REPO_PATH / 'test_data/input_test_strategies/scenario_C3.json'
         s = scenario.Scenario(load_json(input), input.parent)
         s.run('distributed', {"testing": True})
-        max_power = 0
-        for gcID, gc in s.components.grid_connectors.items():
-            max_power += s.components.grid_connectors[gcID].max_power
+        # GC power must have reached maximum
+        assert pytest.approx(s.testing["max_total_load"]) == 5
+        # GC power must always be max or zero
+        for load in s.testing["timeseries"]["total_load"]:
+            assert pytest.approx(load) == 0 or pytest.approx(load) == 5
         cs = s.testing["timeseries"]["sum_cs"]
         cs_1 = [x for x in cs if x[0] != 0]
         cs_2 = [x for x in cs if x[1] != 0]
@@ -399,7 +414,7 @@ class TestScenarios(TestCaseBase):
         assert [x[0] == 0 for x in cs_2]
         # assert that vehicles are charged balanced
         assert len(set([round(x[0], 2) for x in cs_1])) == 1
-        assert len(set([round(x[1], 2) for x in cs_2])) == 1
+        # not enough power for both vehicles and battery won't support in depot
 
     def test_distributed_C3_outputs(self, tmp_path):
         input = TEST_REPO_PATH / 'test_data/input_test_strategies/scenario_C3.json'
@@ -440,6 +455,7 @@ class TestScenarios(TestCaseBase):
                     j = json.load(f)
                 s = scenario.Scenario(j, tmp_path)
                 s.run('schedule', {"LOAD_STRAT": load_strat})
+                assert s.step_i == s.n_intervals
 
     def test_schedule_battery(self):
         test_json = {

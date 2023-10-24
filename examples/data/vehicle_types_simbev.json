@@ -5,7 +5,8 @@
         "charging_curve": [[0, 150], [1, 150]],
         "min_charging_power": 0,
         "v2g": true,
-        "v2g_power_factor": 0.5
+        "v2g_power_factor": 0.5,
+        "discharge_limit": 0.5
     },
     "bev_medium": {
         "name": "bev_medium",
@@ -13,7 +14,8 @@
         "charging_curve": [[0, 50], [1, 50]],
         "min_charging_power": 0,
         "v2g": true,
-        "v2g_power_factor": 0.5
+        "v2g_power_factor": 0.5,
+        "discharge_limit": 0.5
     },
     "bev_mini": {
         "name": "bev_mini",
@@ -21,7 +23,8 @@
         "charging_curve": [[0, 50], [1, 50]],
         "min_charging_power": 0,
         "v2g": true,
-        "v2g_power_factor": 0.5
+        "v2g_power_factor": 0.5,
+        "discharge_limit": 0.5
     },
     "phev_luxury": {
         "name": "phev_luxury",

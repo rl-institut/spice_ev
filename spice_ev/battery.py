@@ -1,8 +1,6 @@
 import copy
 from math import exp, log
 
-from spice_ev.loading_curve import LoadingCurve
-
 
 class Battery():
     """Battery class"""
@@ -35,14 +33,14 @@ class Battery():
         self.efficiency = efficiency
         self.loss_rate = loss_rate
         if unloading_curve is None:
-            self.unloading_curve = LoadingCurve([[0, self.loading_curve.max_power],
-                                                 [1, self.loading_curve.max_power]])
+            # no info: mirror charging curve
+            self.unloading_curve = copy.deepcopy(loading_curve)
         else:
             self.unloading_curve = copy.deepcopy(unloading_curve)
 
         if self.capacity > 1e6:
             # batteries with high/infinite capacity: lower EPS for loading
-            self.EPS = 1 / self.capacity
+            self.EPS = 0.1 / self.capacity
         else:
             self.EPS = 1e-5
 

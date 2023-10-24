@@ -8,11 +8,9 @@ from spice_ev.strategy import Strategy
 class BalancedMarket(Strategy):
     """ Price oriented charging at times of low energy price. """
     def __init__(self, components, start_time, **kwargs):
-        self.PRICE_THRESHOLD = 0.001  # EUR/kWh
         self.HORIZON = 24  # maximum number of hours ahead
 
         super().__init__(components, start_time, **kwargs)
-        assert len(self.world_state.grid_connectors) == 1, "Only one grid connector supported"
         self.description = "balanced (market-oriented)"
 
         # adjust foresight for price events
@@ -34,21 +32,30 @@ class BalancedMarket(Strategy):
         :return: current time and commands of the charging stations
         :rtype: dict
         """
+        commands = dict()
+        # reset charging station power (nothing charged yet in this timestep)
+        for cs in self.world_state.charging_stations.values():
+            cs.current_power = 0
+        for gc_id, gc in self.world_state.grid_connectors.items():
+            commands.update(self.step_gc(gc_id, gc))
+        return {'current_time': self.current_time, 'commands': commands}
 
-        gc = list(self.world_state.grid_connectors.values())[0]
-
+    def step_gc(self, gc_id, gc):
         # dict to hold charging commands
         charging_stations = {}
         # list including ID of all V2G charging stations, used to compute remaining GC power
         discharging_stations = []
-        # reset charging station power (nothing charged yet in this timestep)
-        for cs in self.world_state.charging_stations.values():
-            cs.current_power = 0
+
+        # filter vehicles that are charging at this GC
+        vehicles = {
+            vid: v for vid, v in self.world_state.vehicles.items()
+            if v.connected_charging_station is not None
+            and self.world_state.charging_stations[v.connected_charging_station].parent == gc_id
+        }
 
         # order vehicles by time of departure
         vehicles = sorted(
-            [(vid, v) for (vid, v) in self.world_state.vehicles.items()
-                if v.connected_charging_station is not None],
+            [(vid, v) for (vid, v) in vehicles.items()],
             key=lambda x: (x[1].estimated_time_of_departure, x[0]))
 
         cur_cost = gc.cost
@@ -79,12 +86,16 @@ class BalancedMarket(Strategy):
                     break
                 event_idx += 1
                 if type(event) is events.GridOperatorSignal:
+                    if event.grid_connector_id != gc_id:
+                        continue
                     # update GC info
                     if event.max_power is not None:
                         cur_max_power = event.max_power
                     if event.cost is not None:
                         cur_cost = event.cost
                 elif type(event) is events.LocalEnergyGeneration:
+                    if event.grid_connector_id != gc_id:
+                        continue
                     cur_local_generation[event.name] = event.value
                 # vehicle events ignored (use vehicle info such as estimated_time_of_departure)
 
@@ -221,9 +232,8 @@ class BalancedMarket(Strategy):
                 old_power = deepcopy(power)
                 old_sorted_idx = sorted_idx
 
-                # discharge with maximum power (scaled with power factor)
-                p = -(vehicle.battery.loading_curve.max_power
-                      * vehicle.vehicle_type.v2g_power_factor)
+                # discharge with maximum power
+                p = -vehicle.battery.unloading_curve.max_power
                 # limit to GC discharge power
                 # derivation and reasoning:
                 # max unload power is symmetric to max load
@@ -254,7 +264,8 @@ class BalancedMarket(Strategy):
                     elif cur_power < 0:
                         # discharge
                         sim_vehicle.battery.unload(
-                            self.interval, max_power=-cur_power, target_soc=self.DISCHARGE_LIMIT)
+                            self.interval, max_power=-cur_power,
+                            target_soc=sim_vehicle.vehicle_type.discharge_limit)
 
                 # try to charge enough to offset V2G
                 # check all timesteps with price below that of V2G TS
@@ -289,8 +300,8 @@ class BalancedMarket(Strategy):
                         elif cur_power < 0:
                             # discharge
                             sim_vehicle.battery.unload(
-                                self.interval, max_power=-cur_power, target_soc=self.DISCHARGE_LIMIT
-                            )
+                                self.interval, max_power=-cur_power,
+                                target_soc=sim_vehicle.vehicle_type.discharge_limit)
                 else:
                     # loop finished without getting break from discharge compensation:
                     # vehicle could not be charged enough to offset discharge
@@ -309,7 +320,8 @@ class BalancedMarket(Strategy):
                     elif sim_power < 0:
                         # discharge
                         info = vehicle.battery.unload(
-                            self.interval, max_power=-sim_power, target_soc=self.DISCHARGE_LIMIT)
+                            self.interval, max_power=-sim_power,
+                            target_soc=vehicle.vehicle_type.discharge_limit)
                         avg_power = -info["avg_power"]
                         discharging_stations.append(cs_id)
                     charging_stations[cs_id] = gc.add_load(cs_id, avg_power)
@@ -330,7 +342,8 @@ class BalancedMarket(Strategy):
                 elif cur_power < 0:
                     # discharge
                     avg_power = sim_vehicle.battery.unload(
-                        self.interval, max_power=-cur_power, target_soc=self.DISCHARGE_LIMIT
+                        self.interval, max_power=-cur_power,
+                        target_soc=sim_vehicle.vehicle_type.discharge_limit
                     )["avg_power"]
                     timesteps[cur_idx]["power"] += avg_power
 
@@ -359,6 +372,8 @@ class BalancedMarket(Strategy):
 
         # charge/discharge batteries
         for bat_id, battery in self.world_state.batteries.items():
+            if battery.parent != gc_id:
+                continue
             avail_power = gc.get_current_load(exclude=discharging_stations)
 
             old_soc = battery.soc
@@ -405,4 +420,4 @@ class BalancedMarket(Strategy):
                 gc.add_load(bat_id, -bat_power)
                 discharging_stations.append(bat_id)
 
-        return {'current_time': self.current_time, 'commands': charging_stations}
+        return charging_stations

@@ -7,6 +7,7 @@
         "min_charging_power": 0.2,
         "v2g": false,
         "v2g_power_factor": 0.5,
+        "discharge_limit": 0.5,
         "statistical_values":{
             "distance_in_km": {
                 "avg_distance": 47.13,
@@ -37,6 +38,7 @@
         "min_charging_power": 0.2,
         "v2g": false,
         "v2g_power_factor": 0.5,
+        "discharge_limit": 0.5,
         "statistical_values":{
             "distance_in_km": {
                 "avg_distance": 47.13,
@@ -73,6 +75,7 @@
         "min_charging_power": 0,
         "v2g": false,
         "v2g_power_factor": 0.5,
+        "discharge_limit": 0.5,
         "battery_efficiency": 0.95,
         "loss_rate": {
             "relative": 0,
