@@ -139,13 +139,13 @@ class Distributed(strategy.Strategy):
                 next_arrival[event_cs.parent] = event.start_time
 
         # rank which vehicles should be charged at gc
-        skip_prioritization = {}
+        skip_prio = {}
         for gc_id, gc in gcs.items():
             if gc.number_cs is None:
-                skip_prioritization[gc_id] = True
+                skip_prio[gc_id] = True
                 continue
             else:
-                skip_prioritization[gc_id] = False
+                skip_prio[gc_id] = False
             # filter out vehicles from connected that have left
             conn = {
                 v_id: v for v_id, v in self.connected[gc_id].items()
@@ -171,7 +171,7 @@ class Distributed(strategy.Strategy):
         # all vehicles are ranked. Charge vehicles that are connected
         for gc_id, gc in self.world_state.grid_connectors.items():
             # find all vehicles that are actually connected
-            vehicles = self.world_state.vehicles if skip_prioritization else self.connected[gc_id]
+            vehicles = self.world_state.vehicles if skip_prio[gc_id] else self.connected[gc_id]
             connected_vehicles = dict()
             for v_id, vehicle in vehicles.items():
                 cs_id = vehicle.connected_charging_station
