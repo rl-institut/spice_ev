@@ -11,7 +11,7 @@ class PeakShaving(Strategy):
     """
     def __init__(self, components, start_time, **kwargs):
         self.HORIZON = 24  # look ahead for GC events in hours
-        self.perfect_foresight = False  # perfect foresight for grid situation and vehicle events
+        self.perfect_foresight = True  # perfect foresight for grid situation and vehicle events
         super().__init__(components, start_time, **kwargs)
         self.HORIZON = dt.timedelta(hours=self.HORIZON)
         self.description = "Peak Shaving"
@@ -47,8 +47,6 @@ class PeakShaving(Strategy):
         return {'current_time': self.current_time, 'commands': charging_stations}
 
     def step_gc(self, gc_id, gc):
-        ts_per_hour = dt.timedelta(hours=1) / self.interval
-
         # ---------- GET NEXT EVENTS ---------- #
         timesteps = []
 
@@ -67,11 +65,15 @@ class PeakShaving(Strategy):
             cs = self.world_state.charging_stations[cs_id]
             if cs.parent == gc_id:
                 vehicles_present[vid] = len(vehicle_arrivals)
+                depart_idx = None
+                if v.estimated_time_of_departure is not None:
+                    delta_t = v.estimated_time_of_departure - self.current_time
+                    depart_idx = -(-delta_t // self.interval)
                 vehicle_arrivals.append({
                     "vid": vid,
                     "vehicle": deepcopy(v),
                     "arrival_idx": 0,
-                    "depart_idx": None
+                    "depart_idx": depart_idx  # might be overwritten by departure event
                 })
 
         gc_info = {
@@ -128,7 +130,7 @@ class PeakShaving(Strategy):
                             sim_vehicles[event.vehicle_id].desired_soc)
                     else:
                         # arrival
-                        cs_id = event.update["connected_charging_station"]
+                        cs_id = event.update.get("connected_charging_station")
                         if cs_id is None:
                             continue
                         # update vehicle info
@@ -145,99 +147,141 @@ class PeakShaving(Strategy):
                                 f"{vid} already standing at {event.start_time} "
                                 f"({gc_info['vehicles'][vid]} / {timestep_idx})")
                             gc_info["vehicles"][vid] = len(vehicle_arrivals)
+                            depart_idx = None
+                            if vehicle.estimated_time_of_departure is not None:
+                                delta_t = vehicle.estimated_time_of_departure - self.current_time
+                                depart_idx = -(-delta_t // self.interval)
                             vehicle_arrivals.append({
                                 "vid": vid,
                                 "vehicle": deepcopy(vehicle),
                                 "arrival_idx": timestep_idx,
-                                "depart_idx": None
+                                "depart_idx": depart_idx,  # might be changed by departure event
                             })
 
-            if self.perfect_foresight:
-                gc_info["cur_power"] = sum(cur_loads.values())
-            else:
-                gc_info["cur_power"] = gc.get_avg_fixed_load(cur_time, self.interval)
+            gc_info["cur_power"] = sum(cur_loads.values())
             timesteps.append(deepcopy(gc_info))
 
         charging_stations = {}
 
-        # make certain each vehicle has a depart_idx
-        for vehicle_info in vehicle_arrivals:
-            if vehicle_info["depart_idx"] is None:
-                delta_t = vehicle_info["vehicle"].estimated_time_of_departure - self.current_time
-                vehicle_info["depart_idx"] = delta_t // self.interval
+        # no depart_idx: ignore vehicle
+        vehicles = [v for v in vehicle_arrivals if v["depart_idx"] is not None]
 
         # order vehicles by standing time => charge those with least standing time first
-        vehicle_arrivals = sorted(vehicle_arrivals, key=lambda v: v["depart_idx"] - v["arrival_idx"])
+        vehicles = sorted(vehicles,
+                          key=lambda v: min(v["depart_idx"], timesteps_ahead) - v["arrival_idx"])
 
         # --- ADJUST POWER CURVE --- #
-        for v_info in vehicle_arrivals:
+        for v_info in vehicles:
             # get arrival/departure
             arrival_idx = v_info["arrival_idx"]
             depart_idx = v_info["depart_idx"]
-            if arrival_idx == depart_idx:
+            if arrival_idx >= depart_idx:
                 continue
 
             sim_vehicle = v_info["vehicle"]
             energy_needed = sim_vehicle.get_energy_needed()
             # scale energy needed with remaining standing time
             if depart_idx > timesteps_ahead:
-                energy_needed *= (timesteps_ahead - arrival_idx) / (depart_idx - arrival_idx)
+                f = (timesteps_ahead - arrival_idx) / (depart_idx - arrival_idx)
+                energy_needed *= f
+                desired_soc = sim_vehicle.battery.soc + (
+                    f*(sim_vehicle.desired_soc - sim_vehicle.battery.soc))
+                sim_vehicle.desired_soc = desired_soc
                 depart_idx = timesteps_ahead
+                v_info["depart_idx"] = depart_idx
+            v_info["energy_needed"] = energy_needed
 
-            cs_id = sim_vehicle.connected_charging_station
-            cs = self.world_state.charging_stations[cs_id]
+            # apply charging strategy
+            sim_vehicle.schedule = self.fast_charge(v_info, timesteps)
 
-            # get power over standing time, sort ascending
-            power_levels = [[timesteps[i]["cur_power"], i] for i in range(arrival_idx, depart_idx)]
-            power_levels = sorted(power_levels)
+        # use surplus for all vehicles currently at charging station, apply power
+        for v_info in vehicles:
+            if v_info["arrival_idx"] > 0:
+                continue
+            sim_vehicle = v_info["vehicle"]
+            sim_vehicle.schedule -= min(timesteps[0]["cur_power"], 0)
+            if sim_vehicle.schedule > 0:
+                cs_id = sim_vehicle.connected_charging_station
+                avg_power = self.world_state.vehicles[v_info["vid"]].battery.load(
+                    self.interval, target_power=sim_vehicle.schedule)["avg_power"]
+                charging_stations[cs_id] = gc.add_load(cs_id, avg_power)
 
-            # find timesteps with same power level
-            idx = 0
-            prev_power = power_levels[0][0]
-            prev_energy = 0
-            power = 0
-            eff = sim_vehicle.battery.efficiency
-            while idx < len(power_levels) and energy_needed - prev_energy > self.EPS:
-                if power_levels[idx][0] - prev_power < self.EPS:
-                    idx += 1
-                    continue
-                # power levels differ: try to fill up difference
-                energy = 0
-                power = power_levels[idx][0]
-                for info in timesteps[:idx]:
-                    energy += min(power, info["max_power"]) - info["cur_power"]
-                energy /= ts_per_hour * eff
-
-                if energy - energy_needed > self.EPS:
-                    # compute fraction of energy needed
-                    frac = 1 - (energy - energy_needed) / (energy - prev_energy)
-                    power = prev_power + frac * (power - prev_power)
-                    prev_energy = energy_needed
-                    break
-
-                prev_power = power
-                prev_energy = energy
-            if energy_needed - prev_energy > self.EPS:
-                # energy need not satisfied yet: must exceed highest power peak
-                # distribute evenly over timesteps (ignore power restrictions)
-                power = prev_power + (energy_needed - prev_energy) * ts_per_hour / idx / eff
-
-            opt_power = power
-            # sort power_levels up until idx by timestamp
-            power_levels = sorted(power_levels[:idx], key=lambda x: x[1])
-
-            # charge
-            delta = 0
-            for pl in power_levels:
-                power = min(opt_power + delta, timesteps[pl[1]]["max_power"]) - pl[0]
-                power = util.clamp_power(power, sim_vehicle, cs)
-                avg_power = sim_vehicle.battery.load(self.interval, target_power=power)["avg_power"]
-                timesteps[pl[1]]["cur_power"] += avg_power
-                delta += power - avg_power
-                if pl[1] == 0 and power:
-                    # charge for real
-                    avg_power = self.world_state.vehicles[v_info["vid"]].battery.load(
-                        self.interval, target_power=power)["avg_power"]
-                    charging_stations[cs_id] = gc.add_load(cs_id, avg_power)
-
+        # use batteries to balance power levels
+        for b_id, battery in self.world_state.batteries.items():
+            if battery.parent != gc_id:
+                continue
+            timesteps[0]["cur_power"] = gc.get_current_load()
+            avg_power = sum([max(ts["cur_power"], 0) for ts in timesteps]) / timesteps_ahead
+            avg_power = max(avg_power, 0)
+            # try to reach avg_power
+            delta_power = avg_power - gc.get_current_load()
+            bat_power = 0
+            if delta_power >= battery.min_charging_power:
+                # below average: charge
+                bat_power = battery.load(self.interval, target_power=delta_power)["avg_power"]
+            elif delta_power <= -battery.min_charging_power:
+                # above average: discharge
+                bat_power = -battery.unload(self.interval, target_power=-delta_power)["avg_power"]
+            gc.add_load(b_id, bat_power)
         return charging_stations
+
+    def fast_charge(self, v_info, timesteps):
+        sim_vehicle = v_info["vehicle"]
+        arrival_idx = v_info["arrival_idx"]
+        depart_idx = v_info["depart_idx"]
+        energy_needed = v_info["energy_needed"]
+        if energy_needed <= 0:
+            return 0
+        cs = self.world_state.charging_stations[sim_vehicle.connected_charging_station]
+
+        # get power over standing time, sort ascending
+        power_levels = [(timesteps[i]["cur_power"], i) for i in range(arrival_idx, depart_idx)]
+        power_levels = sorted(power_levels)
+
+        # find timesteps with same power level
+        idx = 0
+        prev_power = power_levels[0][0]
+        prev_energy = 0
+        power = 0
+        eff = sim_vehicle.battery.efficiency
+        while idx < len(power_levels) and energy_needed - prev_energy > self.EPS:
+            if power_levels[idx][0] - prev_power < self.EPS:
+                idx += 1
+                continue
+            # power levels differ: try to fill up difference
+            energy = 0
+            power = power_levels[idx][0]
+            for info in timesteps[arrival_idx:depart_idx]:
+                p = min(power, info["max_power"])  # don't exceed current max power
+                p = max(p - info["cur_power"], 0)  # cur_power higher: no power
+                energy += p
+            energy /= self.ts_per_hour / eff
+
+            if energy - energy_needed > self.EPS:
+                # compute fraction of energy needed
+                frac = 1 - (energy - energy_needed) / (energy - prev_energy)
+                power = prev_power + frac * (power - prev_power)
+                prev_energy = energy_needed
+                break
+
+            prev_power = power
+            prev_energy = energy
+        if energy_needed - prev_energy > self.EPS:
+            # energy need not satisfied yet: must exceed highest power peak
+            # distribute evenly over timesteps (ignore power restrictions)
+            power = prev_power + (energy_needed - prev_energy) * self.ts_per_hour / idx / eff
+
+        opt_power = power
+        # charge (in order of timesteps)
+        delta = 0
+        command = 0
+        for pl in sorted(power_levels[:idx], key=lambda x: x[1]):
+            power = min(opt_power + delta, timesteps[pl[1]]["max_power"]) - pl[0]
+            power = util.clamp_power(power, sim_vehicle, cs)
+            avg_power = sim_vehicle.battery.load(self.interval, target_power=power)["avg_power"]
+            timesteps[pl[1]]["cur_power"] += avg_power
+            delta += power - avg_power
+            # charged_energy += avg_power / self.ts_per_hour * eff
+            if pl[1] == 0:
+                command = power
+        return command
