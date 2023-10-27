@@ -33,7 +33,7 @@ class Strategy():
         self.world_state = deepcopy(components)
         self.world_state.future_events = []
         self.interval = kwargs.get('interval')  # required
-        self.ts_per_hour = self.interval / timedelta(minutes=60)
+        self.ts_per_hour = timedelta(hours=1) / self.interval
         self.current_time = start_time - self.interval
         # relative allowed difference between battery SoC and desired SoC when leaving
         self.margin = 0.1

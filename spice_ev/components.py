@@ -133,7 +133,7 @@ class GridConnector:
         else:
             # multiple fixed loads: add up
             for i, values in enumerate(avg_values_by_weekday):
-                self.avg_fixed_load[i] = [e + v for (e, v) in zip(self.avg_ficed_load[i], values)]
+                self.avg_fixed_load[i] = [e + v for (e, v) in zip(self.avg_fixed_load[i], values)]
 
     def get_avg_fixed_load(self, dt, interval):
         """ Get average fixed load for specific timeslot.

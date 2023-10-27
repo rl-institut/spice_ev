@@ -58,7 +58,7 @@ class Balanced(Strategy):
                 # calculate desired energy for charging
                 energy_needed = delta_soc * vehicle.battery.capacity / vehicle.battery.efficiency
                 if timesteps > 0:
-                    power = energy_needed / self.ts_per_hour / timesteps
+                    power = energy_needed * self.ts_per_hour / timesteps
                     power = min(power, gc_power_left)
                     power = clamp_power(power, vehicle, cs)
                 else:
