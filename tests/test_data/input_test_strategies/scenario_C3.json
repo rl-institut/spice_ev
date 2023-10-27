@@ -49,7 +49,7 @@
       "GC1": {
         "max_power": 5,
         "voltage_level": "MV",
-        "number_cs": 1,
+        "number_cs": 2,
         "cost": {
           "type": "fixed",
           "value": 0.3
