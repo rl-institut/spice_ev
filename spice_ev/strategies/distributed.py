@@ -223,7 +223,16 @@ class Distributed(strategy.Strategy):
                         if connected_vehicles:
                             # vehicle present: support GC (increase GC max power)
                             power = battery.get_available_power(self.interval)
-                            avail_bat_power[b_id] = power
+                            if power < battery.min_charging_power:
+                                # below minimum (dis)charging power
+                                continue
+                            total_time = self.interval.total_seconds() / 3600
+                            energy_delta = power / battery.efficiency * total_time
+                            soc_delta = energy_delta / battery.capacity
+                            if soc_delta < self.EPS:
+                                # remaining power too small
+                                continue
+                            avail_bat_power[b_id] = (power, gc.cur_max_power)
                             gc.cur_max_power += power
                         else:
                             # vacant station: charge with strategy until vehicle arrives
@@ -251,7 +260,7 @@ class Distributed(strategy.Strategy):
                         power = avail_bat_power.get(b_id)
                         if power is not None:
                             # battery used to support GC -> revert max_power, discharge
-                            gc.cur_max_power -= power
+                            gc.cur_max_power = power[1]
                             power_needed = gc.get_current_load() - gc.cur_max_power
                             power = battery.unload(self.interval, target_power=max(power_needed, 0))
                             gc.add_load(b_id, -power['avg_power'])
