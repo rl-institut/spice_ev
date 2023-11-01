@@ -322,6 +322,8 @@ class Battery():
             energy_delta = abs(new_soc - self.soc) * c
             assert energy_delta > 0
             self.soc = new_soc
+            assert self.soc < 1 + self.EPS
+            self.soc = min(self.soc, 1)
             remaining_hours -= abs(t)
             # remember amount of energy loaded into battery
             energies.append(energy_delta)
