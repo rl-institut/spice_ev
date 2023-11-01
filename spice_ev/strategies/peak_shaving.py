@@ -211,18 +211,51 @@ class PeakShaving(Strategy):
             if battery.parent != gc_id:
                 continue
             timesteps[0]["cur_power"] = gc.get_current_load()
-            avg_power = sum([max(ts["cur_power"], 0) for ts in timesteps]) / timesteps_ahead
-            avg_power = max(avg_power, 0)
-            # try to reach avg_power
-            delta_power = avg_power - gc.get_current_load()
-            bat_power = 0
-            if delta_power >= battery.min_charging_power:
-                # below average: charge
-                bat_power = battery.load(self.interval, target_power=delta_power)["avg_power"]
-            elif delta_power <= -battery.min_charging_power:
-                # above average: discharge
-                bat_power = -battery.unload(self.interval, target_power=-delta_power)["avg_power"]
-            gc.add_load(b_id, bat_power)
+
+            # binary search for optimum power level
+            # max: highest peak within horizon
+            # min: full battery discharge at highest peak
+            # charge when below target power, discharge when above
+            # increase target power when there is any load above
+            # decrease target power if all loads are at or below
+            power_levels = [ts["cur_power"] for ts in timesteps]
+            max_power = max(power_levels + [0])
+            min_power = battery.unloading_curve.max_power * battery.efficiency
+            min_power = max(max_power - min_power, 0)
+            power = [0]*timesteps_ahead  # future battery load, updated when target changes
+            old_soc = battery.soc
+            cur_power = -power_levels[0]  # default if max_power below zero
+            while max_power - min_power > self.EPS:
+                cur_power = 0
+                target_power = (min_power + max_power) / 2
+                for ts_idx, pl in enumerate(power_levels):
+                    delta_power = target_power - pl
+                    p = 0
+                    if delta_power > battery.min_charging_power:
+                        p = battery.load(self.interval, target_power=delta_power)["avg_power"]
+                        if ts_idx == 0:
+                            cur_power = delta_power
+                    elif delta_power < -battery.min_charging_power:
+                        p = -battery.unload(self.interval, target_power=-delta_power)["avg_power"]
+                        if ts_idx == 0:
+                            cur_power = delta_power
+                    power[ts_idx] = p
+                    if pl + p - target_power > self.EPS:
+                        # fail (above target power): increase
+                        min_power = target_power
+                        break
+                else:
+                    # all at or below target power: decrease
+                    max_power = target_power
+                battery.soc = old_soc
+            # converged -> apply power
+            if cur_power < 0:
+                p = -battery.unload(self.interval, target_power=-cur_power)["avg_power"]
+            else:
+                p = battery.load(self.interval, target_power=cur_power)["avg_power"]
+            gc.add_load(b_id, p)
+            for i, p in enumerate(power):
+                timesteps[i]["cur_power"] += p
         return charging_stations
 
     def fast_charge(self, v_info, timesteps):
@@ -281,7 +314,6 @@ class PeakShaving(Strategy):
             avg_power = sim_vehicle.battery.load(self.interval, target_power=power)["avg_power"]
             timesteps[pl[1]]["cur_power"] += avg_power
             delta += power - avg_power
-            # charged_energy += avg_power / self.ts_per_hour * eff
             if pl[1] == 0:
                 command = power
         return command
