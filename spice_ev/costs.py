@@ -225,7 +225,7 @@ def calculate_costs(strategy, voltage_level, interval,
     energy_supply_per_year = energy_supply_sim / fraction_year
 
     # COSTS FROM COMMODITY AND CAPACITY CHARGE DEPENDING ON CHARGING STRATEGY:
-    if strategy in ["greedy", "balanced", "distributed", "peak_load_window"]:
+    if strategy in ["greedy", "balanced", "distributed", "peak_shaving", "peak_load_window"]:
         """
         Calculates costs in accordance with existing payment models.
         For SLP customers the variable capacity_charge is equivalent to the basic charge
@@ -755,7 +755,7 @@ def calculate_costs(strategy, voltage_level, interval,
 
         capacity_or_basic_costs = "capacity costs"
 
-        if strategy in ["greedy", "balanced", "distributed", "peak_load_window"]:
+        if strategy in ["greedy", "balanced", "distributed", "peak_shaving", "peak_load_window"]:
             # strategies without differentiation between fixed and flexible load
             information_fix_flex = "no differentiation between fixed and flexible load"
             commodity_costs_eur_per_year_fix = information_fix_flex
