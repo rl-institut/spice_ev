@@ -224,38 +224,80 @@ class PeakShaving(Strategy):
             min_power = max(max_power - min_power, 0)
             power = [0]*timesteps_ahead  # future battery load, updated when target changes
             old_soc = battery.soc
-            cur_power = -power_levels[0]  # default if max_power below zero
+            cur_power = max(-power_levels[0], 0)  # default (needed if power is negative)
+            target_power = 0  # default (needed if power is negative)
             while max_power - min_power > self.EPS:
-                cur_power = 0
                 target_power = (min_power + max_power) / 2
                 for ts_idx, pl in enumerate(power_levels):
                     delta_power = target_power - pl
-                    p = 0
-                    if delta_power > battery.min_charging_power:
+                    p = 0  # battery power
+                    if delta_power >= battery.min_charging_power:
+                        # below target: charge
                         p = battery.load(self.interval, target_power=delta_power)["avg_power"]
                         if ts_idx == 0:
                             cur_power = delta_power
-                    elif delta_power < -battery.min_charging_power:
+                    elif delta_power <= -battery.min_charging_power:
+                        # above target: discharge
                         p = -battery.unload(self.interval, target_power=-delta_power)["avg_power"]
                         if ts_idx == 0:
                             cur_power = delta_power
                     power[ts_idx] = p
                     if pl + p - target_power > self.EPS:
-                        # fail (above target power): increase
+                        # fail (at least one timestep above target power): increase
                         min_power = target_power
                         break
                 else:
-                    # all at or below target power: decrease
+                    # all timesteps at or below target power: decrease
                     max_power = target_power
                 battery.soc = old_soc
+
+            # found optimal level. At which timesteps can I load such that peaks are decreased?
+            # find last peak above target level (timesteps after last peak are ignored)
+            for i, pl in enumerate(reversed(power_levels)):
+                if pl > target_power:
+                    break
+            else:
+                i += 1  # all timesteps below target
+            last_peak_idx = timesteps_ahead - i
+
+            # max_power = min_power = target_power, remains
+            # min power: minimum power level or target power, but not negative
+            # as max_power is never negative as well, the avg of the two is also not negative
+            min_power = min(power_levels[:last_peak_idx+1] + [target_power])
+            min_power = max(min_power, 0)
+            while max_power - min_power > self.EPS:
+                cur_power = 0
+                # charge limit: new limit for charging,
+                # but previous target power must still be reached when discharging
+                charge_limit = (min_power + max_power) / 2
+                # only simulate until last peak (after that only charging events)
+                for ts_idx, pl in enumerate(power_levels[:last_peak_idx+1]):
+                    delta = charge_limit - pl
+                    p = 0
+                    if delta >= battery.min_charging_power:
+                        p = battery.load(self.interval, target_power=delta)["avg_power"]
+                        if ts_idx == 0:
+                            cur_power = delta
+                    elif power[ts_idx] < 0:
+                        p = -battery.unload(self.interval, target_power=-power[ts_idx])["avg_power"]
+                        if ts_idx == 0:
+                            cur_power = p
+                    if pl + p - target_power > self.EPS:
+                        # target could not be matched with reduced charge level -> increase
+                        min_power = charge_limit
+                        break
+                else:
+                    # all peaks could be reduced to target level -> decrease charge level
+                    max_power = charge_limit
+                battery.soc = old_soc
+
             # converged -> apply power
             if cur_power < 0:
                 p = -battery.unload(self.interval, target_power=-cur_power)["avg_power"]
             else:
                 p = battery.load(self.interval, target_power=cur_power)["avg_power"]
-            gc.add_load(b_id, p)
-            for i, p in enumerate(power):
-                timesteps[i]["cur_power"] += p
+            gc.add_load(b_id, p)  # p is always set
+            # TODO: keep track of future simulated power level changes for other batteries
         return charging_stations
 
     def fast_charge(self, v_info, timesteps):
