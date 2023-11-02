@@ -23,6 +23,8 @@ stationary batteries, V2G or local generation.
 +--------------------------+-----------------------------+-------------------------------+-------------------------------+
 | Schedule                 | x                           | x                             |  x                            |
 +--------------------------+-----------------------------+-------------------------------+-------------------------------+
+| Peak shaving             | x                           |                               |  x                            |
++--------------------------+-----------------------------+-------------------------------+-------------------------------+
 | Peak load window         | x                           |                               |  x                            |
 +--------------------------+-----------------------------+-------------------------------+-------------------------------+
 | Flex window              | x                           | x                             |  x                            |
@@ -61,6 +63,14 @@ Two different sub-strategies can be used:
 
 - Collective: All vehicles are controlled as a unit.
 - Individual: All vehicles are controlled individually.
+
+Peak shaving
+----------------
+Peak shaving aims to flatten power peaks by drawing power in times of low load and supporting grid connectors (e.g. with a stationary battery) in times of high load.
+Vehicles charge in order of standing time (short standing events get priority) and try to avoid charging in times of high load.
+In case the highest current load must be exceeded, the needed energy is balanced such that a flat load curve is achieved over the standing time.
+Stationary batteries will charge in times of low load and discharge in times of high load. This is achieved using a rolling horizon and simulating the battery use during the horizon in each timestep within the simulation.
+The desired result is a flat load curve without peaks. Works best with `perfect_foresight` (enabled by default) and a sufficient `HORIZON` (24 h by default).
 
 Peak load window
 ----------------
@@ -120,6 +130,8 @@ The following table gives an overview of the possible combinations.
 | Balanced Market          | x                           | x                             |                               |                               |
 +--------------------------+-----------------------------+-------------------------------+-------------------------------+-------------------------------+
 | Schedule                 | x                           |                               |                               | x                             |
++--------------------------+-----------------------------+-------------------------------+-------------------------------+-------------------------------+
+| Peak shaving             | x                           |                               |                               |                               |
 +--------------------------+-----------------------------+-------------------------------+-------------------------------+-------------------------------+
 | Peak load window         | x                           |                               |                               |                               |
 +--------------------------+-----------------------------+-------------------------------+-------------------------------+-------------------------------+
