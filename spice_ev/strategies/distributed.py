@@ -17,7 +17,7 @@ class Distributed(strategy.Strategy):
         strat_options_opps = dict(deepcopy(kwargs), **strat_options_opps)
         strat_deps = kwargs.get("strategy_deps", "balanced")
         strat_options_deps = dict(deepcopy(kwargs), **strat_options_deps)
-        self.description = f"distributed {strat_opps}/{strat_deps}"
+        self.description = f"distributed (deps: {strat_deps} / opps: {strat_opps})"
         self.strat_opps = strategy.class_from_str(strat_opps)(
             comps, start_time, **strat_options_opps)
         self.strat_deps = strategy.class_from_str(strat_deps)(
