@@ -329,7 +329,7 @@ class PeakShaving(Strategy):
             for info in timesteps[arrival_idx:depart_idx]:
                 p = min(power, info["max_power"])  # don't exceed current max power
                 # assumption: charging curve constant, can't exceed maximum
-                p = min(p, sim_vehicle.battery.loading_curve.max_power)
+                p = min(p, sim_vehicle.battery.loading_curve.max_power, cs.max_power)
                 p = max(p - info["cur_power"], 0)  # cur_power higher: no power
                 energy += p
             energy /= self.ts_per_hour / eff
