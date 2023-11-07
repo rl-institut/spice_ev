@@ -305,7 +305,7 @@ class PeakShaving(Strategy):
         arrival_idx = v_info["arrival_idx"]
         depart_idx = v_info["depart_idx"]
         energy_needed = v_info["energy_needed"]
-        if energy_needed <= 0:
+        if energy_needed <= self.EPS:
             return 0
         cs = self.world_state.charging_stations[sim_vehicle.connected_charging_station]
 
@@ -328,6 +328,8 @@ class PeakShaving(Strategy):
             power = power_levels[idx][0]
             for info in timesteps[arrival_idx:depart_idx]:
                 p = min(power, info["max_power"])  # don't exceed current max power
+                # assumption: charging curve constant, can't exceed maximum
+                p = min(p, sim_vehicle.battery.loading_curve.max_power)
                 p = max(p - info["cur_power"], 0)  # cur_power higher: no power
                 energy += p
             energy /= self.ts_per_hour / eff
