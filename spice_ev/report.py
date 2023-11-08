@@ -577,7 +577,7 @@ def aggregate_timeseries(scenario, gcID):
         if hasSchedule:
             row.append(round(scenario.gcPowerSchedule[gcID][idx], round_to_places))  # float
         if hasWindows:
-            row.append(int(scenario.gcWindowSchedule[gcID][idx]))  # bool -> int
+            row.append(scenario.gcWindowSchedule[gcID][idx])
 
         # charging power
         # get sum of all current CS power that are connected to gc
