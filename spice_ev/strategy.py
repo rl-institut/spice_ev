@@ -7,6 +7,11 @@ from warnings import warn
 from spice_ev import events
 from spice_ev.util import get_cost, clamp_power
 
+STRATEGIES = [
+    'greedy', 'balanced', 'balanced_market', 'distributed',
+    'peak_load_window', 'peak_shaving', 'flex_window', 'schedule'
+]
+
 
 def class_from_str(strategy_name):
     import_name = strategy_name.lower()
