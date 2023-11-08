@@ -7,7 +7,7 @@ from spice_ev.strategy import Strategy
 
 class PeakShaving(Strategy):
     """
-    Balance out grid connector power over time.
+    Balance out and minimize grid connector power over time.
     """
     def __init__(self, components, start_time, **kwargs):
         self.HORIZON = 24  # look ahead for GC events in hours
@@ -36,7 +36,7 @@ class PeakShaving(Strategy):
             self.events = sorted(all_events, key=lambda ev: ev.start_time)
 
     def step(self):
-        """Calculates charging in each timestep.
+        """Calculates charging power in each timestep.
 
         :return: current time and commands of the charging stations
         :rtype: dict
@@ -124,7 +124,7 @@ class PeakShaving(Strategy):
                         if event.vehicle_id in gc_info["vehicles"]:
                             v_idx = gc_info["vehicles"].pop(event.vehicle_id)
                             vehicle_arrivals[v_idx]["depart_idx"] = timestep_idx
-                        # perfect load (up to desired soc if below battery soc)
+                        # perfect charge (up to desired soc if below battery soc)
                         sim_vehicles[event.vehicle_id].battery.soc = max(
                             sim_vehicles[event.vehicle_id].battery.soc,
                             sim_vehicles[event.vehicle_id].desired_soc)
@@ -166,7 +166,7 @@ class PeakShaving(Strategy):
         # no depart_idx: ignore vehicle
         vehicles = [v for v in vehicle_arrivals if v["depart_idx"] is not None]
 
-        # order vehicles by standing time => charge those with least standing time first
+        # order vehicles by standing time => charge those with the least standing time first
         vehicles = sorted(vehicles,
                           key=lambda v: min(v["depart_idx"], timesteps_ahead) - v["arrival_idx"])
 
@@ -222,7 +222,7 @@ class PeakShaving(Strategy):
             max_power = max(power_levels + [0])
             min_power = battery.unloading_curve.max_power * battery.efficiency
             min_power = max(max_power - min_power, 0)
-            power = [0]*timesteps_ahead  # future battery load, updated when target changes
+            power = [0] * timesteps_ahead  # future battery load, updated when target changes
             old_soc = battery.soc
             cur_power = max(-power_levels[0], 0)  # default (needed if power is negative)
             target_power = 0  # default (needed if power is negative)
@@ -251,7 +251,7 @@ class PeakShaving(Strategy):
                     max_power = target_power
                 battery.soc = old_soc
 
-            # found optimal level. At which timesteps can I load such that peaks are decreased?
+            # found optimal level. Where can battery charge, so that peaks are decreased?
             # find last peak above target level (timesteps after last peak are ignored)
             for i, pl in enumerate(reversed(power_levels)):
                 if pl > target_power:
@@ -263,7 +263,7 @@ class PeakShaving(Strategy):
             # max_power = min_power = target_power, remains
             # min power: minimum power level or target power, but not negative
             # as max_power is never negative as well, the avg of the two is also not negative
-            min_power = min(power_levels[:last_peak_idx+1] + [target_power])
+            min_power = min(power_levels[:last_peak_idx + 1] + [target_power])
             min_power = max(min_power, 0)
             while max_power - min_power > self.EPS:
                 cur_power = 0
