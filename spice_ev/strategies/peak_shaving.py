@@ -178,8 +178,8 @@ class PeakShaving(Strategy):
             energy_needed = sim_vehicle.get_energy_needed()
             if arrival_idx >= depart_idx:
                 # faulty arrival/departure: default power needed (instant departure)
-                cs = self.world_state.charging_stations[sim_vehicle.connected_charging_station]
-                power = energy_needed / self.ts_per_hour / sim_vehicle.battery.efficiency
+                cs = self.world_state.charging_stations.get(sim_vehicle.connected_charging_station)
+                power = energy_needed * self.ts_per_hour / sim_vehicle.battery.efficiency
                 power = min(power, gc.cur_max_power - timesteps[0]["cur_power"])
                 power = util.clamp_power(power, sim_vehicle, cs)
                 sim_vehicle.schedule = power
