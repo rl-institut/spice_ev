@@ -37,7 +37,10 @@ class Balanced(Strategy):
                 # not connected
                 continue
             # get connected charging station
-            cs = self.world_state.charging_stations[cs_id]
+            cs = self.world_state.charging_stations.get(cs_id)
+            if cs is None:
+                # unknown CS
+                continue
             gc_id = cs.parent
             gc = self.world_state.grid_connectors[gc_id]
             gc_power_left = gc.cur_max_power - gc.get_current_load()

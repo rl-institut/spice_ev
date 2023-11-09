@@ -169,18 +169,20 @@ class PeakLoadWindow(Strategy):
             cs_id = vehicle.connected_charging_station
             if cs_id is None:
                 continue
-            cs = self.world_state.charging_stations[cs_id]
+            cs = self.world_state.charging_stations.get(cs_id)
+            if cs is None:
+                continue
             if cs.parent == gc_id:
                 vehicles[v_id] = vehicle
-            if (
-                    vehicle.estimated_time_of_departure is None
-                    or vehicle.estimated_time_of_departure <= self.current_time):
-                # no estimated time of departure / should have left already: ignore
-                continue
-            if vehicle.desired_soc - vehicle.battery.soc < self.EPS:
-                # charged enough
-                continue
-            max_standing = max(max_standing, vehicle.estimated_time_of_departure)
+                if (
+                        vehicle.estimated_time_of_departure is None
+                        or vehicle.estimated_time_of_departure <= self.current_time):
+                    # no estimated time of departure / should have left already: ignore
+                    continue
+                if vehicle.desired_soc - vehicle.battery.soc < self.EPS:
+                    # charged enough
+                    continue
+                max_standing = max(max_standing, vehicle.estimated_time_of_departure)
 
         # find upcoming load windows (not from events), take note of expected GC load
         timesteps_ahead = -((max_standing - self.current_time) // -self.interval)

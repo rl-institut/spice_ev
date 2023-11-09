@@ -45,12 +45,13 @@ class BalancedMarket(Strategy):
         charging_stations = {}
         # list including ID of all V2G charging stations, used to compute remaining GC power
         discharging_stations = []
+        cs = self.world_state.charging_stations
 
         # filter vehicles that are charging at this GC
         vehicles = {
             vid: v for vid, v in self.world_state.vehicles.items()
-            if v.connected_charging_station is not None
-            and self.world_state.charging_stations[v.connected_charging_station].parent == gc_id
+            if cs.get(v.connected_charging_station) is not None
+            and cs.get(v.connected_charging_station).parent == gc_id
         }
 
         # order vehicles by time of departure

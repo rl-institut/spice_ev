@@ -1,7 +1,7 @@
 from copy import deepcopy
 import datetime
 
-from spice_ev import components, events, strategy
+from spice_ev import components, events, strategy, util
 
 
 class Distributed(strategy.Strategy):
@@ -33,8 +33,6 @@ class Distributed(strategy.Strategy):
         # keep track of connected vehicles per GC (more vehicles might have arrived than CS)
         self.connected = {gc_id: dict() for gc_id in self.world_state.grid_connectors.keys()}
         # assumption: one GC each for every station/depot
-        self.virtual_vt = dict()  # virtual vehicle types for stationary batteries
-        self.virtual_cs = dict()  # virtual charging stations for stationary batteries
         self.strategies = dict()  # tuple of (station type, strategy) for each GC
         self.gc_battery = dict()  # GC ID -> batteries
         # set strategy for each GC
@@ -53,6 +51,25 @@ class Distributed(strategy.Strategy):
                                 "'opps' or 'deps' attached. Please make sure the "
                                 "ending of the station name is one of the mentioned.")
 
+        # prepare separate world states of grid connectors
+        # only shallow copy, so that changes are reflected
+        for gc_id, (station_type, strat) in self.strategies.items():
+            # single GC (some strategies only work with one GC)
+            # also, only one GC is relevant for each station
+            strat.world_state.grid_connectors = {gc_id: self.world_state.grid_connectors[gc_id]}
+            # filter charging stations
+            strat.world_state.charging_stations = {
+                cs_id: cs for cs_id, cs in self.world_state.charging_stations.items()
+                if cs.parent == gc_id}
+            # vehicle types, vehicles and photovoltaics (shallow) copied
+            strat.world_state.vehicle_types = self.world_state.vehicle_types.copy()
+            strat.world_state.vehicles = self.world_state.vehicles.copy()
+            strat.world_state.photovoltaics = self.world_state.photovoltaics.copy()
+            # batteries: only retain at depot (opportunity stations: simulate as vehicle)
+            strat.world_state.batteries = {
+                b_id: battery for b_id, battery in self.world_state.batteries.items()
+                if battery.parent == gc_id and station_type == "deps"}
+
         # prepare batteries
         for b_id, bat in self.world_state.batteries.items():
             # make note to run GC even if no vehicles are connected
@@ -67,7 +84,8 @@ class Distributed(strategy.Strategy):
                 continue
             name = f"stationary_{b_id}"
             # create new vehicle type equivalent to battery (only charging, no discharging)
-            self.virtual_vt[name] = components.VehicleType({
+            strat = self.strategies[bat.parent][1]
+            strat.world_state.vehicle_types[name] = components.VehicleType({
                 "name": name,
                 "capacity": bat.capacity,
                 "charging_curve": bat.charging_curve.points,
@@ -75,7 +93,7 @@ class Distributed(strategy.Strategy):
                 "battery_efficiency": bat.efficiency,
             })
             # set up virtual charging station
-            self.virtual_cs[name] = components.ChargingStation({
+            strat.world_state.charging_stations[name] = components.ChargingStation({
                 "parent": bat.parent,
                 "max_power": bat.charging_curve.max_power,
                 "min_power": bat.min_charging_power,
@@ -178,20 +196,19 @@ class Distributed(strategy.Strategy):
                 if cs_id and self.world_state.charging_stations[cs_id].parent == gc_id:
                     connected_vehicles[v_id] = vehicle
 
+            # set time window if needed
+            station_type, strat = self.strategies[gc_id]
+            try:
+                gc.window = util.datetime_within_time_window(
+                    self.current_time, strat.time_windows.get(gc.grid_operator), gc.voltage_level)
+            except Exception:
+                gc.window = None
+
             if connected_vehicles or self.gc_battery.get(gc_id):
                 # GC needs to be simulated
-                station_type, strat = self.strategies[gc_id]
-                # prepare new empty world state
-                new_world_state = components.Components(dict())
-                # link to vehicle_types and photovoltaics (should not change during simulation)
-                new_world_state.vehicle_types = self.world_state.vehicle_types
-                new_world_state.photovoltaics = self.world_state.photovoltaics
-                # copy reference of current GC and relevant vehicles
-                # changes during simulation reflect back to original!
-                new_world_state.grid_connectors = {gc_id: gc}
 
                 # filter future events for this GC
-                new_world_state.future_events = []
+                strat.world_state.future_events = []
                 for event in self.world_state.future_events:
                     if (
                             type(event) in [
@@ -199,23 +216,11 @@ class Distributed(strategy.Strategy):
                                 events.LocalEnergyGeneration,
                                 events.GridOperatorSignal]
                             and event.grid_connector_id == gc_id):
-                        new_world_state.future_events.append(deepcopy(event))
-
-                for v_id, vehicle in connected_vehicles.items():
-                    cs_id = vehicle.connected_charging_station
-                    cs = self.world_state.charging_stations[cs_id]
-                    new_world_state.charging_stations[cs_id] = cs
-                    new_world_state.vehicles[v_id] = vehicle
-                    for event in self.world_state.future_events:
-                        if type(event) is events.VehicleEvent and event.vehicle_id == v_id:
-                            new_world_state.future_events.append(deepcopy(event))
+                        strat.world_state.future_events.append(deepcopy(event))
 
                 # stationary batteries
                 avail_bat_power = dict()
-                if station_type == "deps":
-                    # depot: use stationary batteries according to selected strategy
-                    new_world_state.batteries = self.gc_battery.get(gc_id, {})
-                else:
+                if station_type == "opps":
                     # opportunity station:
                     # - charge according to strategy (simulate by creating equivalent vehicle)
                     # - discharge when needed power is above GC max power
@@ -226,6 +231,8 @@ class Distributed(strategy.Strategy):
                             if power < battery.min_charging_power:
                                 # below minimum (dis)charging power
                                 continue
+                            # get difference in SoC (too small changes are ignored
+                            # and would lead to difference in available battery power)
                             total_time = self.interval.total_seconds() / 3600
                             energy_delta = power / battery.efficiency * total_time
                             soc_delta = energy_delta / battery.capacity
@@ -244,14 +251,11 @@ class Distributed(strategy.Strategy):
                                 "soc": battery.soc,
                                 "desired_soc": 1,
                                 "estimated_time_of_departure": str(arrive),
-                            }, self.virtual_vt)
-                            new_world_state.vehicle_types[name] = self.virtual_vt[name]
-                            new_world_state.charging_stations[name] = self.virtual_cs[name]
-                            new_world_state.vehicles[b_id] = bat_vehicle
+                            }, strat.world_state.vehicle_types)
+                            strat.world_state.vehicles[b_id] = bat_vehicle
 
                 # update world state of strategy
                 strat.current_time = self.current_time
-                strat.world_state = new_world_state
                 # run sub-strategy
                 commands = strat.step()["commands"]
                 # update stationary batteries
@@ -275,6 +279,8 @@ class Distributed(strategy.Strategy):
                             gc.add_load(b_id, gc.current_loads.pop(name))
                             # update battery SoC
                             battery.soc = strat.world_state.vehicles[b_id].battery.soc
+                        # remove simulated battery vehicle from world state
+                        strat.world_state.vehicles.pop(b_id, None)
                 charging_stations.update(commands)
 
         # all vehicles charged
