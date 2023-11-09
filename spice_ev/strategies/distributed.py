@@ -43,9 +43,9 @@ class Distributed(strategy.Strategy):
                 assert prev_type[0] == station_type, f"Station types do not match at {cs.parent}"
                 continue
             if station_type == "deps":
-                self.strategies[cs.parent] = (station_type, self.strat_deps)
+                self.strategies[cs.parent] = (station_type, deepcopy(self.strat_deps))
             elif station_type == "opps":
-                self.strategies[cs.parent] = (station_type, self.strat_opps)
+                self.strategies[cs.parent] = (station_type, deepcopy(self.strat_opps))
             else:
                 raise Exception(f"The station {cs.parent} has no declaration such as "
                                 "'opps' or 'deps' attached. Please make sure the "
@@ -143,11 +143,13 @@ class Distributed(strategy.Strategy):
                 continue
             if event.start_time <= self.current_time + self.CHARGE_HORIZON:
                 # arrival within charging horizon
-                v_id = event.vehicle_id
-                soc = self.world_state.vehicles[v_id].battery.soc - event.update["soc_delta"]
+                vehicle = self.world_state.vehicles.get(event.vehicle_id)
+                if vehicle is None:
+                    continue
+                soc = vehicle.battery.soc - event.update["soc_delta"]
                 if soc < event.update["desired_soc"]:
                     arriving[event_cs.parent].append({
-                        "vehicle_id": v_id,
+                        "vehicle_id": event.vehicle_id,
                         "time_of_departure": event.update["estimated_time_of_departure"],
                         "soc": soc,
                         "arrived": False,
