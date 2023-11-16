@@ -16,12 +16,10 @@ class Balanced(Strategy):
         :rtype: dict
         """
         # get power that can be drawn from stationary battery in this timestep
-        avail_bat_power = {}
-        for gcID, gc in self.world_state.grid_connectors.items():
-            avail_bat_power[gcID] = 0
-            for bat in self.world_state.batteries.values():
-                if bat.parent == gcID:
-                    avail_bat_power[gcID] += bat.get_available_power(self.interval)
+        avail_bat_power = {gcID: 0 for gcID in self.world_state.grid_connectors.keys()}
+        for battery in self.world_state.batteries.values():
+            if battery.parent in avail_bat_power:
+                avail_bat_power[battery.parent] += battery.get_available_power(self.interval)
 
         # dict to hold charging commands
         charging_stations = {}
@@ -43,18 +41,16 @@ class Balanced(Strategy):
                 continue
             gc_id = cs.parent
             gc = self.world_state.grid_connectors[gc_id]
-            gc_power_left = gc.cur_max_power - gc.get_current_load()
+            gc_power_left = gc.cur_max_power - gc.get_current_load() + avail_bat_power[gc_id]
             delta_soc = vehicle.get_delta_soc()
             # initialize variables
             power = 0
-            bat_power_used = False
 
             if get_cost(1, gc.cost) <= self.PRICE_THRESHOLD:
                 # low energy price: take max available power from GC (without stationary batteries)
                 power = clamp_power(gc_power_left, vehicle, cs)
             elif delta_soc > self.EPS:
                 # vehicle needs charging: compute minimum required power
-                bat_power_used = True
                 # time until departure
                 dt = vehicle.estimated_time_of_departure - self.current_time
                 timesteps = -(dt // -self.interval)
@@ -73,10 +69,6 @@ class Balanced(Strategy):
             # add load to charging station
             charging_stations[cs_id] = gc.add_load(cs_id, avg_power)
             cs.current_power += avg_power
-
-            if bat_power_used:
-                # check for power from stationary battery
-                avail_bat_power[gc_id] = max(avail_bat_power[gc_id] - avg_power, 0)
 
             # can active charging station bear minimum load?
             assert cs.max_power >= cs.current_power - self.EPS, (
