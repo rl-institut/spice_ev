@@ -23,12 +23,10 @@ class Greedy(Strategy):
         """
 
         # get power that can be drawn from battery in this timestep at each grid connector
-        avail_bat_power = {}
-        for gcID, gc in self.world_state.grid_connectors.items():
-            avail_bat_power[gcID] = 0
-            for bat in self.world_state.batteries.values():
-                if bat.parent == gcID:
-                    avail_bat_power[gcID] += bat.get_available_power(self.interval)
+        avail_bat_power = {gcID: 0 for gcID in self.world_state.grid_connectors.keys()}
+        for battery in self.world_state.batteries.values():
+            if battery.parent in avail_bat_power:
+                avail_bat_power[battery.parent] += battery.get_available_power(self.interval)
 
         # dict to hold charging commands
         charging_stations = {}
@@ -54,7 +52,6 @@ class Greedy(Strategy):
             delta_soc = vehicle.get_delta_soc()
             # initialize variables
             power = 0
-            bat_power_used = False
             avg_power = 0
 
             if get_cost(1, gc.cost) <= self.PRICE_THRESHOLD:
@@ -69,15 +66,10 @@ class Greedy(Strategy):
                 # charge with power
                 avg_power = vehicle.battery.load(
                     self.interval, max_power=power, target_soc=vehicle.desired_soc)['avg_power']
-                bat_power_used = True
 
             # add load to charging station
             charging_stations[cs_id] = gc.add_load(cs_id, avg_power)
             cs.current_power += avg_power
-
-            if bat_power_used:
-                # check for power from stationary battery
-                avail_bat_power[gc_id] = max(avail_bat_power[gc_id] - avg_power, 0)
 
         # all vehicles charged
         charging_stations.update(self.distribute_surplus_power())
