@@ -11,6 +11,7 @@ class Greedy(Strategy):
     """
 
     def __init__(self, components, start_time, **kwargs):
+        self.greedy_battery = False
         super().__init__(components, start_time, **kwargs)
         self.description = "greedy"
 
@@ -80,6 +81,21 @@ class Greedy(Strategy):
 
         # all vehicles charged
         charging_stations.update(self.distribute_surplus_power())
-        self.update_batteries()
+        if self.greedy_battery:
+            # use remaining power to charge batteries
+            for b_id, battery in self.world_state.batteries.items():
+                gc = self.world_state.grid_connectors[battery.parent]
+                gc_power_left = gc.cur_max_power - gc.get_current_load()
+                p = 0
+                if gc_power_left > battery.min_charging_power:
+                    # GC power below max power: charge battery
+                    p = battery.load(self.interval, target_power=gc_power_left)['avg_power']
+                elif gc_power_left < 0:
+                    # GC draws power: support with battery
+                    p = -battery.unload(self.interval, target_power=-gc_power_left)['avg_power']
+                gc.add_load(b_id, p)
+        else:
+            # normal charging (charge if cheap/surplus, otherwise support GC)
+            self.update_batteries()
 
         return {'current_time': self.current_time, 'commands': charging_stations}
