@@ -76,9 +76,10 @@ class PeakShaving(Strategy):
                 })
 
         gc_info = {
-            "max_power": gc.cur_max_power,
-            "cur_power": 0,  # gc.get_current_load(),
             "vehicles": vehicles_present,
+            "max_power": gc.cur_max_power,
+            "cur_power": gc.get_current_load(),
+            "fixed_load": gc.get_current_load(),
         }
         cur_loads = deepcopy(gc.current_loads)
         cur_time = self.current_time - self.interval
@@ -158,6 +159,7 @@ class PeakShaving(Strategy):
                             })
 
             gc_info["cur_power"] = sum(cur_loads.values())
+            gc_info["fixed_load"] = sum(cur_loads.values())
             timesteps.append(deepcopy(gc_info))
 
         charging_stations = {}
@@ -224,7 +226,13 @@ class PeakShaving(Strategy):
             # charge when below target power, discharge when above
             # increase target power when there is any load above
             # decrease target power if all loads are at or below
-            power_levels = [ts["cur_power"] for ts in timesteps]
+            # problem: closer to horizon, charging prediction becomes flawed (may still change)
+            # => reduce influence of charging prediction the further it is from now
+            # formula: 100% accurate until 2/3 from now, 0% accurate at horizon, linear in-between
+            power_levels = [0]*timesteps_ahead
+            for i, ts in enumerate(timesteps):
+                f = min(1, 3*(1-i/timesteps_ahead))
+                power_levels[i] = f*ts["cur_power"] + (1-f)*ts["fixed_load"]
             max_power = max(power_levels + [0])
             min_power = battery.unloading_curve.max_power * battery.efficiency
             min_power = max(max_power - min_power, 0)

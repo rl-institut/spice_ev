@@ -336,7 +336,7 @@ class TestScenarios(TestCaseBase):
         assert round(s.testing["avg_flex_per_window"]["GC1"][0], 2) == 368.57
         assert round(s.testing["avg_flex_per_window"]["GC1"][3], 2) == 375.71
         assert round(s.testing["sum_energy_per_window"]["GC1"][0], 2) == 0.21
-        assert round(s.testing["sum_energy_per_window"]["GC1"][3], 2) == 0.07
+        assert round(s.testing["sum_energy_per_window"]["GC1"][3], 2) == 0.04
         load = [0] * 96
         for key, values in s.testing["timeseries"]["loads"]["GC1"].items():
             load = [a + b for a, b in zip(load, values)]
