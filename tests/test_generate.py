@@ -21,7 +21,6 @@ ARG_VALUES1 = {
     "start_time": '2023-01-01T00:15:00+00:00',
     "no_drive_days": [6],
     "vehicle_types": str(TEST_REPO_PATH / "test_data/input_test_generate/vehicle_types.json"),
-    "discharge_limit": 0.5,
     "cs_power_min": 0,
     "export_vehicle_id_csv": None,
     "seed": None,

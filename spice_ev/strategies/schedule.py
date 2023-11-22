@@ -21,7 +21,6 @@ class Schedule(Strategy):
         self.ITERATIONS = 12
 
         super().__init__(components, start_time, **kwargs)
-        self.TS_per_hour = (timedelta(hours=1) / self.interval)
 
         self.description = "schedule ({})".format(self.LOAD_STRAT)
         self.uses_schedule = True
@@ -198,7 +197,7 @@ class Schedule(Strategy):
 
         # power from local generation and grid power available for vehicles
         self.energy_available_for_vehicles_on_schedule = sum([
-            power / self.TS_per_hour
+            power / self.ts_per_hour
             for power in self.power_for_vehicles_per_TS if power > self.EPS
         ])
 
@@ -247,7 +246,7 @@ class Schedule(Strategy):
             bat_energy_for_vehicles = min(missing_energy, total_energy_batteries)
         else:
             bat_energy_for_vehicles = 0
-        self.bat_power_for_vehicles = (bat_energy_for_vehicles * self.TS_per_hour
+        self.bat_power_for_vehicles = (bat_energy_for_vehicles * self.ts_per_hour
                                        / TS_to_end_core_standing_time)
 
         self.currently_in_core_standing_time = True
@@ -302,7 +301,7 @@ class Schedule(Strategy):
             # charge according to schedule
             try:
                 # fraction of energy distributed in this timestep
-                fraction = (power_to_charge_vehicles / self.TS_per_hour
+                fraction = (power_to_charge_vehicles / self.ts_per_hour
                             / self.energy_available_for_vehicles_on_schedule)
             except ZeroDivisionError:
                 # energy available for charging vehicles might be zero
@@ -316,7 +315,7 @@ class Schedule(Strategy):
             # reality check: Can the batteries provide as much energy as we expect them to?
             total_bat_power_remaining = sum(
                 [b.get_available_power(self.interval) for b in self.world_state.batteries.values()]
-                ) / self.TS_per_hour
+                ) / self.ts_per_hour
             available_bat_power_for_current_TS = min(
                 self.bat_power_for_vehicles, total_bat_power_remaining)
             remaining_power_on_schedule = (gc.target - gc.get_current_load()
@@ -336,7 +335,7 @@ class Schedule(Strategy):
                 cs = self.world_state.charging_stations[cs_id]
 
                 #  boundaries of charging process
-                power_alloc_for_vehicle = fraction * energy_needed * self.TS_per_hour + extra_power
+                power_alloc_for_vehicle = fraction * energy_needed * self.ts_per_hour + extra_power
                 # clamp allocated power to possible ranges
                 power = min(remaining_power_on_schedule, power_alloc_for_vehicle)
                 power = clamp_power(power, vehicle, cs)
@@ -431,7 +430,7 @@ class Schedule(Strategy):
                 duration_current_window = len(self.charge_window)
 
             if not charge_now and window_change >= 1:
-                min_soc = self.DISCHARGE_LIMIT
+                min_soc = vehicle.vehicle_type.discharge_limit
                 max_soc = 1
                 while max_soc - min_soc > self.EPS:
                     discharge_limit = (max_soc + min_soc) / 2

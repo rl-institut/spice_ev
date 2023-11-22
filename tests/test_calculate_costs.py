@@ -103,8 +103,8 @@ class TestSimulationCosts:
 
         scenarios = {
             "scenario_A.json": [2522.67, 776.54, 65.7, 799.38, 881.06, 0.0],
-            "scenario_B.json": [102.01, 7.57, 65.7, 7.79, 20.94, 0.0],
-            "scenario_C1.json": [102.01, 7.57, 65.7, 7.79, 20.94, 0.0],
+            "scenario_B.json": [99.63, 6.81, 65.7, 7.01, 20.1, 0.0],
+            "scenario_C1.json": [99.63, 6.81, 65.7, 7.01, 20.1, 0.0],
             "scenario_C2.json": [2792.23, 862.17, 65.7, 887.53, 976.85, 0.0],
             "scenario_C3.json": [1887.55, 574.78, 65.7, 591.68, 655.39, 0.0],
             "scenario_PV_Bat.json": [-2166.39, 0.0, 65.7, 0.0, 12.48, 2244.58],
@@ -128,8 +128,8 @@ class TestSimulationCosts:
             result = cc.calculate_costs("greedy", "MV", s.interval, *timeseries_lists,
                                         str(price_sheet_path), grid_operator, None, pv)
 
-            for i, value in enumerate(result.values()):
-                assert value == expected[i]
+            for i, (key, value) in enumerate(result.items()):
+                assert value == expected[i], f"{scenario_name}: {key} differs"
 
     def test_calculate_costs_balanced_A(self):
         scen_path = TEST_REPO_PATH / 'test_data/input_test_strategies/scenario_A.json'

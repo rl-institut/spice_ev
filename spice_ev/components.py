@@ -193,6 +193,7 @@ class VehicleType:
             ('battery_efficiency', float, 0.95),
             ('v2g', bool, False),
             ('v2g_power_factor', float, 0.5),
+            ('discharge_limit', float, 0.5),
             ('discharge_curve', loading_curve.LoadingCurve, None),
             ('loss_rate', float, 0),
         ]

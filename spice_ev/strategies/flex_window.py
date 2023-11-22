@@ -358,7 +358,7 @@ class FlexWindow(Strategy):
 
             # check if vehicle ends up with desired soc, adjust min_soc accordingly
             if not cur_window and window_change >= 1:
-                min_soc = self.DISCHARGE_LIMIT
+                min_soc = vehicle.vehicle_type.discharge_limit
                 max_soc = 1
                 while max_soc - min_soc > self.EPS:
                     discharge_limit = (max_soc + min_soc) / 2
@@ -723,7 +723,7 @@ class FlexWindow(Strategy):
 
             # check if vehicle ends up with desired soc, adjust min_soc accordingly
             if not cur_window and window_change >= 1:
-                min_soc = self.DISCHARGE_LIMIT
+                min_soc = sim_vehicle.vehicle_type.discharge_limit
                 max_soc = 1
                 while max_soc - min_soc > self.EPS:
                     discharge_limit = (max_soc + min_soc) / 2

@@ -17,7 +17,7 @@ class PeakLoadWindow(Strategy):
         self.time_windows = None
         super().__init__(components, start_time, **kwargs)
 
-        self.description = "Peak Load Window"
+        self.description = "peak load window"
         self.uses_window = True
 
         if self.time_windows is None:

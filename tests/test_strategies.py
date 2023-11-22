@@ -336,7 +336,7 @@ class TestScenarios(TestCaseBase):
         assert round(s.testing["avg_flex_per_window"]["GC1"][0], 2) == 368.57
         assert round(s.testing["avg_flex_per_window"]["GC1"][3], 2) == 375.71
         assert round(s.testing["sum_energy_per_window"]["GC1"][0], 2) == 0.21
-        assert round(s.testing["sum_energy_per_window"]["GC1"][3], 2) == 0.07
+        assert round(s.testing["sum_energy_per_window"]["GC1"][3], 2) == 0.04
         load = [0] * 96
         for key, values in s.testing["timeseries"]["loads"]["GC1"].items():
             load = [a + b for a, b in zip(load, values)]
@@ -401,9 +401,11 @@ class TestScenarios(TestCaseBase):
         input = TEST_REPO_PATH / 'test_data/input_test_strategies/scenario_C3.json'
         s = scenario.Scenario(load_json(input), input.parent)
         s.run('distributed', {"testing": True})
-        # GC power must always be max (use battery)
+        # GC power must have reached maximum
+        assert pytest.approx(s.testing["max_total_load"]) == 5
+        # GC power must always be max or zero
         for load in s.testing["timeseries"]["total_load"]:
-            assert pytest.approx(load) == pytest.approx(s.testing["max_total_load"]) == 5
+            assert pytest.approx(load) == 0 or pytest.approx(load) == 5
         cs = s.testing["timeseries"]["sum_cs"]
         cs_1 = [x for x in cs if x[0] != 0]
         cs_2 = [x for x in cs if x[1] != 0]
@@ -412,7 +414,7 @@ class TestScenarios(TestCaseBase):
         assert [x[0] == 0 for x in cs_2]
         # assert that vehicles are charged balanced
         assert len(set([round(x[0], 2) for x in cs_1])) == 1
-        assert len(set([round(x[1], 2) for x in cs_2])) == 1
+        # not enough power for both vehicles and battery won't support in depot
 
     def test_distributed_C3_outputs(self, tmp_path):
         input = TEST_REPO_PATH / 'test_data/input_test_strategies/scenario_C3.json'

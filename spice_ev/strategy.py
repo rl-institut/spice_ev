@@ -7,6 +7,11 @@ from warnings import warn
 from spice_ev import events
 from spice_ev.util import get_cost, clamp_power
 
+STRATEGIES = [
+    'greedy', 'balanced', 'balanced_market', 'distributed',
+    'peak_load_window', 'peak_shaving', 'flex_window', 'schedule'
+]
+
 
 def class_from_str(strategy_name):
     import_name = strategy_name.lower()
@@ -33,7 +38,7 @@ class Strategy():
         self.world_state = deepcopy(components)
         self.world_state.future_events = []
         self.interval = kwargs.get('interval')  # required
-        self.ts_per_hour = self.interval / timedelta(minutes=60)
+        self.ts_per_hour = timedelta(hours=1) / self.interval
         self.current_time = start_time - self.interval
         # relative allowed difference between battery SoC and desired SoC when leaving
         self.margin = 0.1
@@ -207,13 +212,15 @@ class Strategy():
                 avg_power = vehicle.battery.load(self.interval, max_power=power)['avg_power']
                 commands[cs_id] = gc.add_load(cs_id, avg_power)
                 cs.current_power += avg_power
-            elif (vehicle.get_delta_soc() < -self.EPS
+            elif (gc_surplus < -self.EPS
+                    and vehicle.get_delta_soc() < -self.EPS
                     and vehicle.vehicle_type.v2g
-                    and cs.current_power < self.EPS
+                    and gc.current_loads.get(cs_id, 0) < self.EPS
                     and not gc_cheap[cs.parent]):
-                # GC draws power, surplus in vehicle and V2G capable: support GC
+                # GC draws power, surplus in vehicle,
+                # not currently charging and V2G capable: support GC
                 discharge_power = min(-gc_surplus, vehicle.battery.unloading_curve.max_power)
-                target_soc = max(vehicle.desired_soc, self.DISCHARGE_LIMIT)
+                target_soc = max(vehicle.desired_soc, vehicle.vehicle_type.discharge_limit)
                 avg_power = vehicle.battery.unload(
                     self.interval, max_power=discharge_power, target_soc=target_soc)['avg_power']
                 commands[cs_id] = gc.add_load(cs_id, -avg_power)
