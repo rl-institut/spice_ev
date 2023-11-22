@@ -138,7 +138,7 @@ class EnergyValuesList:
 
         eventlist = []
         time_delta = datetime.timedelta(seconds=self.step_duration_s)
-        for idx, value in enumerate(self.values):
+        for idx, value in enumerate(self.values + [0]):
             idx_time = self.start_time + time_delta * idx
             eventlist.append(value_class({
                 "signal_time": self.start_time if has_perfect_foresight else idx_time,
