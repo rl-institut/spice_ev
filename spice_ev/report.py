@@ -708,7 +708,7 @@ def plot(scenario, gc_id=None, show=False, file_name=None):
         ax.set_prop_cycle(None)
 
         ax.plot(xlabels, scenario.disconnect, '--')
-        if len(scenario.components.vehicles) <= 10:
+        if 0 < len(scenario.components.vehicles) <= 10:
             ax.legend(lines, sorted(scenario.components.vehicles.keys()))
 
     # plot charging stations
@@ -716,13 +716,16 @@ def plot(scenario, gc_id=None, show=False, file_name=None):
     ax.set_title('Charging Stations')
     ax.set(ylabel='Power in kW')
     if gc_id:
+        cs_present = False
         for cs in sorted(scenario.components.charging_stations.keys()):
             if scenario.components.charging_stations[cs].parent == gc_id:
                 ax.step(xlabels, [r["commands"].get(cs, 0) for r in scenario.results], label=cs)
-        ax.legend()
+                cs_present = True
+        if cs_present:
+            ax.legend()
     else:
         lines = ax.step(xlabels, scenario.sum_cs, where='post')
-        if len(scenario.components.charging_stations) <= 10:
+        if 0 < len(scenario.components.charging_stations) <= 10:
             ax.legend(lines, sorted(scenario.components.charging_stations.keys()))
 
     # plot all power sources
@@ -735,11 +738,12 @@ def plot(scenario, gc_id=None, show=False, file_name=None):
     ax.step(xlabels, values, label="Charging Stations", where='post')
     # batteries
     batteries = {b_id: b for b_id, b in scenario.components.batteries.items()
-                 if gc_id is None or b.parent == gc_id}
+                 if (gc_id is None or b.parent == gc_id) and b.parent in scenario.fixedLoads}
     if batteries:
-        bat_power = [0]*len(xlabels)
+        bat_power = [0]*scenario.step_i
         for b_id, battery in batteries.items():
-            bat_power = [sum(v) for v in zip(bat_power, scenario.loads[battery.parent][b_id])]
+            for i in range(scenario.step_i):
+                bat_power[i] += scenario.fixedLoads[battery.parent][i].get(b_id, 0)
         ax.step(xlabels, bat_power, label="Batteries", where='post')
 
     # fixed loads (scenario.fixedLoads includes batteries and local generation!)
@@ -773,11 +777,12 @@ def plot(scenario, gc_id=None, show=False, file_name=None):
         ax.step(xlabels, schedule, label="Schedule", where='post')
 
     # total power
-    if gc_id:
-        total_loads = scenario.totalLoad[gc_id]
-    else:
-        total_loads = [sum(v) for v in zip(*scenario.totalLoad.values())]
-    ax.step(xlabels, total_loads, label="Total", where='post')
+    if scenario.totalLoad:
+        if gc_id:
+            total_loads = scenario.totalLoad[gc_id]
+        else:
+            total_loads = [sum(v) for v in zip(*scenario.totalLoad.values())]
+        ax.step(xlabels, total_loads, label="Total", where='post')
 
     # time windows
     if scenario.strat.uses_window:
@@ -834,13 +839,14 @@ def plot(scenario, gc_id=None, show=False, file_name=None):
 
     # plot prices
     ax = plt.subplot(2, 2, 4)
-    if gc_id:
-        prices = scenario.prices[gc_id]
-    else:
-        prices = list(zip(*scenario.prices.values()))
-    lines = ax.step(xlabels, prices, where='post')
-    ax.set_title('Price')
-    ax.set(ylabel='Price in €/kWh')
+    if scenario.prices:
+        if gc_id:
+            prices = scenario.prices[gc_id]
+        else:
+            prices = list(zip(*scenario.prices.values()))
+        lines = ax.step(xlabels, prices, where='post')
+        ax.set_title('Price')
+        ax.set(ylabel='Price in €/kWh')
 
     # figure title
     fig = plt.gcf()
@@ -854,6 +860,7 @@ def plot(scenario, gc_id=None, show=False, file_name=None):
 
     plt.subplots_adjust(hspace=0.5)
     if file_name:
+        plt.gcf().set_size_inches(10, 10)
         plt.savefig(file_name)
     if show:
         plt.show()
@@ -936,6 +943,9 @@ def generate_reports(scenario, options):
                 for row in agg_ts["timeseries"]:
                     timeseries_file.write('\n' + ','.join(map(lambda x: str(x), row)))
         if save_plots:
+            # create directory if necessary
+            Path(save_plots).parent.mkdir(parents=True, exist_ok=True)
+            # prepare file name
             file_name = str(save_plots)
             gc_id = util.sanitize(gcID)
             if file_name.find('%gc') >= 0:
