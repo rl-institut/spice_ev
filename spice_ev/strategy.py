@@ -95,17 +95,24 @@ class Strategy():
             ev = self.world_state.future_events.pop(0)
 
             if type(ev) is events.FixedLoad:
-                connector = self.world_state.grid_connectors[ev.grid_connector_id]
+                connector = self.world_state.grid_connectors.get(ev.grid_connector_id)
+                if connector is None:
+                    continue
                 assert ev.name not in self.world_state.charging_stations, (
                     "Fixed load must not be from charging station")
                 connector.current_loads[ev.name] = ev.value  # not reset after last event
             elif type(ev) is events.LocalEnergyGeneration:
                 assert ev.name not in self.world_state.charging_stations, (
                     "Local energy generation must not be from charging station")
-                connector = self.world_state.grid_connectors[ev.grid_connector_id]
+                connector = self.world_state.grid_connectors.get(ev.grid_connector_id)
+                if connector is None:
+                    continue
                 connector.current_loads[ev.name] = -ev.value
             elif type(ev) is events.GridOperatorSignal:
-                connector = self.world_state.grid_connectors[ev.grid_connector_id]
+                connector = self.world_state.grid_connectors.get(ev.grid_connector_id)
+                if connector is None:
+                    # unknown grid connector
+                    continue
                 if ev.cost is not None:
                     # set power cost
                     connector.cost = ev.cost
@@ -233,7 +240,9 @@ class Strategy():
             gc_id: get_cost(1, gc.cost) <= self.PRICE_THRESHOLD
             for gc_id, gc in self.world_state.grid_connectors.items()}
         for b_id, battery in self.world_state.batteries.items():
-            gc = self.world_state.grid_connectors[battery.parent]
+            gc = self.world_state.grid_connectors.get(battery.parent)
+            if gc is None:
+                continue
             gc_current_load = gc.get_current_load()
             if gc_cheap[battery.parent]:
                 # low price: charge with full power
