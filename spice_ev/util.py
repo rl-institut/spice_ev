@@ -33,6 +33,10 @@ def datetime_within_time_window(dt, time_windows, voltage_level):
     :return: is datetime within time window?
     :rtype: bool
     """
+    if time_windows is None:
+        return None
+    if voltage_level is None:
+        return None
     for season in time_windows.values():
         if season["start"] <= dt.date() <= season["end"]:
             # same season: check times of voltage level

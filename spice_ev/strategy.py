@@ -37,6 +37,8 @@ class Strategy():
 
         self.world_state = deepcopy(components)
         self.world_state.future_events = []
+        # perfect foresight for grid situation and vehicle events
+        self.perfect_foresight = False
         self.interval = kwargs.get('interval')  # required
         self.ts_per_hour = timedelta(hours=1) / self.interval
         self.current_time = start_time - self.interval
@@ -210,7 +212,9 @@ class Strategy():
             cs_id = vehicle.connected_charging_station
             if cs_id is None:
                 continue
-            cs = self.world_state.charging_stations[cs_id]
+            cs = self.world_state.charging_stations.get(cs_id)
+            if cs is None:
+                continue
             gc = self.world_state.grid_connectors[cs.parent]
             gc_surplus = -gc.get_current_load()
             if gc_surplus > self.EPS:

@@ -11,7 +11,6 @@ class PeakShaving(Strategy):
     """
     def __init__(self, components, start_time, **kwargs):
         self.HORIZON = 24  # look ahead for GC events in hours
-        self.perfect_foresight = True  # perfect foresight for grid situation and vehicle events
         super().__init__(components, start_time, **kwargs)
         self.HORIZON = dt.timedelta(hours=self.HORIZON)
         self.description = "Peak Shaving"
@@ -62,8 +61,8 @@ class PeakShaving(Strategy):
             cs_id = v.connected_charging_station
             if cs_id is None:
                 continue
-            cs = self.world_state.charging_stations[cs_id]
-            if cs.parent == gc_id:
+            cs = self.world_state.charging_stations.get(cs_id)
+            if cs is not None and cs.parent == gc_id:
                 vehicles_present[vid] = len(vehicle_arrivals)
                 depart_idx = None
                 if v.estimated_time_of_departure is not None:
@@ -142,8 +141,8 @@ class PeakShaving(Strategy):
                         vehicle.estimated_time_of_departure = event.update[
                             "estimated_time_of_departure"]
                         vehicle.connected_charging_station = cs_id
-                        cs = self.world_state.charging_stations[cs_id]
-                        if cs.parent == gc_id:
+                        cs = self.world_state.charging_stations.get(cs_id)
+                        if cs is not None and cs.parent == gc_id:
                             assert vid not in gc_info["vehicles"], (
                                 f"{vid} already standing at {event.start_time} "
                                 f"({gc_info['vehicles'][vid]} / {timestep_idx})")

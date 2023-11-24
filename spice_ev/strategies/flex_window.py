@@ -12,7 +12,6 @@ class FlexWindow(Strategy):
         self.LOAD_STRAT = "balanced"  # greedy, needy, balanced
 
         super().__init__(components, start_time, **kwargs)
-        assert (len(self.world_state.grid_connectors) == 1), "Only one grid connector supported"
         self.description = "Flex Window ({}, {} hour horizon)".format(
             self.LOAD_STRAT, self.HORIZON)
         self.uses_window = True
@@ -39,7 +38,7 @@ class FlexWindow(Strategy):
         :return: current time and commands of the charging stations
         :rtype: dict
         """
-
+        assert (len(self.world_state.grid_connectors) == 1), "Only one grid connector supported"
         gc = list(self.world_state.grid_connectors.values())[0]
 
         # reset charging station power (nothing charged yet in this timestep)
@@ -159,7 +158,9 @@ class FlexWindow(Strategy):
 
         for vehicle in vehicles:
             cs_id = vehicle.connected_charging_station
-            cs = self.world_state.charging_stations[cs_id]
+            cs = self.world_state.charging_stations.get(cs_id)
+            if cs is None:
+                continue
             sim_vehicle = deepcopy(vehicle)
             # simple case: charge balanced during windows
             # try to charge with full power
@@ -337,7 +338,9 @@ class FlexWindow(Strategy):
 
         for vehicle in vehicles:
             cs_id = vehicle.connected_charging_station
-            cs = self.world_state.charging_stations[cs_id]
+            cs = self.world_state.charging_stations.get(cs_id)
+            if cs is None:
+                continue
             sim_vehicle = deepcopy(vehicle)
             cur_time = self.current_time - self.interval
             max_discharge_power = sim_vehicle.battery.unloading_curve.max_power
@@ -703,7 +706,9 @@ class FlexWindow(Strategy):
         for vehicle in vehicles:
             sim_vehicle = deepcopy(vehicle)
             cs_id = sim_vehicle.connected_charging_station
-            cs = self.world_state.charging_stations[cs_id]
+            cs = self.world_state.charging_stations.get(cs_id)
+            if cs is None:
+                continue
             max_discharge_power = sim_vehicle.battery.unloading_curve.max_power
 
             # check if vehicles can be loaded until desired_soc in connected timesteps
@@ -862,7 +867,9 @@ class FlexWindow(Strategy):
             return {}
         for v in vehicles:
             cs_id = v.connected_charging_station
-            cs = self.world_state.charging_stations[cs_id]
+            cs = self.world_state.charging_stations.get(cs_id)
+            if cs is None:
+                continue
             if self.LOAD_STRAT == "greedy":
                 power = total_power
             elif self.LOAD_STRAT == "needy":
@@ -910,7 +917,9 @@ class FlexWindow(Strategy):
             cs_id = vehicle.connected_charging_station
             if cs_id is None:
                 continue
-            cs = self.world_state.charging_stations[cs_id]
+            cs = self.world_state.charging_stations.get(cs_id)
+            if cs is None:
+                continue
             gc = self.world_state.grid_connectors[cs.parent]
             gc_surplus = -gc.get_current_load()
             # surplus power
