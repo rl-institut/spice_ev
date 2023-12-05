@@ -2,7 +2,8 @@
   "scenario": {
     "start_time": "2021-09-17T00:00:00",
     "interval": 15,
-    "n_intervals": 1345
+    "n_intervals": 1345,
+    "holidays": []
   },
   "components": {
     "vehicle_types": {

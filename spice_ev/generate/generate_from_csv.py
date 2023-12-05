@@ -300,6 +300,7 @@ def generate_from_csv(args):
             "start_time": start.isoformat(),
             "interval": interval.total_seconds() // 60,
             "stop_time": stop.isoformat(),
+            "holidays": vars(args).get("holidays", []),
         },
         "components": {
             "vehicle_types": vehicle_types,

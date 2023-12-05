@@ -25,6 +25,11 @@ class PeakLoadWindow(Strategy):
         with open(self.time_windows, 'r') as f:
             self.time_windows = json.load(f)
 
+        # get holidays from time windows and scenario
+        holidays = self.time_windows.pop("holidays", [])
+        holidays += kwargs.get('holiday', [])
+        self.holidays = [datetime.date.fromisoformat(date) for date in holidays]
+
         # check time windows
         # start year in time windows?
         years = set()
@@ -96,6 +101,13 @@ class PeakLoadWindow(Strategy):
             elif event.event_type == "departure":
                 stop_time = max(stop_time, event.start_time)
 
+        # check if holidays are within scenario range
+        filtered_holidays = [
+            d for d in self.holidays if start_time.date() <= d <= stop_time.date()]
+        if filtered_holidays != self.holidays:
+            warnings.warn(f"{len(self.holidays) - len(filtered_holidays)} holidays ignored")
+            self.holidays = filtered_holidays
+
         # restructure events (like event_steps): list with events for each timestep
         # also, find highest peak of GC power within time windows
         self.events = []
@@ -130,10 +142,8 @@ class PeakLoadWindow(Strategy):
             # end of events for this timestep
             # update peak power
             for gc_id, gc in gcs.items():
-                is_window = util.datetime_within_time_window(
-                    cur_time, self.time_windows[gc.grid_operator], gc.voltage_level)
                 gc_sum_loads = sum(current_loads[gc_id].values())
-                if is_window and gc_sum_loads > peak_power[gc_id]:
+                if self.within_window(gc, cur_time) and gc_sum_loads > peak_power[gc_id]:
                     # new peak power
                     peak_power[gc_id] = gc_sum_loads
                     peak_time[gc_id] = cur_time
@@ -143,6 +153,11 @@ class PeakLoadWindow(Strategy):
             if t > self.stop_time:
                 warnings.warn(f"Peak power of {peak_power[gc_id]} kW at {gc_id} "
                               f"is not within simulation time, but at {t}")
+
+    def within_window(self, gc, dt):
+        return util.datetime_within_time_window(
+            dt, self.time_windows[gc.grid_operator], gc.voltage_level
+        ) and util.is_workday(dt, self.holidays)
 
     def step(self):
         """ Calculate charging power in each timestep.
@@ -192,16 +207,12 @@ class PeakLoadWindow(Strategy):
         stationary_batteries = {
             bid: b for bid, b in self.world_state.batteries.items() if b.parent == gc_id}
 
-        def within_window(dt):
-            return util.datetime_within_time_window(
-                dt, self.time_windows[gc.grid_operator], gc.voltage_level)
-
-        gc.window = within_window(self.current_time)
+        gc.window = self.within_window(gc, self.current_time)
         if stationary_batteries:
             # stat. batteries present: find next change of time window (or end of scenario)
             cur_time = self.current_time + self.interval
             ts_until_window_change = 1
-            while within_window(cur_time) == gc.window and cur_time <= self.stop_time:
+            while self.within_window(gc, cur_time) == gc.window and cur_time <= self.stop_time:
                 cur_time += self.interval
                 ts_until_window_change += 1
             if gc.window:
@@ -231,13 +242,10 @@ class PeakLoadWindow(Strategy):
                 {
                     "power": sum(cur_loads.values()),
                     "max_power": cur_max_power,
-                    "window": util.datetime_within_time_window(
-                        cur_time, self.time_windows[gc.grid_operator], gc.voltage_level)
+                    "window": self.within_window(gc, cur_time),
                 }
             )
 
-        gc.window = util.datetime_within_time_window(
-            self.current_time, self.time_windows[gc.grid_operator], gc.voltage_level)
         peak_power = self.peak_power[gc_id]
 
         # sort vehicles by length of standing time

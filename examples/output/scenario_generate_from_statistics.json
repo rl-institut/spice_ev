@@ -2,7 +2,10 @@
   "scenario": {
     "start_time": "2023-01-01T00:00:00+02:00",
     "interval": 15.0,
-    "stop_time": "2023-01-08T00:00:00+02:00"
+    "stop_time": "2023-01-08T00:00:00+02:00",
+    "holidays": [
+      "2023-01-01"
+    ]
   },
   "components": {
     "vehicle_types": {
