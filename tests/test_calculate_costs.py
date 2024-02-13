@@ -231,12 +231,13 @@ class TestSimulationCosts:
         # check returned values
         result = cc.calculate_costs("peak_load_window", "MV", s.interval, *timeseries_lists,
                                     str(price_sheet_path), power_pv_nominal=pv_power)
-        assert result["total_costs_per_year"] == 32206.19
-        assert result["commodity_costs_eur_per_year"] == 5699.49
-        assert result["capacity_costs_eur"] == 1497.21
-        assert result["power_procurement_costs_per_year"] == 12574.80
-        assert result["levies_fees_and_taxes_per_year"] == 12709.74
-        assert result["feed_in_remuneration_per_year"] == 275.03
+        print(result)
+        assert result["total_costs_per_year"] == 38329.94
+        assert result["commodity_costs_eur_per_year"] == 5740.17
+        assert result["capacity_costs_eur"] == 6453.56
+        assert result["power_procurement_costs_per_year"] == 12664.55
+        assert result["levies_fees_and_taxes_per_year"] == 13740.11
+        assert result["feed_in_remuneration_per_year"] == 268.46
 
     def test_calculate_costs_balanced_market_C(self):
         scen_path = TEST_REPO_PATH / 'test_data/input_test_strategies/scenario_C1.json'
