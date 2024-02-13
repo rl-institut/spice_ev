@@ -159,12 +159,17 @@ class PeakLoadWindow(Strategy):
                 warnings.warn(f"Peak power of {peak_power[gc_id]} kW at {gc_id} "
                               f"is not within simulation time, but at {t}")
 
-    def step(self):
+    def step(self, events=None):
         """ Calculate charging power in each timestep.
 
+        :param events: pass-through for Strategy
+        :type events: event list
         :return: current time and commands of the charging stations
         :rtype: dict
         """
+        if events is not None:
+            # pass-through from FlexWindow
+            return super().step(events)
         commands = dict()
         # ignore current events
         self.events = self.events[1:]

@@ -203,11 +203,11 @@ class TestSimulationCosts:
         # check returned values
         result = cc.calculate_costs("flex_window", "MV", s.interval, *timeseries_lists,
                                     str(price_sheet_path), grid_operator, None, pv)
-        assert result["total_costs_per_year"] == 3932.83
-        assert result["commodity_costs_eur_per_year"] == 279.44
-        assert result["capacity_costs_eur"] == 1543.08
-        assert result["power_procurement_costs_per_year"] == 927.46
-        assert result["levies_fees_and_taxes_per_year"] == 1182.84
+        assert result["total_costs_per_year"] == 7500.16
+        assert result["commodity_costs_eur_per_year"] == 944.18
+        assert result["capacity_costs_eur"] == 349.86
+        assert result["power_procurement_costs_per_year"] == 3133.69
+        assert result["levies_fees_and_taxes_per_year"] == 3072.43
         assert result["feed_in_remuneration_per_year"] == 0
 
     def test_peak_load_window_C1(self):
