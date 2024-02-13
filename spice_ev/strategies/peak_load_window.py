@@ -21,57 +21,58 @@ class PeakLoadWindow(Strategy):
         self.uses_window = True
 
         if self.time_windows is None:
-            raise Exception("Need time windows for Peak Load Window strategy")
-        with open(self.time_windows, 'r') as f:
-            self.time_windows = json.load(f)
+            print("No time window file given, using flex windows from scenario.")
+        else:
+            # fixed time windows file given: read in and prepare
+            with open(self.time_windows, 'r', encoding='utf-8') as f:
+                self.time_windows = json.load(f)
 
-        # check time windows
-        # start year in time windows?
-        years = set()
-        for grid_operator in self.time_windows.values():
-            for window in grid_operator.values():
-                years.add(int(window["start"][:4]))
-        assert len(years) > 0, "No time windows given"
-        # has the scenario year to be replaced because it is not in time windows?
-        replace_year = start_time.year not in years
-        if replace_year:
-            replace_year = start_time.year
-            old_year = sorted(years)[0]
-            warnings.warn("Time windows do not include scenario year,"
-                          f"replacing {old_year} with {replace_year}")
-        # cast strings to dates/times, maybe replacing year
-        grid_operator = None
-        for grid_operator, grid_operator_seasons in self.time_windows.items():
-            for season, info in grid_operator_seasons.items():
-                start_date = datetime.date.fromisoformat(info["start"])
-                if replace_year and start_date.year == old_year:
-                    start_date = start_date.replace(year=replace_year)
-                info["start"] = start_date
-                end_date = datetime.date.fromisoformat(info["end"])
-                if replace_year and end_date.year == old_year:
-                    end_date = end_date.replace(year=replace_year)
-                info["end"] = end_date
-                for level, windows in info.get("windows", {}).items():
-                    # cast times to datetime.time, store as tuples
-                    info["windows"][level] = [
-                        (datetime.time.fromisoformat(t[0]), datetime.time.fromisoformat(t[1]))
-                        for t in windows]
-                self.time_windows[grid_operator][season] = info
+            # check time windows
+            # start year in time windows?
+            years = set()
+            for grid_operator in self.time_windows.values():
+                for window in grid_operator.values():
+                    years.add(int(window["start"][:4]))
+            assert len(years) > 0, "No time windows given"
+            # has the scenario year to be replaced because it is not in time windows?
+            replace_year = start_time.year not in years
+            if replace_year:
+                replace_year = start_time.year
+                old_year = sorted(years)[0]
+                warnings.warn("Time windows do not include scenario year,"
+                              f"replacing {old_year} with {replace_year}")
+            # cast strings to dates/times, maybe replacing year
+            grid_operator = None
+            for grid_operator, grid_operator_seasons in self.time_windows.items():
+                for season, info in grid_operator_seasons.items():
+                    start_date = datetime.date.fromisoformat(info["start"])
+                    if replace_year and start_date.year == old_year:
+                        start_date = start_date.replace(year=replace_year)
+                    info["start"] = start_date
+                    end_date = datetime.date.fromisoformat(info["end"])
+                    if replace_year and end_date.year == old_year:
+                        end_date = end_date.replace(year=replace_year)
+                    info["end"] = end_date
+                    for level, windows in info.get("windows", {}).items():
+                        # cast times to datetime.time, store as tuples
+                        info["windows"][level] = [
+                            (datetime.time.fromisoformat(t[0]), datetime.time.fromisoformat(t[1]))
+                            for t in windows]
+                    self.time_windows[grid_operator][season] = info
 
-        gcs = self.world_state.grid_connectors
-
-        for gc_id, gc in gcs.items():
-            if gc.voltage_level is None:
-                warnings.warn(f"GC {gc_id} has no voltage level, might not find time window")
-                warnings.warn("SETTING VOLTAGE LEVEL TO MV")
-                gc.voltage_level = "MV"  # TODO remove
-            if gc.grid_operator is None:
-                warnings.warn(f"GC {gc_id} has no grid operator, might not find time window")
-                # take the first grid operator from time windows
-                warnings.warn(f"SETTING GRID OPERATOR TO {grid_operator}")
-                gc.grid_operator = grid_operator  # TODO remove
+            for gc_id, gc in self.world_state.grid_connectors.items():
+                if gc.voltage_level is None:
+                    warnings.warn(f"GC {gc_id} has no voltage level, might not find time window")
+                    warnings.warn("SETTING VOLTAGE LEVEL TO MV")
+                    gc.voltage_level = "MV"  # TODO remove
+                if gc.grid_operator is None:
+                    warnings.warn(f"GC {gc_id} has no grid operator, might not find time window")
+                    # take the first grid operator from time windows
+                    warnings.warn(f"SETTING GRID OPERATOR TO {grid_operator}")
+                    gc.grid_operator = grid_operator  # TODO remove
 
         # perfect foresight for grid and local load events
+        # flex window is part of grid operator signals
         local_events = [e for e in self.events.grid_operator_signals
                         if hasattr(e, "grid_connector_id")]
         for name, load_list in self.events.fixed_load_lists.items():
@@ -97,13 +98,19 @@ class PeakLoadWindow(Strategy):
                 stop_time = max(stop_time, event.start_time)
 
         # restructure events (like event_steps): list with events for each timestep
+        # also restructure time_windows: bool for each timestep for each GC
         # also, find highest peak of GC power within time windows
         self.events = []
         current_loads = {}
+        current_window = {}
+        time_windows = {}
         peak_power = {}
+        gcs = self.world_state.grid_connectors
         peak_time = {gc_id: self.current_time for gc_id in gcs}
         for gc_id, gc in gcs.items():
+            time_windows[gc_id] = []
             current_loads[gc_id] = deepcopy(gc.current_loads)
+            current_window[gc_id] = gc.window
             peak_power[gc_id] = 0
         cur_time = start_time - self.interval
         event_idx = 0
@@ -127,11 +134,18 @@ class PeakLoadWindow(Strategy):
                     current_loads[gc_id][event.name] = -event.value
                 elif type(event) is events.FixedLoad:
                     current_loads[gc_id][event.name] = event.value
+                elif type(event) is events.GridOperatorSignal and event.window is not None:
+                    current_window[gc_id] = event.window
+
             # end of events for this timestep
-            # update peak power
+            # update peak power and time windows
             for gc_id, gc in gcs.items():
-                is_window = util.datetime_within_time_window(
-                    cur_time, self.time_windows[gc.grid_operator], gc.voltage_level)
+                if self.time_windows:
+                    is_window = util.datetime_within_time_window(
+                        cur_time, self.time_windows[gc.grid_operator], gc.voltage_level)
+                else:
+                    is_window = current_window[gc_id]
+                time_windows[gc_id].append(is_window)
                 gc_sum_loads = sum(current_loads[gc_id].values())
                 if is_window and gc_sum_loads > peak_power[gc_id]:
                     # new peak power
@@ -139,6 +153,7 @@ class PeakLoadWindow(Strategy):
                     peak_time[gc_id] = cur_time
             self.events.append(cur_events)
         self.peak_power = peak_power
+        self.time_windows = time_windows
         for gc_id, t in peak_time.items():
             if t > self.stop_time:
                 warnings.warn(f"Peak power of {peak_power[gc_id]} kW at {gc_id} "
@@ -154,13 +169,16 @@ class PeakLoadWindow(Strategy):
         # ignore current events
         self.events = self.events[1:]
         for gc_id, gc in self.world_state.grid_connectors.items():
-            assert gc.voltage_level is not None
             commands.update(self.step_gc(gc_id, gc))
+            # shift time window
+            gc.window = self.time_windows[gc_id].pop(0)
+
         return {'current_time': self.current_time, 'commands': commands}
 
     def step_gc(self, gc_id, gc):
         ts_per_hour = datetime.timedelta(hours=1) / self.interval
         charging_stations = dict()
+        peak_power = self.peak_power[gc_id]
         # gather all currently connected vehicles
         # also find longest standing time of currently connected vehicles
         vehicles = {}
@@ -182,7 +200,9 @@ class PeakLoadWindow(Strategy):
                 continue
             max_standing = max(max_standing, vehicle.estimated_time_of_departure)
 
-        # find upcoming load windows (not from events), take note of expected GC load
+        # find upcoming load windows from time_windows list, take note of expected GC load
+        time_windows = self.time_windows[gc_id]
+        gc.window = time_windows[0]
         timesteps_ahead = -((max_standing - self.current_time) // -self.interval)
         timesteps = []
         cur_loads = deepcopy(gc.current_loads)
@@ -192,25 +212,18 @@ class PeakLoadWindow(Strategy):
         stationary_batteries = {
             bid: b for bid, b in self.world_state.batteries.items() if b.parent == gc_id}
 
-        def within_window(dt):
-            return util.datetime_within_time_window(
-                dt, self.time_windows[gc.grid_operator], gc.voltage_level)
-
-        gc.window = within_window(self.current_time)
         if stationary_batteries:
             # stat. batteries present: find next change of time window (or end of scenario)
-            cur_time = self.current_time + self.interval
             ts_until_window_change = 1
-            while within_window(cur_time) == gc.window and cur_time <= self.stop_time:
-                cur_time += self.interval
+            while (
+                    ts_until_window_change < len(time_windows) and
+                    time_windows[ts_until_window_change] == gc.window):
                 ts_until_window_change += 1
             if gc.window:
                 # may have to append timesteps (all vehicles left during window)
                 timesteps_ahead = max(timesteps_ahead, ts_until_window_change)
 
-        cur_time = self.current_time - self.interval
-        for event_list in [[]] + self.events[:timesteps_ahead]:
-            cur_time += self.interval
+        for idx, event_list in enumerate([[]] + self.events[:timesteps_ahead]):
             for event in event_list:
                 if type(event) is events.LocalEnergyGeneration:
                     if event.grid_connector_id != gc_id:
@@ -224,21 +237,16 @@ class PeakLoadWindow(Strategy):
                     if event.grid_connector_id != gc_id or event.max_power is None:
                         continue
                     cur_max_power = event.max_power
-                    # vehicle events ignored (use vehicle info such as estimated_time_of_departure)
+                # vehicle events ignored (use vehicle info such as estimated_time_of_departure)
 
             # save information for each timestep
             timesteps.append(
                 {
                     "power": sum(cur_loads.values()),
                     "max_power": cur_max_power,
-                    "window": util.datetime_within_time_window(
-                        cur_time, self.time_windows[gc.grid_operator], gc.voltage_level)
+                    "window": time_windows[idx],
                 }
             )
-
-        gc.window = util.datetime_within_time_window(
-            self.current_time, self.time_windows[gc.grid_operator], gc.voltage_level)
-        peak_power = self.peak_power[gc_id]
 
         # sort vehicles by length of standing time
         # (in case out-of-window-charging is not enough, use peak shaving)
