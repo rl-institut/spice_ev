@@ -29,6 +29,8 @@ class Events:
             obj.get('energy_price_from_csv', None), dir_path)
         self.grid_operator_signals += get_schedule_from_csv(
             obj.get('schedule_from_csv', None), dir_path)
+        for capacity_csv in obj.get('grid_capacity_from_csv', {}).values():
+            self.grid_operator_signals += get_grid_capacity_from_csv(capacity_csv, dir_path)
         self.vehicle_events = list([VehicleEvent(x) for x in obj.get('vehicle_events', {})])
 
     def get_event_steps(self, start_time, n_intervals, interval):
@@ -163,7 +165,8 @@ class GridOperatorSignal(Event):
             ('max_power', float, None),
             ('cost', dict, None),
             ('target', float, None),
-            ('window', bool, None)
+            ('window', bool, None),
+            ('capacity', float, None),
         ]
         util.set_attr_from_dict(obj, self, keys, optional_keys)
 
@@ -311,8 +314,40 @@ def get_schedule_from_csv(obj, dir_path):
                         "update": {"schedule": v_schedule},
                     }))
                     vehicle_schedules[i] = v_schedule
-
     return schedule
+
+
+def get_grid_capacity_from_csv(obj, dir_path):
+    if not obj:
+        return []
+    # use info if given, otherwise read out timestamps from file
+    csv_path = dir_path / obj['csv_file']
+    column = obj.get('column')
+    factor = obj.get('factor', 1.0)
+    start = util.datetime_from_isoformat(obj.get("start_time"))  # may become None
+    interval = datetime.timedelta(seconds=obj.get("step_duration_s", 0))
+    events = []
+    with open(csv_path, newline='') as csvfile:
+        reader = csv.DictReader(csvfile, delimiter=',', quotechar='"')
+        for idx, row in enumerate(reader):
+            if start and interval:
+                # start and interval given as arguments
+                start_time = idx * interval + start
+            else:
+                # not given: read timestamps from file
+                # set start as first timestamp, ignore interval (don't use first if-branch later)
+                start_time = util.datetime_from_isoformat(list(row.values())[0])
+                interval = None
+                start = start_time
+            event_time = start
+            capacity = float(row[column] if column else list(row.values())[-1])
+            events.append(GridOperatorSignal({
+                "start_time": start_time.isoformat(),
+                "signal_time": event_time.isoformat(),
+                "grid_connector_id": obj["grid_connector_id"],
+                "capacity": capacity * factor,
+            }))
+    return events
 
 
 class VehicleEvent(Event):

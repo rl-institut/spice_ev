@@ -26,12 +26,17 @@ class BalancedMarket(Strategy):
         if changed:
             print(changed, "events signaled earlier")
 
-    def step(self):
+    def step(self, events=None):
         """ Calculate charging power in each timestep.
 
+        :param events: pass-through for Strategy
+        :type events: event list
         :return: current time and commands of the charging stations
         :rtype: dict
         """
+        if events is not None:
+            # pass-through from GridCheckedMarket
+            return super().step(events)
         commands = dict()
         # reset charging station power (nothing charged yet in this timestep)
         for cs in self.world_state.charging_stations.values():

@@ -45,6 +45,7 @@ class GridConnector:
             ('cost', dict, {}),
             ('target', float, None),
             ('window', bool, None),
+            ('capacity', float, None),  # similar to max_power, but soft limit
         ]
         util.set_attr_from_dict(obj, self, keys, optional_keys)
         self.avg_fixed_load = None

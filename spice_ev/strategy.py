@@ -8,8 +8,9 @@ from spice_ev import events
 from spice_ev.util import get_cost, clamp_power
 
 STRATEGIES = [
-    'greedy', 'balanced', 'balanced_market', 'distributed',
-    'peak_load_window', 'peak_shaving', 'flex_window', 'schedule'
+    'greedy', 'balanced', 'distributed',
+    'peak_load_window', 'peak_shaving', 'flex_window', 'schedule',
+    'balanced_market', 'grid_checked_market',
 ]
 
 
@@ -113,6 +114,9 @@ class Strategy():
                 if connector is None:
                     # unknown grid connector
                     continue
+                if ev.capacity is not None:
+                    # set grid connector maximum capacity
+                    connector.capacity = ev.capacity
                 if ev.cost is not None:
                     # set power cost
                     connector.cost = ev.cost

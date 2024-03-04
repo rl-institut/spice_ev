@@ -80,6 +80,7 @@ class Scenario:
         socs = []
         prices = {gcID: [] for gcID in gc_ids}
         results = []
+        capacity = {gcID: [] for gcID in gc_ids}
         totalLoad = {gcID: [] for gcID in gc_ids}
         disconnect = []
         fixedLoads = {gcID: [] for gcID in gc_ids}
@@ -244,6 +245,7 @@ class Scenario:
 
                 # append accumulated info
                 prices[gcID].append(price)
+                capacity[gcID].append(gc.capacity)
                 totalLoad[gcID].append(curLoad)
                 localGenerationPower[gcID].append(curLocalGeneration)
                 connChargeByTS[gcID].append(cur_cs)
@@ -261,7 +263,7 @@ class Scenario:
         step_i += 1
 
         # make variable members of Scenario class to access them in report
-        for var in ["batteryLevels", "connChargeByTS", "disconnect",
+        for var in ["batteryLevels", "capacity", "connChargeByTS", "disconnect",
                     "fixedLoads", "localGenerationPower", "gcPowerSchedule", "gcWindowSchedule",
                     "prices", "results", "socs", "step_i", "stepsPerHour", "strat",
                     "strategy_name", "totalLoad"]:

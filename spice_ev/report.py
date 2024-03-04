@@ -712,6 +712,24 @@ def plot(scenario):
     for gcID in gc_ids:
         for name, values in scenario.loads[gcID].items():
             ax.step(xlabels, values, label=name, where='post')
+        capacity = scenario.capacity[gcID]
+        if any(capacity):
+            ax.plot(xlabels, capacity, 'b--', label=f"{gcID} capacity")
+            # find intervals where grid capacity is exceeded
+            start_idx = None
+            label = 'Grid capacity exceeded'
+            for idx, cap in enumerate(capacity):
+                exceeded = cap is not None and scenario.totalLoad[gcID][idx] > cap
+                if exceeded and start_idx is None:
+                    # begin of high load interval
+                    start_idx = idx
+                if not exceeded and start_idx is not None:
+                    # end of high load interval -> draw and reset start_idx
+                    ax.axvspan(
+                        xlabels[start_idx], xlabels[idx],
+                        label=label, facecolor='blue', alpha=0.2)
+                    label = '_' + label  # ignore label
+                    start_idx = None
     # draw time windows
     if scenario.strat.uses_window:
         # get list with boolean values for timesteps inside/outside window for each grid connector
