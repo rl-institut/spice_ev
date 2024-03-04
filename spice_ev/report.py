@@ -723,8 +723,8 @@ def plot(scenario):
                 if exceeded and start_idx is None:
                     # begin of high load interval
                     start_idx = idx
-                if not exceeded and start_idx is not None:
-                    # end of high load interval -> draw and reset start_idx
+                if start_idx is not None and (not exceeded or idx == (scenario.step_i - 1)):
+                    # end of high load interval or scenario -> draw and reset start_idx
                     ax.axvspan(
                         xlabels[start_idx], xlabels[idx],
                         label=label, facecolor='blue', alpha=0.2)
