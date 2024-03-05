@@ -718,8 +718,8 @@ def plot(scenario):
             # find intervals where grid capacity is exceeded
             start_idx = None
             label = 'Grid capacity exceeded'
-            for idx, cap in enumerate(capacity):
-                exceeded = cap is not None and scenario.totalLoad[gcID][idx] > cap
+            for idx, load in enumerate(scenario.totalLoad[gcID]):
+                exceeded = capacity[idx] is not None and load > capacity[idx] + 1e-3
                 if exceeded and start_idx is None:
                     # begin of high load interval
                     start_idx = idx
