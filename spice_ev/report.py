@@ -477,6 +477,7 @@ def aggregate_timeseries(scenario, gcID):
     hasV2G = any([v.vehicle_type.v2g for v in scenario.components.vehicles.values()])
     hasBatteries = any([b.parent == gcID for b in scenario.components.batteries.values()])
     hasFeedinComponents = [hasGeneration, hasV2G, hasBatteries]
+    hasGridCapacity = any(scenario.capacity[gcID])
 
     # accumulate header
     # general info
@@ -503,6 +504,8 @@ def aggregate_timeseries(scenario, gcID):
         header.append("schedule [kW]")
     if hasWindows:
         header.append("window signal [-]")
+    if hasGridCapacity:
+        header.append("grid capacity [kW]")
     # Feed-in to grid per asset
     header += [
         component for has, component in zip(
@@ -578,6 +581,14 @@ def aggregate_timeseries(scenario, gcID):
             row.append(round(scenario.gcPowerSchedule[gcID][idx], round_to_places))  # float
         if hasWindows:
             row.append(scenario.gcWindowSchedule[gcID][idx])
+
+        # grid capacity
+        if hasGridCapacity:
+            if scenario.capacity[gcID][idx] is not None:
+                row.append(scenario.capacity[gcID][idx])
+            else:
+                # no grid capacity set: GC max power
+                row.append(scenario.components.grid_connectors[gcID].max_power)
 
         # charging power
         # get sum of all current CS power that are connected to gc
