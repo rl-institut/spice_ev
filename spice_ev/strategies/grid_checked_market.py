@@ -35,6 +35,8 @@ class GridCheckedMarket(Strategy):
             cs.current_power = 0
         for gc_id, gc in self.world_state.grid_connectors.items():
             commands.update(self.step_gc(gc_id, gc))
+            if gc.capacity is not None and gc.get_current_load() > gc.capacity + 1e-3:
+                print(f"{self.current_time}: {gc_id} capacity exceeded")
         return {'current_time': self.current_time, 'commands': commands}
 
     def step_gc(self, gc_id, gc):
@@ -253,8 +255,5 @@ class GridCheckedMarket(Strategy):
                 avg_power = vehicle.battery.load(self.interval, target_power=power)['avg_power']
                 charging_stations[cs_id] = gc.add_load(cs_id, avg_power)
                 timesteps[0]["power"] += (avg_power - cs.current_power)
-
-        if gc.capacity is not None and gc.get_current_load() > gc.capacity + 1e-3:
-            print(f"{self.current_time}: {gc_id} capacity exceeded")
 
         return charging_stations

@@ -280,7 +280,7 @@ def calculate_costs(strategy, voltage_level, interval,
         commodity_costs_eur_per_year, commodity_costs_eur_sim = calculate_commodity_costs(
             price_list, power_grid_supply_list, interval, fraction_year)
 
-    elif strategy == "balanced_market":
+    elif strategy == "balanced_market" or strategy == "grid_checked_market":
         """Payment model for the charging strategy 'balanced market'.
         For the charging strategy a price time series is used. The fixed and flexible load are
         charged separately.
