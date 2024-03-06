@@ -70,6 +70,8 @@ class GridCheckedMarket(Strategy):
         last_departure_idx = -((self.current_time - last_departure) // self.interval)
         timesteps_ahead = self.HORIZON // self.interval
         timesteps_ahead = min(timesteps_ahead, last_departure_idx)
+        # special case: all estimated times of departure in the past -> set to next timestep
+        timesteps_ahead = max(timesteps_ahead, 1)
 
         cur_cost = util.get_cost(1, gc.cost)
         cur_capacity = gc.capacity if gc.capacity is not None else gc.cur_max_power
