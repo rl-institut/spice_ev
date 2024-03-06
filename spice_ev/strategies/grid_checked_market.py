@@ -59,12 +59,13 @@ class GridCheckedMarket(Strategy):
             self.warn_capacity.add(gc_id)
 
         # order vehicles by time of departure
+        default_departure = self.current_time + self.interval  # no estimation: next interval
         vehicles = sorted(
             [(vid, v) for (vid, v) in vehicles.items()],
-            key=lambda x: (x[1].estimated_time_of_departure or self.current_time, x[0]))
+            key=lambda x: (x[1].estimated_time_of_departure or default_departure, x[0]))
 
         # forecast: until last vehicle left, but no more than HORIZON
-        last_departure = vehicles[-1][1].estimated_time_of_departure
+        last_departure = vehicles[-1][1].estimated_time_of_departure or default_departure
         # ceil
         last_departure_idx = -((self.current_time - last_departure) // self.interval)
         timesteps_ahead = self.HORIZON // self.interval
@@ -131,6 +132,9 @@ class GridCheckedMarket(Strategy):
         # ---------- ITERATE OVER VEHICLES ---------- #
 
         for vid, vehicle in vehicles:
+            if vehicle.get_energy_needed() < self.EPS:
+                # charged enough
+                continue
             cs_id = vehicle.connected_charging_station
             cs = self.world_state.charging_stations[cs_id]
 
@@ -138,11 +142,12 @@ class GridCheckedMarket(Strategy):
             # GC power must not exceed capacity
 
             # get timestep index where vehicle leaves (round up)
+            # need at least one timestep
             if vehicle.estimated_time_of_departure is None:
                 ts_leave = 1
             else:
                 ts_leave = -((self.current_time-vehicle.estimated_time_of_departure)//self.interval)
-                # est. time of departure might be in the past, but need at least one timestep
+                # est. time of departure might be in the past
                 ts_leave = max(ts_leave, 1)
             # get timesteps where vehicle is present
             vehicle_ts = timesteps[:ts_leave]
@@ -150,11 +155,12 @@ class GridCheckedMarket(Strategy):
             sorted_ts = sorted((e["cost"], idx) for idx, e in enumerate(vehicle_ts))
 
             sim_vehicle = deepcopy(vehicle)
-            power = [0] * len(sorted_ts)
+            original_soc = vehicle.battery.soc
+            power = [0] * ts_leave  # allocated power of this vehicle for each timestep
 
             # iterate timesteps by order of the cheapest price to reach desired soc
             sorted_idx = 0
-            while sorted_idx < len(sorted_ts):
+            while sorted_idx < ts_leave:
                 cost, start_idx = sorted_ts[sorted_idx]
 
                 if sim_vehicle.battery.soc >= vehicle.desired_soc:
@@ -166,7 +172,7 @@ class GridCheckedMarket(Strategy):
                 same_price_ts = [start_idx]
                 # peek into next sorted: same price?
                 same_sorted_price_idx = sorted_idx + 1
-                while same_sorted_price_idx < len(sorted_ts):
+                while same_sorted_price_idx < ts_leave:
                     next_cost, next_ts_idx = sorted_ts[same_sorted_price_idx]
                     if abs(next_cost - cost) < self.EPS:
                         same_sorted_price_idx += 1
@@ -178,7 +184,6 @@ class GridCheckedMarket(Strategy):
                 sorted_idx = same_sorted_price_idx
 
                 # naive: charge with full power (up to capacity) during all timesteps
-                old_soc = sim_vehicle.battery.soc
                 for ts_idx in same_price_ts:
                     avail_power = timesteps[ts_idx]["capacity"] - timesteps[ts_idx]["power"]
                     p = util.clamp_power(avail_power, vehicle, cs)
@@ -198,7 +203,7 @@ class GridCheckedMarket(Strategy):
                     #    did overcharge, a suitable power should always exist
                     while not safe or max_power - min_power > self.EPS:
                         # reset SoC
-                        sim_vehicle.battery.soc = old_soc
+                        sim_vehicle.battery.soc = original_soc
                         cur_power = (max_power + min_power) / 2
                         for ts_idx in same_price_ts:
                             avail_power = timesteps[ts_idx]["capacity"] - timesteps[ts_idx]["power"]
@@ -217,17 +222,18 @@ class GridCheckedMarket(Strategy):
             if energy_needed > 0:
                 # reaching desired SoC not possible, maybe because of capacity restriction:
                 # raise capacity evenly to reach desired SoC
-                sim_vehicle.battery.soc = old_soc
+                # might behave weirdly for non-constant charging curves
+                eff = vehicle.vehicle_type.battery_efficiency
+                power_per_ts = energy_needed / ts_leave / eff * self.ts_per_hour
+                sim_vehicle.battery.soc = original_soc
                 for ts_idx, ts_info in enumerate(sorted_ts):
-                    ts_remaining = ts_leave - ts_idx
                     avail_power = timesteps[ts_idx]["max_power"] - timesteps[ts_idx]["power"]
                     # use prior power (within capacity) + needed fraction
-                    p = power[ts_idx] + (energy_needed / ts_remaining) * self.ts_per_hour
+                    p = power[ts_idx] + power_per_ts
                     p = min(avail_power, p)
                     p = util.clamp_power(p, vehicle, cs)
-                    avg_power = sim_vehicle.battery.load(self.interval, target_power=p)["avg_power"]
-                    power[ts_idx] = avg_power
-                    energy_needed = sim_vehicle.get_energy_needed()
+                    power[ts_idx] = sim_vehicle.battery.load(
+                        self.interval, target_power=p)["avg_power"]
 
             # take note of final needed charging power, update timestep power infos
             cs.current_power = power[0]
