@@ -1,5 +1,6 @@
 from copy import deepcopy
 import datetime as dt
+from warnings import warn
 
 from spice_ev import util, events
 from spice_ev.strategy import Strategy
@@ -34,6 +35,13 @@ class PeakShaving(Strategy):
             if changed:
                 print(changed, "events signaled earlier")
             self.events = sorted(all_events, key=lambda ev: ev.start_time)
+
+        # check vehicle types: constant charging curve expected
+        for name, vtype in components.vehicle_types.items():
+            power_set = set([p[1] for p in vtype.charging_curve.points])
+            if len(power_set) > 1:
+                warn(f"Vehicle type {name} has non-constant charging curve, "
+                     "results may be sub-optimal", stacklevel=100)
 
     def step(self):
         """Calculates charging power in each timestep.
