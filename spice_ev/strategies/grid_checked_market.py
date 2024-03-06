@@ -1,5 +1,6 @@
 from copy import deepcopy
 import datetime
+from warnings import warn
 
 from spice_ev import util, events
 from spice_ev.strategy import Strategy
@@ -16,6 +17,7 @@ class GridCheckedMarket(Strategy):
         super().__init__(components, start_time, **kwargs)
         self.description = "grid checked market"
         self.HORIZON = datetime.timedelta(hours=self.HORIZON)
+        self.warn_capacity = set()  # remember GC where capacity became None
 
         # adjust foresight for grid operator events: all known at start
         for event in self.events.grid_operator_signals:
@@ -47,6 +49,12 @@ class GridCheckedMarket(Strategy):
         if not vehicles:
             # no vehicles, nothing to do (no batteries)
             return {}
+
+        if gc.capacity is None and gc_id not in self.warn_capacity:
+            # warn once if GC has grid capacity not set
+            warn(f"{self.current_time}: {gc_id} has no associated grid capacity. "
+                 "Later occurences ignored.", stacklevel=100)
+            self.warn_capacity.add(gc_id)
 
         # order vehicles by time of departure
         vehicles = sorted(
