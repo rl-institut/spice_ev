@@ -196,14 +196,7 @@ class GridCheckedMarket(Strategy):
                     # above desired SoC: find optimum power
                     min_power = 0
                     max_power = cs.max_power
-                    safe = False
-
-                    # should not lead to infinite loop, because
-                    # 1) min_power and max_power converge
-                    # 2) if not safe, power gets increased towards cs.max_power or last safe value
-                    #    because naive version (with at most cs.max_power)
-                    #    did overcharge, a suitable power should always exist
-                    while not safe or max_power - min_power > self.EPS:
+                    while max_power - min_power > self.EPS:
                         # reset SoC
                         sim_vehicle.battery.soc = original_soc
                         cur_power = (max_power + min_power) / 2
@@ -213,8 +206,7 @@ class GridCheckedMarket(Strategy):
                             p = util.clamp_power(p, vehicle, cs)
                             power[ts_idx] = sim_vehicle.battery.load(
                                 self.interval, target_power=p)["avg_power"]
-                        safe = sim_vehicle.battery.soc >= vehicle.desired_soc
-                        if not safe:
+                        if sim_vehicle.battery.soc < vehicle.desired_soc:
                             # not charged enough
                             min_power = cur_power
                         else:
