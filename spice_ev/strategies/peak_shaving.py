@@ -150,8 +150,8 @@ class PeakShaving(Strategy):
                         vehicle.estimated_time_of_departure = event.update[
                             "estimated_time_of_departure"]
                         vehicle.connected_charging_station = cs_id
-                        cs = self.world_state.charging_stations[cs_id]
-                        if cs.parent == gc_id:
+                        cs = self.world_state.charging_stations.get(cs_id, None)
+                        if cs is not None and cs.parent == gc_id:
                             assert vid not in gc_info["vehicles"], (
                                 f"{vid} already standing at {event.start_time} "
                                 f"({gc_info['vehicles'][vid]} / {timestep_idx})")
