@@ -151,10 +151,13 @@ class GridCheckedMarket(Strategy):
                 ts_leave = -((self.current_time-vehicle.estimated_time_of_departure)//self.interval)
                 # est. time of departure might be in the past
                 ts_leave = max(ts_leave, 1)
+            # standing time might be longer than horizon
+            ts_leave = min(ts_leave, timesteps_ahead)
             # get timesteps where vehicle is present
             vehicle_ts = timesteps[:ts_leave]
             # sort remaining timesteps by price and index
             sorted_ts = sorted((e["cost"], idx) for idx, e in enumerate(vehicle_ts))
+            assert len(sorted_ts) == ts_leave
 
             sim_vehicle = deepcopy(vehicle)
             original_soc = vehicle.battery.soc
