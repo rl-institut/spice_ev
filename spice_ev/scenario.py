@@ -213,10 +213,11 @@ class Scenario:
                 gc_load = max(-gc.max_power, gc_load - curLocalGeneration)
 
                 # safety check: GC load within bounds?
-                gcWithinPowerLimit = -gc.max_power-strat.EPS <= gc_load <= gc.max_power+strat.EPS
+                powerLimit = gc.cur_max_power + strat.EPS
+                gcWithinPowerLimit = -powerLimit <= gc_load <= powerLimit
                 try:
                     assert gcWithinPowerLimit, (
-                        "{} maximum load exceeded: {} / {}".format(gcID, gc_load, gc.max_power))
+                        "{} maximum load exceeded: {} / {}".format(gcID, gc_load, gc.cur_max_power))
                 except AssertionError:
                     # abort if GC power limit exceeded
                     error = traceback.format_exc() if error is None else error
