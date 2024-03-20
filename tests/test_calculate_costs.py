@@ -210,7 +210,7 @@ class TestSimulationCosts:
         assert result["levies_fees_and_taxes_per_year"] == 1182.84
         assert result["feed_in_remuneration_per_year"] == 0
 
-    def test_peak_load_window_C1(self):
+    def test_peak_load_window(self):
         input_path = TEST_REPO_PATH / "test_data/input_test_strategies"
         with (input_path / "scenario_2vehicles_building_pv_bat.json").open() as f:
             j = json.load(f)
@@ -237,6 +237,30 @@ class TestSimulationCosts:
         assert result["power_procurement_costs_per_year"] == 12574.80
         assert result["levies_fees_and_taxes_per_year"] == 12709.74
         assert result["feed_in_remuneration_per_year"] == 275.03
+
+    def test_peak_load_window_no_windows(self):
+        input_path = TEST_REPO_PATH / "test_data/input_test_strategies"
+        with (input_path / "scenario_PV_Bat.json").open() as f:
+            j = json.load(f)
+        s = scenario.Scenario(j, input_path)
+        s.run('peak_load_window', {
+            "cost_calculation": True,
+            "time_windows": input_path / "time_windows_example.json",
+        })
+        timeseries = s.GC1_timeseries
+        timeseries_lists = [timeseries.get(k, [0] * s.n_intervals) for k in [
+            "time", "grid supply [kW]", "price [EUR/kWh]",
+            "fixed load [kW]", "generation feed-in [kW]",
+            "V2G feed-in [kW]", "battery feed-in [kW]",
+            "window signal [-]"]]
+        price_sheet_path = TEST_REPO_PATH / 'test_data/input_test_cost_calculation/price_sheet.json'
+        pv_power = j["components"]["photovoltaics"]["PV1"]["nominal_power"]
+
+        timeseries_lists[-1] = None  # force no time windows during scenario
+        # check if cost calculation completes
+        cc.calculate_costs(
+            "peak_load_window", "MV", s.interval, *timeseries_lists,
+            str(price_sheet_path), power_pv_nominal=pv_power)
 
     def test_calculate_costs_balanced_market_C(self):
         scen_path = TEST_REPO_PATH / 'test_data/input_test_strategies/scenario_C1.json'
