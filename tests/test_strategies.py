@@ -265,6 +265,46 @@ class TestScenarios(TestCaseBase):
         with pytest.raises(RuntimeError):
             strat.step()
 
+    def test_double_arrival_warning(self):
+        # test for warning when a vehicle arrives multiple times (already at charging station)
+        # setup basic scenario: 1 vehicle and arrival event
+        scenario_json = get_test_json()
+        scenario_json["components"] = {
+            "vehicle_types": {
+                "t": {"name": "t", "capacity": 100, "charging_curve": [[0, 100], [1, 100]]}},
+            "vehicles": {"t1": {"vehicle_type": "t", "soc": 0.3, "desired_soc": 0.5}},
+            "grid_connectors": {"gc": {"max_power": 1000, "cost": {"type": "fixed", "value": 1}}},
+            "charging_stations": {"cs": {"max_power": 100, "parent": "gc"}},
+        }
+        scenario_json["events"] = {"vehicle_events": [{
+            "signal_time": "2020-01-01T01:00:00+02:00",
+            "start_time": "2020-01-01T01:00:00+02:00",
+            "vehicle_id": "t1",
+            "event_type": "arrival",
+            "update": {"soc_delta": -0.1, "desired_soc": 0.5, "connected_charging_station": "cs"}
+        }]}
+        # standing since beginning: set initial charging station
+        scenario_json["components"]["vehicles"]["t1"]["connected_charging_station"] = "cs"
+        s = scenario.Scenario(scenario_json)
+        with pytest.warns(Warning) as record:
+            s.run('greedy', {})
+            # should be only warning
+            assert "already charging" in str(record.list[0].message)
+        # reset initial charging station
+        scenario_json["components"]["vehicles"]["t1"]["connected_charging_station"] = None
+        # double arrival event
+        scenario_json["events"]["vehicle_events"].append({
+            "signal_time": "2020-01-01T02:00:00+02:00",
+            "start_time": "2020-01-01T02:00:00+02:00",
+            "vehicle_id": "t1",
+            "event_type": "arrival",
+            "update": {"soc_delta": -0.1, "desired_soc": 0.5, "connected_charging_station": "cs"}
+        })
+        s = scenario.Scenario(scenario_json)
+        with pytest.warns(Warning) as record:
+            s.run('greedy', {})
+            assert "already charging" in str(record.list[0].message)
+
     # TEST SCENARIOS WITH BATTERY, LOCAL GENERATION AND FIXED LOAD (Scenario A)
     def test_scenario_A(self):
         input = TEST_REPO_PATH / 'test_data/input_test_strategies/scenario_A.json'
