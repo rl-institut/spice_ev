@@ -24,6 +24,7 @@ Template:
 - distributed strategy: battery behavior adapted
 - new strategies: peak_load_window
 - plotting time windows with shaded backgrounds
+- changed total power plot: remove individual loads, add sum of batteries, add GC load
 
 ## [1.0.1] - Minor Fixes - 2023-08-04
 

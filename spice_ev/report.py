@@ -643,7 +643,7 @@ def generate_soc_timeseries(scenario):
             scenario.vehicle_socs[vid].append(soc)
 
 
-def plot(scenario):
+def plot(scenario, gc_id=None, show=False, file_name=None):
     """ Plot various timeseries collected over the duration of the simulation.
 
     Generated plots:
@@ -651,29 +651,48 @@ def plot(scenario):
     #. SoC over time per vehicle
     #. Power over time per charging station
     #. SoC over time per stationary battery (if present)
-    #. Power over time aggregated over all instances of various power sources and sinks like\
-        grid connectors, charging stations, local power generation and batteries
+    #. Power over time
     #. Price over time per grid connector
+
+    Note for power over time: if showing a single GC (gc_id is given), show all individual powers.
+    # Otherwise, aggregate fixed loads, local power generation and batteries.
 
     :param scenario: The scenario for which to generate the plots.
     :type scenario: spice_ev.Scenario
+    :param gc_id: grid connector to plot (optional)
+    :type gc_id: string
+    :param show: show plot
+    :type show: bool
+    :param file_name: where to save plot to (optional)
+    :type file_name: string/path
     """
+    if not show and not file_name:
+        return
 
     import matplotlib.pyplot as plt
 
-    print('Done. Create plots...')
+    if gc_id:
+        plt.figure(gc_id)
+    else:
+        plt.figure(scenario.strat.description)
 
     xlabels = []
     for r in scenario.results:
         xlabels.append(r['current_time'])
 
     # plot stationary batteries
-    if scenario.batteryLevels:
+    if gc_id:
+        batteries = {b_id: values for b_id, values in scenario.batteryLevels.items()
+                     if scenario.components.batteries[b_id].parent == gc_id}
+    else:
+        batteries = scenario.batteryLevels
+
+    if batteries:
         plots_top_row = 3
         ax = plt.subplot(2, plots_top_row, 3)
         ax.set_title('Stationary Batteries')
         ax.set(ylabel='Stored power in kWh')
-        for name, values in scenario.batteryLevels.items():
+        for name, values in batteries.items():
             ax.plot(xlabels, values, label=name)
         ax.legend()
     else:
@@ -689,71 +708,130 @@ def plot(scenario):
         ax.set_prop_cycle(None)
 
         ax.plot(xlabels, scenario.disconnect, '--')
-        if len(scenario.components.vehicles) <= 10:
+        if 0 < len(scenario.components.vehicles) <= 10:
             ax.legend(lines, sorted(scenario.components.vehicles.keys()))
 
     # plot charging stations
     ax = plt.subplot(2, plots_top_row, 2)
     ax.set_title('Charging Stations')
     ax.set(ylabel='Power in kW')
-    if any(scenario.sum_cs):
+    if gc_id:
+        cs_present = False
+        for cs in sorted(scenario.components.charging_stations.keys()):
+            if scenario.components.charging_stations[cs].parent == gc_id:
+                ax.step(xlabels, [r["commands"].get(cs, 0) for r in scenario.results], label=cs)
+                cs_present = True
+        if cs_present:
+            ax.legend()
+    else:
         lines = ax.step(xlabels, scenario.sum_cs, where='post')
-        if len(scenario.components.charging_stations) <= 10:
+        if 0 < len(scenario.components.charging_stations) <= 10:
             ax.legend(lines, sorted(scenario.components.charging_stations.keys()))
 
     # plot all power sources
     ax = plt.subplot(2, 2, 3)
     # charging stations
-    if any(scenario.sum_cs):
-        ax.step(xlabels, list([sum(cs) for cs in scenario.sum_cs]),
-                label="Charging Stations", where='post')
-    # other loads
-    gc_ids = scenario.components.grid_connectors.keys()
-    for gcID in gc_ids:
-        for name, values in scenario.loads[gcID].items():
-            ax.step(xlabels, values, label=name, where='post')
-    # draw time windows
-    if scenario.strat.uses_window:
-        # get list with boolean values for timesteps inside/outside window for each grid connector
-        for gc_idx, (gcID, w_list) in enumerate(scenario.gcWindowSchedule.items()):
-            # get GC loads when time window is active
-            window_loads = [l for (l, w) in zip(scenario.totalLoad[gcID], w_list) if w]
-            try:
-                # plot dashed line at peak power
-                # show label only once in legend
-                plt.axhline(y=max(window_loads), color='k', linestyle='--',
-                            label=f"{gc_idx * '_'}peak power")
-            except ValueError:
-                # window_loads may be empty, can't use max then -> no line
-                pass
-            # add shaded background based on the boolean values, no background if no values
-            start_idx = 0
-            # show each label only once
-            label_shown = [gc_idx, gc_idx]
+    if gc_id:
+        values = [sum(ts.values()) for ts in scenario.connChargeByTS[gc_id]]
+    else:
+        values = [sum(cs) for cs in scenario.sum_cs]
+    ax.step(xlabels, values, label="Charging Stations", where='post')
+    # batteries
+    batteries = {b_id: b for b_id, b in scenario.components.batteries.items()
+                 if (gc_id is None or b.parent == gc_id) and b.parent in scenario.fixedLoads}
+    if batteries:
+        bat_power = [0]*scenario.step_i
+        for b_id, battery in batteries.items():
             for i in range(scenario.step_i):
-                if w_list[i] != w_list[start_idx] or i == (scenario.step_i - 1):
-                    # window value changed or end of scenario: plot new interval
-                    window = w_list[start_idx]
-                    if window is not None:
-                        color = 'red' if window else 'lightgreen'
-                        label = 'Inside window' if window else 'Outside window'
-                        if label_shown[window]:
-                            # labels starting with underscores are ignored
-                            label = '_' + label
-                        else:
-                            # show label once, then set flag
-                            label_shown[window] = True
-                        # draw colored rectangle for window
-                        ax.axvspan(xlabels[start_idx], xlabels[i], label=label, facecolor=color,
-                                   alpha=0.2)
-                        start_idx = i
-    # draw schedule
+                bat_power[i] += scenario.fixedLoads[battery.parent][i].get(b_id, 0)
+        ax.step(xlabels, bat_power, label="Batteries", where='post')
+
+    # fixed loads (scenario.fixedLoads includes batteries and local generation!)
+    # get all sums of fixed loads for each GC for each time step
+    if scenario.events.fixed_load_lists:
+        fixed_loads = {
+            gc: [sum([v for k, v in c.items() if k in scenario.events.fixed_load_lists]) for c in l]
+            for gc, l in scenario.fixedLoads.items()}
+        if gc_id:
+            fixed_loads = fixed_loads[gc_id]
+        else:
+            fixed_loads = [sum(v) for v in zip(*fixed_loads.values())]
+        if sum(fixed_loads):
+            ax.step(xlabels, fixed_loads, label="Fixed loads", where='post')
+
+    # local generation
+    if scenario.events.local_generation_lists:
+        if gc_id:
+            local_generation = [-v for v in scenario.localGenerationPower[gc_id]]
+        else:
+            local_generation = [-sum(v) for v in zip(*scenario.localGenerationPower.values())]
+        if sum(local_generation):
+            ax.step(xlabels, local_generation, label="Local generation", where='post')
+
+    # schedule
     if scenario.strat.uses_schedule:
-        for gcID, schedule in scenario.gcPowerSchedule.items():
-            if any(s is not None for s in schedule):
-                ax.step(xlabels, schedule, label="Schedule {}".format(gcID), where='post')
+        if gc_id:
+            schedule = scenario.gcPowerSchedule[gc_id]
+        else:
+            schedule = [sum(v) for v in zip(*scenario.gcPowerSchedule.values())]
+        ax.step(xlabels, schedule, label="Schedule", where='post')
+
     # total power
-    ax.step(xlabels, scenario.all_totalLoad, label="Total", where='post')
+    if scenario.totalLoad:
+        if gc_id:
+            total_loads = scenario.totalLoad[gc_id]
+        else:
+            total_loads = [sum(v) for v in zip(*scenario.totalLoad.values())]
+        ax.step(xlabels, total_loads, label="Total", where='post')
+
+    # time windows
+    if scenario.strat.uses_window:
+        if gc_id:
+            windows = scenario.gcWindowSchedule[gc_id]
+            window_loads = [l for (l, w) in zip(scenario.totalLoad[gc_id], windows) if w] + [0]
+        else:
+            # multiple GC: draw conflicts as well
+            windows = [None]*len(xlabels)
+            window_loads = [0]*len(xlabels)
+            for gcID, gc_windows in scenario.gcWindowSchedule.items():
+                for i in range(len(windows)):
+                    if windows[i] is None:
+                        windows[i] = gc_windows[i]
+                    elif windows[i] != gc_windows[i]:
+                        windows[i] = -1
+                    if gc_windows[i]:
+                        window_loads[i] += scenario.totalLoad[gcID]
+        # plot dashed line at peak power
+        plt.axhline(y=max(window_loads), color='k', linestyle='--', label="Peak power")
+        # add shaded background based on the boolean values, no background if no values
+        start_idx = 0
+        label_shown = [False, False, False]
+        for i in range(scenario.step_i):
+            if windows[i] != windows[start_idx] or i == (scenario.step_i - 1):
+                # window value changed or end of scenario: plot new interval
+                window = windows[start_idx]
+                if window is None:
+                    start_idx = i
+                    continue
+                if window == 0:
+                    label = 'Outside window'
+                    color = 'lightgreen'
+                elif window > 0:
+                    label = 'Inside window'
+                    color = 'red'
+                else:
+                    label = 'Conflicting window'
+                    color = 'yellow'
+                if label_shown[window]:
+                    # labels starting with underscores are ignored
+                    label = '_' + label
+                else:
+                    # show label once, then set flag
+                    label_shown[window] = True
+                # draw colored rectangle for window
+                ax.axvspan(xlabels[start_idx], xlabels[i], label=label, facecolor=color, alpha=0.2)
+                start_idx = i
+
     ax.set_title('Total Power')
     ax.set(ylabel='Power in kW')
     ax.legend()
@@ -761,12 +839,14 @@ def plot(scenario):
 
     # plot prices
     ax = plt.subplot(2, 2, 4)
-    prices = list(zip(*scenario.prices.values()))
-    lines = ax.step(xlabels, prices, where='post')
-    ax.set_title('Price')
-    ax.set(ylabel='Price in €/kWh')
-    if len(gc_ids) <= 10:
-        ax.legend(lines, sorted(gc_ids))
+    if scenario.prices:
+        if gc_id:
+            prices = scenario.prices[gc_id]
+        else:
+            prices = list(zip(*scenario.prices.values()))
+        lines = ax.step(xlabels, prices, where='post')
+        ax.set_title('Price')
+        ax.set(ylabel='Price in €/kWh')
 
     # figure title
     fig = plt.gcf()
@@ -779,7 +859,13 @@ def plot(scenario):
         plt.setp(ax.get_xticklabels(), rotation=30, ha='right')
 
     plt.subplots_adjust(hspace=0.5)
-    plt.show()
+    if file_name:
+        plt.gcf().set_size_inches(10, 10)
+        plt.savefig(file_name)
+    if show:
+        plt.show()
+    if file_name:
+        plt.close()
 
 
 def generate_reports(scenario, options):
@@ -795,6 +881,7 @@ def generate_reports(scenario, options):
     cost_calculation = options.get("cost_calculation")
     save_timeseries = options.get("save_timeseries")
     save_results = options.get("save_results")
+    save_plots = options.get("save_plots")
     save_soc = options.get("save_soc")
     testing = options.get("testing")
     visual = options.get("visual")
@@ -816,6 +903,13 @@ def generate_reports(scenario, options):
     if save_timeseries and Path(save_timeseries).suffix != ".csv":
         # timeseries data should be CSV
         print("File extension mismatch: timeseries file should be of type .csv")
+
+    if visual or testing:
+        aggregate_global_results(scenario)
+    if visual:
+        # plot!
+        print('Done. Create plots...')
+        plot(scenario, show=True)
 
     gc_ids = sorted(scenario.components.grid_connectors.keys())
     for gcID in gc_ids:
@@ -848,6 +942,20 @@ def generate_reports(scenario, options):
                 # write timestep data
                 for row in agg_ts["timeseries"]:
                     timeseries_file.write('\n' + ','.join(map(lambda x: str(x), row)))
+        if save_plots:
+            # create directory if necessary
+            Path(save_plots).parent.mkdir(parents=True, exist_ok=True)
+            # prepare file name
+            file_name = str(save_plots)
+            gc_id = util.sanitize(gcID)
+            if file_name.find('%gc') >= 0:
+                # wildcard: replace %gc with gc ID
+                file_name = file_name.replace('%gc', gc_id)
+            else:
+                # no wildcard: append gc ID
+                dot_pos = max(file_name.rfind('.'), 0)
+                file_name = file_name[:dot_pos] + "_" + gc_id + file_name[dot_pos:]
+            plot(scenario, gc_id=gcID, show=False, file_name=file_name)
 
     # GC-independent stuff
 
@@ -873,11 +981,6 @@ def generate_reports(scenario, options):
                 # write row to file
                 soc_file.write('\n' + ','.join(map(lambda x: str(x), row)))
 
-    if visual or testing:
-        aggregate_global_results(scenario)
-    if visual:
-        # plot!
-        plot(scenario)
     if testing:
         # metadata, used in tests
         scenario.testing = {
