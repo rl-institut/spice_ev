@@ -50,6 +50,44 @@ def datetime_within_time_window(dt, time_windows, voltage_level):
     return False
 
 
+def is_workday(dt, holidays):
+    """
+    Check if a given datetime is during a workday.
+
+    - must not be weekend
+    - must not be in holidays list
+    - must not be single day between holiday and weekend
+    - must not be between Christmas and New Year
+
+    :param dt: time
+    :type dt: datetime
+    :param holidays: holiday dates
+    :return: is datetime a workday?
+    :rtype: bool
+    """
+    if dt.weekday() > 4:
+        # weekend
+        return False
+    for d in holidays:
+        if dt.date() == d:
+            # exact holiday
+            return False
+        if dt.weekday() == 0 and (dt + datetime.timedelta(days=1)).date() == d:
+            # Monday before holiday
+            return False
+        if dt.weekday() == 4 and (dt - datetime.timedelta(days=1)).date() == d:
+            # Friday after holiday
+            return False
+    if dt.month == 12:
+        if dt.day >= 25:
+            # between Christmas and New Year
+            return False
+        if dt.day == 24 and dt.weekday() == 0:
+            # Monday before Christmas
+            return False
+    return True
+
+
 def dt_within_core_standing_time(dt, core_standing_time):
     """ Check if datetime dt is in inside core standing time.
 

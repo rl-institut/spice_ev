@@ -1,5 +1,7 @@
+import difflib
 from pathlib import Path
 import subprocess
+import sys
 
 TEST_REPO_PATH = Path(__file__).parent
 EXAMPLE_PATH = TEST_REPO_PATH.parent / "examples"
@@ -11,11 +13,16 @@ def compare_files(p1, p2):
     # => replace different line break with universal linebreak (by reading with newline=None)
     try:
         with p1.open('r', newline=None) as f1:
-            content1 = f1.read()
+            content1 = f1.readlines()
         with p2.open('r', newline=None) as f2:
-            content2 = f2.read()
+            content2 = f2.readlines()
+        if content1 != content2:
+            # text content differs: write diff to stderr
+            diff = difflib.unified_diff(content1, content2, fromfile=str(p1), tofile=str(p2), n=0)
+            sys.stderr.writelines(diff)
         return content1 == content2
-    except Exception:
+    except Exception as e:
+        sys.stderr.write(f"Error while comparing: {str(e)}")
         return False
 
 

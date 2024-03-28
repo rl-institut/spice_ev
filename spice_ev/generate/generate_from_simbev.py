@@ -417,6 +417,7 @@ def generate_from_simbev(args):
             "start_time": start.isoformat(),
             "interval": args.interval,
             "n_intervals": n_intervals,
+            "holidays": vars(args).get("holidays", []),
         },
         "components": {
             "vehicle_types": vehicle_types,

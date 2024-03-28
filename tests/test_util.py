@@ -67,6 +67,24 @@ class TestUtil:
             # wrong voltage level
             assert not util.datetime_within_time_window(dt, time_windows, "not lvl")
 
+    def test_is_workday(self):
+        holidays = [datetime.date.fromisoformat(d) for d in ["2020-01-01", "2020-05-21"]]
+        dates = [
+            ("2020-01-01", False),  # in holidays list
+            ("2020-01-03", True),   # is workday (Friday)
+            ("2020-01-04", False),  # Saturday
+            ("2020-01-05", False),  # Sunday
+            ("2020-05-22", False),  # Friday after holiday
+            ("2020-12-24", True),   # Christmas Eve is working day
+            ("2018-12-24", False),  # except when it's Monday
+            ("2020-12-25", False),  # Christmas day is not a working day
+            ("2020-12-29", False),  # between Christmas and New Year
+            ("2020-12-31", False),  # New Year
+        ]
+        for d, expect in dates:
+            assert util.is_workday(datetime.datetime.fromisoformat(d), holidays) == expect, (
+                f"Workday mismatch: {d}")
+
     def test_core_window(self):
         dt = datetime.datetime(day=1, month=1, year=2020)
         assert util.dt_within_core_standing_time(dt, None)

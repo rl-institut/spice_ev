@@ -47,6 +47,9 @@ class Scenario:
 
         # only relevant for schedule strategy
         self.core_standing_time = scenario.get('core_standing_time', None)
+        # only relevant for peak load window strategy
+        # holidays might also be defined in time_windows file
+        self.holiday = scenario.get('holidays', [])
 
         # compute average load for each timeslot
         for fixed_load_list in self.events.fixed_load_lists.values():
@@ -67,6 +70,7 @@ class Scenario:
         """
 
         options['events'] = self.events
+        options['holiday'] = self.holiday
         options['interval'] = self.interval
         options['stop_time'] = self.stop_time
         options['n_intervals'] = self.n_intervals
