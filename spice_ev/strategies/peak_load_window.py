@@ -95,16 +95,8 @@ class PeakLoadWindow(Strategy):
                 stop_time = max(stop_time, event.update["estimated_time_of_departure"])
             elif event.event_type == "departure":
                 stop_time = max(stop_time, event.start_time)
-
         # restructure events (like event_steps): list with events for each timestep
-        # also, find highest peak of GC power within time windows
         self.events = []
-        current_loads = {}
-        peak_power = {}
-        peak_time = {gc_id: self.current_time for gc_id in gcs}
-        for gc_id, gc in gcs.items():
-            current_loads[gc_id] = deepcopy(gc.current_loads)
-            peak_power[gc_id] = 0
         cur_time = start_time - self.interval
         event_idx = 0
         while cur_time <= stop_time:
@@ -121,28 +113,9 @@ class PeakLoadWindow(Strategy):
                     break
                 event_idx += 1
                 cur_events.append(event)
-                gc_id = event.grid_connector_id
-                gc = gcs[gc_id]
-                if type(event) is events.LocalEnergyGeneration:
-                    current_loads[gc_id][event.name] = -event.value
-                elif type(event) is events.FixedLoad:
-                    current_loads[gc_id][event.name] = event.value
-            # end of events for this timestep
-            # update peak power
-            for gc_id, gc in gcs.items():
-                is_window = util.datetime_within_time_window(
-                    cur_time, self.time_windows[gc.grid_operator], gc.voltage_level)
-                gc_sum_loads = sum(current_loads[gc_id].values())
-                if is_window and gc_sum_loads > peak_power[gc_id]:
-                    # new peak power
-                    peak_power[gc_id] = gc_sum_loads
-                    peak_time[gc_id] = cur_time
             self.events.append(cur_events)
-        self.peak_power = peak_power
-        for gc_id, t in peak_time.items():
-            if t > self.stop_time:
-                warnings.warn(f"Peak power of {peak_power[gc_id]} kW at {gc_id} "
-                              f"is not within simulation time, but at {t}")
+        # peak power: only for past (immutable) timesteps
+        self.peak_power = {gc_id: 0 for gc_id in gcs}
 
     def step(self):
         """ Calculate charging power in each timestep.
@@ -358,13 +331,13 @@ class PeakLoadWindow(Strategy):
                 if power >= battery.min_charging_power:
                     # current load above peak power within window: discharge
                     bat_info[b_id]["power"] = -power
-                    power = battery.unload(self.interval, target_power=power)["avg_power"]
-                    gc_loads[b_id] = -power
+                    bat_power = battery.unload(self.interval, target_power=power)["avg_power"]
+                    gc_loads[b_id] = -bat_power
                 elif power <= -battery.min_charging_power:
                     # current load below peak power: charge up to peak power
                     bat_info[b_id]["power"] = -power
-                    power = battery.load(self.interval, target_power=-power)["avg_power"]
-                    gc_loads[b_id] = power
+                    bat_power = battery.load(self.interval, target_power=-power)["avg_power"]
+                    gc_loads[b_id] = bat_power
             else:
                 # outside of window: charge balanced until window change
                 # only current timestep computed, no look-ahead
