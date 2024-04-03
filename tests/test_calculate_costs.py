@@ -427,6 +427,15 @@ class TestSimulationCosts:
             assert (results_json['costs']['electricity costs']['per year']['power procurement']
                    == result["power_procurement_costs_per_year"])
 
+    def test_zero_power_plw(self):
+        # cost calculation for peak load window had DIV0 if max_power_grid_supply was 0
+        zeroes = [0]*9
+        cc.calculate_costs(
+            "peak_load_window", "MV", datetime.timedelta(hours=1), [None]*9,
+            [0]*9,  # !! empty grid supply !!
+            None, zeroes, zeroes, zeroes, zeroes, None,
+            TEST_REPO_PATH / 'test_data/input_test_cost_calculation/price_sheet.json')
+
 
 class TestPostSimulationCosts:
     def test_calculate_costs_post_sim(self, tmp_path):

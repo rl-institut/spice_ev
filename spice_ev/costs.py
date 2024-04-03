@@ -258,10 +258,12 @@ def calculate_costs(strategy, voltage_level, interval,
                                 zip(power_grid_supply_list, charging_signal_list) if w]
             peak_power_in_windows = max(window_loads + [0])
             # check if cost calculation for peak_load_window can be applied: significance_threshold
-            significance_threshold = ((max_power_grid_supply - peak_power_in_windows) /
-                                      max_power_grid_supply) * 100
-            significance_threshold_price_sheet = (price_sheet["strategy_related"][strategy]
-                                                  ["significance_threshold"][voltage_level])
+            significance_threshold = 0
+            if max_power_grid_supply > 0:
+                significance_threshold = (
+                    (max_power_grid_supply - peak_power_in_windows) / max_power_grid_supply) * 100
+            significance_threshold_price_sheet = (
+                price_sheet["strategy_related"][strategy]["significance_threshold"][voltage_level])
             # check if cost model can be applied
             peak_diff = max_power_grid_supply - peak_power_in_windows
             if significance_threshold > significance_threshold_price_sheet and peak_diff > 100:
