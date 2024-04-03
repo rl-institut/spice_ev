@@ -35,7 +35,7 @@ Generate scenarios as JSON files for vehicle charging modelling.
 +----------------------------------------+------------------+-------------------------------------+---------------------------------------------------------------------------------------------------------------------------+---------------------------------------------+-------------------------------------------------------------------------+
 | --cs-power-min                         |                  | cs_power_min                        | Set minimal power of charging station in kW                                                                               | 0.1 * cs_power                              |--cs-power-min 3.7                                                       |
 +----------------------------------------+------------------+-------------------------------------+---------------------------------------------------------------------------------------------------------------------------+---------------------------------------------+-------------------------------------------------------------------------+
-| --discharge-limit                      |                  | discharge_limit                     | Minimum SOC to discharge to during V2G [0-1]                                                                              | 0.5                                         |--discharge-limit 0                                                      |
+| --grid-operator                        |                  | grid_operator                       | Set grid operator for grid connector                                                                                      | default_grid_operator                       |--grid-operator default_grid_operator                                    |
 +----------------------------------------+------------------+-------------------------------------+---------------------------------------------------------------------------------------------------------------------------+---------------------------------------------+-------------------------------------------------------------------------+
 | --voltage-level                        | -vl              | voltage_level                       | Set voltage level for cost calculation (possible voltage levels: HV, HV/MV, MV, MV/LV, LV)                                | None                                        |-vl MV                                                                   |
 +----------------------------------------+------------------+-------------------------------------+---------------------------------------------------------------------------------------------------------------------------+---------------------------------------------+-------------------------------------------------------------------------+
@@ -204,33 +204,29 @@ stationary batteries or V2G, you need to set the target SOC parameter of the bat
 
 **Strategy options**
 
-    +---------------------+----------------------------+---------------------------------------------------------+-------------+--------------+---------------------+--------------+---------------------+------------------+-----------------+
-    | **Strategy option** | **Default**                |              **Explanation**                            | **Greedy**  | **Balanced** | **Balanced Market** | **Schedule** | **Peak load window**| **Flex window**  | **Distributed** |
-    +---------------------+----------------------------+---------------------------------------------------------+-------------+--------------+---------------------+--------------+---------------------+------------------+-----------------+
-    |   CONCURRENCY       |     1.0                    | Reduce maximum available power at each charging station.| x           |              | x                   |              |                     | x                |                 |
-    |                     |                            |                                                         |             |              |                     |              |                     |                  |                 |
-    |                     |                            | A value of 0.5 means only half the power is available.  |             |              |                     |              |                     |                  |                 |
-    +---------------------+----------------------------+---------------------------------------------------------+-------------+--------------+---------------------+--------------+---------------------+------------------+-----------------+
-    |   PRICE_THRESHOLD   |    0.001                   | A price below this is considered cheap. Unit: € / 1 kWh | x           | x            | x                   |              |                     | x                | x               |
-    +---------------------+----------------------------+---------------------------------------------------------+-------------+--------------+---------------------+--------------+---------------------+------------------+-----------------+
-    |   ITERATIONS        |     12                     | Minimum depth of binary search to find charging power   |             | x            |                     |              |                     |                  |                 |
-    +---------------------+----------------------------+---------------------------------------------------------+-------------+--------------+---------------------+--------------+---------------------+------------------+-----------------+
-    |   HORIZON           |      24                    | number of hours to look ahead                           |             |              | x                   |              |                     | x                |                 |
-    +---------------------+----------------------------+---------------------------------------------------------+-------------+--------------+---------------------+--------------+---------------------+------------------+-----------------+
-    |   DISCHARGE_LIMIT   |      0                     | V2G: maximum depth of discharge [0-1]                   |             |              | x                   |              |                     | x                | x               |
-    +---------------------+----------------------------+---------------------------------------------------------+-------------+--------------+---------------------+--------------+---------------------+------------------+-----------------+
-    | ALLOW_NEGATIVE_SOC  |   False                    | simulation does not abort if SOC becomes negative       |             |              |                     |              |                     |                  | x               |
-    +---------------------+----------------------------+---------------------------------------------------------+-------------+--------------+---------------------+--------------+---------------------+------------------+-----------------+
-    |   C-HORIZON         |      3                     | loading time in min reserved for vehicle if number of cs|             |              |                     |              |                     |                  | x               |
-    |                     |                            |                                                         |             |              |                     |              |                     |                  |                 |
-    |                     |                            | is limited                                              |             |              |                     |              |                     |                  |                 |
-    +---------------------+----------------------------+---------------------------------------------------------+-------------+--------------+---------------------+--------------+---------------------+------------------+-----------------+
-    |   LOAD_STRAT        |  Flex window: "balanced"   | Sub-strategies for behaviour within charging windows    |             |              |                     | x            | x                   | x                |                 |
-    |                     |                            |                                                         |             |              |                     |              |                     |                  |                 |
-    |                     |  Schedule: "collective"    | (see description above for options and explanations)    |             |              |                     |              |                     |                  |                 |
-    |                     |                            |                                                         |             |              |                     |              |                     |                  |                 |
-    |                     |  Peak load window: "needy" |                                                         |             |              |                     |              |                     |                  |                 |
-    +---------------------+----------------------------+---------------------------------------------------------+-------------+--------------+---------------------+--------------+---------------------+------------------+-----------------+
+    +---------------------+----------------------------+---------------------------------------------------------+-------------+--------------+---------------------+--------------+------------------+---------------------+------------------+-----------------+
+    | **Strategy option** | **Default**                |              **Explanation**                            | **Greedy**  | **Balanced** | **Balanced Market** | **Schedule** | **Peak Shaving** | **Peak Load Window**| **Flex Window**  | **Distributed** |
+    +---------------------+----------------------------+---------------------------------------------------------+-------------+--------------+---------------------+--------------+------------------+---------------------+------------------+-----------------+
+    | Perfect_Foresight   | True                       | All events and loads are known at start of simulation.  |             |              |                     |              | x                |                     |                  |                 |
+    +---------------------+----------------------------+---------------------------------------------------------+-------------+--------------+---------------------+--------------+------------------+---------------------+------------------+-----------------+
+    | CONCURRENCY         | 1.0                        | Reduce maximum available power at each charging station.| x           |              | x                   |              |                  |                     | x                |                 |
+    |                     |                            |                                                         |             |              |                     |              |                  |                     |                  |                 |
+    |                     |                            | A value of 0.5 means only half the power is available.  |             |              |                     |              |                  |                     |                  |                 |
+    +---------------------+----------------------------+---------------------------------------------------------+-------------+--------------+---------------------+--------------+------------------+---------------------+------------------+-----------------+
+    | PRICE_THRESHOLD     | 0.001                      | A price below this is considered cheap. Unit: EUR/kWh   | x           | x            | x                   |              |                  |                     | x                | x               |
+    +---------------------+----------------------------+---------------------------------------------------------+-------------+--------------+---------------------+--------------+------------------+---------------------+------------------+-----------------+
+    | HORIZON             | 24                         | number of hours to look ahead                           |             |              | x                   |              | x                |                     | x                |                 |
+    +---------------------+----------------------------+---------------------------------------------------------+-------------+--------------+---------------------+--------------+------------------+---------------------+------------------+-----------------+
+    | ALLOW_NEGATIVE_SOC  | False                      | simulation does not abort if SOC becomes negative       |             |              |                     |              |                  |                     |                  | x               |
+    +---------------------+----------------------------+---------------------------------------------------------+-------------+--------------+---------------------+--------------+------------------+---------------------+------------------+-----------------+
+    | C-HORIZON           | 3                          | loading time in min reserved for vehicle if number of cs|             |              |                     |              |                  |                     |                  | x               |
+    |                     |                            |                                                         |             |              |                     |              |                  |                     |                  |                 |
+    |                     |                            | is limited                                              |             |              |                     |              |                  |                     |                  |                 |
+    +---------------------+----------------------------+---------------------------------------------------------+-------------+--------------+---------------------+--------------+------------------+---------------------+------------------+-----------------+
+    | LOAD_STRAT          | Flex window: "balanced"    | Sub-strategies for behaviour within charging windows    |             |              |                     | x            |                  | x                   | x                |                 |
+    |                     |                            |                                                         |             |              |                     |              |                  |                     |                  |                 |
+    |                     | Schedule: "collective"     | (see description above for options and explanations)    |             |              |                     |              |                  |                     |                  |                 |
+    +---------------------+----------------------------+---------------------------------------------------------+-------------+--------------+---------------------+--------------+------------------+---------------------+------------------+-----------------+
 
 
 .. _file_formats:
@@ -244,7 +240,7 @@ input is part of the repository, as some data is classified and/or should be cre
 generate.py
 -----------
 
-**Input for mode `statistics` and `simbev`**
+**Input for mode STATISTICS and SIMBEV**
 
 - Fixed load (CSV): This file needs one column with the drawn power in kW (can have more columns, but only one is
   relevant). The file is read line-by-line, with events starting at start_time and updating every interval
@@ -257,13 +253,13 @@ generate.py
   (configurable).
 - Configuration (CFG): Refer to `generate_from_statistics.cfg` and `generate_from_simbev.cfg` in the`examples` folder.
 
-**Output for mode `statistics` and `simbev`**
+**Output for mode STATISTICS and SIMBEV**
 
 - Scenario (JSON): This file is used in `simulate.py`. It defines the general information (start_time, interval,
   n_intervals), components (vehicle types, vehicles, grid connectors, charging stations, batteries) and events (fixed
   loads, local generation, grid operator signals and vehicle events).
 
-**Input for mode `csv`**
+**Input for mode CSV**
 
 - Trips schedule (CSV): Each row in the CSV file represents one trip. The following columns are needed: "departure_time"
   (datetime), "arrival_time" (datetime), "vehicle_type" (str), "soc" (numeric) / "delta_soc" (numeric) / "distance"
@@ -271,7 +267,7 @@ generate.py
 - Configuration (CFG): Refer to `generate_from_csv.cfg` in the `examples` folder or the `generate_from_csv_template.csv`
   in the subfolder `data`.
 
-**Output for mode `csv`**
+**Output for mode CSV**
 
 - Scenario (JSON): This file is used in `simulate.py`. It defines the general information (start_time, interval,
   n_intervals), components (vehicle types, vehicles, grid connectors, charging stations, batteries) and events (fixed

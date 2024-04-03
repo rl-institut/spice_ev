@@ -38,11 +38,7 @@ class Battery():
         else:
             self.unloading_curve = copy.deepcopy(unloading_curve)
 
-        if self.capacity > 1e6:
-            # batteries with high/infinite capacity: lower EPS for loading
-            self.EPS = 0.1 / self.capacity
-        else:
-            self.EPS = 1e-5
+        self.EPS = 1e-5 / self.capacity
 
     def load(self, timedelta, max_power=None, target_soc=None, target_power=None):
         """ Adjust SoC, return average charging power for given timedelta and max charging power.
@@ -322,6 +318,8 @@ class Battery():
             energy_delta = abs(new_soc - self.soc) * c
             assert energy_delta > 0
             self.soc = new_soc
+            assert self.soc < 1 + self.EPS
+            self.soc = min(self.soc, 1)
             remaining_hours -= abs(t)
             # remember amount of energy loaded into battery
             energies.append(energy_delta)

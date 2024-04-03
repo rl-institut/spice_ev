@@ -7,6 +7,11 @@ from warnings import warn
 from spice_ev import events
 from spice_ev.util import get_cost, clamp_power
 
+STRATEGIES = [
+    'greedy', 'balanced', 'balanced_market', 'distributed',
+    'peak_load_window', 'peak_shaving', 'flex_window', 'schedule'
+]
+
 
 def class_from_str(strategy_name):
     import_name = strategy_name.lower()
@@ -33,7 +38,7 @@ class Strategy():
         self.world_state = deepcopy(components)
         self.world_state.future_events = []
         self.interval = kwargs.get('interval')  # required
-        self.ts_per_hour = self.interval / timedelta(minutes=60)
+        self.ts_per_hour = timedelta(hours=1) / self.interval
         self.current_time = start_time - self.interval
         # relative allowed difference between battery SoC and desired SoC when leaving
         self.margin = 0.1
@@ -90,17 +95,24 @@ class Strategy():
             ev = self.world_state.future_events.pop(0)
 
             if type(ev) is events.FixedLoad:
-                connector = self.world_state.grid_connectors[ev.grid_connector_id]
+                connector = self.world_state.grid_connectors.get(ev.grid_connector_id)
+                if connector is None:
+                    continue
                 assert ev.name not in self.world_state.charging_stations, (
                     "Fixed load must not be from charging station")
                 connector.current_loads[ev.name] = ev.value  # not reset after last event
             elif type(ev) is events.LocalEnergyGeneration:
                 assert ev.name not in self.world_state.charging_stations, (
                     "Local energy generation must not be from charging station")
-                connector = self.world_state.grid_connectors[ev.grid_connector_id]
+                connector = self.world_state.grid_connectors.get(ev.grid_connector_id)
+                if connector is None:
+                    continue
                 connector.current_loads[ev.name] = -ev.value
             elif type(ev) is events.GridOperatorSignal:
-                connector = self.world_state.grid_connectors[ev.grid_connector_id]
+                connector = self.world_state.grid_connectors.get(ev.grid_connector_id)
+                if connector is None:
+                    # unknown grid connector
+                    continue
                 if ev.cost is not None:
                     # set power cost
                     connector.cost = ev.cost
@@ -121,6 +133,7 @@ class Strategy():
                 if vehicle is None:
                     # skip events without vehicle
                     continue
+                is_connected = vehicle.connected_charging_station is not None
                 # update vehicle attributes
                 for k, v in ev.update.items():
                     setattr(vehicle, k, v)
@@ -129,7 +142,7 @@ class Strategy():
                     if ev.start_time < self.current_time - self.interval:
                         # event from the past: simulate optimal charging
                         vehicle.battery.soc = vehicle.desired_soc
-                    if vehicle.connected_charging_station is not None:
+                    if is_connected:
                         # if connected, check that vehicle has charged enough
                         self.desired_counter += vehicle.battery.soc < vehicle.desired_soc - self.EPS
                         if 0 <= vehicle.battery.soc < (1-self.margin)*vehicle.desired_soc-self.EPS:
@@ -138,13 +151,15 @@ class Strategy():
                             warn("{}: Vehicle {} is below desired SOC ({} < {})".format(
                                 ev.start_time.isoformat(), ev.vehicle_id,
                                 vehicle.battery.soc, vehicle.desired_soc))
-                        # vehicle leaves: disconnect vehicle
-                        vehicle.connected_charging_station = None
+                    # vehicle leaves: disconnect vehicle
+                    vehicle.connected_charging_station = None
                 elif ev.event_type == "arrival":
                     # vehicle arrives
                     assert hasattr(vehicle, 'soc_delta')
                     # soc_delta always negative
                     vehicle.battery.soc += vehicle.soc_delta
+                    if is_connected:
+                        warn(f"{self.current_time}: {ev.vehicle_id} arrival, but already charging")
                     if vehicle.battery.soc + self.EPS < 0:
                         # vehicle was not charged enough to make trip
                         time_str = self.current_time.isoformat()
@@ -207,13 +222,15 @@ class Strategy():
                 avg_power = vehicle.battery.load(self.interval, max_power=power)['avg_power']
                 commands[cs_id] = gc.add_load(cs_id, avg_power)
                 cs.current_power += avg_power
-            elif (vehicle.get_delta_soc() < -self.EPS
+            elif (gc_surplus < -self.EPS
+                    and vehicle.get_delta_soc() < -self.EPS
                     and vehicle.vehicle_type.v2g
-                    and cs.current_power < self.EPS
+                    and gc.current_loads.get(cs_id, 0) < self.EPS
                     and not gc_cheap[cs.parent]):
-                # GC draws power, surplus in vehicle and V2G capable: support GC
+                # GC draws power, surplus in vehicle,
+                # not currently charging and V2G capable: support GC
                 discharge_power = min(-gc_surplus, vehicle.battery.unloading_curve.max_power)
-                target_soc = max(vehicle.desired_soc, self.DISCHARGE_LIMIT)
+                target_soc = max(vehicle.desired_soc, vehicle.vehicle_type.discharge_limit)
                 avg_power = vehicle.battery.unload(
                     self.interval, max_power=discharge_power, target_soc=target_soc)['avg_power']
                 commands[cs_id] = gc.add_load(cs_id, -avg_power)
@@ -226,7 +243,9 @@ class Strategy():
             gc_id: get_cost(1, gc.cost) <= self.PRICE_THRESHOLD
             for gc_id, gc in self.world_state.grid_connectors.items()}
         for b_id, battery in self.world_state.batteries.items():
-            gc = self.world_state.grid_connectors[battery.parent]
+            gc = self.world_state.grid_connectors.get(battery.parent)
+            if gc is None:
+                continue
             gc_current_load = gc.get_current_load()
             if gc_cheap[battery.parent]:
                 # low price: charge with full power

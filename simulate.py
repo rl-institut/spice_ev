@@ -5,14 +5,10 @@ import json
 from pathlib import Path
 import warnings
 
-from spice_ev.scenario import Scenario
-from spice_ev.util import set_options_from_config
 from spice_ev.costs import calculate_costs
-
-STRATEGIES = [
-    'greedy', 'balanced', 'balanced_market', 'distributed',
-    'peak_load_window', 'flex_window', 'schedule'
-]
+from spice_ev.scenario import Scenario
+from spice_ev.strategy import STRATEGIES
+from spice_ev.util import set_options_from_config
 
 
 def simulate(args):
@@ -100,7 +96,8 @@ def simulate(args):
                 power_v2g_feed_in_list=timeseries.get("V2G feed-in [kW]"),
                 power_battery_feed_in_list=timeseries.get("battery feed-in [kW]"),
                 charging_signal_list=timeseries.get("window signal [-]"),
-                price_sheet_json=args.get("cost_parameters_file"),
+                price_sheet_path=args.get("cost_parameters_file"),
+                grid_operator=gc.grid_operator,
                 results_json=args.get("save_results"),
                 power_pv_nominal=pv,
                 power_schedule_list=timeseries.get("schedule [kW]"),
@@ -115,7 +112,7 @@ if __name__ == "__main__":
         Simulation Program for Individual Charging Events of Electric Vehicles. \
         Simulate different charging strategies for a given scenario.')
     parser.add_argument('input', nargs='?', help='Set the scenario JSON file')
-    parser.add_argument('--strategy', '-s', default='greedy',
+    parser.add_argument('--strategy', '-s', default='greedy', choices=STRATEGIES,
                         help='Specify the charging strategy. One of {}. You may define \
                         custom options with --strategy-option.'.format(', '.join(STRATEGIES)))
     parser.add_argument('--margin', '-m', metavar='X', type=float, default=0.05,

@@ -1,0 +1,273 @@
+{
+  "scenario": {
+    "start_time": "2023-01-01T00:00:00+02:00",
+    "interval": 15.0,
+    "stop_time": "2023-01-03T00:00:00+02:00",
+    "discharge_limit": 0.5
+  },
+  "components": {
+    "vehicle_types": {
+      "car": {
+        "name": "car",
+        "capacity": 300,
+        "mileage": 16,
+        "charging_curve": [
+          [
+            0,
+            150
+          ],
+          [
+            0.6,
+            150
+          ],
+          [
+            0.8,
+            150
+          ],
+          [
+            1,
+            4.2
+          ]
+        ],
+        "min_charging_power": 0.2,
+        "v2g": false,
+        "v2g_power_factor": 0.25,
+        "no_drive_days": []
+      },
+      "transporter": {
+        "name": "transporter",
+        "capacity": 76,
+        "mileage": 20,
+        "charging_curve": [
+          [
+            0,
+            22
+          ],
+          [
+            0.6,
+            22
+          ],
+          [
+            0.8,
+            22
+          ],
+          [
+            1,
+            4.2
+          ]
+        ],
+        "min_charging_power": 0.2,
+        "v2g": false,
+        "v2g_power_factor": 0.5,
+        "no_drive_days": []
+      }
+    },
+    "vehicles": {
+      "car_0": {
+        "connected_charging_station": "CS_car_0",
+        "estimated_time_of_departure": "2023-01-01T13:34:00+02:00",
+        "desired_soc": 1,
+        "soc": 1,
+        "vehicle_type": "car"
+      },
+      "transporter_0": {
+        "connected_charging_station": "CS_transporter_0",
+        "estimated_time_of_departure": "2023-01-01T10:52:00+02:00",
+        "desired_soc": 1,
+        "soc": 1,
+        "vehicle_type": "transporter"
+      }
+    },
+    "grid_connectors": {
+      "GC1": {
+        "max_power": 200,
+        "grid_operator": null,
+        "voltage_level": "MV",
+        "cost": {
+          "type": "fixed",
+          "value": 0.3
+        }
+      }
+    },
+    "charging_stations": {
+      "CS_car_0": {
+        "max_power": 150,
+        "min_power": 0,
+        "parent": "GC1"
+      },
+      "CS_transporter_0": {
+        "max_power": 22,
+        "min_power": 0,
+        "parent": "GC1"
+      }
+    },
+    "batteries": {
+      "BAT1": {
+        "parent": "GC1",
+        "capacity": 100,
+        "charging_curve": [
+          [
+            0,
+            100
+          ],
+          [
+            1,
+            100
+          ]
+        ]
+      }
+    },
+    "photovoltaics": {
+      "PV1": {
+        "parent": "GC1",
+        "nominal_power": 30
+      }
+    }
+  },
+  "events": {
+    "grid_operator_signals": [
+      {
+        "signal_time": "2023-01-01T00:00:00+02:00",
+        "grid_connector_id": "GC1",
+        "start_time": "2023-01-01T06:00:00+02:00",
+        "cost": {
+          "type": "fixed",
+          "value": 0.15384
+        }
+      },
+      {
+        "signal_time": "2023-01-01T00:00:00+02:00",
+        "grid_connector_id": "GC1",
+        "start_time": "2023-01-01T17:00:00+02:00",
+        "cost": {
+          "type": "fixed",
+          "value": 0.07161
+        }
+      },
+      {
+        "signal_time": "2023-01-01T00:00:00+02:00",
+        "grid_connector_id": "GC1",
+        "start_time": "2023-01-02T06:00:00+02:00",
+        "cost": {
+          "type": "fixed",
+          "value": 0.16081
+        }
+      },
+      {
+        "signal_time": "2023-01-01T00:00:00+02:00",
+        "grid_connector_id": "GC1",
+        "start_time": "2023-01-02T17:00:00+02:00",
+        "cost": {
+          "type": "fixed",
+          "value": 0.08265
+        }
+      }
+    ],
+    "fixed_load": {
+      "building": {
+        "csv_file": "example_load.csv",
+        "start_time": "2023-01-01T00:00:00+02:00",
+        "step_duration_s": 600,
+        "grid_connector_id": "GC1",
+        "column": "value",
+        "factor": 0.5
+      }
+    },
+    "local_generation": {
+      "pv": {
+        "csv_file": "example_pv.csv",
+        "start_time": "2023-01-01T00:00:00+02:00",
+        "step_duration_s": 3600,
+        "grid_connector_id": "GC1",
+        "column": "pv (kW)",
+        "factor": 0.3
+      }
+    },
+    "vehicle_events": [
+      {
+        "signal_time": "2023-01-01T13:34:00+02:00",
+        "start_time": "2023-01-01T13:34:00+02:00",
+        "vehicle_id": "car_0",
+        "event_type": "departure",
+        "update": {
+          "estimated_time_of_arrival": "2023-01-02T06:45:00+02:00"
+        }
+      },
+      {
+        "signal_time": "2023-01-02T06:45:00+02:00",
+        "start_time": "2023-01-02T06:45:00+02:00",
+        "vehicle_id": "car_0",
+        "event_type": "arrival",
+        "update": {
+          "connected_charging_station": "CS_car_0",
+          "estimated_time_of_departure": "2023-01-02T10:17:00+02:00",
+          "desired_soc": 1,
+          "soc_delta": -0.9
+        }
+      },
+      {
+        "signal_time": "2023-01-01T10:52:00+02:00",
+        "start_time": "2023-01-01T10:52:00+02:00",
+        "vehicle_id": "transporter_0",
+        "event_type": "departure",
+        "update": {
+          "estimated_time_of_arrival": "2023-01-01T12:32:00+02:00"
+        }
+      },
+      {
+        "signal_time": "2023-01-01T12:32:00+02:00",
+        "start_time": "2023-01-01T12:32:00+02:00",
+        "vehicle_id": "transporter_0",
+        "event_type": "arrival",
+        "update": {
+          "connected_charging_station": "CS_transporter_0",
+          "estimated_time_of_departure": "2023-01-02T14:50:00+02:00",
+          "desired_soc": 1,
+          "soc_delta": -0.254006614573313
+        }
+      },
+      {
+        "signal_time": "2023-01-02T10:17:00+02:00",
+        "start_time": "2023-01-02T10:17:00+02:00",
+        "vehicle_id": "car_0",
+        "event_type": "departure",
+        "update": {
+          "estimated_time_of_arrival": "2023-01-02T17:47:00+02:00"
+        }
+      },
+      {
+        "signal_time": "2023-01-02T17:47:00+02:00",
+        "start_time": "2023-01-02T17:47:00+02:00",
+        "vehicle_id": "car_0",
+        "event_type": "arrival",
+        "update": {
+          "connected_charging_station": "CS_car_0",
+          "estimated_time_of_departure": "2023-01-05T12:03:00+02:00",
+          "desired_soc": 1,
+          "soc_delta": -0.38654379368747893
+        }
+      },
+      {
+        "signal_time": "2023-01-02T14:50:00+02:00",
+        "start_time": "2023-01-02T14:50:00+02:00",
+        "vehicle_id": "transporter_0",
+        "event_type": "departure",
+        "update": {
+          "estimated_time_of_arrival": "2023-01-02T21:59:00+02:00"
+        }
+      },
+      {
+        "signal_time": "2023-01-02T21:59:00+02:00",
+        "start_time": "2023-01-02T21:59:00+02:00",
+        "vehicle_id": "transporter_0",
+        "event_type": "arrival",
+        "update": {
+          "connected_charging_station": "CS_transporter_0",
+          "estimated_time_of_departure": "2023-01-05T14:49:00+02:00",
+          "desired_soc": 1,
+          "soc_delta": -0.1539953081335353
+        }
+      }
+    ]
+  }
+}

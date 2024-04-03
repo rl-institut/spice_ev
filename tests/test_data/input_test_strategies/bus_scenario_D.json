@@ -266,6 +266,7 @@
     "grid_connectors": {
       "S+U Wuhletal": {
         "max_power": 200,
+        "voltage_level": "MV",
         "cost": {
           "type": "fixed",
           "value": 0.3
@@ -274,6 +275,7 @@
       },
       "Betriebshof A": {
         "max_power": 10000,
+        "voltage_level": "MV",
         "cost": {
           "type": "fixed",
           "value": 0.3
@@ -282,6 +284,7 @@
       },
       "S+U Hermannstr.": {
         "max_power": 400,
+        "voltage_level": "MV",
         "cost": {
           "type": "fixed",
           "value": 0.3
@@ -290,6 +293,7 @@
       },
       "S Buch": {
         "max_power": 500,
+        "voltage_level": "MV",
         "cost": {
           "type": "fixed",
           "value": 0.3
@@ -298,6 +302,7 @@
       },
       "S Adlershof": {
         "max_power": 300,
+        "voltage_level": "MV",
         "cost": {
           "type": "fixed",
           "value": 0.3
@@ -306,6 +311,7 @@
       },
       "U Rohrdamm": {
         "max_power": 400,
+        "voltage_level": "MV",
         "cost": {
           "type": "fixed",
           "value": 0.3
@@ -314,6 +320,7 @@
       },
       "S Grunewald": {
         "max_power": 500,
+        "voltage_level": "MV",
         "cost": {
           "type": "fixed",
           "value": 0.3
@@ -322,6 +329,7 @@
       },
       "Alt-Kladow": {
         "max_power": 300,
+        "voltage_level": "MV",
         "cost": {
           "type": "fixed",
           "value": 0.3
@@ -330,6 +338,7 @@
       },
       "Betriebshof Indira-Gandhi-Str.": {
         "max_power": 10000,
+        "voltage_level": "MV",
         "cost": {
           "type": "fixed",
           "value": 0.3

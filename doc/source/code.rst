@@ -201,6 +201,20 @@ the maximum permitted power at the GC, multiple vehicles may be charged in one t
     Greedy.step
 
 
+Peak shaving
+................
+This strategy aims to flatten power peaks by drawing power in times of low load and supporting grid connectors (e.g. with a stationary battery) in times of high load.
+
+.. currentmodule:: spice_ev.strategies.peak_shaving
+.. autosummary::
+    :toctree: temp/
+
+    PeakShaving
+    PeakShaving.step
+    PeakShaving.step_gc
+    PeakShaving.fast_charge
+
+
 Peak load window
 ................
 Given a time window of high load, this strategy tries to charge outside of this time window. Different sub-strategies
@@ -212,7 +226,7 @@ are supported.
 
     PeakLoadWindow
     PeakLoadWindow.step
-    PeakLoadWindow.distribute_power
+    PeakLoadWindow.step_gc
 
 
 Schedule
@@ -379,7 +393,7 @@ This modul contains some utility functions needed by different scripts and modul
     :toctree: temp/
 
     datetime_from_isoformat
-    datetime_within_window
+    datetime_within_time_window
     dt_within_core_standing_time
     set_attr_from_dict
     get_cost

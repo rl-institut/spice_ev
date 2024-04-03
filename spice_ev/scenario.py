@@ -45,9 +45,6 @@ class Scenario:
             delta = self.stop_time - self.start_time
             self.n_intervals = delta // self.interval
 
-        # minimum SoC to discharge to during v2g
-        self.discharge_limit = scenario.get('discharge_limit', 0.5)
-
         # only relevant for schedule strategy
         self.core_standing_time = scenario.get('core_standing_time', None)
 
@@ -74,7 +71,6 @@ class Scenario:
         options['stop_time'] = self.stop_time
         options['n_intervals'] = self.n_intervals
         options['core_standing_time'] = self.core_standing_time
-        options['DISCHARGE_LIMIT'] = options.get('DISCHARGE_LIMIT', self.discharge_limit)
         strat = strategy.class_from_str(strategy_name)(self.components, self.start_time, **options)
 
         event_steps = self.events.get_event_steps(self.start_time, self.n_intervals, self.interval)
@@ -217,10 +213,11 @@ class Scenario:
                 gc_load = max(-gc.max_power, gc_load - curLocalGeneration)
 
                 # safety check: GC load within bounds?
-                gcWithinPowerLimit = -gc.max_power-strat.EPS <= gc_load <= gc.max_power+strat.EPS
+                powerLimit = gc.cur_max_power + strat.EPS
+                gcWithinPowerLimit = -powerLimit <= gc_load <= powerLimit
                 try:
                     assert gcWithinPowerLimit, (
-                        "{} maximum load exceeded: {} / {}".format(gcID, gc_load, gc.max_power))
+                        "{} maximum load exceeded: {} / {}".format(gcID, gc_load, gc.cur_max_power))
                 except AssertionError:
                     # abort if GC power limit exceeded
                     error = traceback.format_exc() if error is None else error

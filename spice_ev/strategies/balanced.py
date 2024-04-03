@@ -58,11 +58,12 @@ class Balanced(Strategy):
                 # calculate desired energy for charging
                 energy_needed = delta_soc * vehicle.battery.capacity / vehicle.battery.efficiency
                 if timesteps > 0:
-                    power = energy_needed / self.ts_per_hour / timesteps
+                    power = energy_needed * self.ts_per_hour / timesteps
+                    power = min(power, gc_power_left)
                     power = clamp_power(power, vehicle, cs)
                 else:
                     # past estimated time of departure, but still needs charging: charge greedy
-                    power = clamp_power(gc.cur_max_power, vehicle, cs)
+                    power = clamp_power(gc_power_left, vehicle, cs)
 
             # charge with power
             avg_power = vehicle.battery.load(self.interval, target_power=power)['avg_power']
