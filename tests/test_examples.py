@@ -111,4 +111,4 @@ class TestExampleConfigs:
         ]) == 0
         # check against expected files
         for p in tmp_path.glob("simulation*"):
-            assert compare_files(p, EXAMPLE_PATH / f"output/{p.stem}{p.suffix}")
+            assert compare_files(p, EXAMPLE_PATH / f"output/{p.name}"), f"{p.name} differs"
