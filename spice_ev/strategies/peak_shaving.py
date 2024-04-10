@@ -101,14 +101,14 @@ class PeakShaving(Strategy):
 
         for timestep_idx in range(timesteps_ahead):
             cur_time += self.interval
+            # get appropiate event list, sort events by start time
+            event_list = self.events if self.perfect_foresight else self.world_state.future_events
+            event_list.sort(key=lambda e: e.start_time)
 
             # peek into future events
             while True:
                 try:
-                    if self.perfect_foresight:
-                        event = self.events[event_idx]
-                    else:
-                        event = self.world_state.future_events[event_idx]
+                    event = event_list[event_idx]
                 except IndexError:
                     # no more events
                     break
@@ -134,9 +134,10 @@ class PeakShaving(Strategy):
                             v_idx = gc_info["vehicles"].pop(event.vehicle_id)
                             vehicle_arrivals[v_idx]["depart_idx"] = timestep_idx
                         # perfect charge (up to desired soc if below battery soc)
-                        sim_vehicles[event.vehicle_id].battery.soc = max(
-                            sim_vehicles[event.vehicle_id].battery.soc,
-                            sim_vehicles[event.vehicle_id].desired_soc)
+                        if event.vehicle_id in sim_vehicles:
+                            sim_vehicles[event.vehicle_id].battery.soc = max(
+                                sim_vehicles[event.vehicle_id].battery.soc,
+                                sim_vehicles[event.vehicle_id].desired_soc)
                     else:
                         # arrival
                         cs_id = event.update.get("connected_charging_station")
@@ -144,7 +145,9 @@ class PeakShaving(Strategy):
                             continue
                         # update vehicle info
                         vid = event.vehicle_id
-                        vehicle = sim_vehicles[vid]
+                        vehicle = sim_vehicles.get(vid)
+                        if vehicle is None:
+                            continue
                         vehicle.desired_soc = event.update["desired_soc"]
                         vehicle.battery.soc += event.update["soc_delta"]
                         vehicle.estimated_time_of_departure = event.update[
