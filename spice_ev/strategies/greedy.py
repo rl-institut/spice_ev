@@ -59,12 +59,15 @@ class Greedy(Strategy):
                 # charge with power
                 avg_power = vehicle.battery.load(self.interval, power)['avg_power']
             elif delta_soc > self.EPS:
-                # vehicle needs charging: take max available power (with stationary batteries)
-                power = gc_power_left + avail_bat_power[gc_id]
+                # vehicle needs charging: take power to reach desired soc
+                energy_needed = delta_soc * vehicle.battery.capacity / vehicle.battery.efficiency
+                power_needed = energy_needed * self.ts_per_hour
+                # limited by remaining GC power (with supporting batteries)
+                power = min(power_needed, gc_power_left + avail_bat_power[gc_id])
+                # and limited by vehicle and CS power
                 power = clamp_power(power, vehicle, cs)
                 # charge with power
-                avg_power = vehicle.battery.load(
-                    self.interval, max_power=power, target_soc=vehicle.desired_soc)['avg_power']
+                avg_power = vehicle.battery.load(self.interval, target_power=power)['avg_power']
                 bat_power_used = True
 
             # add load to charging station

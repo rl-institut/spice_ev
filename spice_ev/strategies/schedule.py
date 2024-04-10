@@ -348,11 +348,6 @@ class Schedule(Strategy):
                 if remaining_power_on_schedule < self.EPS:
                     break
 
-                # can the active charging station bear minimum load?
-                assert cs.max_power >= cs.current_power - self.EPS, (
-                    "{} - {} over maximum load ({} > {})".format(
-                        self.current_time, cs_id, cs.current_power, cs.max_power))
-
                 # pass on unused allocated power to next vehicle
                 extra_power = max(power_alloc_for_vehicle - avg_power, 0)
                 # once every vehicle had a chance to charge and there is no

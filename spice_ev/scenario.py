@@ -240,8 +240,31 @@ class Scenario:
                 for vidx, vid in enumerate(sorted(strat.world_state.vehicles.keys())):
                     vehicle = strat.world_state.vehicles[vid]
                     cs_id = vehicle.connected_charging_station
-                    if cs_id and (strat.world_state.charging_stations[cs_id].parent == gcID):
-                        cur_cs[cs_id] = gc.current_loads.get(cs_id, 0)
+                    cs = strat.world_state.charging_stations.get(cs_id)
+                    if cs is not None and cs.parent == gcID:
+                        cs_load = gc.current_loads.get(cs_id, 0)
+                        cur_cs[cs_id] = cs_load
+                        # safety check: CS load within bounds?
+                        try:
+                            # CS max power
+                            assert abs(cs_load) <= cs.max_power+strat.EPS, (
+                                f"{cs_id} exceeded maximum charging power: "
+                                f"{abs(cs_load)} / {cs.max_power}")
+                            """
+                            # if charging: must be above min power of CS and vehicle
+                            # ignored, since CS/vehicles may charge with high peak power
+                            #  during part of the timestep, but have lower average
+                            if abs(cs_load) > 0:
+                                assert cs.min_power-strat.EPS <= abs(cs_load), (
+                                    f"{cs_id} below minimum charging power: "
+                                    f"{abs(cs_load)} / {cs.min_power}")
+                                vehicle_min_power = vehicle.vehicle_type.min_charging_power
+                                assert vehicle_min_power-strat.EPS <= abs(cs_load), (
+                                    f"{vid} below minimum charging power: "
+                                    f"{abs(cs_load)} / {vehicle_min_power}")
+                            """
+                        except AssertionError:
+                            error = traceback.format_exc() if error is None else error
 
                 # append accumulated info
                 prices[gcID].append(price)
