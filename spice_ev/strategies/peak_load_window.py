@@ -262,20 +262,70 @@ class PeakLoadWindow(Strategy):
                 avg_power = vehicle.battery.load(self.interval, target_power=p)["avg_power"]
                 return p, avg_power
 
+            # Get the different charge powers at different socs
+            charge_powers = {charge_power for soc, charge_power in
+                             vehicle.vehicle_type.charging_curve.points}
+
+            constant_charging_curve = len(charge_powers) == 1
+
             power_levels = [0] * depart_idx
+
             # try to charge balanced outside of load windows
             num_outside_ts = sum([not ts["window"] for ts in connected_ts])
-            for ts_idx, ts in enumerate(connected_ts):
-                if not ts["window"]:
+
+            # in cases of non-constant charging curves, the power of balanced charging has to
+            # be found iteratively
+            if not constant_charging_curve:
+                if num_outside_ts > 0:
                     # distribute power evenly over remaining standing time
-                    power = vehicle.get_energy_needed() * ts_per_hour / num_outside_ts
                     # scale with efficiency, as this is what actually affects the SoC
-                    power /= vehicle.battery.efficiency
-                    power, avg_power = charge_vehicle(power, ts)
-                    power_levels[ts_idx] = avg_power
-                    num_outside_ts -= 1
-                    if ts_idx == 0:
-                        vehicle.schedule = power
+                    balanced_power = vehicle.get_energy_needed() * ts_per_hour / num_outside_ts / \
+                                     vehicle.battery.efficiency
+
+                    # run the while loop least once
+                    first_run = True
+
+                    # max. charging power at the current soc
+                    # NOTE: implies a monoton decreasing charging power.
+                    max_charge_vehicle = util.clamp_power(float("inf"), vehicle, cs)
+
+                    # step size with which balanced power is increased
+                    step = (max_charge_vehicle - balanced_power) / 3
+                    power_levels = [0] * depart_idx
+
+                    # increase the power until
+                    while balanced_power < max_charge_vehicle + step or first_run:
+                        first_run = False
+                        potential = False
+                        vehicle.battery.soc = old_soc
+                        for ts_idx, ts in enumerate(connected_ts):
+                            if ts["window"]:
+                                continue
+                            power, avg_power = charge_vehicle(balanced_power, ts)
+                            if min(max_charge_vehicle,
+                                   ts["max_power"] - ts["power"]) > balanced_power:
+                                potential = True
+                            power_levels[ts_idx] = avg_power
+                            if ts_idx == 0:
+                                vehicle.schedule = power
+                        needs_charging = vehicle.desired_soc - vehicle.battery.soc > self.EPS
+                        if not needs_charging or not potential or step <= 0:
+                            break
+                        balanced_power += step
+
+            # a constant charging curve does not need iterative solving
+            else:
+                for ts_idx, ts in enumerate(connected_ts):
+                    if not ts["window"]:
+                        # distribute power evenly over remaining standing time
+                        power = vehicle.get_energy_needed() * ts_per_hour / num_outside_ts
+                        # scale with efficiency, as this is what actually affects the SoC
+                        power /= vehicle.battery.efficiency
+                        power, avg_power = charge_vehicle(power, ts)
+                        power_levels[ts_idx] = avg_power
+                        num_outside_ts -= 1
+                        if ts_idx == 0:
+                            vehicle.schedule = power
 
             needs_charging = vehicle.desired_soc - vehicle.battery.soc > self.EPS
 
