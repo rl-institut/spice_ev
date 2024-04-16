@@ -19,6 +19,7 @@ class PeakLoadWindow(Strategy):
 
         self.description = "peak load window"
         self.uses_window = True
+        self.start_time = start_time
 
         if self.time_windows is None:
             raise Exception("Need time windows for Peak Load Window strategy")
@@ -151,8 +152,6 @@ class PeakLoadWindow(Strategy):
         :rtype: dict
         """
         commands = dict()
-        # ignore current events
-        self.events = self.events[1:]
         for gc_id, gc in self.world_state.grid_connectors.items():
             assert gc.voltage_level is not None
             commands.update(self.step_gc(gc_id, gc))
@@ -209,7 +208,15 @@ class PeakLoadWindow(Strategy):
                 timesteps_ahead = max(timesteps_ahead, ts_until_window_change)
 
         cur_time = self.current_time - self.interval
-        for event_list in [[]] + self.events[:timesteps_ahead]:
+        # ignore all events up to and including current timestep for prediction
+        # step() may get called multiple times or not at all in distributed strategy,
+        # so self.events should not be changed after initialization
+        # instead, calculate next timestep index to find event list offset
+        event_idx = ((self.current_time - self.start_time) // self.interval) + 1
+        future_event_lists = self.events[event_idx:event_idx+timesteps_ahead]
+        # prepend empty list for current timestep (all current events done, used for init)
+        future_event_lists = [[]] + future_event_lists
+        for event_list in future_event_lists:
             cur_time += self.interval
             for event in event_list:
                 if type(event) is events.LocalEnergyGeneration:
