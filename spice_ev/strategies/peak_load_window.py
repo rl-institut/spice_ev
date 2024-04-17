@@ -329,7 +329,9 @@ class PeakLoadWindow(Strategy):
                     # a constant charging curve does not need iterative solving
                     for ts_idx, ts in enumerate(connected_ts):
                         if not ts["window"]:
-                            power, avg_power = charge_vehicle(balanced_power, ts)
+                            # recompute balanced power needed for all non-window timesteps
+                            power = vehicle.get_energy_needed() * ts_per_hour / num_outside_ts
+                            power, avg_power = charge_vehicle(power/vehicle.battery.efficiency, ts)
                             power_levels[ts_idx] = avg_power
                             num_outside_ts -= 1
                             if ts_idx == 0:
