@@ -273,7 +273,7 @@ class PeakLoadWindow(Strategy):
             charge_powers = {charge_power for soc, charge_power in
                              vehicle.vehicle_type.charging_curve.points}
 
-            constant_charging_curve = len(set(charge_powers)) == 1
+            constant_charging_curve = len(charge_powers) == 1
 
             power_levels = [0] * depart_idx
 
