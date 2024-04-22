@@ -280,37 +280,41 @@ class PeakLoadWindow(Strategy):
             # try to charge balanced outside of load windows
             num_outside_ts = sum([not ts["window"] for ts in connected_ts])
 
-            # in cases of non-constant charging curves, the power of balanced charging has to
-            # be found iteratively
-            if not constant_charging_curve:
-                if num_outside_ts > 0:
-                    # distribute power evenly over remaining standing time
-                    # scale with efficiency, as this is what actually affects the SoC
-                    balanced_power = vehicle.get_energy_needed() * ts_per_hour / num_outside_ts / \
-                                     vehicle.battery.efficiency
+            if num_outside_ts > 0:
+                # distribute power evenly over remaining standing time
+                balanced_power = vehicle.get_energy_needed() * ts_per_hour / num_outside_ts
+                # scale with efficiency
+                balanced_power /= vehicle.battery.efficiency
+            else:
+                balanced_power = 0
 
-                    # run the while loop least once
+            # non-constant charging curves: find power of balanced charging iteratively
+            if balanced_power > 0:
+                if not constant_charging_curve:
+                    # run the while loop at least once
                     first_run = True
 
-                    # max. charging power at the current soc
-                    # NOTE: implies a monoton decreasing charging power.
-                    max_charge_vehicle = util.clamp_power(float("inf"), vehicle, cs)
+                    # maximum charging power of vehicle at current charging station
+                    # NOTE: assumes a monotonically decreasing charging power
+                    max_charge_vehicle = util.clamp_power(max(charge_powers), vehicle, cs)
 
                     # step size with which balanced power is increased
                     step = (max_charge_vehicle - balanced_power) / 3
-                    power_levels = [0] * depart_idx
 
-                    # increase the power until
+                    # increase power until vehicle can't charge more
                     while balanced_power < max_charge_vehicle + step or first_run:
                         first_run = False
-                        potential = False
+                        potential = False  # possible to charge more?
                         vehicle.battery.soc = old_soc
                         for ts_idx, ts in enumerate(connected_ts):
                             if ts["window"]:
+                                # only charge outside of windows
                                 continue
                             power, avg_power = charge_vehicle(balanced_power, ts)
-                            if min(max_charge_vehicle,
-                                   ts["max_power"] - ts["power"]) > balanced_power:
+                            # how much more power can GC provide?
+                            delta_power = ts["max_power"] - ts["power"]
+                            if min(max_charge_vehicle, delta_power) > balanced_power:
+                                # vehicle could theoratically charge more
                                 potential = True
                             power_levels[ts_idx] = avg_power
                             if ts_idx == 0:
@@ -318,21 +322,20 @@ class PeakLoadWindow(Strategy):
                         needs_charging = vehicle.desired_soc - vehicle.battery.soc > self.EPS
                         if not needs_charging or not potential or step <= 0:
                             break
+                        # power ceiling not reached and SoC not reached:
+                        # increase balanced charging power by step
                         balanced_power += step
-
-            # a constant charging curve does not need iterative solving
-            else:
-                for ts_idx, ts in enumerate(connected_ts):
-                    if not ts["window"]:
-                        # distribute power evenly over remaining standing time
-                        power = vehicle.get_energy_needed() * ts_per_hour / num_outside_ts
-                        # scale with efficiency, as this is what actually affects the SoC
-                        power /= vehicle.battery.efficiency
-                        power, avg_power = charge_vehicle(power, ts)
-                        power_levels[ts_idx] = avg_power
-                        num_outside_ts -= 1
-                        if ts_idx == 0:
-                            vehicle.schedule = power
+                else:
+                    # a constant charging curve does not need iterative solving
+                    for ts_idx, ts in enumerate(connected_ts):
+                        if not ts["window"]:
+                            # recompute balanced power needed for all non-window timesteps
+                            power = vehicle.get_energy_needed() * ts_per_hour / num_outside_ts
+                            power, avg_power = charge_vehicle(power/vehicle.battery.efficiency, ts)
+                            power_levels[ts_idx] = avg_power
+                            num_outside_ts -= 1
+                            if ts_idx == 0:
+                                vehicle.schedule = power
 
             needs_charging = vehicle.desired_soc - vehicle.battery.soc > self.EPS
 
