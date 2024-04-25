@@ -79,15 +79,6 @@ def aggregate_local_results(scenario, gcID):
     steps = scenario.step_i
     stepsPerHour = scenario.stepsPerHour
 
-    if gcID not in scenario.flex_bands.keys():
-        if 'generate_flex_band' not in locals().keys():
-            # cyclic dependency: import when needed
-            from spice_ev.generate.generate_schedule import generate_flex_band
-        try:
-            scenario.flex_bands[gcID] = generate_flex_band(scenario, gcID)
-        except Exception:
-            scenario.flex_bands[gcID] = {}
-
     json_results["temporal_parameters"] = {
         "interval": scenario.interval.total_seconds() // 60,
         "unit": 'minutes',
@@ -140,10 +131,12 @@ def aggregate_local_results(scenario, gcID):
         # compute window index
         widx = (shifted_time // datetime.timedelta(hours=6)) % 4
 
-        flex = scenario.flex_bands[gcID]
         try:
+            flex = scenario.flex_bands[gcID]
             cur_load_window = (flex["max"][idx] - flex["min"][idx], scenario.totalLoad[gcID][idx])
-        except KeyError:
+        except TypeError:
+            # flex band generation might have been skipped (scenario.flex_bands=None)
+            # or failed for this key (scenario.flex_bands[gcID] = None)
             cur_load_window = (0, scenario.totalLoad[gcID][idx])
         load_window[widx].append(cur_load_window)
 
@@ -165,16 +158,17 @@ def aggregate_local_results(scenario, gcID):
         max_variable_load = max(max_variable_load, var_load)
 
     # avg flex per window
-    scenario.avg_flex_per_window[gcID] = [sum([t[0] for t in w]) / len(w) if w else 0
-                                          for w in load_window]
-    json_results["avg flex per window"] = {
-        "04-10": scenario.avg_flex_per_window[gcID][0],
-        "10-16": scenario.avg_flex_per_window[gcID][1],
-        "16-22": scenario.avg_flex_per_window[gcID][2],
-        "22-04": scenario.avg_flex_per_window[gcID][3],
-        "unit": "kW",
-        "info": "Average flexible power range per time window"
-    }
+    if scenario.flex_bands is not None:
+        scenario.avg_flex_per_window[gcID] = [sum([t[0] for t in w]) / len(w) if w else 0
+                                              for w in load_window]
+        json_results["avg flex per window"] = {
+            "04-10": scenario.avg_flex_per_window[gcID][0],
+            "10-16": scenario.avg_flex_per_window[gcID][1],
+            "16-22": scenario.avg_flex_per_window[gcID][2],
+            "22-04": scenario.avg_flex_per_window[gcID][3],
+            "unit": "kW",
+            "info": "Average flexible power range per time window"
+        }
 
     # sum of used energy during simulation
     json_results["sum of energy"] = {
@@ -234,20 +228,21 @@ def aggregate_local_results(scenario, gcID):
         "info": "Share of standing time per time window"
     }
 
-    # avg needed energy per standing period
-    intervals = scenario.flex_bands[gcID].get("intervals")
-    if intervals:
-        scenario.avg_needed_energy[gcID] = sum([i["needed"] / i["num_vehicles_present"]
-                                                for i in intervals]) / len(intervals)
-    else:
+    # avg needed energy per standing period (info from flex band generation)
+    try:
+        intervals = scenario.flex_bands[gcID]["intervals"]
+        scenario.avg_needed_energy[gcID] = sum(
+            [i["needed"] / i["num_vehicles_present"] for i in intervals]
+        ) / len(intervals)
+        json_results["avg needed energy"] = {
+            # avg energy per standing period and vehicle
+            "value": scenario.avg_needed_energy[gcID],
+            "unit": "kWh",
+            "info": "Average amount of energy needed to reach the desired SoC"
+                    " (averaged over all vehicles and charge events)"
+        }
+    except TypeError:
         scenario.avg_needed_energy[gcID] = 0
-    json_results["avg needed energy"] = {
-        # avg energy per standing period and vehicle
-        "value": scenario.avg_needed_energy[gcID],
-        "unit": "kWh",
-        "info": "Average amount of energy needed to reach the desired SoC"
-                " (averaged over all vehicles and charge events)"
-    }
 
     # data about power in time windows
     if scenario.strategy_name == "peak_load_window":  # ToDo: Change to scenario.strat.uses_window
@@ -457,18 +452,6 @@ def aggregate_timeseries(scenario, gcID):
 
     uc_keys_present = cs_by_uc.keys()
 
-    # flex
-    if not hasattr(scenario, "flex_bands"):
-        setattr(scenario, "flex_bands", {})
-    if gcID not in scenario.flex_bands.keys():
-        if 'generate_flex_band' not in locals().keys():
-            # cyclic dependency: import when needed
-            from spice_ev.generate.generate_schedule import generate_flex_band
-        try:
-            scenario.flex_bands[gcID] = generate_flex_band(scenario, gcID)
-        except Exception:
-            scenario.flex_bands[gcID] = {}
-
     # any loads except CS present?
     hasFixedLoads = any(scenario.fixedLoads)
     hasSchedule = any(s is not None for s in scenario.gcPowerSchedule[gcID])
@@ -497,7 +480,8 @@ def aggregate_timeseries(scenario, gcID):
     if hasBatteries:
         header += ["battery power [kW]", "bat. stored energy [kWh]"]
     # flex
-    header += ["flex band min [kW]", "flex band base [kW]", "flex band max [kW]"]
+    if scenario.flex_bands is not None:
+        header += ["flex band min [kW]", "flex band base [kW]", "flex band max [kW]"]
     # schedule & window
     if hasSchedule:
         header.append("schedule [kW]")
@@ -563,15 +547,17 @@ def aggregate_timeseries(scenario, gcID):
                     round_to_places
                 )
             ]
-        try:
-            # flex, might not exist
-            row += [
-                round(scenario.flex_bands[gcID]["min"][idx], round_to_places),
-                round(scenario.flex_bands[gcID]["base"][idx], round_to_places),
-                round(scenario.flex_bands[gcID]["max"][idx], round_to_places),
-            ]
-        except KeyError:
-            row += [0, 0, 0]
+
+        # flex, might not exist
+        if scenario.flex_bands is not None:
+            try:
+                row += [
+                    round(scenario.flex_bands[gcID]["min"][idx], round_to_places),
+                    round(scenario.flex_bands[gcID]["base"][idx], round_to_places),
+                    round(scenario.flex_bands[gcID]["max"][idx], round_to_places),
+                ]
+            except TypeError:
+                row += [0, 0, 0]
 
         # schedule + window schedule
         if hasSchedule:
@@ -795,16 +781,25 @@ def generate_reports(scenario, options):
     cost_calculation = options.get("cost_calculation")
     save_timeseries = options.get("save_timeseries")
     save_results = options.get("save_results")
+    flex_report = not options.get("skip_flex_report")
     save_soc = options.get("save_soc")
     testing = options.get("testing")
     visual = options.get("visual")
 
     if save_results or testing:
         # initialize aggregation variables with empty dicts
-        for var in ["avg_drawn", "flex_bands", "total_vehicle_cap", "avg_stand_time",
+        for var in ["avg_drawn", "total_vehicle_cap", "avg_stand_time",
                     "total_vehicle_energy", "avg_needed_energy", "perc_stand_window",
                     "avg_flex_per_window", "sum_energy_per_window", "avg_total_standing_time"]:
             setattr(scenario, var, {})
+
+    if flex_report:
+        scenario.flex_bands = {}
+        if 'generate_flex_band' not in locals().keys():
+            # cyclic dependency: import when needed
+            from spice_ev.generate.generate_schedule import generate_flex_band
+    else:
+        scenario.flex_bands = None
 
     # check file extensions
     if save_results and Path(save_results).suffix != ".json":
@@ -819,6 +814,11 @@ def generate_reports(scenario, options):
 
     gc_ids = sorted(scenario.components.grid_connectors.keys())
     for gcID in gc_ids:
+        if flex_report:
+            try:
+                scenario.flex_bands[gcID] = generate_flex_band(scenario, gcID)
+            except Exception:
+                scenario.flex_bands[gcID] = None
         if cost_calculation or save_timeseries:
             # aggregate timeseries info
             agg_ts = aggregate_timeseries(scenario, gcID)
