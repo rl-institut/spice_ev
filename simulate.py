@@ -134,6 +134,8 @@ if __name__ == "__main__":
     parser.add_argument('--save-timeseries', help='Write timesteps to file')
     parser.add_argument('--save-results', help='Write general info to file')
     parser.add_argument('--save-soc', help='Write SoCs of vehicles to file')
+    parser.add_argument('--skip-flex-report', action='store_true',
+                        help='Skip flex band creation when generating reports.')
     parser.add_argument('--testing', help='Stores testing results', action='store_true')
     parser.add_argument('--config', help='Use config file to set arguments')
     args = parser.parse_args()
