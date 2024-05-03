@@ -241,7 +241,7 @@ def aggregate_local_results(scenario, gcID):
             "info": "Average amount of energy needed to reach the desired SoC"
                     " (averaged over all vehicles and charge events)"
         }
-    except TypeError:
+    except (TypeError, ZeroDivisionError):
         scenario.avg_needed_energy[gcID] = 0
 
     # data about power in time windows
