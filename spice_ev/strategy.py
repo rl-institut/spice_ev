@@ -149,7 +149,7 @@ class Strategy():
                             # not charged enough: write warning
                             self.margin_counter += 1
                             warn("{}: Vehicle {} is below desired SOC ({} < {})".format(
-                                ev.start_time.isoformat(), ev.vehicle_id,
+                                ev.start_time, ev.vehicle_id,
                                 vehicle.battery.soc, vehicle.desired_soc))
                     # vehicle leaves: disconnect vehicle
                     vehicle.connected_charging_station = None
@@ -162,11 +162,10 @@ class Strategy():
                         warn(f"{self.current_time}: {ev.vehicle_id} arrival, but already charging")
                     if vehicle.battery.soc + self.EPS < 0:
                         # vehicle was not charged enough to make trip
-                        time_str = self.current_time.isoformat()
-                        if ev.vehicle_id not in self.negative_soc_tracker.keys():
-                            self.negative_soc_tracker[ev.vehicle_id] = [time_str]
-                        else:
-                            self.negative_soc_tracker[ev.vehicle_id].append(time_str)
+                        try:
+                            self.negative_soc_tracker[ev.vehicle_id].append(str(self.current_time))
+                        except KeyError:
+                            self.negative_soc_tracker[ev.vehicle_id] = [str(self.current_time)]
                         if self.ALLOW_NEGATIVE_SOC:
                             warn('SOC of vehicle {} became negative at {}. SOC is {}'
                                  .format(ev.vehicle_id, self.current_time, vehicle.battery.soc),

@@ -867,7 +867,7 @@ def generate_reports(scenario, options):
             for idx, r in enumerate(scenario.results):
                 # general info: timestep index and timestamp
                 # TZ removed for spreadsheet software
-                row = [idx, r['current_time'].replace(tzinfo=None).isoformat()]
+                row = [idx, str(r['current_time'].replace(tzinfo=None))]
 
                 row += [scenario.vehicle_socs[vid][idx] for vid in vids]
                 # write row to file
