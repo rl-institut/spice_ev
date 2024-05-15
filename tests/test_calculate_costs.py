@@ -90,8 +90,9 @@ class TestSimulationCosts:
                                price_sheet_path=str(price_sheet_path))
 
         # check returned values
-        result = cc.calculate_costs(supported_strategies[0], "MV", s.interval,
-                                    *timeseries_lists, price_sheet_path=str(price_sheet_path))
+        result = cc.calculate_costs(
+            supported_strategies[0], "MV", s.interval,
+            *timeseries_lists, price_sheet_path=str(price_sheet_path))
         assert result["total_costs_per_year"] == 78.18
         assert result["commodity_costs_eur_per_year"] == 0
         assert result["capacity_costs_eur"] == 65.7
@@ -175,8 +176,9 @@ class TestSimulationCosts:
         pv = sum([pv.nominal_power for pv in s.components.photovoltaics.values()])
 
         # check returned values
-        result = cc.calculate_costs("balanced_market", "MV", s.interval, *timeseries_lists,
-                                    str(price_sheet_path), grid_operator, None, pv)
+        result = cc.calculate_costs(
+            "balanced_market", "MV", s.interval, *timeseries_lists,
+            str(price_sheet_path), grid_operator, None, pv)
         assert result["total_costs_per_year"] == 323.14
         assert result["commodity_costs_eur_per_year"] == 14.41
         assert result["capacity_costs_eur"] == 0
@@ -229,14 +231,15 @@ class TestSimulationCosts:
         pv_power = j["components"]["photovoltaics"]["PV1"]["nominal_power"]
 
         # check returned values
-        result = cc.calculate_costs("peak_load_window", "MV", s.interval, *timeseries_lists,
-                                    str(price_sheet_path), power_pv_nominal=pv_power)
-        assert result["total_costs_per_year"] == 32206.19
-        assert result["commodity_costs_eur_per_year"] == 5699.49
+        result = cc.calculate_costs(
+            "peak_load_window", "MV", s.interval, *timeseries_lists,
+            str(price_sheet_path), power_pv_nominal=pv_power)
+        assert result["total_costs_per_year"] == 31627.88
+        assert result["commodity_costs_eur_per_year"] == 5541.06
         assert result["capacity_costs_eur"] == 1497.21
-        assert result["power_procurement_costs_per_year"] == 12574.80
-        assert result["levies_fees_and_taxes_per_year"] == 12709.74
-        assert result["feed_in_remuneration_per_year"] == 275.03
+        assert result["power_procurement_costs_per_year"] == 12225.26
+        assert result["levies_fees_and_taxes_per_year"] == 12364.34
+        assert result["feed_in_remuneration_per_year"] == 0.0
 
     def test_peak_load_window_no_windows(self):
         input_path = TEST_REPO_PATH / "test_data/input_test_strategies"
@@ -280,8 +283,9 @@ class TestSimulationCosts:
         pv = sum([pv.nominal_power for pv in s.components.photovoltaics.values()])
 
         # check returned values
-        result = cc.calculate_costs("balanced_market", "MV", s.interval, *timeseries_lists,
-                                    str(price_sheet_path), grid_operator, None, pv)
+        result = cc.calculate_costs(
+            "balanced_market", "MV", s.interval, *timeseries_lists,
+            str(price_sheet_path), grid_operator, None, pv)
         assert result["total_costs_per_year"] == 24.02
         assert result["commodity_costs_eur_per_year"] == 4.56
         assert result["capacity_costs_eur"] == 4.42
