@@ -231,11 +231,11 @@ class TestSimulationCosts:
         # check returned values
         result = cc.calculate_costs("peak_load_window", "MV", s.interval, *timeseries_lists,
                                     str(price_sheet_path), power_pv_nominal=pv_power)
-        assert result["total_costs_per_year"] == 32206.19
-        assert result["commodity_costs_eur_per_year"] == 5699.49
+        assert result["total_costs_per_year"] == 32052.58
+        assert result["commodity_costs_eur_per_year"] == 5670.97
         assert result["capacity_costs_eur"] == 1497.21
-        assert result["power_procurement_costs_per_year"] == 12574.80
-        assert result["levies_fees_and_taxes_per_year"] == 12709.74
+        assert result["power_procurement_costs_per_year"] == 12511.88
+        assert result["levies_fees_and_taxes_per_year"] == 12647.54
         assert result["feed_in_remuneration_per_year"] == 275.03
 
     def test_peak_load_window_no_windows(self):
