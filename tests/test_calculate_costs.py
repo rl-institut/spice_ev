@@ -11,7 +11,7 @@ from spice_ev.generate import generate_schedule
 
 TEST_REPO_PATH = Path(__file__).parent
 supported_strategies = ["greedy", "balanced", "distributed", "balanced_market",
-                        "schedule", "flex_window"]
+                        "schedule", "flex_window", "variable_costs"]
 grid_operator = "default_grid_operator"
 
 
@@ -329,6 +329,39 @@ class TestSimulationCosts:
         assert result["power_procurement_costs_per_year"] == 135.66
         assert result["levies_fees_and_taxes_per_year"] == 135.58
         assert result["feed_in_remuneration_per_year"] == 3364.25
+
+    def test_calculate_variable_costs(self):
+        # test all scenarios against variable costs pricing
+        scenarios = [
+            "scenario_A.json", "scenario_B.json", "scenario_C1.json",
+            "scenario_C2.json", "scenario_C3.json", "scenario_PV_Bat.json"]
+        price_sheet_path = TEST_REPO_PATH / 'test_data/input_test_cost_calculation/price_sheet.json'
+
+        for scenario_name in scenarios:
+            scen_path = TEST_REPO_PATH.joinpath("test_data/input_test_strategies", scenario_name)
+            with scen_path.open() as f:
+                j = json.load(f)
+            s = scenario.Scenario(j, str(scen_path.parent))
+            s.run("greedy", {"cost_calculation": True})
+            timeseries = s.GC1_timeseries
+            timeseries_lists = [timeseries.get(k, [0] * s.n_intervals) for k in [
+                            "time", "grid supply [kW]", "price [EUR/kWh]",
+                            "fixed load [kW]", "generation feed-in [kW]",
+                            "V2G feed-in [kW]", "battery feed-in [kW]",
+                            "window signal [-]"]]
+            # override scenario price list
+            # mock prices: vary between 1 and 3 in 96 interval (start/end with 2)
+            price_list = [abs(((i-24) % 96)-48)/24+1 for i in range(s.n_intervals)]
+            timeseries_lists[2] = {
+                "procurement": price_list,
+                "commodity": price_list * 2,
+            }
+            pv = sum([pv.nominal_power for pv in s.components.photovoltaics.values()])
+            cc.calculate_costs(
+                "variable_costs", "MV", s.interval, *timeseries_lists,
+                price_sheet_path=str(price_sheet_path),
+                power_pv_nominal=pv,
+            )
 
     def test_greedy_rlm(self):
         # prepare scenario to trigger RLM

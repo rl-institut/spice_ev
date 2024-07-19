@@ -686,7 +686,7 @@ def calculate_costs(strategy, voltage_level, interval,
     # PV power plant not existing:
     else:
         feed_in_charge_pv = 0  # [ct/kWh]
-        if power_generation_feed_in_list is not None:
+        if power_generation_feed_in_list is not None and sum(power_generation_feed_in_list) != 0:
             warnings.warn("Nominal power of PV power plant is zero even though there is an "
                           "existing generation time series")
 
