@@ -53,7 +53,7 @@ def find_prices(price_sheet, strategy, voltage_level, utilization_time_per_year,
     """
 
     energy_below_slp = abs(energy_supply_per_year) <= MAX_ENERGY_SUPPLY_PER_YEAR_SLP
-    if strategy in ["greedy", "balanced", "distributed"] and energy_below_slp:
+    if strategy in ["greedy", "balanced", "distributed", "variable_costs"] and energy_below_slp:
         # customer type 'SLP'
         fee_type = "SLP"
         commodity_charge = price_sheet["grid_fee"]["SLP"]["commodity_charge_ct/kWh"]["net_price"]
@@ -102,10 +102,9 @@ def calculate_commodity_costs(price_list, power_supply_list, interval, fraction_
     # factor 3600: kilo Joule --> kWh
     # factor 100: ct --> €
     for i in range(len(power_supply_list)):
-        energy_supply_per_timestep = \
-            power_supply_list[i] * interval.total_seconds() / 3600  # [kWh]
-        commodity_costs_eur_sim = commodity_costs_eur_sim + \
-            (energy_supply_per_timestep * price_list[i] / 100)  # [€]
+        energy_supply_per_timestep = (
+            power_supply_list[i] * interval.total_seconds() / 3600)  # [kWh]
+        commodity_costs_eur_sim += energy_supply_per_timestep * price_list[i] / 100  # [€]
     commodity_costs_eur_per_year = commodity_costs_eur_sim / fraction_year
 
     return commodity_costs_eur_per_year, commodity_costs_eur_sim
@@ -220,12 +219,23 @@ def calculate_costs(strategy, voltage_level, interval,
     # only consider positive values of fixed load for cost calculation
     power_fix_load_list = [max(v, 0) for v in power_fix_load_list]
 
+    if type(price_list) is dict:
+        # price_list may contain procurement and commodity cost lists
+        procurement_price_list = price_list.get('procurement')
+        commodity_price_list = price_list['commodity']
+    else:
+        # default price list: interpret as commodity price list
+        procurement_price_list = None
+        commodity_price_list = price_list
+
     # ENERGY SUPPLY:
     energy_supply_sim = sum(power_grid_supply_list) * interval.total_seconds() / 3600
     energy_supply_per_year = energy_supply_sim / fraction_year
 
     # COSTS FROM COMMODITY AND CAPACITY CHARGE DEPENDING ON CHARGING STRATEGY:
-    if strategy in ["greedy", "balanced", "distributed", "peak_shaving", "peak_load_window"]:
+    if strategy in [
+            "greedy", "balanced", "distributed",
+            "peak_shaving", "peak_load_window", "variable_costs"]:
         """
         Calculates costs in accordance with existing payment models.
         For SLP customers the variable capacity_charge is equivalent to the basic charge
@@ -274,18 +284,36 @@ def calculate_costs(strategy, voltage_level, interval,
                 "significance threshold from price sheet": significance_threshold_price_sheet
             }
 
-        # CAPACITY COSTS:
+        # COMMODITY COSTS
+        if strategy == "variable_costs":
+            # virtual strategy, just for cost calculation
+            # apply procurement and commodity costs for each timestep to grid supply
+            # this is just drawn power, feed-in is handled independent of strategy
+            ts_per_hour = interval.total_seconds() / 3600
+            commodity_costs_eur_sim = 0
+            power_procurement_costs_sim = 0
+            if procurement_price_list is None:
+                warnings.warn("Strategy variable_costs without procurement cost timeseries")
+            for i, power in enumerate(power_grid_supply_list):
+                energy_supply_per_timestep = (power * ts_per_hour)  # [kWh]
+                commodity_costs_eur_sim += (
+                    energy_supply_per_timestep * commodity_price_list[i] / 100)
+                if procurement_price_list is not None:
+                    power_procurement_costs_sim += (
+                        energy_supply_per_timestep * procurement_price_list[i] / 100)
+            commodity_costs_eur_per_year = commodity_costs_eur_sim / fraction_year
+        else:
+            # use fixed commodity charge
+            price_list = [commodity_charge] * len(power_grid_supply_list)
+            commodity_costs_eur_per_year, commodity_costs_eur_sim = calculate_commodity_costs(
+                price_list, power_grid_supply_list, interval, fraction_year)
+
+        # CAPACITY COSTS
         if fee_type == "SLP":
             capacity_costs_eur = capacity_charge
-
         else:  # RLM
             capacity_costs_eur = calculate_capacity_costs_rlm(
                 capacity_charge, max_power_grid_supply)
-
-        # COMMODITY COSTS:
-        price_list = [commodity_charge] * len(power_grid_supply_list)
-        commodity_costs_eur_per_year, commodity_costs_eur_sim = calculate_commodity_costs(
-            price_list, power_grid_supply_list, interval, fraction_year)
 
     elif strategy == "balanced_market":
         """Payment model for the charging strategy 'balanced market'.
@@ -328,9 +356,9 @@ def calculate_costs(strategy, voltage_level, interval,
 
             # commodity costs for fixed load:
             price_list_fix_load = [commodity_charge_fix] * len(power_fix_load_list)
-            commodity_costs_eur_per_year_fix, commodity_costs_eur_sim_fix = \
+            commodity_costs_eur_per_year_fix, commodity_costs_eur_sim_fix = (
                 calculate_commodity_costs(price_list_fix_load, power_fix_load_list,
-                                          interval, fraction_year)
+                                          interval, fraction_year))
 
             # capacity costs for fixed load:
             capacity_costs_eur_fix = calculate_capacity_costs_rlm(
@@ -341,7 +369,7 @@ def calculate_costs(strategy, voltage_level, interval,
         power_flex_load_list = get_flexible_load(power_grid_supply_list, power_fix_load_list)
 
         # adjust given price list (EUR/kWh --> ct/kWh)
-        price_list = [price * 100 for price in price_list]
+        price_list = [price * 100 for price in commodity_price_list]
 
         # find power at times of high tariff
         max_price = max(price_list)
@@ -361,8 +389,8 @@ def calculate_costs(strategy, voltage_level, interval,
             energy_supply_per_year,
             UTILIZATION_TIME_PER_YEAR_EC
         )
-        capacity_costs_eur_flex = \
-            calculate_capacity_costs_rlm(capacity_charge_flex, max_power_high_tariff)
+        capacity_costs_eur_flex = (
+            calculate_capacity_costs_rlm(capacity_charge_flex, max_power_high_tariff))
 
         # commodity costs for flexible load:
         commodity_costs_eur_per_year_flex, commodity_costs_eur_sim_flex = calculate_commodity_costs(
@@ -418,13 +446,13 @@ def calculate_costs(strategy, voltage_level, interval,
 
             # commodity costs for fixed load:
             price_list_fix_load = [commodity_charge_fix] * len(power_fix_load_list)
-            commodity_costs_eur_per_year_fix, commodity_costs_eur_sim_fix = \
+            commodity_costs_eur_per_year_fix, commodity_costs_eur_sim_fix = (
                 calculate_commodity_costs(price_list_fix_load, power_fix_load_list,
-                                          interval, fraction_year)
+                                          interval, fraction_year))
 
             # capacity costs for fixed load:
-            capacity_costs_eur_fix = \
-                calculate_capacity_costs_rlm(capacity_charge_fix, max_power_grid_supply_fix)
+            capacity_costs_eur_fix = (
+                calculate_capacity_costs_rlm(capacity_charge_fix, max_power_grid_supply_fix))
 
         # COSTS FOR FLEXIBLE LOAD
 
@@ -444,9 +472,9 @@ def calculate_costs(strategy, voltage_level, interval,
 
         # commodity costs for flexible load:
         price_list_flex_load = [commodity_charge_flex] * len(power_flex_load_list)
-        commodity_costs_eur_per_year_flex, commodity_costs_eur_sim_flex = \
+        commodity_costs_eur_per_year_flex, commodity_costs_eur_sim_flex = (
             calculate_commodity_costs(price_list_flex_load, power_flex_load_list,
-                                      interval, fraction_year)
+                                      interval, fraction_year))
 
         # capacity costs for flexible load:
         power_flex_load_window_list = []
@@ -458,8 +486,8 @@ def calculate_costs(strategy, voltage_level, interval,
             capacity_costs_eur_flex = 0
         else:
             max_power_grid_supply_flex = max(power_flex_load_window_list)
-            capacity_costs_eur_flex = \
-                calculate_capacity_costs_rlm(capacity_charge_flex, max_power_grid_supply_flex)
+            capacity_costs_eur_flex = (
+                calculate_capacity_costs_rlm(capacity_charge_flex, max_power_grid_supply_flex))
 
         # TOTAl COSTS:
         commodity_costs_eur_sim = commodity_costs_eur_sim_fix + commodity_costs_eur_sim_flex
@@ -518,9 +546,9 @@ def calculate_costs(strategy, voltage_level, interval,
 
             # commodity costs for fixed load:
             price_list_fix_load = [commodity_charge_fix, ] * len(power_fix_load_list)
-            commodity_costs_eur_per_year_fix, commodity_costs_eur_sim_fix = \
+            commodity_costs_eur_per_year_fix, commodity_costs_eur_sim_fix = (
                 calculate_commodity_costs(price_list_fix_load, power_fix_load_list,
-                                          interval, fraction_year)
+                                          interval, fraction_year))
 
             # capacity costs for fixed load:
             capacity_costs_eur_fix = calculate_capacity_costs_rlm(
@@ -545,9 +573,9 @@ def calculate_costs(strategy, voltage_level, interval,
 
         # commodity costs for flexible load:
         price_list_flex_load = [commodity_charge_flex] * len(power_flex_load_list)
-        commodity_costs_eur_per_year_flex, commodity_costs_eur_sim_flex = \
+        commodity_costs_eur_per_year_flex, commodity_costs_eur_sim_flex = (
             calculate_commodity_costs(price_list_flex_load, power_flex_load_list,
-                                      interval, fraction_year)
+                                      interval, fraction_year))
 
         # DEVIATION COSTS:
 
@@ -596,8 +624,9 @@ def calculate_costs(strategy, voltage_level, interval,
         additional_costs_sim = 0
 
     # COSTS FOR POWER PROCUREMENT:
-    power_procurement_charge = price_sheet["power_procurement"]["charge"]  # [ct/kWh]
-    power_procurement_costs_sim = (power_procurement_charge * energy_supply_sim / 100)  # [EUR]
+    if strategy != "variable_costs":
+        power_procurement_charge = price_sheet["power_procurement"]["charge"]  # [ct/kWh]
+        power_procurement_costs_sim = (power_procurement_charge * energy_supply_sim / 100)  # [EUR]
     power_procurement_costs_per_year = (power_procurement_costs_sim / fraction_year)  # [EUR]
 
     # COSTS FROM LEVIES:
