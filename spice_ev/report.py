@@ -481,7 +481,9 @@ def aggregate_timeseries(scenario, gcID):
         header += ["battery power [kW]", "bat. stored energy [kWh]"]
     # flex
     if scenario.flex_bands is not None:
-        header += ["flex band min [kW]", "flex band base [kW]", "flex band max [kW]"]
+        header += [
+            "flex band min [kW]", "flex band base [kW]",
+            "flex band max [kW]", "max energy flex [kWh]"]
     # schedule & window
     if hasSchedule:
         header.append("schedule [kW]")
@@ -550,14 +552,30 @@ def aggregate_timeseries(scenario, gcID):
 
         # flex, might not exist
         if scenario.flex_bands is not None:
+            # max flex energy: (1-soc) * capacity for all connected vehicles
+            max_flex_energy = 0
+            vids = sorted(scenario.components.vehicles.keys())
+            connected = scenario.connected[idx]
+            for vidx, vid in enumerate(vids):
+                if vid not in connected:
+                    # vehicle not connected
+                    continue
+                cs = scenario.components.charging_stations.get(connected[vid])
+                if cs is None or cs.parent != gcID:
+                    # CS not found or CS not at this GC
+                    continue
+                vehicle = scenario.components.vehicles[vid]
+                soc = scenario.socs[idx][vidx]
+                max_flex_energy += max(1-soc, 0) * vehicle.battery.capacity
             try:
                 row += [
                     round(scenario.flex_bands[gcID]["min"][idx], round_to_places),
                     round(scenario.flex_bands[gcID]["base"][idx], round_to_places),
                     round(scenario.flex_bands[gcID]["max"][idx], round_to_places),
+                    round(max_flex_energy, round_to_places),
                 ]
             except TypeError:
-                row += [0, 0, 0]
+                row += [0, 0, 0, 0]
 
         # schedule + window schedule
         if hasSchedule:
