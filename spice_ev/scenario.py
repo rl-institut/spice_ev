@@ -77,20 +77,20 @@ class Scenario:
 
         gc_ids = self.components.grid_connectors.keys()
 
-        socs = []
-        prices = {gcID: [] for gcID in gc_ids}
-        results = []
-        totalLoad = {gcID: [] for gcID in gc_ids}
-        disconnect = []
-        fixedLoads = {gcID: [] for gcID in gc_ids}
-        stepsPerHour = datetime.timedelta(hours=1) / self.interval
-        batteryLevels = {k: [] for k in self.components.batteries.keys()}
-        connChargeByTS = {gcID: [] for gcID in gc_ids}
-        gcPowerSchedule = {gcID: [] for gcID in gc_ids}
-        gcWindowSchedule = {gcID: [] for gcID in gc_ids}
-        departed_vehicles = {}
-        gcWithinPowerLimit = True
-        localGenerationPower = {gcID: [] for gcID in gc_ids}
+        socs = []  # for each ts: list of vehicle soc in order of vehicle keys
+        prices = {gcID: [] for gcID in gc_ids}  # for each GC: list of price
+        results = []  # for each ts: time and commands for each GC
+        totalLoad = {gcID: [] for gcID in gc_ids}  # for each GC: list of loads
+        connected = []  # for each ts: charging station for each vehicle at start of ts
+        disconnect = []  # for each ts: interpolated soc for all unconnected vehicles
+        fixedLoads = {gcID: [] for gcID in gc_ids}  # for each GC: list of fixed loads
+        batteryLevels = {k: [] for k in self.components.batteries.keys()}  # stat. bats: list of soc
+        connChargeByTS = {gcID: [] for gcID in gc_ids}  # for each GC: list of summed CS power
+        gcPowerSchedule = {gcID: [] for gcID in gc_ids}  # for each GC: schedule
+        gcWindowSchedule = {gcID: [] for gcID in gc_ids}  # for each GC: time windows (bool/None)
+        departed_vehicles = {}  # vehicle id -> (index when left, soc when left)
+        gcWithinPowerLimit = True  # flag: all GC are within their limit
+        localGenerationPower = {gcID: [] for gcID in gc_ids}  # for each GC: list of generated power
 
         begin = datetime.datetime.now()
         error = None
@@ -131,17 +131,19 @@ class Scenario:
 
             # get vehicle SoC at start of timestep
             cur_dis = []
+            cur_conn = {}
             cur_socs = []
             for vidx, vid in enumerate(sorted(strat.world_state.vehicles.keys())):
                 vehicle = strat.world_state.vehicles[vid]
                 cur_socs.append(None)
                 cur_dis.append(None)
-                connected = vehicle.connected_charging_station is not None
+                is_connected = vehicle.connected_charging_station is not None
                 departed = (vehicle.estimated_time_of_departure is None
                             or vehicle.estimated_time_of_departure <= strat.current_time)
 
-                if connected:
+                if is_connected:
                     cur_socs[-1] = vehicle.battery.soc
+                    cur_conn[vid] = vehicle.connected_charging_station
                 else:
                     if departed:
                         if vid not in departed_vehicles:
@@ -155,7 +157,7 @@ class Scenario:
                         # not driving,just standing disconnected
                         cur_dis[-1] = vehicle.battery.soc
 
-                if (connected or not departed) and vid in departed_vehicles:
+                if (is_connected or not departed) and vid in departed_vehicles:
                     # newly arrived: update disconnect with linear interpolation
                     start_idx, start_soc = departed_vehicles[vid]
                     # compute linear equation
@@ -168,6 +170,7 @@ class Scenario:
                     del departed_vehicles[vid]
 
             socs.append(cur_socs)
+            connected.append(cur_conn)
             disconnect.append(cur_dis)
 
             # get battery levels at start of timestep
@@ -225,7 +228,7 @@ class Scenario:
                 # compute cost: price in ct/kWh -> get price in EUR
                 if gc.cost:
                     power = max(gc_load, 0)
-                    energy = power / stepsPerHour
+                    energy = power / strat.ts_per_hour
                     cost += util.get_cost(energy, gc.cost) / 100
                     price = util.get_cost(1, gc.cost)
 
@@ -283,11 +286,12 @@ class Scenario:
 
         # end of simulation: increase step_i one last time (no error: step_i == n_intervals)
         step_i += 1
+        self.stepsPerHour = strat.ts_per_hour
 
         # make variable members of Scenario class to access them in report
-        for var in ["batteryLevels", "connChargeByTS", "disconnect",
+        for var in ["batteryLevels", "connChargeByTS", "connected", "disconnect",
                     "fixedLoads", "localGenerationPower", "gcPowerSchedule", "gcWindowSchedule",
-                    "prices", "results", "socs", "step_i", "stepsPerHour", "strat",
+                    "prices", "results", "socs", "step_i", "strat",
                     "strategy_name", "totalLoad"]:
             setattr(self, var, locals()[var])
 
@@ -300,6 +304,7 @@ class Scenario:
                  f"(with margin of {strat.margin * 100}%: {strat.margin_counter} cases)")
 
         for gcID in gc_ids:
-            print(f"Energy drawn from {gcID}: {round((sum(totalLoad[gcID])/stepsPerHour), 3)} kWh")
+            print(f"Energy drawn from {gcID}: "
+                  f"{round((sum(totalLoad[gcID])/strat.ts_per_hour), 3)} kWh")
 
         report.generate_reports(self, options)
