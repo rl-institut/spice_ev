@@ -178,7 +178,7 @@ def calculate_costs(cc_type, voltage_level, interval,
     :type power_v2g_feed_in_list: list
     :param power_battery_feed_in_list: power fed into the grid from battery
     :type power_battery_feed_in_list: list
-    :param window_signal_list: charging signal (True (1): charge, False (0): don't charge)
+    :param window_signal_list: charging/time window signal
     :type window_signal_list: list
     :param price_sheet_path: path to price sheet
     :type price_sheet_path: str
@@ -192,7 +192,7 @@ def calculate_costs(cc_type, voltage_level, interval,
     :type power_pv_nominal: int
     :param power_schedule_list: power to be supplied or fed-in according to schedule
     :type power_schedule_list: list
-    :raises Exception: if charging strategy is not supported
+    :raises NotImplementedError: if cost calculation type is not supported
     :raises ValueError: if nom. PV power exceeds max. power for feed-in remuneration in price sheet
     :return: total costs per year and simulation period (fees and taxes included)
     :rtype: dict
