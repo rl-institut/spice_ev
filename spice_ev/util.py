@@ -91,6 +91,40 @@ def dt_within_core_standing_time(dt, core_standing_time):
     return False
 
 
+def get_time_windows_from_json(filepath, grid_operator, voltage_level, scenario):
+    """ Create a time window timeseries for whole scenario from input file.
+
+    :param filepath: timeseries JSON
+    :type filepath: str or Path
+    :param grid_operator: grid operator from file
+    :type grid_operator: str
+    :param voltage_level: relevant voltage level
+    :type voltage_level: str
+    :param scenario: scenario to create timeseries for
+    :type scenario: Scenario
+    :return: time window timeseries
+    :rtype: list
+    """
+    # read in file
+    with open(filepath, 'r', encoding='utf-8') as f:
+        windows_json = json.load(f)
+    windows_json = windows_json[grid_operator]
+    # convert dates and times from string to datetime dates and times
+    for season, info in windows_json.items():
+        windows_json[season]["start"] = datetime.date.fromisoformat(windows_json[season]["start"])
+        windows_json[season]["end"] = datetime.date.fromisoformat(windows_json[season]["end"])
+        windows_json[season]["windows"][voltage_level] = [
+            (datetime.time.fromisoformat(t[0]), datetime.time.fromisoformat(t[1]))
+            for t in windows_json[season]["windows"].get(voltage_level, [])
+        ]
+    time_windows = list()
+    cur_time = scenario.start_time
+    while cur_time < scenario.stop_time:
+        time_windows.append(datetime_within_time_window(cur_time, windows_json, voltage_level))
+        cur_time += scenario.interval
+    return time_windows
+
+
 def set_attr_from_dict(source, target, keys, optional_keys):
     """ Set attributes of `target` from a `source` dictionary.
 

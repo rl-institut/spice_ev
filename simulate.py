@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 import warnings
 
-from spice_ev.costs import calculate_costs
+from spice_ev.costs import DEFAULT_COST_CALCULATION, calculate_costs
 from spice_ev.scenario import Scenario
 from spice_ev.strategy import STRATEGIES
 from spice_ev.util import set_options_from_config
@@ -65,6 +65,8 @@ def simulate(args):
     if args.get("cost_calc"):
         # cost calculation following directly after simulation
         for gcID, gc in s.components.grid_connectors.items():
+            cc_type = DEFAULT_COST_CALCULATION[strategy_name]
+            fee_type = "SLP" if strategy_name in ["greedy", "balanced", "distributed"] else "RLM"
             pv = sum([pv.nominal_power for pv in s.components.photovoltaics.values()
                       if pv.parent == gcID])
             timeseries = vars(s).get(f"{gcID}_timeseries")
@@ -85,7 +87,8 @@ def simulate(args):
 
             # Calculate costs
             costs = calculate_costs(
-                strategy=strategy_name,
+                cc_type=cc_type,
+                fee_type=fee_type,
                 voltage_level=gc.voltage_level,
                 interval=s.interval,
                 timestamps_list=timeseries.get("time"),
@@ -95,7 +98,7 @@ def simulate(args):
                 power_generation_feed_in_list=timeseries.get("generation feed-in [kW]"),
                 power_v2g_feed_in_list=timeseries.get("V2G feed-in [kW]"),
                 power_battery_feed_in_list=timeseries.get("battery feed-in [kW]"),
-                charging_signal_list=timeseries.get("window signal [-]"),
+                window_signal_list=timeseries.get("window signal [-]"),
                 price_sheet_path=args.get("cost_parameters_file"),
                 grid_operator=gc.grid_operator,
                 results_json=args.get("save_results"),

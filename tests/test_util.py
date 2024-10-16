@@ -1,8 +1,9 @@
 import argparse
 import datetime
+import json
 import pytest
 
-from spice_ev import components, util
+from spice_ev import components, scenario, util
 
 
 class TestUtil:
@@ -104,6 +105,68 @@ class TestUtil:
             e = ((e_vec >> h) & 1) == 1
             b = util.dt_within_core_standing_time(dt.replace(hour=h, minute=0), core)
             assert b == e, "{}:{} is {}".format(h, 0, b)
+
+    def test_get_time_windows_from_json(self, tmp_path):
+        filepath = tmp_path / "time_windows.json"
+        grid_operator = "operator"
+        voltage_level = "level"
+        s = scenario.Scenario({"scenario": {
+            "start_time": "2020-01-01 00:00:00+02:00",
+            "stop_time": "2020-01-01 00:00:00+02:00",
+            "interval": 15,
+        }})
+        # create tmp time windows file
+        time_windows = {
+            grid_operator: {
+                "season": {
+                    # everyday in January 11-11:45 and 22-02, except first
+                    "start": "2020-01-02",
+                    "end": "2020-01-31",
+                    "windows": {
+                        voltage_level: [["11:00", "11:45"],  ["22:00", "02:00"]],
+                    }
+                }
+            }
+        }
+        with open(filepath, 'w', encoding='utf-8') as f:
+            json.dump(time_windows, f)
+
+        # wrong filepath
+        with pytest.raises(TypeError):
+            util.get_time_windows_from_json(None, None, None, None)
+        with pytest.raises(FileNotFoundError):
+            util.get_time_windows_from_json("foo", None, None, None)
+        # grid operator not set/found
+        with pytest.raises(KeyError):
+            util.get_time_windows_from_json(filepath, None, voltage_level, s)
+        # wrong voltage level
+        windows = util.get_time_windows_from_json(filepath, grid_operator, None, s)
+        assert len(windows) == s.n_intervals
+        assert sum(windows) == 0
+        # wrong scenario
+        with pytest.raises(Exception):
+            util.get_time_windows_from_json(filepath, grid_operator, voltage_level, None)
+        # scenario outside time windows
+        s.start_time = datetime.datetime.fromisoformat("2020-03-14")
+        s.stop_time = s.start_time + s.n_intervals * s.interval
+        assert sum(util.get_time_windows_from_json(filepath, grid_operator, voltage_level, s)) == 0
+        # scenario fully within time windows
+        s.start_time = datetime.datetime.fromisoformat("2020-01-11 11:11:11")
+        s.n_intervals = 2
+        s.stop_time = s.start_time + s.n_intervals * s.interval
+        windows = util.get_time_windows_from_json(filepath, grid_operator, voltage_level, s)
+        assert sum(windows) == s.n_intervals
+        # scenario partially within time windows
+        s.n_intervals = 11
+        s.stop_time = s.start_time + s.n_intervals * s.interval
+        windows = util.get_time_windows_from_json(filepath, grid_operator, voltage_level, s)
+        assert len(windows) == s.n_intervals
+        assert sum(windows) == 3  # only first three windows
+        # scenario over multiple time windows (whole day)
+        s.n_intervals = 96
+        s.stop_time = s.start_time + s.n_intervals * s.interval
+        windows = util.get_time_windows_from_json(filepath, grid_operator, voltage_level, s)
+        assert sum(windows) == 19  # 3 in first, 16 in last window
 
     def test_get_cost_and_power(self):
         assert util.get_power(None, {}) is None

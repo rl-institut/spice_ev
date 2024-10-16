@@ -24,7 +24,7 @@ def read_simulation_csv(csv_file):
     power_generation_feed_in_list = []  # [kW]
     power_v2g_feed_in_list = []  # [kW]
     power_battery_feed_in_list = []  # [kW]
-    charging_signal_list = []  # [-]
+    window_signal_list = []  # [-]
     power_schedule_list = []  # [kW]
     with open(csv_file, "r", newline="") as simulation_data:
         reader = csv.DictReader(simulation_data, delimiter=",")
@@ -42,7 +42,7 @@ def read_simulation_csv(csv_file):
             power_v2g_feed_in = float(row.get("V2G feed-in [kW]", 0))
             power_battery_feed_in = float(row.get("battery feed-in [kW]", 0))
 
-            # append value to the respective list:
+            # append value to the respective list
             timestamps_list.append(timestamp)
             price_list.append(price)
             power_grid_supply_list.append(power_grid_supply)
@@ -52,9 +52,9 @@ def read_simulation_csv(csv_file):
             power_battery_feed_in_list.append(power_battery_feed_in)
 
             try:
-                charging_signal = bool(int(row["window signal [-]"]))
+                window_signal = bool(int(row["window signal [-]"]))
             except KeyError:
-                charging_signal = None
+                window_signal = None
 
             try:
                 power_schedule = float(row["schedule [kW]"])
@@ -62,7 +62,7 @@ def read_simulation_csv(csv_file):
             except KeyError:
                 power_schedule_list = None
 
-            charging_signal_list.append(charging_signal)
+            window_signal_list.append(window_signal)
 
     return {
         "timestamps_list": timestamps_list,
@@ -72,7 +72,7 @@ def read_simulation_csv(csv_file):
         "power_generation_feed_in_list": power_generation_feed_in_list,
         "power_v2g_feed_in_list": power_v2g_feed_in_list,
         "power_battery_feed_in_list": power_battery_feed_in_list,
-        "charging_signal_list": charging_signal_list,
+        "window_signal_list": window_signal_list,
         "power_schedule_list": power_schedule_list,
     }
 
@@ -81,6 +81,8 @@ if __name__ == "__main__":  # pragma: no cover
     parser = argparse.ArgumentParser(
         description='Generate scenarios as JSON files for vehicle charging modelling')
     parser.add_argument('--voltage-level', '-vl', help='Choose voltage level for cost calculation')
+    parser.add_argument('--fee-type', choices=["SLP", "RLM"],
+                        help='Choose voltage level for cost calculation')
     parser.add_argument('--pv-power', type=int, default=0,
                         help='set nominal power for local photovoltaic power plant in kWp')
     parser.add_argument('--get-timeseries', '-ts', help='get timeseries from csv file.')
@@ -92,22 +94,24 @@ if __name__ == "__main__":  # pragma: no cover
 
     util.set_options_from_config(args, check=parser, verbose=False)
 
-    # load simulation results:
+    # load simulation results
     with open(args.get_results, "r", newline="") as sj:
         simulation_json = json.load(sj)
 
-    # strategy:
+    # cost calculation method through strategy
     strategy = simulation_json.get("charging_strategy", {}).get("strategy")
     assert strategy is not None, "Charging strategy not set in results file"
+    cc_type = costs.DEFAULT_COST_CALCULATION.get(strategy)
+    assert cc_type is not None, f"No cost calculation method for {strategy} found"
 
-    # simulation interval in minutes:
+    # simulation interval in minutes
     interval_min = simulation_json.get("temporal_parameters", {}).get("interval")
     assert interval_min is not None, "Simulation interval length not set in results file"
 
-    # core standing time for fleet:
+    # core standing time for fleet
     core_standing_time_dict = simulation_json.get("core_standing_time")
 
-    # load simulation time series:
+    # load simulation time series
     timeseries_lists = read_simulation_csv(args.get_timeseries)
 
     # grid connector
@@ -118,14 +122,15 @@ if __name__ == "__main__":  # pragma: no cover
     voltage_level = args.voltage_level or gc.get("voltage_level")
     assert voltage_level is not None, f"Voltage level is of {gc['gcID']} not defined"
 
-    # cost calculation:
+    # cost calculation
     costs.calculate_costs(
-        strategy=strategy,
+        cc_type=cc_type,
         voltage_level=voltage_level,
         interval=datetime.timedelta(minutes=interval_min),
         **timeseries_lists,
         price_sheet_path=args.cost_parameters_file,
         grid_operator=grid_operator,
+        fee_type=args.fee_type,
         results_json=args.get_results,
         power_pv_nominal=args.pv_power,
     )
