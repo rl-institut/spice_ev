@@ -468,6 +468,71 @@ class TestSimulationCosts:
             None, zeroes, zeroes, zeroes, zeroes, None,
             TEST_REPO_PATH / 'test_data/input_test_cost_calculation/price_sheet.json')
 
+    def test_price_list(self):
+        # price list can have different formats
+        setup = {
+            "cc_type": "variable_wo_plw",
+            "voltage_level": "MV",
+            "interval": datetime.timedelta(hours=1),
+            "timestamps_list": [None]*9,
+            # some grid supply for pricing to matter, values are negative
+            "power_grid_supply_list": [-i for i in range(9)],
+            "price_list": None,  # updated during test
+            "power_fix_load_list": [0]*9,
+            "power_generation_feed_in_list": [0]*9,
+            "power_v2g_feed_in_list": [0]*9,
+            "power_battery_feed_in_list": [0]*9,
+            "window_signal_list": [0]*9,
+            "price_sheet_path":
+                TEST_REPO_PATH / 'test_data/input_test_cost_calculation/price_sheet.json'
+        }
+        fraction_year = 9 / 8760  # nine timestamps of one hour, 8760 hours in a year
+        expected_cost = sum([i*i for i in range(9)]) / 100
+        expected_cost_year = expected_cost / fraction_year
+
+        # normal list: interpret as commodity costs
+        setup["price_list"] = range(9)
+        with pytest.warns(UserWarning):
+            result = cc.calculate_costs(**setup)
+        assert pytest.approx(result["commodity_costs_eur_per_year"]) == expected_cost_year
+        assert result["power_procurement_costs_per_year"] == 0
+
+        # special case price list is None (mainly for testing)
+        setup["price_list"] = None
+        with pytest.warns(UserWarning):
+            result = cc.calculate_costs(**setup)
+        assert result["commodity_costs_eur_per_year"] == 0
+        assert result["power_procurement_costs_per_year"] == 0
+
+        # dict: must have procurement, commodity or both
+        setup["price_list"] = dict()
+        with pytest.raises(ValueError):
+            result = cc.calculate_costs(**setup)
+
+        setup["price_list"] = {"procurement": range(9)}
+        result = cc.calculate_costs(**setup)
+        assert result["commodity_costs_eur_per_year"] == 0
+        assert pytest.approx(result["power_procurement_costs_per_year"]) == expected_cost_year
+
+        setup["price_list"] = {"commodity": range(9)}
+        with pytest.warns(UserWarning):
+            result = cc.calculate_costs(**setup)
+        assert pytest.approx(result["commodity_costs_eur_per_year"]) == expected_cost_year
+        assert result["power_procurement_costs_per_year"] == 0
+
+        setup["price_list"] = {"procurement": range(9), "commodity": range(9)}
+        result = cc.calculate_costs(**setup)
+        assert pytest.approx(result["commodity_costs_eur_per_year"]) == expected_cost_year
+        assert pytest.approx(result["power_procurement_costs_per_year"]) == expected_cost_year
+
+        # commodity used in variable pricing and balanced_market
+        setup["cc_type"] = "balanced_market"
+        setup["price_list"] = {"procurement": range(9)}
+        with pytest.warns(UserWarning):
+            result = cc.calculate_costs(**setup)
+        assert result["commodity_costs_eur_per_year"] == 0
+        assert result["power_procurement_costs_per_year"] == 2698.08
+
 
 class TestPostSimulationCosts:
     def test_calculate_costs_post_sim(self, tmp_path):
