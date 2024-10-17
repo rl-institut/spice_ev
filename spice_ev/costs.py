@@ -221,8 +221,6 @@ def calculate_costs(cc_type, voltage_level, interval,
         # price_list may contain procurement and commodity cost lists
         procurement_price_list = price_list.get('procurement')
         commodity_price_list = price_list.get('commodity')
-        if procurement_price_list is None and commodity_price_list is None:
-            raise ValueError("Price must have procurement or commodity costs")
     else:
         # default price list: interpret as commodity price list
         procurement_price_list = None
@@ -254,16 +252,21 @@ def calculate_costs(cc_type, voltage_level, interval,
     elif cc_type.startswith("variable"):
         # apply procurement and commodity costs for each timestep to grid supply
         # this is just drawn power, feed-in is handled independently
+        if commodity_price_list is None:
+            if procurement_price_list is None:
+                # variable costs pricing needs at least one price series
+                raise ValueError("Variable pricing must have procurement or commodity costs")
+            else:
+                # use fixed commodity costs
+                commodity_price_list = [commodity_charge] * len(timestamps_list)
+
         ts_per_hour = interval.total_seconds() / 3600
         commodity_costs_eur_sim = 0
         power_procurement_costs_sim = 0
-        if procurement_price_list is None:
-            warnings.warn("variable costs without procurement cost timeseries")
         for i, power in enumerate(power_grid_supply_list):
             energy_supply_per_timestep = (power * ts_per_hour)  # [kWh]
-            if commodity_price_list is not None:
-                commodity_costs_eur_sim += (
-                    energy_supply_per_timestep * commodity_price_list[i] / 100)
+            commodity_costs_eur_sim += (
+                energy_supply_per_timestep * commodity_price_list[i] / 100)
             if procurement_price_list is not None:
                 power_procurement_costs_sim += (
                     energy_supply_per_timestep * procurement_price_list[i] / 100)
@@ -364,8 +367,9 @@ def calculate_costs(cc_type, voltage_level, interval,
         if commodity_price_list is not None:
             price_list = [price * 100 for price in commodity_price_list]
         else:
+            # use fixed price list
             warnings.warn("balanced_market pricing without commodity cost timeseries")
-            price_list = [0]*len(timestamps_list)
+            price_list = [commodity_charge]*len(timestamps_list)
 
         # find power at times of high tariff
         max_price = max(price_list)
