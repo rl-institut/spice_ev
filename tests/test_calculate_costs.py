@@ -80,6 +80,11 @@ class TestSimulationCosts:
 
         # test all supported strategies
         for strategy in supported_cost_calculations:
+            if strategy.startswith("variable"):
+                # variable costs need dictionary of price timeseries
+                timeseries_lists[2] = {"commodity": [0]*s.n_intervals}
+            else:
+                timeseries_lists[2] = [0]*s.n_intervals
             cc.calculate_costs(strategy, "MV", s.interval, *timeseries_lists,
                                price_sheet_path=str(price_sheet_path))
 
@@ -329,6 +334,39 @@ class TestSimulationCosts:
         assert result["levies_fees_and_taxes_per_year"] == 135.58
         assert result["feed_in_remuneration_per_year"] == 3364.25
 
+    def test_calculate_variable_costs(self):
+        # test all scenarios against variable costs pricing
+        scenarios = [
+            "scenario_A.json", "scenario_B.json", "scenario_C1.json",
+            "scenario_C2.json", "scenario_C3.json", "scenario_PV_Bat.json"]
+        price_sheet_path = TEST_REPO_PATH / 'test_data/input_test_cost_calculation/price_sheet.json'
+
+        for scenario_name in scenarios:
+            scen_path = TEST_REPO_PATH.joinpath("test_data/input_test_strategies", scenario_name)
+            with scen_path.open() as f:
+                j = json.load(f)
+            s = scenario.Scenario(j, str(scen_path.parent))
+            s.run("greedy", {"cost_calculation": True})
+            timeseries = s.GC1_timeseries
+            timeseries_lists = [timeseries.get(k, [0] * s.n_intervals) for k in [
+                            "time", "grid supply [kW]", "price [EUR/kWh]",
+                            "fixed load [kW]", "generation feed-in [kW]",
+                            "V2G feed-in [kW]", "battery feed-in [kW]",
+                            "window signal [-]"]]
+            # override scenario price list
+            # mock prices: vary between 1 and 3 in 96 interval (start/end with 2)
+            price_list = [abs(((i-24) % 96)-48)/24+1 for i in range(s.n_intervals)]
+            timeseries_lists[2] = {
+                "procurement": price_list,
+                "commodity": price_list * 2,
+            }
+            pv = sum([pv.nominal_power for pv in s.components.photovoltaics.values()])
+            cc.calculate_costs(
+                "variable_costs", "MV", s.interval, *timeseries_lists,
+                price_sheet_path=str(price_sheet_path),
+                power_pv_nominal=pv,
+            )
+
     def test_greedy_rlm(self):
         # prepare scenario to trigger RLM
         # energy_supply_per_year > 100000, but utilization_time_per_year < 2500
@@ -434,6 +472,84 @@ class TestSimulationCosts:
             [0]*9,  # !! empty grid supply !!
             None, zeroes, zeroes, zeroes, zeroes, None,
             TEST_REPO_PATH / 'test_data/input_test_cost_calculation/price_sheet.json')
+
+    def test_price_list(self):
+        # price list can have different formats
+        setup = {
+            "cc_type": "variable_wo_plw",
+            "voltage_level": "MV",
+            "interval": datetime.timedelta(hours=1),
+            "timestamps_list": [None]*9,
+            # some grid supply for pricing to matter, values are negative
+            "power_grid_supply_list": [-i for i in range(9)],
+            "price_list": None,  # updated during test
+            "power_fix_load_list": [0]*9,
+            "power_generation_feed_in_list": [0]*9,
+            "power_v2g_feed_in_list": [0]*9,
+            "power_battery_feed_in_list": [0]*9,
+            "window_signal_list": [0]*9,
+            "price_sheet_path":
+                TEST_REPO_PATH / 'test_data/input_test_cost_calculation/price_sheet.json'
+        }
+        fraction_year = 9 / 8760  # nine timestamps of one hour, 8760 hours in a year
+        expected_cost = sum([i*i for i in range(9)]) / 100
+        expected_cost_year = round(expected_cost / fraction_year, 2)
+        expected_fix_cost_year = round(2.6928 / fraction_year, 2)
+        default_procurement_costs = 2698.08
+
+        # normal list: unknown what this is supposed to be, so throw error
+        setup["price_list"] = range(9)
+        with pytest.raises(Exception):
+            cc.calculate_costs(**setup)
+
+        # special case None: must fail for variable pricing
+        setup["price_list"] = None
+        with pytest.raises(Exception):
+            cc.calculate_costs(**setup)
+
+        # dict: must have procurement, commodity or both
+        setup["price_list"] = dict()
+        with pytest.raises(ValueError):
+            cc.calculate_costs(**setup)
+
+        setup["price_list"] = {"procurement": range(9)}
+        result = cc.calculate_costs(**setup)
+        assert result["commodity_costs_eur_per_year"] == expected_fix_cost_year
+        assert result["power_procurement_costs_per_year"] == expected_cost_year
+
+        setup["price_list"] = {"commodity": range(9)}
+        result = cc.calculate_costs(**setup)
+        assert result["commodity_costs_eur_per_year"] == expected_cost_year
+        assert result["power_procurement_costs_per_year"] == default_procurement_costs
+
+        setup["price_list"] = {"procurement": range(9), "commodity": range(9)}
+        result = cc.calculate_costs(**setup)
+        assert result["commodity_costs_eur_per_year"] == expected_cost_year
+        assert result["power_procurement_costs_per_year"] == expected_cost_year
+
+        # commodity used in variable pricing and balanced_market
+        setup["cc_type"] = "balanced_market"
+        setup["price_list"] = {"procurement": range(9)}
+        with pytest.warns(UserWarning):
+            result = cc.calculate_costs(**setup)
+        assert result["commodity_costs_eur_per_year"] == expected_fix_cost_year
+        assert result["power_procurement_costs_per_year"] == default_procurement_costs
+
+        # special case price list is None (mainly for testing) -> use default value
+        setup["price_list"] = None
+        with pytest.warns(UserWarning):
+            result = cc.calculate_costs(**setup)
+        assert result["commodity_costs_eur_per_year"] == expected_fix_cost_year
+        assert result["power_procurement_costs_per_year"] == default_procurement_costs
+
+        # balanced_market with price timeseries
+        setup["price_list"] = range(9)
+        result = cc.calculate_costs(**setup)
+
+        # fixed cost: price list is ignored
+        setup["cc_type"] = "fixed_w_plw"
+        setup["price_list"] = None
+        result = cc.calculate_costs(**setup)
 
 
 class TestPostSimulationCosts:
