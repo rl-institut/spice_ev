@@ -80,6 +80,11 @@ class TestSimulationCosts:
 
         # test all supported strategies
         for strategy in supported_cost_calculations:
+            if strategy.startswith("variable"):
+                # variable costs need dictionary of price timeseries
+                timeseries_lists[2] = {"commodity": [0]*s.n_intervals}
+            else:
+                timeseries_lists[2] = [0]*s.n_intervals
             cc.calculate_costs(strategy, "MV", s.interval, *timeseries_lists,
                                price_sheet_path=str(price_sheet_path))
 
@@ -490,17 +495,22 @@ class TestSimulationCosts:
         expected_cost = sum([i*i for i in range(9)]) / 100
         expected_cost_year = round(expected_cost / fraction_year, 2)
         expected_fix_cost_year = round(2.6928 / fraction_year, 2)
+        default_procurement_costs = 2698.08
 
-        # normal list: interpret as commodity costs
+        # normal list: unknown what this is supposed to be, so throw error
         setup["price_list"] = range(9)
-        result = cc.calculate_costs(**setup)
-        assert result["commodity_costs_eur_per_year"] == expected_cost_year
-        assert result["power_procurement_costs_per_year"] == 0
+        with pytest.raises(Exception):
+            cc.calculate_costs(**setup)
+
+        # special case None: must fail for variable pricing
+        setup["price_list"] = None
+        with pytest.raises(Exception):
+            cc.calculate_costs(**setup)
 
         # dict: must have procurement, commodity or both
         setup["price_list"] = dict()
         with pytest.raises(ValueError):
-            result = cc.calculate_costs(**setup)
+            cc.calculate_costs(**setup)
 
         setup["price_list"] = {"procurement": range(9)}
         result = cc.calculate_costs(**setup)
@@ -510,7 +520,7 @@ class TestSimulationCosts:
         setup["price_list"] = {"commodity": range(9)}
         result = cc.calculate_costs(**setup)
         assert result["commodity_costs_eur_per_year"] == expected_cost_year
-        assert result["power_procurement_costs_per_year"] == 0
+        assert result["power_procurement_costs_per_year"] == default_procurement_costs
 
         setup["price_list"] = {"procurement": range(9), "commodity": range(9)}
         result = cc.calculate_costs(**setup)
@@ -523,14 +533,23 @@ class TestSimulationCosts:
         with pytest.warns(UserWarning):
             result = cc.calculate_costs(**setup)
         assert result["commodity_costs_eur_per_year"] == expected_fix_cost_year
-        assert result["power_procurement_costs_per_year"] == 2698.08
+        assert result["power_procurement_costs_per_year"] == default_procurement_costs
 
-        # special case price list is None (mainly for testing)
+        # special case price list is None (mainly for testing) -> use default value
         setup["price_list"] = None
         with pytest.warns(UserWarning):
             result = cc.calculate_costs(**setup)
         assert result["commodity_costs_eur_per_year"] == expected_fix_cost_year
-        assert result["power_procurement_costs_per_year"] == 2698.08
+        assert result["power_procurement_costs_per_year"] == default_procurement_costs
+
+        # balanced_market with price timeseries
+        setup["price_list"] = range(9)
+        result = cc.calculate_costs(**setup)
+
+        # fixed cost: price list is ignored
+        setup["cc_type"] = "fixed_w_plw"
+        setup["price_list"] = None
+        result = cc.calculate_costs(**setup)
 
 
 class TestPostSimulationCosts:
