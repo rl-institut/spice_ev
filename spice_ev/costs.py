@@ -226,6 +226,9 @@ def calculate_costs(cc_type, voltage_level, interval,
     # prices
     if max_power_grid_supply == 0:
         utilization_time_pa = 0
+    elif cc_type.endswith("w_plw"):
+        # peak load window costs: always high utilization
+        utilization_time_pa = UTILIZATION_TIME_PER_YEAR_EC
     else:
         utilization_time_pa = abs(energy_supply_pa / max_power_grid_supply)  # [h/a]
     commodity_charge, capacity_charge, fee_type = find_prices(
