@@ -106,12 +106,12 @@ class TestSimulationCosts:
     def test_calculate_costs_advanced(self):
 
         scenarios = {
-            "scenario_A.json": [2522.67, 776.54, 65.7, 799.38, 881.06, 0.0],
-            "scenario_B.json": [99.63, 6.81, 65.7, 7.01, 20.1, 0.0],
-            "scenario_C1.json": [99.63, 6.81, 65.7, 7.01, 20.1, 0.0],
-            "scenario_C2.json": [2792.23, 862.17, 65.7, 887.53, 976.85, 0.0],
-            "scenario_C3.json": [1887.55, 574.78, 65.7, 591.68, 655.39, 0.0],
-            "scenario_PV_Bat.json": [-2166.39, 0.0, 65.7, 0.0, 12.48, 2244.58],
+            "scenario_A.json": [2522.67, 776.54, 65.7, 799.38, 881.06, 0.0, 0.0],
+            "scenario_B.json": [99.63, 6.81, 65.7, 7.01, 20.1, 0.0, 0.0],
+            "scenario_C1.json": [99.63, 6.81, 65.7, 7.01, 20.1, 0.0, 0.063],
+            "scenario_C2.json": [2792.23, 862.17, 65.7, 887.53, 976.85, 0.0, 22.0],
+            "scenario_C3.json": [1887.55, 574.78, 65.7, 591.68, 655.39, 0.0, 0.0],
+            "scenario_PV_Bat.json": [-2166.39, 0.0, 65.7, 0.0, 12.48, 2244.58, 0.0],
         }
 
         for scenario_name, expected in scenarios.items():

@@ -217,6 +217,12 @@ def calculate_costs(cc_type, voltage_level, interval,
     # only consider positive values of fixed load for cost calculation
     power_fix_load_list = [max(v, 0) for v in power_fix_load_list]
 
+    # get peak power inside time windows
+    peak_power_in_windows = None
+    if window_signal_list is not None:
+        window_loads = [l for (l, w) in zip(power_grid_supply_list, window_signal_list) if w]
+        peak_power_in_windows = max(window_loads + [0])
+
     energy_supply_sim = sum(power_grid_supply_list) * interval.total_seconds() / 3600
     energy_supply_pa = energy_supply_sim / fraction_year
 
@@ -275,14 +281,10 @@ def calculate_costs(cc_type, voltage_level, interval,
 
     if cc_type.endswith("w_plw"):
         # peak load windows: adjust capacity costs by changing max_power_grid_supply
-        # get peak power inside time windows
         if window_signal_list is None:
             # no time windows: no window loads -> peak power is set to 0
-            window_loads = []
-        else:
-            window_loads = [l for (l, w) in
-                            zip(power_grid_supply_list, window_signal_list) if w]
-        peak_power_in_windows = max(window_loads + [0])
+            warnings.warn("PLW without window signal list, setting peak power to zero")
+            peak_power_in_windows = 0
         # check if cost calculation for peak_load_window can be applied
         significance_threshold = 0
         if max_power_grid_supply > 0:
@@ -905,4 +907,5 @@ def calculate_costs(cc_type, voltage_level, interval,
         "power_procurement_costs_per_year": power_procurement_costs_per_year,
         "levies_fees_and_taxes_per_year": levies_fees_and_taxes_per_year,
         "feed_in_remuneration_per_year": feed_in_remuneration_per_year,
+        "peak_power_in_windows": peak_power_in_windows,
     }
