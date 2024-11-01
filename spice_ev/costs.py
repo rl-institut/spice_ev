@@ -13,7 +13,7 @@ MAX_ENERGY_SUPPLY_PER_YEAR_SLP = 100000
 # allowed cost calculations
 COST_CALCULATION = [
     "fixed_wo_plw", "fixed_w_plw",
-    # "variable_wo_plw", "variable_w_plw",  # not implemented yet
+    "variable_wo_plw", "variable_w_plw",
     "balanced_market", "schedule", "flex_window",
 ]
 
@@ -194,6 +194,7 @@ def calculate_costs(cc_type, voltage_level, interval,
     :type power_schedule_list: list
     :raises NotImplementedError: if cost calculation type is not supported
     :raises ValueError: if nom. PV power exceeds max. power for feed-in remuneration in price sheet
+    :raises ValueError: if price_list is a dictionary without procurement or commodity
     :return: total costs per year and simulation period (fees and taxes included)
     :rtype: dict
     """
@@ -216,73 +217,102 @@ def calculate_costs(cc_type, voltage_level, interval,
     # only consider positive values of fixed load for cost calculation
     power_fix_load_list = [max(v, 0) for v in power_fix_load_list]
 
-    # ENERGY SUPPLY
+    # get peak power inside time windows
+    peak_power_in_windows = None
+    if window_signal_list is not None:
+        window_loads = [l for (l, w) in zip(power_grid_supply_list, window_signal_list) if w]
+        peak_power_in_windows = max(window_loads + [0])
+
     energy_supply_sim = sum(power_grid_supply_list) * interval.total_seconds() / 3600
     energy_supply_pa = energy_supply_sim / fraction_year
 
+    # maximum power supplied from the grid
+    max_power_grid_supply = max(power_grid_supply_list + [0])
+
+    # prices
+    if max_power_grid_supply == 0:
+        utilization_time_pa = 0
+    elif cc_type.endswith("w_plw"):
+        # peak load window costs: always high utilization
+        utilization_time_pa = UTILIZATION_TIME_PER_YEAR_EC
+    else:
+        utilization_time_pa = abs(energy_supply_pa / max_power_grid_supply)  # [h/a]
+    commodity_charge, capacity_charge, fee_type = find_prices(
+        price_sheet, fee_type, voltage_level,
+        utilization_time_pa, energy_supply_pa,
+    )
+
     # APPLY COST CALCULATION METHOD
-    # sets commodity and capacity charge
+    # COMMODITY COSTS
     if cc_type.startswith("fixed"):
-        """
-        Calculates costs in accordance with existing payment models.
-        For SLP customers the variable capacity_charge is equivalent to the basic charge
-        """
-        # maximum power supplied from the grid
-        max_power_grid_supply = max(power_grid_supply_list + [0])
-
-        # prices
-        if max_power_grid_supply == 0:
-            utilization_time_pa = 0
-        else:
-            utilization_time_pa = abs(energy_supply_pa / max_power_grid_supply)  # [h/a]
-        commodity_charge, capacity_charge, fee_type = find_prices(
-            price_sheet, fee_type, voltage_level,
-            utilization_time_pa, energy_supply_pa,
-        )
-
-        if cc_type == "fixed_w_plw":
-            # get peak power inside time windows
-            if window_signal_list is None:
-                # no time windows: no window loads -> peak power is set to 0
-                window_loads = []
-            else:
-                window_loads = [l for (l, w) in
-                                zip(power_grid_supply_list, window_signal_list) if w]
-            peak_power_in_windows = max(window_loads + [0])
-            # check if cost calculation for peak_load_window can be applied
-            significance_threshold = 0
-            if max_power_grid_supply > 0:
-                significance_threshold = (
-                    (max_power_grid_supply - peak_power_in_windows) / max_power_grid_supply) * 100
-            significance_threshold_price_sheet = (
-                price_sheet["strategy_related"]["peak_load_window"]
-                ["significance_threshold"][voltage_level])
-            # check if cost model can be applied
-            peak_diff = max_power_grid_supply - peak_power_in_windows
-            if significance_threshold > significance_threshold_price_sheet and peak_diff > 100:
-                # only use peak power inside windows for calculation of capacity costs
-                max_power_grid_supply = peak_power_in_windows
-            # save threshold from price sheet to update json file
-            json_results_windows = {
-                "significance threshold from price sheet": significance_threshold_price_sheet
-            }
-
-        # CAPACITY COSTS
-        if fee_type == "SLP":
-            capacity_costs_eur = capacity_charge
-        else:  # RLM
-            capacity_costs_eur = calculate_capacity_costs_rlm(
-                capacity_charge, max_power_grid_supply)
-
-        # COMMODITY COSTS
+        # use fixed commodity charge
         price_list = [commodity_charge] * len(power_grid_supply_list)
         commodity_costs_eur_per_year, commodity_costs_eur_sim = calculate_commodity_costs(
             price_list, power_grid_supply_list, interval, fraction_year)
-
     elif cc_type.startswith("variable"):
-        raise NotImplementedError("variable costs not yet supported")
+        # apply procurement and commodity costs for each timestep to grid supply
+        # this is just drawn power, feed-in is handled independently
+        # prices should be given as dictionary with procurement and/or commodity timeseries
+        procurement_price_list = price_list.get('procurement')
+        commodity_price_list = price_list.get('commodity')
 
-    elif cc_type == "balanced_market":
+        if procurement_price_list is None and commodity_price_list is None:
+            # variable costs pricing needs at least one price series
+            raise ValueError("Variable pricing must have procurement or commodity costs")
+        if procurement_price_list is None:
+            # use fixed procurement costs
+            power_procurement_charge = price_sheet["power_procurement"]["charge"]  # [ct/kWh]
+            procurement_price_list = [power_procurement_charge] * len(timestamps_list)
+
+        if commodity_price_list is None:
+            # use fixed commodity costs
+            commodity_price_list = [commodity_charge] * len(timestamps_list)
+
+        ts_per_hour = interval.total_seconds() / 3600
+        commodity_costs_eur_sim = 0
+        power_procurement_costs_sim = 0
+        for i, power in enumerate(power_grid_supply_list):
+            energy_supply_per_timestep = (power * ts_per_hour)  # [kWh]
+            commodity_costs_eur_sim += (
+                energy_supply_per_timestep * commodity_price_list[i] / 100)
+            power_procurement_costs_sim += (
+                energy_supply_per_timestep * procurement_price_list[i] / 100)
+        commodity_costs_eur_per_year = commodity_costs_eur_sim / fraction_year
+
+    if cc_type.endswith("w_plw"):
+        # peak load windows: adjust capacity costs by changing max_power_grid_supply
+        if window_signal_list is None:
+            # no time windows: no window loads -> peak power is set to 0
+            warnings.warn("PLW without window signal list, setting peak power to zero")
+            peak_power_in_windows = 0
+        # check if cost calculation for peak_load_window can be applied
+        significance_threshold = 0
+        if max_power_grid_supply > 0:
+            significance_threshold = (
+                (max_power_grid_supply - peak_power_in_windows) / max_power_grid_supply) * 100
+        significance_threshold_price_sheet = (
+            price_sheet["strategy_related"]["peak_load_window"]
+            ["significance_threshold"][voltage_level])
+        # check if cost model can be applied
+        peak_diff = max_power_grid_supply - peak_power_in_windows
+        if significance_threshold > significance_threshold_price_sheet and peak_diff > 100:
+            # only use peak power inside windows for calculation of capacity costs
+            max_power_grid_supply = peak_power_in_windows
+        # save threshold from price sheet to update json file
+        json_results_windows = {
+            "significance threshold from price sheet": significance_threshold_price_sheet
+        }
+
+    # CAPACITY COSTS
+    # This is only relevant for fixed and variable costs.
+    # Balanced_market and flex_window have their own section.
+    if fee_type == "SLP":
+        capacity_costs_eur = capacity_charge
+    else:  # RLM
+        capacity_costs_eur = calculate_capacity_costs_rlm(
+            capacity_charge, max_power_grid_supply)
+
+    if cc_type == "balanced_market":
         """Payment model for the charging strategy 'balanced market'.
         For the charging strategy a price time series is used.
         The fixed and flexible load are charged separately.
@@ -324,9 +354,9 @@ def calculate_costs(cc_type, voltage_level, interval,
 
             # commodity costs for fixed load
             price_list_fix_load = [commodity_charge_fix] * len(power_fix_load_list)
-            commodity_costs_eur_per_year_fix, commodity_costs_eur_sim_fix = \
+            commodity_costs_eur_per_year_fix, commodity_costs_eur_sim_fix = (
                 calculate_commodity_costs(price_list_fix_load, power_fix_load_list,
-                                          interval, fraction_year)
+                                          interval, fraction_year))
 
             # capacity costs for fixed load
             capacity_costs_eur_fix = calculate_capacity_costs_rlm(
@@ -337,7 +367,15 @@ def calculate_costs(cc_type, voltage_level, interval,
         power_flex_load_list = get_flexible_load(power_grid_supply_list, power_fix_load_list)
 
         # adjust given price list (EUR/kWh --> ct/kWh)
-        price_list = [price * 100 for price in price_list]
+        # commodity price list may be part of price list dict
+        if type(price_list) is dict:
+            price_list = price_list.get("commodity")
+        if price_list is None:
+            # use fixed price list
+            warnings.warn("balanced_market pricing without price timeseries, used fixed prices")
+            price_list = [commodity_charge]*len(timestamps_list)
+        else:
+            price_list = [price * 100 for price in price_list]
 
         # find power at times of high tariff
         max_price = max(price_list)
@@ -413,9 +451,9 @@ def calculate_costs(cc_type, voltage_level, interval,
 
             # commodity costs for fixed load
             price_list_fix_load = [commodity_charge_fix] * len(power_fix_load_list)
-            commodity_costs_eur_per_year_fix, commodity_costs_eur_sim_fix = \
+            commodity_costs_eur_per_year_fix, commodity_costs_eur_sim_fix = (
                 calculate_commodity_costs(price_list_fix_load, power_fix_load_list,
-                                          interval, fraction_year)
+                                          interval, fraction_year))
 
             # capacity costs for fixed load
             capacity_costs_eur_fix = calculate_capacity_costs_rlm(
@@ -511,9 +549,9 @@ def calculate_costs(cc_type, voltage_level, interval,
 
             # commodity costs for fixed load
             price_list_fix_load = [commodity_charge_fix, ] * len(power_fix_load_list)
-            commodity_costs_eur_per_year_fix, commodity_costs_eur_sim_fix = \
+            commodity_costs_eur_per_year_fix, commodity_costs_eur_sim_fix = (
                 calculate_commodity_costs(price_list_fix_load, power_fix_load_list,
-                                          interval, fraction_year)
+                                          interval, fraction_year))
 
             # capacity costs for fixed load
             capacity_costs_eur_fix = calculate_capacity_costs_rlm(
@@ -537,9 +575,9 @@ def calculate_costs(cc_type, voltage_level, interval,
 
         # commodity costs for flexible load
         price_list_flex_load = [commodity_charge_flex] * len(power_flex_load_list)
-        commodity_costs_eur_per_year_flex, commodity_costs_eur_sim_flex = \
+        commodity_costs_eur_per_year_flex, commodity_costs_eur_sim_flex = (
             calculate_commodity_costs(price_list_flex_load, power_flex_load_list,
-                                      interval, fraction_year)
+                                      interval, fraction_year))
 
         # DEVIATION COSTS
 
@@ -574,7 +612,7 @@ def calculate_costs(cc_type, voltage_level, interval,
         commodity_costs_eur_per_year = (commodity_costs_eur_per_year_fix
                                         + commodity_costs_eur_per_year_flex)
         capacity_costs_eur = capacity_costs_eur_fix + capacity_costs_eur_flex
-    else:
+    elif not cc_type.startswith("fixed") and not cc_type.startswith("variable"):
         raise NotImplementedError(f"Cost calculation undefined for {cc_type}")
 
     # COSTS NOT RELATED TO STRATEGIES
@@ -588,8 +626,9 @@ def calculate_costs(cc_type, voltage_level, interval,
         additional_costs_sim = 0
 
     # COSTS FOR POWER PROCUREMENT
-    power_procurement_charge = price_sheet["power_procurement"]["charge"]  # [ct/kWh]
-    power_procurement_costs_sim = (power_procurement_charge * energy_supply_sim / 100)  # [EUR]
+    if not cc_type.startswith("variable"):
+        power_procurement_charge = price_sheet["power_procurement"]["charge"]  # [ct/kWh]
+        power_procurement_costs_sim = (power_procurement_charge * energy_supply_sim / 100)  # [EUR]
     power_procurement_costs_per_year = (power_procurement_costs_sim / fraction_year)  # [EUR]
 
     # COSTS FROM LEVIES
@@ -649,7 +688,7 @@ def calculate_costs(cc_type, voltage_level, interval,
     # PV power plant not existing
     else:
         feed_in_charge_pv = 0  # [ct/kWh]
-        if power_generation_feed_in_list is not None:
+        if power_generation_feed_in_list is not None and sum(power_generation_feed_in_list) != 0:
             warnings.warn("Nominal power of PV power plant is zero even though there is an "
                           "existing generation time series")
 
@@ -868,4 +907,5 @@ def calculate_costs(cc_type, voltage_level, interval,
         "power_procurement_costs_per_year": power_procurement_costs_per_year,
         "levies_fees_and_taxes_per_year": levies_fees_and_taxes_per_year,
         "feed_in_remuneration_per_year": feed_in_remuneration_per_year,
+        "peak_power_in_windows": peak_power_in_windows,
     }
