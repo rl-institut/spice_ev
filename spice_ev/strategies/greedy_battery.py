@@ -13,10 +13,8 @@ class GreedyBattery(Strategy):
         self.description = "greedy battery"
 
     def step(self):
-        power_used = {}
         avail_bat_power = {}
         for gc_id, gc in self.world_state.grid_connectors.items():
-            power_used[gc_id] = gc.get_current_load()
             avail_bat_power[gc_id] = 0
         for battery in self.world_state.batteries.values():
             avail_bat_power[battery.parent] += battery.get_available_power(self.interval)
@@ -38,11 +36,10 @@ class GreedyBattery(Strategy):
             power_needed = (
                 vehicle.get_delta_soc() * vehicle.battery.capacity /
                 vehicle.battery.efficiency * self.ts_per_hour)
-            power_available = gc.cur_max_power - power_used[gc_id] + avail_bat_power[gc_id]
+            power_available = gc.cur_max_power - gc.get_current_load() + avail_bat_power[gc_id]
             power = clamp_power(min(power_needed, power_available), vehicle, cs)
             avg_power = vehicle.battery.load(self.interval, target_power=power)['avg_power']
             cs.current_power = avg_power
-            power_used[gc_id] += avg_power
             avail_bat_power[gc_id] -= min(avg_power, avail_bat_power[gc_id])
             charging_stations[cs_id] = gc.add_load(cs_id, avg_power)
 
@@ -56,7 +53,7 @@ class GreedyBattery(Strategy):
             gc_id = cs.parent
             gc = self.world_state.grid_connectors[gc_id]
             # add surplus, if any
-            power = clamp_power(max(-power_used[gc_id], 0), vehicle, cs)
+            power = clamp_power(max(-gc.get_current_load(), 0), vehicle, cs)
             avg_power = vehicle.battery.load(self.interval, target_power=power)['avg_power']
             charging_stations[cs_id] = gc.add_load(cs_id, avg_power)
 
@@ -70,8 +67,8 @@ class GreedyBattery(Strategy):
                 bat_power = battery.unload(self.interval, target_power=gc_current_load)['avg_power']
                 gc.add_load(bat_id, -bat_power)
             else:
-                # GC does not draw power or has surplus: charge battery greedy
-                power = gc.cur_max_power - gc_current_load
+                # use surplus to charge battery
+                power = -gc_current_load
                 power = 0 if power < battery.min_charging_power else power
                 avg_power = battery.load(self.interval, target_power=power)['avg_power']
                 gc.add_load(bat_id, avg_power)
