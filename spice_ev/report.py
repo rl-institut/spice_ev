@@ -466,7 +466,7 @@ def aggregate_timeseries(scenario, gcID):
     header = ["timestep", "time"]
     # price
     if any(scenario.prices[gcID]):
-        header.append("price [EUR/kWh]")
+        header.append("price [ct/kWh]")
     # grid power
     header.append("grid supply [kW]")
     # fixed loads
@@ -768,7 +768,7 @@ def plot(scenario):
     prices = list(zip(*scenario.prices.values()))
     lines = ax.step(xlabels, prices, where='post')
     ax.set_title('Price')
-    ax.set(ylabel='Price in €/kWh')
+    ax.set(ylabel='Price in ct/kWh')
     if len(gc_ids) <= 10:
         ax.legend(lines, sorted(gc_ids))
 
