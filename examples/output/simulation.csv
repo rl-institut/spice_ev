@@ -1,4 +1,4 @@
-timestep,time,price [EUR/kWh],grid supply [kW],fixed load [kW],flex band min [kW],flex band base [kW],flex band max [kW],max energy flex [kWh],sum CS power [kW],# occupied CS [-],# CS in use [-],C1 [kW],C2 [kW],C3 [kW]
+timestep,time,price [ct/kWh],grid supply [kW],fixed load [kW],flex band min [kW],flex band base [kW],flex band max [kW],max energy flex [kWh],sum CS power [kW],# occupied CS [-],# CS in use [-],C1 [kW],C2 [kW],C3 [kW]
 0,2020-01-01 00:00:00,2.0,0,0,0,0,7,0.0,0,1,0,0,0,0
 1,2020-01-01 00:15:00,42,0,0,0,0,7,0.0,0,1,0,0,0,0
 2,2020-01-01 00:30:00,42,0,0,0,0,7,0.0,0,1,0,0,0,0
