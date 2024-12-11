@@ -1,8 +1,8 @@
 .. _charging_strategies:
 
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-Charging strategies and incentives
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Charging strategies and cost calculation
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Charging strategies
 ===================
@@ -112,90 +112,42 @@ again, the process is repeated.
 .. image:: _files/example_strategies.png
    :width: 80 %
 
-Incentive schemes
-=================
+Cost calculation
+================
 
-The electricity costs for a location depend on the chosen charging strategy and the incentive scheme. In
-SpiceEV the current system for charging electricity (the state of the art) can be applied on all strategies. Any other
-incentive scheme can only be applied on the corresponding charging strategy which is based on that incentive scheme.
-The following table gives an overview of the possible combinations.
+The electricity costs for a location depend on the chosen charging strategy and the cost calculation scheme used.  Electricity costs consist of grid fees, power procurement, taxes and levies. In case of surplus power (by utilizing V2G or feed-in of a PV power plant), the feed-in remuneration is subtracted [#]_.
 
-+--------------------------+-----------------------------+-------------------------------+-------------------------------+-------------------------------+
-|**Charging strategy**     | **State of the art**        | **Time-variable grid fees**   |  **Flexible load windows**    | **Schedule-based grid fees**  |
-+--------------------------+-----------------------------+-------------------------------+-------------------------------+-------------------------------+
-| Greedy                   | x                           |                               |                               |                               |
-+--------------------------+-----------------------------+-------------------------------+-------------------------------+-------------------------------+
-| Balanced                 | x                           |                               |                               |                               |
-+--------------------------+-----------------------------+-------------------------------+-------------------------------+-------------------------------+
-| Balanced Market          | x                           | x                             |                               |                               |
-+--------------------------+-----------------------------+-------------------------------+-------------------------------+-------------------------------+
-| Schedule                 | x                           |                               |                               | x                             |
-+--------------------------+-----------------------------+-------------------------------+-------------------------------+-------------------------------+
-| Peak shaving             | x                           |                               |                               |                               |
-+--------------------------+-----------------------------+-------------------------------+-------------------------------+-------------------------------+
-| Peak load window         | x                           |                               |                               |                               |
-+--------------------------+-----------------------------+-------------------------------+-------------------------------+-------------------------------+
-| Flex window              | x                           |                               |  x                            |                               |
-+--------------------------+-----------------------------+-------------------------------+-------------------------------+-------------------------------+
-| Distributed              | x                           |                               |                               |                               |
-+--------------------------+-----------------------------+-------------------------------+-------------------------------+-------------------------------+
+The schemes can be divided into three categories:
+    • fixed costs: fixed_wo_plw, fixed_w_plw
+    • variable costs: variable_wo_plw, variable_w_plw
+    • special costs: balanced_market, flex_window
 
-The electricity costs consist of the grid fees, power procurement, levies, fees and taxes.
-In case of V2G or feed-in by a PV power plant the feed-in remuneration is subtracted [#]_.
-The differences between the incentive schemes lie in the way grid fees are handled. Therefore the other cost components are spared
-out in the following explanations. In all of the incentive schemes the calculation of the grid fee is based on the price sheet of the
-distribution grid operator. When calculating scenarios with multiple grid connectors with different grid operators, the grid operator
-of each grid connector has to be set, to use its specific price sheet.
+Fixed costs
+-----------
+This is the basic cost scheme reflecting the German regulation used by most consumers today, where specific costs do not change over (simulation) time. The fixed specific values for commodity charge (as part of the grid fees) and procurement are taken from the price sheet and the total costs are calculated using the total amount of electrical energy supplied from the grid. Additionally, standard load profile (SLP) customers pay a fixed basic charge per year. Consumption metering (Registrierende Leistungsmessung, RLM)  customers pay a capacity charge instead. If no peak load windows scheme (see below) is applied, the capacity charge is calculated using its specific value from the price sheet, which is multiplied with the maximum power supplied at the grid connector in the simulation time. Depending on the time of grid utilization, one out of two different RLM tariffs for commodity and capacity charge are used. For a grid utilization time >= 2500 h/a and therefore a low peak load compared to the amount of supplied energy per year, a lower commodity charge and a higher capacity charge is given.
 
-In the following the current system for charging electricity as well as the three alternative incentive schemes are
-explained. The alternative schemes differentiate between the fixed and flexible loads and bill them differently. Since
-only flexible loads can respond to incentives time-variable grid fees, flexible time windows and schedule-based grid
-fees are only applied on them. Fixed loads are charged according to the state of the art.
+Variable costs
+--------------
+This scheme is similar to the fixed costs scheme. However, the energy price (as part of the grid fees and/or the procurement price) can be dynamic. A price timeseries can be defined as a list for both procurement and commodity costs. If one of both lists is not defined, the fixed specific value for this cost component is taken from the price sheet (same as in fixed costs). At least one of the two lists must be supplied.
 
-State of the art
-----------------
-Today a commodity charge is applied on the amount of electrical energy supplied from the grid. Additionally SLP
-customers (standard load profile) have to pay a fixed basic charge per year. RLM customers (consumption metering) pay a
-capacity charge instead which is multiplied with the maximum power supplied at the grid connector in one year. Depending
-on the time of grid utilization one out of two different RLM tariffs for commodity and capacity charge are used. For a
-grid utilization time >= 2500 h/a and therefore a low peak load compared to the amount of supplied energy per year, a
-lower commodity charge and a higher capacity charge is given. This way grid friendly energy supply is rewarded.
-
-Time-variable grid fees
+Peak load windows (PLW)
 -----------------------
-For this incentive scheme a price time series with variable commodity charge is given which reflects the grid
-situation. During times of low power flow or high renewable feed-in the prices are lower than in times of high power
-flow due to grid supply. The price time series contains three tariff levels.
+Both fixed and variable costs may take PLW into account (using the suffix "_w_plw" instead of "_wo_plw"). In that case, capacity costs (which are dependent on the maximum power drawn from the grid connector) take only power during PLW into account and the specific grid fees for grid utilization times >= 2500 h/a are applied.
 
-The supplied energy is multiplied with the commodity charge given during the time of supply. This way an incentive is
-set for customers to charge their vehicles at times when the risk of an overload of the grid equipment is lower. In this
-incentive model, it may happen that high power supply is encouraged in order to take excess electricity from renewable
-power plants. Since the customers should not be financially worse off for this desired behavior by having to pay high
-capacity related costs, only the peak demand in the times of the highest tariff is relevant for the capacity charge for
-the flexible loads. Additionally, despite the actual utilization time of the power grid, the capacity charge for grid
-friendly charging is used.
+Balanced market
+---------------
+The balanced_market pricing scheme reflects a planned change in German regulation. Similar to variable costs without PLW, the incentive is to draw power in times of low cost. Here, only the energy price as part of the grid fees can by dynamic, while the procurement price stays constant. The respective price timeseries usually contains three tariff levels, representing low, medium and high grid loads. The supplied energy is multiplied with the commodity charge during the time of supply. This way, an incentive is set for customers to charge their vehicles at times when the risk of an overload of the grid equipment is low.
+
+In this incentive model, a high power demand may be encouraged to draw electricity at times of low grid usage. Since the customers should not be financially worse off for this desired behavior by having to pay high capacity related costs, only the peak demand in times of the highest tariff is relevant for the capacity charge for the flexible loads. Additionally, regardless of the actual utilization time of the power grid, the capacity charge for grid utilization times >= 2500 h/a is used.
 
 Flexible time windows
 ---------------------
-Based on the forecast grid situation, low tariff windows and high tariff windows are defined. If curtailment of
-renewable power plants is forecast or local generation outweighs load, these periods become low tariff windows.
-
-When using flexible time windows the flexible loads such as electric vehicles are charged with the tariff for grid
-friendly charging from the price sheet. Load peaks in low tariff time windows are not taken into account when
-determining the capacity related costs. The calculation of the capacity related costs is based exclusively on the power
-peaks in high-tariff windows. This way grid supply during times of curtailment of renewable power plants or high feed-in
-is encouraged.
+Based on the forecast grid situation, low tariff windows and high tariff windows are defined. If curtailment of renewable power plants is forecast or local generation outweighs load, these periods become low tariff windows.
+When using flexible time windows, the flexible loads such as electric vehicles are charged with the tariff for grid friendly charging from the price sheet. Load peaks in low tariff time windows are not taken into account when determining the capacity related costs. The calculation of the capacity related costs is based exclusively on the power peaks in high-tariff windows. This way, charging during times of renewable power curtailment or high feed-in is encouraged.
 
 Schedule-based grid fees
 ------------------------
-Similar to the flexible time windows, the tariff for grid friendly charging is applied on the flexible loads such as
-electric vehicles when using schedule-based grid fees. However, a capacity charge is not applied on the flexible load.
-Instead, the deviation of the total load from the schedule is charged. Taking a deviation tolerance into account, a
-deviation charge is multiplied with the difference of the maximum positive deviation and the tolerated deviation if the
-selected tolerated deviation is exceeded. The capacity related costs are determined for grid supply. Deviations in
-feed-in are not taken into account.
-
-
+Similar to the flexible time windows, the tariff for grid friendly charging is applied on the flexible loads such as electric vehicles when using schedule-based grid fees. However, a capacity charge is not applied on the flexible load. Instead, the deviation of the total load from the schedule is charged. Taking a deviation tolerance into account, a deviation charge is multiplied with the difference of the maximum positive deviation and the tolerated deviation if the selected tolerated deviation is exceeded. The capacity related costs are determined for grid supply. Deviations in feed-in are not taken into account.
 
 .. rubric:: Footnotes
 
