@@ -17,6 +17,19 @@ Template:
 - [(#)]()
 ```
 
+## [1.1.0] - Update - 2024-02-11
+
+### Added
+- grid connector component: grid operator and voltage level information
+- photovoltaics component
+- time window strategies: peak shaving and peak load window
+- command line option `skip_flex_report`  to skip flex band generation in report
+### Changed
+- discharge limit moved from general scenario setup to vehicle types
+- made battery calculation more robust for large capacities (no more endless loops)
+- discoupled cost calculation from strategy (allow different pricing schemes)
+- rework of greedy, balanced, balanced_market, distributed, flex_window and schedule strategies
+
 ## [1.0.2] - Unreleased - 2023-10-17
 
 ### Changed
