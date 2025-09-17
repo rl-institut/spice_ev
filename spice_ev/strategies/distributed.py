@@ -192,7 +192,11 @@ class Distributed(strategy.Strategy):
 
                 # filter future events for this GC (within event horizon)
                 new_world_state.future_events = []
-                strat_horizon = datetime.timedelta(hours=strat.HORIZON)
+                try:
+                    strat_horizon = datetime.timedelta(hours=strat.HORIZON)
+                except AttributeError:
+                    # not all strategies have an event horizon: use no foresight
+                    strat_horizon = datetime.timedelta(0)
                 for event in self.world_state.future_events:
                     if event.start_time > self.current_time + strat_horizon:
                         break
