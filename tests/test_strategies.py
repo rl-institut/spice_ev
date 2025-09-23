@@ -141,7 +141,9 @@ class TestScenarios(TestCaseBase):
         # fixed load: 00:00 - 02:00
         scenario_json["events"]["fixed_load"]["building"]["stop_time"] = "2018-01-01T02:00:00+02:00"
         # PV: 00:00 - 15:00
-        scenario_json["events"]["local_generation"]["example_pv"]["stop_time"] = "2018-01-01T15:00:00+02:00"
+        scenario_json["events"]["local_generation"]["example_pv"]["stop_time"] = (
+            "2018-01-01T15:00:00+02:00"
+        )
         # price timeseries: remove static values, read from CSV
         scenario_json["events"]["grid_operator_signals"] = list()
         scenario_json["events"]["energy_price_from_csv"] = {
@@ -156,7 +158,8 @@ class TestScenarios(TestCaseBase):
         s = scenario.Scenario(scenario_json, input.parent)
         # check event list lengths
         fixed = s.events.fixed_load_lists["building"].get_events("", events.FixedLoad)
-        pv = s.events.local_generation_lists["example_pv"].get_events("", events.LocalEnergyGeneration)
+        pv = s.events.local_generation_lists["example_pv"]
+        pv = pv.get_events("", events.LocalEnergyGeneration)
         grid = s.events.grid_operator_signals
         assert len(fixed) == 2 * 6 + 1  # 2 * 10 minute steps
         assert len(pv) == 15 * 1 + 1  # 15 * 60 minute steps
