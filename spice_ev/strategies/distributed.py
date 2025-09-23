@@ -190,25 +190,35 @@ class Distributed(strategy.Strategy):
                 # changes during simulation reflect back to original!
                 new_world_state.grid_connectors = {gc_id: gc}
 
-                # filter future events for this GC
+                # filter future events for this GC (within event horizon)
                 new_world_state.future_events = []
+                try:
+                    strat_horizon = datetime.timedelta(hours=strat.HORIZON)
+                except AttributeError:
+                    # not all strategies have an event horizon: use no foresight
+                    strat_horizon = datetime.timedelta(0)
                 for event in self.world_state.future_events:
+                    if event.start_time > self.current_time + strat_horizon:
+                        break
                     if (
                             type(event) in [
                                 events.FixedLoad,
                                 events.LocalEnergyGeneration,
                                 events.GridOperatorSignal]
                             and event.grid_connector_id == gc_id):
-                        new_world_state.future_events.append(deepcopy(event))
+                        new_world_state.future_events.append(event)
 
+                # only vehicle events for currently charging vehicles within horizon relevant
                 for v_id, vehicle in connected_vehicles.items():
                     cs_id = vehicle.connected_charging_station
                     cs = self.world_state.charging_stations[cs_id]
                     new_world_state.charging_stations[cs_id] = cs
                     new_world_state.vehicles[v_id] = vehicle
                     for event in self.world_state.future_events:
+                        if event.start_time > self.current_time + strat_horizon:
+                            break
                         if type(event) is events.VehicleEvent and event.vehicle_id == v_id:
-                            new_world_state.future_events.append(deepcopy(event))
+                            new_world_state.future_events.append(event)
 
                 # stationary batteries
                 avail_bat_power = dict()
