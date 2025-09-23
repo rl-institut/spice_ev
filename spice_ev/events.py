@@ -105,6 +105,7 @@ class EnergyValuesList:
         optional_keys = [
             ('values', lambda x: list(map(float, x)), []),
             ('factor', float, 1),
+            ('stop_time', util.datetime_from_isoformat, None),
         ]
         util.set_attr_from_dict(obj, self, keys, optional_keys)
 
@@ -140,6 +141,8 @@ class EnergyValuesList:
         time_delta = datetime.timedelta(seconds=self.step_duration_s)
         for idx, value in enumerate(self.values + [0]):
             idx_time = self.start_time + time_delta * idx
+            if self.stop_time is not None and idx_time > self.stop_time:
+                break
             eventlist.append(value_class({
                 "signal_time": self.start_time if has_perfect_foresight else idx_time,
                 "start_time": idx_time,
@@ -163,7 +166,8 @@ class GridOperatorSignal(Event):
             ('max_power', float, None),
             ('cost', dict, None),
             ('target', float, None),
-            ('window', bool, None)
+            ('window', bool, None),
+            ('stop_time', util.datetime_from_isoformat, None),
         ]
         util.set_attr_from_dict(obj, self, keys, optional_keys)
 
@@ -195,6 +199,8 @@ def get_energy_price_list_from_csv(obj, dir_path):
         for idx, row in enumerate(reader):
             start_time = idx * interval + start
             event_time = max(start, start_time-yesterday)
+            if self.stop_time is not None and start_time > self.stop_time:
+                break
             events.append(GridOperatorSignal({
                 "start_time": start_time.isoformat(),
                 "signal_time": event_time.isoformat(),
