@@ -3,7 +3,7 @@ import json
 from pathlib import Path
 import pytest
 
-from spice_ev import scenario, strategy
+from spice_ev import events, scenario, strategy
 from spice_ev.generate import generate_schedule
 
 TEST_REPO_PATH = Path(__file__).parent
@@ -131,6 +131,39 @@ class TestScenarios(TestCaseBase):
         # open from file
         input = TEST_REPO_PATH / 'test_data/input_test_strategies/scenario_A.json'
         scenario.Scenario(load_json(input), input.parent)
+
+    def test_stop_time(self):
+        # set stop time for grid operator signals and load events
+        # basic scenario with fixed load and PV
+        input = TEST_REPO_PATH / 'test_data/input_test_strategies/scenario_B.json'
+        scenario_json = load_json(input)
+        # add stop time to fixed load and PV
+        # fixed load: 00:00 - 02:00
+        scenario_json["events"]["fixed_load"]["building"]["stop_time"] = "2018-01-01T02:00:00+02:00"
+        # PV: 00:00 - 15:00
+        scenario_json["events"]["local_generation"]["example_pv"]["stop_time"] = "2018-01-01T15:00:00+02:00"
+        # price timeseries: remove static values, read from CSV
+        scenario_json["events"]["grid_operator_signals"] = list()
+        scenario_json["events"]["energy_price_from_csv"] = {
+            "csv_file": str(TEST_REPO_PATH / 'test_data/input_test_strategies/example_load.csv'),
+            "start_time": "2018-01-01T00:00:00+02:00",
+            "stop_time": "2018-01-01T01:00:00+02:00",
+            "step_duration_s": 15*60,
+            "column": "value",
+            "grid_connector_id": "GC1",
+        }
+        # generate scenario
+        s = scenario.Scenario(scenario_json, input.parent)
+        # check event list lengths
+        fixed = s.events.fixed_load_lists["building"].get_events("", events.FixedLoad)
+        pv = s.events.local_generation_lists["example_pv"].get_events("", events.LocalEnergyGeneration)
+        grid = s.events.grid_operator_signals
+        assert len(fixed) == 2 * 6 + 1  # 2 * 10 minute steps
+        assert len(pv) == 15 * 1 + 1  # 15 * 60 minute steps
+        assert len(grid) == 1 * 4 + 1  # 1 * 15 minute steps
+        # run scenario
+        s.run('greedy', dict())
+        assert s.step_i == s.n_intervals
 
     def test_set_connector_power(self):
         s = scenario.Scenario({

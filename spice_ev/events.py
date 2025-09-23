@@ -193,13 +193,16 @@ def get_energy_price_list_from_csv(obj, dir_path):
 
     csv_path = dir_path / obj['csv_file']
     column = obj['column']
+    stop_time = obj.get("stop_time")
+    if stop_time is not None:
+        stop_time = util.datetime_from_isoformat(stop_time)
 
     with open(csv_path, newline='') as csvfile:
         reader = csv.DictReader(csvfile, delimiter=',', quotechar='"')
         for idx, row in enumerate(reader):
             start_time = idx * interval + start
             event_time = max(start, start_time-yesterday)
-            if self.stop_time is not None and start_time > self.stop_time:
+            if stop_time is not None and start_time > stop_time:
                 break
             events.append(GridOperatorSignal({
                 "start_time": start_time.isoformat(),
