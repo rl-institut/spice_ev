@@ -244,20 +244,6 @@ class Distributed(strategy.Strategy):
                                 continue
                             avail_bat_power[b_id] = (power, gc.cur_max_power)
                             gc.cur_max_power += power
-                        else:
-                            # vacant station: charge with strategy until vehicle arrives
-                            name = f"stationary_{b_id}"
-                            arrive = next_arrival.get(gc_id, self.current_time+self.ARRIVAL_HORIZON)
-                            bat_vehicle = components.Vehicle({
-                                "vehicle_type": name,
-                                "connected_charging_station": name,
-                                "soc": battery.soc,
-                                "desired_soc": 1,
-                                "estimated_time_of_departure": str(arrive),
-                            }, self.virtual_vt)
-                            new_world_state.vehicle_types[name] = self.virtual_vt[name]
-                            new_world_state.charging_stations[name] = self.virtual_cs[name]
-                            new_world_state.vehicles[b_id] = bat_vehicle
 
                 # update world state of strategy
                 strat.current_time = self.current_time
@@ -269,23 +255,16 @@ class Distributed(strategy.Strategy):
                     for b_id, battery in self.gc_battery.get(gc_id, {}).items():
                         power = avail_bat_power.get(b_id)
                         if power is not None:
-                            # battery used to support GC -> revert max_power, discharge
                             gc.cur_max_power = power[1]
-                            power_needed = gc.get_current_load() - gc.cur_max_power
-                            power = battery.unload(self.interval, target_power=max(power_needed, 0))
+                        power_diff = gc.cur_max_power - gc.get_current_load()
+                        if power_diff < 0:
+                            # battery used to support GC -> revert max_power, discharge
+                            power = battery.unload(self.interval, target_power=-power_diff)
                             gc.add_load(b_id, -power['avg_power'])
-                            continue
-                        name = f"stationary_{b_id}"
-                        if name in commands:
-                            # battery is simulated as vehicle -> apply changes
-                            # remove from commands
-                            del commands[name]
-                            # and add as battery
-                            # this will crash if virtual CS power has not been added correctly to GC
-                            gc.add_load(b_id, gc.current_loads.pop(name))
-                            # update battery SoC
-                            battery.soc = strat.world_state.vehicles[b_id].battery.soc
-                charging_stations.update(commands)
+                        else:
+                            # GC not at limit: charge battery greedy
+                            power = battery.load(self.interval, target_power=power_diff)
+                            gc.add_load(b_id, power['avg_power'])
 
         # all vehicles charged
         charging_stations.update(self.distribute_surplus_power())
