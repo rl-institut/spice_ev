@@ -265,6 +265,7 @@ class Distributed(strategy.Strategy):
                             # GC not at limit: charge battery greedy
                             power = battery.load(self.interval, target_power=power_diff)
                             gc.add_load(b_id, power['avg_power'])
+                charging_stations.update(commands)
 
         # all vehicles charged
         charging_stations.update(self.distribute_surplus_power())
