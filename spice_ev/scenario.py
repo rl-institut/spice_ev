@@ -125,7 +125,7 @@ class Scenario:
 
             # process events
             try:
-                super(type(strat), strat).step(event_steps[step_i])
+                strat.pre_step(event_steps[step_i])
             except Exception:
                 error = traceback.format_exc()
 
@@ -183,6 +183,7 @@ class Scenario:
             try:
                 if error is None:
                     res = strat.step()
+                    strat.post_step()
             except Exception:
                 # error during strategy: add dummy result and abort
                 error = traceback.format_exc() if error is None else error
