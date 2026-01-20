@@ -169,6 +169,7 @@ class Distributed(strategy.Strategy):
                 # copy reference of current GC and relevant vehicles
                 # changes during simulation reflect back to original!
                 new_world_state.grid_connectors = {gc_id: gc}
+                strat.gc_power[gc_id] = gc.cur_max_power
 
                 # filter future events for this GC (within event horizon)
                 new_world_state.future_events = []
