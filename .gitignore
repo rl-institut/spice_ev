@@ -2,6 +2,7 @@
 /__pycache__
 *.pyc
 .DS_Store
+spice_ev.egg-info/
 
 .coverage
 htmlcov/
