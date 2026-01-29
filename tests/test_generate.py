@@ -2,6 +2,7 @@ from argparse import Namespace
 import json
 from pathlib import Path
 import pytest
+import subprocess
 import warnings
 
 from generate import generate
@@ -212,6 +213,21 @@ class TestGenerate(TestCaseBase):
         with warnings.catch_warnings():
             warnings.simplefilter('ignore', UserWarning)
             generate(Namespace(**args))
+
+    def test_generate_with_batteries(self, tmp_path):
+        # generate from command line with batteries (should cast to float)
+        # battery with capacity and c-rate
+        assert subprocess.call([
+            "python", TEST_REPO_PATH.parent / "generate.py",
+            "statistics", "--output", "/dev/null",
+            "--battery", "100", "1"
+        ]) == 0
+        # battery with variable capacity and fixed power
+        assert subprocess.call([
+            "python", TEST_REPO_PATH.parent / "generate.py",
+            "statistics", "--output", "/dev/null",
+            "--battery", "-1", "100"
+        ]) == 0
 
 
 class TestGenerateSchedule(TestCaseBase):
