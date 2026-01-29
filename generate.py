@@ -65,11 +65,8 @@ def update_namespace(args):
     # prepare stationary battery
     batteries = {}
     for idx, (capacity, c_rate) in enumerate(args.battery):
-        # --- FIX START ---
-        # Converting incoming data to number (String -> Float)
         capacity = float(capacity)
         c_rate = float(c_rate)
-        # --- FIX END ---
         if capacity > 0:
             max_power = c_rate * capacity
         else:
@@ -193,7 +190,7 @@ if __name__ == '__main__':  # pragma: no cover
     parser.add_argument('--output', '-o', help='output file name (example.json)')
     parser.add_argument('--interval', metavar='MIN', type=int, default=15,
                         help='set number of minutes for each timestep (Δt)')
-    parser.add_argument('--min-soc', metavar='SOC', type=float, default=1,  # change to 1
+    parser.add_argument('--min-soc', metavar='SOC', type=float, default=0.8,
                         help='set minimum desired SOC (0 - 1) for each charging process')
     parser.add_argument('--battery', '-b', default=[], nargs=2, action='append',
                         help='add battery with specified capacity in kWh and C-rate \
