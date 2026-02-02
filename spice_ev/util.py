@@ -91,6 +91,68 @@ def dt_within_core_standing_time(dt, core_standing_time):
     return False
 
 
+def parse_time_windows(strategy, time_windows_file, start_time=None, check_gc=True):
+    # reads in time windows file
+    # may replace time windows year if start_time is given (set to year of start_time)
+    # may update grid connector voltage level and grid operator if check_gc is set
+
+    with open(time_windows_file, 'r') as f:
+        time_windows = json.load(f)
+
+    replace_year = False
+    if start_time is not None:
+        # check time windows
+        # start year in time windows?
+        years = set()
+        for grid_operator in time_windows.values():
+            for window in grid_operator.values():
+                years.add(int(window["start"][:4]))
+        assert len(years) > 0, "No time windows given"
+        # has the scenario year to be replaced because it is not in time windows?
+        replace_year = start_time.year not in years
+        if replace_year:
+            replace_year = start_time.year
+            old_year = sorted(years)[0]
+            warnings.warn("Time windows do not include scenario year,"
+                          f"replacing {old_year} with {replace_year}")
+
+    # cast strings to dates/times, maybe replacing year
+    grid_operator = None
+    for grid_operator, grid_operator_seasons in time_windows.items():
+        for season, info in grid_operator_seasons.items():
+            start_date = datetime.date.fromisoformat(info["start"])
+            if replace_year and start_date.year == old_year:
+                start_date = start_date.replace(year=replace_year)
+            info["start"] = start_date
+            end_date = datetime.date.fromisoformat(info["end"])
+            if replace_year and end_date.year == old_year:
+                end_date = end_date.replace(year=replace_year)
+            info["end"] = end_date
+            for level, windows in info.get("windows", {}).items():
+                # cast times to datetime.time, store as tuples
+                info["windows"][level] = [
+                    (datetime.time.fromisoformat(t[0]), datetime.time.fromisoformat(t[1]))
+                    for t in windows]
+            time_windows[grid_operator][season] = info
+
+    if check_gc:
+        # check grid connectors for missing information
+        gcs = strategy.world_state.grid_connectors
+
+        for gc_id, gc in gcs.items():
+            if gc.voltage_level is None:
+                warnings.warn(f"GC {gc_id} has no voltage level, might not find time window")
+                warnings.warn("SETTING VOLTAGE LEVEL TO MV")
+                gc.voltage_level = "MV"
+            if gc.grid_operator is None:
+                warnings.warn(f"GC {gc_id} has no grid operator, might not find time window")
+                # take any grid operator from time windows
+                warnings.warn(f"SETTING GRID OPERATOR TO {grid_operator}")
+                gc.grid_operator = grid_operator
+
+    strategy.time_windows = time_windows
+
+
 def get_time_windows_from_json(filepath, grid_operator, voltage_level, scenario):
     """ Create a time window timeseries for whole scenario from input file.
 

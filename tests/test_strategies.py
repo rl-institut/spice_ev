@@ -112,7 +112,7 @@ class TestScenarios(TestCaseBase):
         strat = strategy.Strategy(s.components, s.start_time, **{"interval": s.interval})
         with pytest.raises(Exception):
             # GC has neither cost nor schedule
-            strat.step()
+            strat.pre_step()
 
     def test_zero_intervals(self):
         test_json = {
@@ -204,20 +204,25 @@ class TestScenarios(TestCaseBase):
         })
         strat = strategy.Strategy(s.components, s.start_time, **{"interval": s.interval})
         event_steps = s.events.get_event_steps(s.start_time, s.n_intervals, s.interval)
-        strat.step(event_steps[0])
+        strat.pre_step(event_steps[0])
+        strat.step()
         # start of scenario: initial value
         assert strat.world_state.grid_connectors["GC1"].cur_max_power == 1000
+        strat.pre_step()
         strat.step()
         # first step: max_power set
         assert strat.world_state.grid_connectors["GC1"].cur_max_power == 500
+        strat.pre_step()
         strat.step()
         # second step: grid event without max_power => retain value
         assert strat.world_state.grid_connectors["GC1"].cur_max_power == 500
+        strat.pre_step()
         strat.step()
         # third step: max_power higher than initial value: clip
         assert strat.world_state.grid_connectors["GC1"].cur_max_power == 1000
         # fourth step: no max power of connector: set max_power of event
         strat.world_state.grid_connectors["GC1"].max_power = None
+        strat.pre_step()
         strat.step()
         assert strat.world_state.grid_connectors["GC1"].cur_max_power == 2000
 
@@ -278,28 +283,33 @@ class TestScenarios(TestCaseBase):
         # pre-step: initial soc
         assert strat.world_state.vehicles["t1"].battery.soc == 0.3
         # first step: update for timesteps before scenario start (set desired soc if needed)
-        strat.step(event_steps[0])
+        strat.pre_step(event_steps[0])
+        strat.step()
         assert strat.world_state.vehicles["t1"].battery.soc == 0.5
         # second step: normal arrival with delta_soc = 0.1
+        strat.pre_step()
         strat.step()
         assert strat.world_state.vehicles["t1"].battery.soc == 0.4
         strat.world_state.vehicles["t1"].battery.soc = 0.5
         # third step: normal departure
+        strat.pre_step()
         strat.step()
         assert strat.world_state.vehicles["t1"].battery.soc == 0.5
         # fourth step: arrival with negative soc
         strat.ALLOW_NEGATIVE_SOC = True
         strat.RESET_NEGATIVE_SOC = True
+        strat.pre_step()
         strat.step()
         assert strat.world_state.vehicles["t1"].battery.soc == 0
         # fifth step: departure with soc below desired
         strat.world_state.vehicles["t1"].battery.soc = 0.4
+        strat.pre_step()
         strat.step()
         assert strat.margin_counter == 1
         # sixth step: error when arriving with negative soc
         strat.ALLOW_NEGATIVE_SOC = False
         with pytest.raises(RuntimeError):
-            strat.step()
+            strat.pre_step()
 
     def test_double_arrival_warning(self):
         # test for warning when a vehicle arrives multiple times (already at charging station)

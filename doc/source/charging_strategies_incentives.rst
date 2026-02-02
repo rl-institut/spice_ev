@@ -112,6 +112,23 @@ again, the process is repeated.
 .. image:: _files/example_strategies.png
    :width: 80 %
 
+Battery Strategies
+==================
+
+Stationary batteries may be managed through a special battery strategy, instead of relying on a charging strategy's behavior. The following battery strategies are supported:
+
+surplus
+-------
+Charge stationary batteries if there is a surplus of energy, for example through feed-in from photovoltaics. Discharge to support a GC in times of high load (specifically, if the maximum power at a GC would be exceeded).
+
+peak_shaving
+------------
+Charge stationary batteries in times of low load (maximum power of a GC not yet reached, includes surplus) and discharge in times of high load (maximum power of a GC exceeded).
+
+peak_load_window
+----------------
+Similar to peak_shaving, but only charge from GC outside of peak load windows. May use surplus inside of peak load windows. Discharge to support GC as needed.
+
 Cost calculation
 ================
 
