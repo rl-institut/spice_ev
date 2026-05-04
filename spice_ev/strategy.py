@@ -8,7 +8,7 @@ from spice_ev import events
 from spice_ev.util import get_cost, clamp_power
 
 STRATEGIES = [
-    'greedy', 'balanced', 'balanced_market', 'distributed',
+    'greedy', 'balanced', 'balanced_market', 'distributed', 'oemof_solph',
     'peak_load_window', 'peak_shaving', 'flex_window', 'schedule'
 ]
 

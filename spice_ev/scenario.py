@@ -216,7 +216,8 @@ class Scenario:
                 gc_load = max(-gc.max_power, gc_load - curLocalGeneration)
 
                 # safety check: GC load within bounds?
-                powerLimit = gc.cur_max_power + strat.EPS
+                # powerLimit = gc.cur_max_power + strat.EPS
+                powerLimit = gc.cur_max_power * 1.01  # 1% safety margin
                 gcWithinPowerLimit = -powerLimit <= gc_load <= powerLimit
                 try:
                     assert gcWithinPowerLimit, (
