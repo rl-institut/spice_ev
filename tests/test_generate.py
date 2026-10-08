@@ -219,13 +219,13 @@ class TestGenerate(TestCaseBase):
         # battery with capacity and c-rate
         assert subprocess.call([
             "python", TEST_REPO_PATH.parent / "generate.py",
-            "statistics", "--output", "/dev/null",
+            "statistics", "--output", tmp_path / "scenario.json",
             "--battery", "100", "1"
         ]) == 0
         # battery with variable capacity and fixed power
         assert subprocess.call([
             "python", TEST_REPO_PATH.parent / "generate.py",
-            "statistics", "--output", "/dev/null",
+            "statistics", "--output", tmp_path / "scenario.json",
             "--battery", "-1", "100"
         ]) == 0
 
