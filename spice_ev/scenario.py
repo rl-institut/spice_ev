@@ -214,14 +214,18 @@ class Scenario:
                 # get GC load without local generation power
                 gc_load = gc.get_current_load(exclude=local_generation_keys)
                 # add local generation power, but don't exceed GC discharge power limit
-                gc_load = max(-gc.max_power, gc_load - curLocalGeneration)
+                # (only local generation is curtailed, other feed-in is checked below)
+                gc_load = max(min(-gc.max_power, gc_load), gc_load - curLocalGeneration)
 
                 # safety check: GC load within bounds?
-                powerLimit = gc.cur_max_power + strat.EPS
-                gcWithinPowerLimit = -powerLimit <= gc_load <= powerLimit
+                # current max power (e.g. reduced in peak load windows) only limits load,
+                # feed-in is limited by the general GC max power
+                gcWithinPowerLimit = (
+                    -gc.max_power - strat.EPS <= gc_load <= gc.cur_max_power + strat.EPS)
                 try:
                     assert gcWithinPowerLimit, (
-                        "{} maximum load exceeded: {} / {}".format(gcID, gc_load, gc.cur_max_power))
+                        "{} maximum load exceeded: {} (allowed: {} to {})".format(
+                            gcID, gc_load, -gc.max_power, gc.cur_max_power))
                 except AssertionError:
                     # abort if GC power limit exceeded
                     error = traceback.format_exc() if error is None else error
