@@ -166,6 +166,7 @@ class OemofSolph(Strategy):
                 "model": battery_model,
                 "bus": gcs[battery.parent],
                 "soc": None,  # set after model simulation
+                "capacity": battery.capacity,
             }
 
         # get interpolation points for vehicle type charging curves
@@ -328,7 +329,8 @@ class OemofSolph(Strategy):
             batteries["vehicle"][v_id] = {
                 "model": battery_model,
                 "bus": v_info["bus"],
-                "soc": None,
+                "soc": None,  # set after model simulation
+                "capacity": vehicle.battery.capacity,
             }
 
         # setup charging station connections between GC and vehicles
@@ -443,6 +445,7 @@ class OemofSolph(Strategy):
         """
 
         """
+        # plot vehicle behavior (driving, charging, soc, power)
         import matplotlib.pyplot as plt
         plt.figure()
         for idx, (v_id, vehicle) in enumerate(batteries["vehicle"].items()):
@@ -474,15 +477,13 @@ class OemofSolph(Strategy):
         """
 
         # save computed SoC
-        for v_id, battery_info in batteries["vehicle"].items():
-            vehicle = self.world_state.vehicles[v_id]
-            capacity = vehicle.battery.capacity
-            storage = results["storage_content"][battery_info["model"]][1:]
-            battery_info["soc"] = list(storage / capacity)
-        for b_id, battery_info in batteries["stationary"].items():
-            battery = self.world_state.batteries[b_id]
-            storage = results["storage_content"][battery_info["model"]][1:]
-            battery_info["soc"] = list(storage / battery.capacity)
+        model_info = {  # oemof battery model -> battery info dict
+            info["model"]: info
+            for info in list(batteries["vehicle"].values()) + list(batteries["stationary"].values())
+        }
+        for model, values in results["storage_content"].items():
+            battery_info = model_info[model]
+            battery_info["soc"] = list(values / battery_info["capacity"])[1:]
         self.batteries = batteries
 
         # set current time index to access SoC list during step
