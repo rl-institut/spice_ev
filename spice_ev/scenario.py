@@ -30,6 +30,9 @@ class Scenario:
 
         scenario = json_dict.get('scenario')
 
+        if not scenario:
+            raise Exception("Please provide a valid scenario file")
+
         # compute time stuff
         self.start_time = util.datetime_from_isoformat(scenario['start_time'])
         self.interval = datetime.timedelta(minutes=scenario['interval'])
@@ -51,7 +54,9 @@ class Scenario:
         # compute average load for each timeslot
         for fixed_load_list in self.events.fixed_load_lists.values():
             gc_id = fixed_load_list.grid_connector_id
-            gc = self.components.grid_connectors[gc_id]
+            gc = self.components.grid_connectors.get(gc_id)
+            if gc is None:
+                continue
             gc.add_avg_fixed_load_week(fixed_load_list, self.interval)
 
     def run(self, strategy_name, options):
@@ -216,8 +221,7 @@ class Scenario:
                 gc_load = max(-gc.max_power, gc_load - curLocalGeneration)
 
                 # safety check: GC load within bounds?
-                # powerLimit = gc.cur_max_power + strat.EPS
-                powerLimit = gc.cur_max_power * 1.01  # 1% safety margin
+                powerLimit = gc.cur_max_power + strat.EPS
                 gcWithinPowerLimit = -powerLimit <= gc_load <= powerLimit
                 try:
                     assert gcWithinPowerLimit, (
