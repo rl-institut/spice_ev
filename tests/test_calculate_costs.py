@@ -421,20 +421,46 @@ class TestSimulationCosts:
                 price_sheet_path,
                 power_pv_nominal=pv)
             assert result["feed_in_remuneration_per_year"] == results[i]
-        with pytest.raises(ValueError):
-            # PV out of range
-            cc.calculate_costs(
+        with pytest.warns(UserWarning, match="No feed-in remuneration"):
+            # PV out of range: no remuneration
+            result = cc.calculate_costs(
                 "fixed_wo_plw", "MV", datetime.timedelta(hours=1),
                 [None]*9,  # empty timestamps
                 [1]*9,  # positive grid supply
                 None,  # empty prices
                 [0] * 9,  # empty fixed loads
-                [5] * 9,  # empty feed-in from local generation
+                [5] * 9,  # feed-in from local generation
                 [0] * 9,  # empty feed-in from V2G
                 [0] * 9,  # empty feed-in from battery
                 None,  # no charging signal
                 price_sheet_path,
                 power_pv_nominal=pv_ranges[-1]+1)
+        assert result["feed_in_remuneration_per_year"] == 0
+
+    def test_pv_nominal_more_than_three_tiers(self, tmp_path):
+        price_sheet_path = TEST_REPO_PATH / 'test_data/input_test_cost_calculation/price_sheet.json'
+        with price_sheet_path.open('r') as ps:
+            price_sheet = json.load(ps)
+        # add a fourth tier above the existing ones
+        pv_params = price_sheet[grid_operator]["feed-in_remuneration"]["PV"]
+        pv_params["kWp"].append(1000)
+        pv_params["remuneration"].append(3.12)
+        dst = tmp_path / "price_sheet.json"
+        dst.write_text(json.dumps(price_sheet))
+        result = cc.calculate_costs(
+            "fixed_wo_plw", "MV", datetime.timedelta(hours=1),
+            [None]*9,  # empty timestamps
+            [500]*9,  # positive grid supply
+            None,  # empty prices
+            [0] * 9,  # empty fixed loads
+            [5] * 9,  # feed-in from local generation
+            [0] * 9,  # empty feed-in from V2G
+            [0] * 9,  # empty feed-in from battery
+            None,  # no charging signal
+            dst,
+            power_pv_nominal=500)
+        # half the remuneration of the first tier (6.24 ct/kWh -> 2733.12 €/a)
+        assert result["feed_in_remuneration_per_year"] == pytest.approx(2733.12 / 2, abs=0.01)
 
     def test_write_results(self, tmp_path):
         dst = tmp_path / "results.json"
