@@ -676,15 +676,16 @@ def calculate_costs(cc_type, voltage_level, interval,
         # find charge for PV remuneration depending on nominal power pf PV plant
         pv_nominal_power_max = price_sheet["feed-in_remuneration"]["PV"]["kWp"]
         pv_remuneration = price_sheet["feed-in_remuneration"]["PV"]["remuneration"]
-        if power_pv_nominal <= pv_nominal_power_max[0]:
-            feed_in_charge_pv = pv_remuneration[0]  # [ct/kWh]
-        elif power_pv_nominal <= pv_nominal_power_max[1]:
-            feed_in_charge_pv = pv_remuneration[1]  # [ct/kWh]
-        elif power_pv_nominal <= pv_nominal_power_max[2]:
-            feed_in_charge_pv = pv_remuneration[2]  # [ct/kWh]
+        for max_power, remuneration in zip(pv_nominal_power_max, pv_remuneration):
+            if power_pv_nominal <= max_power:
+                feed_in_charge_pv = remuneration  # [ct/kWh]
+                break
         else:
-            raise ValueError("Feed-in remuneration for PV is calculated only for nominal powers of "
-                             f"up to {pv_nominal_power_max[-1]} kWp")
+            # above highest tier: no remuneration
+            feed_in_charge_pv = 0  # [ct/kWh]
+            warnings.warn(f"No feed-in remuneration for PV defined for nominal power of "
+                          f"{power_pv_nominal} kWp (highest tier: {pv_nominal_power_max[-1]} kWp), "
+                          "using 0 ct/kWh")
     # PV power plant not existing
     else:
         feed_in_charge_pv = 0  # [ct/kWh]
