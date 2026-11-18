@@ -447,7 +447,12 @@ def get_battery_parameters(charging_curve) -> dict:
     - power: charging power at lower SoC, should mostly be constant
     - until: when does the decrease in charging power begin, in terms of SoC (0.1)?
     - end_p: charging power when battery is full (never more than constant_power, None: no decrease)
-    return: dict
+
+    :param charging_curve: a battery's charging curve
+    :type charging_curve: spice_ev.loading_curve.LoadingCurve
+    :return: specific charging curve info
+    :rtype: dict
+    :raises Exception: if charging curve has more than one break or increases after break
     """
     constant_power = None
     constant_soc_until = None
