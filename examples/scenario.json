@@ -77,8 +77,8 @@
         "start_time": "2020-01-01T00:00:00+02:00",
         "max_power": null,
         "cost": {
-          "type": "polynomial",
-          "value": [1.0, 0.0, 1.0]
+          "type": "fixed",
+          "value": 1.0
         }
       },
       {

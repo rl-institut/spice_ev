@@ -7,7 +7,7 @@ from warnings import warn
 from spice_ev import events, util
 
 STRATEGIES = [
-    'greedy', 'balanced', 'balanced_market', 'distributed',
+    'greedy', 'balanced', 'balanced_market', 'distributed', 'oemof_solph',
     'peak_load_window', 'peak_shaving', 'flex_window', 'schedule'
 ]
 
