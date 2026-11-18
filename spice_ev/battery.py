@@ -34,8 +34,6 @@ class Battery():
         self.efficiency = efficiency
         self.loss_rate = loss_rate
         if unloading_curve is None:
-            # no info: mirror charging curve
-            # self.unloading_curve = copy.deepcopy(loading_curve)
             # no info: constant power
             max_power = loading_curve.max_power
             self.unloading_curve = LoadingCurve(((0, max_power), (1, max_power)))

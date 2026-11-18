@@ -24,7 +24,8 @@ class OemofSolph(Strategy):
             freq=kwargs["interval"],
             inclusive="both",
         )
-        assert len(time_index) - 1 == n_intervals, f"Length mismatch: index {len(time_index)} vs n_intervals {n_intervals}"
+        assert len(time_index) - 1 == n_intervals, (
+            f"Length mismatch: index {len(time_index)} vs n_intervals {n_intervals}")
 
         def time_to_index(datetime):
             return -((start_time - datetime) // self.interval)
@@ -44,7 +45,7 @@ class OemofSolph(Strategy):
         } for gc_id, gc in self.world_state.grid_connectors.items()}
         gc_events = kwargs["events"].grid_operator_signals
         for event in sorted(gc_events, key=lambda ev: ev.start_time):
-            if type(event) != GridOperatorSignal:
+            if not isinstance(event, GridOperatorSignal):
                 # ignore schedule (type VehicleEvent)
                 continue
             gc_id = event.grid_connector_id
@@ -155,7 +156,7 @@ class OemofSolph(Strategy):
                 fraction_saturation_charging=battery_parameters["end_p"],
                 inputs={gcs[battery.parent]: solph.Flow(
                     nominal_capacity=battery_parameters["power"],
-                    variable_costs = self.EPS,  # avoid cycle charging
+                    variable_costs=self.EPS,  # avoid cycle charging
                 )},
                 outputs={gcs[battery.parent]: solph.Flow(
                     nominal_capacity=battery_parameters["power"],
@@ -233,7 +234,8 @@ class OemofSolph(Strategy):
                     # start_idx = 0: charging begins at scenario start -> no prior driving
                     last_departure = v_info["last_departure"]
                     if last_departure is None:
-                        raise Exception(f"{v_id}: arrival without departure {event.start_time.isoformat()}")
+                        raise Exception(
+                            f"{v_id}: arrival without departure {event.start_time.isoformat()}")
                     steps = start_idx - last_departure
                     energy = v_info["spent"] * vehicle.battery.capacity * vehicle.battery.efficiency
                     if steps == 0 and energy > self.EPS:
@@ -241,8 +243,9 @@ class OemofSolph(Strategy):
                     avg_power = energy / steps * self.ts_per_hour
                     if any(v_info["driving"].iloc[last_departure:start_idx] > 0):
                         raise Exception(f"Vehicle {v_id}: multiple driving at same time")
-                    v_info["driving"].iloc[last_departure:start_idx] =  avg_power
-                v_info["last_desired"] = event.update["desired_soc"] if self.FORCE_DESIRED_SOC else 0
+                    v_info["driving"].iloc[last_departure:start_idx] = avg_power
+                v_info["last_desired"] = (
+                    event.update["desired_soc"] if self.FORCE_DESIRED_SOC else 0)
                 v_info["connected"] = cs_id
                 v_info["last_arrival"] = start_idx
                 v_info["last_departure"] = None
@@ -254,7 +257,8 @@ class OemofSolph(Strategy):
                     continue
                 start_idx = v_info["last_arrival"]
                 if start_idx is None:
-                    raise Exception(f"{v_id}: departure without arrival {event.start_time.isoformat()}")
+                    raise Exception(
+                        f"{v_id}: departure without arrival {event.start_time.isoformat()}")
                 end_idx = time_to_index(event.start_time)
                 if end_idx < n_intervals:
                     # only set desired SoC if charging is finished before end of simulation
@@ -294,7 +298,7 @@ class OemofSolph(Strategy):
             # sanity checks
             if any(v_info["charging"] > 1):
                 raise Exception(f"Vehicle {v_id}: multiple charging at same time")
-            if any(is_charging == is_driving):
+            if any(is_charging == is_driving) and any(is_charging + is_driving):
                 raise Exception(f"Vehicle {v_id}: charging and driving at same time")
 
             vehicle = self.world_state.vehicles[v_id]
@@ -317,12 +321,12 @@ class OemofSolph(Strategy):
                 fraction_saturation_charging=charging_curve["end_p"],
                 inputs={v_info["bus"]: solph.Flow(
                     nominal_capacity=charging_curve["power"],
-                    variable_costs = self.EPS,  # avoid cycle charging
+                    variable_costs=self.EPS,  # avoid cycle charging
                 )},
                 outputs={v_info["bus"]: solph.Flow(
                     # unlimited output for driving
                     nominal_capacity=None,
-                    variable_costs = self.EPS,
+                    variable_costs=self.EPS,
                 )},
             )
             es.add(battery_model)
@@ -344,13 +348,13 @@ class OemofSolph(Strategy):
                 vehicle = self.world_state.vehicles[v_id]
                 conn = solph.components.Link(
                     label=f"Conn_{cs_id}_{v_id}",
-                    inputs={gc_bus: solph.Flow(variable_costs = self.EPS), v_bus: solph.Flow(
+                    inputs={gc_bus: solph.Flow(variable_costs=self.EPS), v_bus: solph.Flow(
                         nominal_capacity=cs.max_power,
                         maximum=v_info["cs_charging"],  # allow charging when vehicle is present
                         minimum=0,
                         variable_costs=self.EPS,
                     )},
-                    outputs={gc_bus: solph.Flow(variable_costs = self.EPS), v_bus: solph.Flow(
+                    outputs={gc_bus: solph.Flow(variable_costs=self.EPS), v_bus: solph.Flow(
                         nominal_capacity=cs.max_power,
                         maximum=v_info["cs_charging"],  # allow discharging when vehicle is present
                         minimum=0,
@@ -370,18 +374,6 @@ class OemofSolph(Strategy):
             if any(cs_charging > 1):
                 raise Exception(f"CS {cs_id}: multiple charging at same time")
 
-
-        """
-        # plot energy system as graph
-        import matplotlib.pyplot as plt
-        import networkx as nx
-        from oemof.network.graph import create_nx_graph
-        plt.figure()
-        graph = create_nx_graph(es)
-        nx.draw(graph, with_labels=True, font_size=8)
-        plt.show()
-        """
-
         # solve energy system model
         t2 = perf_counter()
         model = solph.Model(es)
@@ -391,90 +383,7 @@ class OemofSolph(Strategy):
         # save results for debugging
         self.results = results
         print("oemof solphed")
-        # print(results["flow"].to_string())  # print all flows
-        t3=perf_counter()
-
-        """
-        # plot SoC and GC power
-        import matplotlib.pyplot as plt
-        plt.figure()
-        plt.subplot(len(gcs) + 1, 1, 1)
-        plt.plot(results["storage_content"], label=results["storage_content"].columns)
-        plt.legend()
-        for i, gc_id in enumerate(gcs.keys()):
-            plt.subplot(len(gcs) + 1, 1, i+2)
-            plt.plot(results["flow"]["GC_" + gc_id], label=results["flow"]["GC_" + gc_id].columns)
-            plt.plot(results["flow"][f"GC_{gc_id}_source"]["GC_" + gc_id], label=gc_id)
-            plt.legend()
-            # k0 = [k for k in results["flow"].keys() if k[0] == "GC_" + gc_id]
-            # k1 = [k for k in results["flow"].keys() if k[1] == "GC_" + gc_id]
-            # plt.subplot(len(gcs) + 1, 1, i+2)
-            # plt.plot(results["flow"][k0], label=results["flow"][k0].columns)
-            # plt.plot(-results["flow"][k1], label=results["flow"][k1].columns)
-            # plt.legend()
-        plt.show()
-        """
-
-        """
-        # plot vehicles
-        vehicles = dict()
-        import matplotlib.pyplot as plt
-        for v_id, vehicle_info in vehicle_models.items():
-            vehicle = self.world_state.vehicles[v_id]
-            capacity = vehicle.battery.capacity
-            soc = results["storage_content"][f"Bat_{v_id}"] / capacity
-            for cs_id, cs_v_info in cs_models.items():
-                if not v_id in cs_v_info:
-                    continue
-                conn = cs_v_info[v_id]["conn"]
-                flow_in = results["flow"][conn][vehicle_info["bus"]]
-                flow_out = results["flow"][vehicle_info["bus"]][conn]
-                flow = flow_in - flow_out
-            vehicles[v_id] = {"soc": soc, "flow": flow}
-
-        plt.figure()
-        plt.subplot(211)
-        for v_id, vehicle_info in vehicles.items():
-            plt.plot(vehicle_info["soc"], label=v_id)
-        plt.legend()
-        plt.subplot(212)
-        for v_id, vehicle_info in vehicles.items():
-            plt.plot(vehicle_info["flow"], label=v_id)
-        plt.legend()
-        plt.show()
-        """
-
-        """
-        # plot vehicle behavior (driving, charging, soc, power)
-        import matplotlib.pyplot as plt
-        plt.figure()
-        for idx, (v_id, vehicle) in enumerate(batteries["vehicle"].items()):
-            plt.subplot(len(batteries["vehicle"]), 1, idx+1)
-            plt.plot(vehicle_models[v_id]["charging"] * 100, label="charging")
-            plt.plot(vehicle_models[v_id]["driving"] * 100, label="driving")
-            plt.plot(results["storage_content"][vehicle["model"]], label="soc")
-            plt.plot(results["flow"][vehicle["bus"]][vehicle["model"]], label="power")
-            # plt.plot(gc_update["GC1"]["cost"]*1000, label="cost")
-            plt.title(v_id)
-            plt.legend()
-        plt.show()
-        """
-
-        """
-        # plot stationary batteries
-        import matplotlib.pyplot as plt
-        plt.figure()
-        plt.subplot(211)
-        for b_id, conn in batteries["stationary"].items():
-            battery = self.world_state.batteries[b_id]
-            plt.plot(results["storage_content"][conn["model"]] / battery.capacity, label=b_id)
-        plt.legend()
-        plt.subplot(212)
-        for b_id, conn in batteries["stationary"].items():
-            plt.plot(results["flow"][conn["bus"]][conn["model"]] - results["flow"][conn["model"]][conn["bus"]], label=b_id)
-        plt.legend()
-        plt.show()
-        """
+        t3 = perf_counter()
 
         # save computed SoC
         model_info = {  # oemof battery model -> battery info dict
@@ -491,8 +400,10 @@ class OemofSolph(Strategy):
 
         print("init done")
         t4 = perf_counter()
-        print(f"Setup system: {t2-t1}\nSolve system: {t3-t2}\nExtract cmds: {t4-t3}\n--- Total --- {t4-t1}")
-
+        print("Setup system:", t2-t1)
+        print("Solve system:", t3-t2)
+        print("Extract cmds:", t4-t3)
+        print("--- Total ---", t4-t1)
 
     def step(self):
         charging_stations = dict()
