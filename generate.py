@@ -65,6 +65,8 @@ def update_namespace(args):
     # prepare stationary battery
     batteries = {}
     for idx, (capacity, c_rate) in enumerate(args.battery):
+        capacity = float(capacity)
+        c_rate = float(c_rate)
         if capacity > 0:
             max_power = c_rate * capacity
         else:

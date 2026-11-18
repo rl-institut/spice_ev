@@ -1,6 +1,5 @@
 from copy import deepcopy
 import datetime
-import json
 import warnings
 
 from spice_ev import events, util
@@ -23,54 +22,9 @@ class PeakLoadWindow(Strategy):
 
         if self.time_windows is None:
             raise Exception("Need time windows for Peak Load Window strategy")
-        with open(self.time_windows, 'r') as f:
-            self.time_windows = json.load(f)
-
-        # check time windows
-        # start year in time windows?
-        years = set()
-        for grid_operator in self.time_windows.values():
-            for window in grid_operator.values():
-                years.add(int(window["start"][:4]))
-        assert len(years) > 0, "No time windows given"
-        # has the scenario year to be replaced because it is not in time windows?
-        replace_year = start_time.year not in years
-        if replace_year:
-            replace_year = start_time.year
-            old_year = sorted(years)[0]
-            warnings.warn("Time windows do not include scenario year,"
-                          f"replacing {old_year} with {replace_year}")
-        # cast strings to dates/times, maybe replacing year
-        grid_operator = None
-        for grid_operator, grid_operator_seasons in self.time_windows.items():
-            for season, info in grid_operator_seasons.items():
-                start_date = datetime.date.fromisoformat(info["start"])
-                if replace_year and start_date.year == old_year:
-                    start_date = start_date.replace(year=replace_year)
-                info["start"] = start_date
-                end_date = datetime.date.fromisoformat(info["end"])
-                if replace_year and end_date.year == old_year:
-                    end_date = end_date.replace(year=replace_year)
-                info["end"] = end_date
-                for level, windows in info.get("windows", {}).items():
-                    # cast times to datetime.time, store as tuples
-                    info["windows"][level] = [
-                        (datetime.time.fromisoformat(t[0]), datetime.time.fromisoformat(t[1]))
-                        for t in windows]
-                self.time_windows[grid_operator][season] = info
-
-        gcs = self.world_state.grid_connectors
-
-        for gc_id, gc in gcs.items():
-            if gc.voltage_level is None:
-                warnings.warn(f"GC {gc_id} has no voltage level, might not find time window")
-                warnings.warn("SETTING VOLTAGE LEVEL TO MV")
-                gc.voltage_level = "MV"  # TODO remove
-            if gc.grid_operator is None:
-                warnings.warn(f"GC {gc_id} has no grid operator, might not find time window")
-                # take the first grid operator from time windows
-                warnings.warn(f"SETTING GRID OPERATOR TO {grid_operator}")
-                gc.grid_operator = grid_operator  # TODO remove
+        if type(self.time_windows) is not dict:
+            # parse time windows file at path into time windows dict
+            util.parse_time_windows(self, self.time_windows, start_time=start_time, check_gc=True)
 
         # perfect foresight for grid and local load events
         local_events = [e for e in self.events.grid_operator_signals
@@ -97,6 +51,7 @@ class PeakLoadWindow(Strategy):
             elif event.event_type == "departure":
                 stop_time = max(stop_time, event.start_time)
 
+        gcs = self.world_state.grid_connectors
         # restructure events (like event_steps): list with events for each timestep
         # also, find highest peak of GC power within time windows
         self.events = []
