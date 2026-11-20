@@ -643,7 +643,8 @@ def generate_soc_timeseries(scenario):
             # for every time step and vehicle, exactly one of the two has
             # a numeric value while the other contains a NoneType
             # (except if not known, like absent at beginning or end)
-            soc = socs[vidx] or scenario.disconnect[ts_idx][vidx]
+            # don't use "or": SoC 0 while connected is a valid value
+            soc = socs[vidx] if socs[vidx] is not None else scenario.disconnect[ts_idx][vidx]
             scenario.vehicle_socs[vid].append(soc)
 
 

@@ -1,18 +1,30 @@
+import logging
+from time import perf_counter
+
 import oemof.solph as solph
 import pandas as pd
+import pyomo.environ as po
+
 from spice_ev.events import FixedLoad, GridOperatorSignal, LocalEnergyGeneration
 from spice_ev.strategy import Strategy
 
-from time import perf_counter
-
 
 class OemofSolph(Strategy):
-    """ Create and solve energy system with oemof"""
+    """ Create and solve energy system with oemof, then follow the optimal SoC. """
     def __init__(self, components, start_time, **kwargs):
-        t1 = perf_counter()
+        t_start = perf_counter()
+        # desired SoC at departure is a soft constraint, shortfall is penalized (per kWh)
         self.FORCE_DESIRED_SOC = True
+        self.DESIRED_SOC_PENALTY = 10
+        # cost of peak power per GC (per kW), avoids arbitrary peaks if energy price is constant
+        self.PEAK_POWER_COST = 1
+        self.SOLVER = "cbc"
         super().__init__(components, start_time, **kwargs)
         self.description = "oemof"
+        # needed in step to get index of precomputed SoC
+        self.start_time = start_time
+        # precomputed SoC per battery and time step
+        self.batteries = {"stationary": dict(), "vehicle": dict()}
 
         n_intervals = kwargs["n_intervals"]
         if n_intervals == 0:
@@ -24,15 +36,11 @@ class OemofSolph(Strategy):
             freq=kwargs["interval"],
             inclusive="both",
         )
-        assert len(time_index) - 1 == n_intervals, f"Length mismatch: index {len(time_index)} vs n_intervals {n_intervals}"
+        assert len(time_index) - 1 == n_intervals, (
+            f"Length mismatch: index {len(time_index)} vs n_intervals {n_intervals}")
 
         def time_to_index(datetime):
             return -((start_time - datetime) // self.interval)
-
-        es = solph.EnergySystem(
-            timeindex=time_index,
-            infer_last_interval=False,
-        )
 
         # get GC info for whole simulation from events
         gc_update = {gc_id: {
@@ -44,19 +52,23 @@ class OemofSolph(Strategy):
         } for gc_id, gc in self.world_state.grid_connectors.items()}
         gc_events = kwargs["events"].grid_operator_signals
         for event in sorted(gc_events, key=lambda ev: ev.start_time):
-            if type(event) != GridOperatorSignal:
+            if type(event) is not GridOperatorSignal:
                 # ignore schedule (type VehicleEvent)
                 continue
             gc_id = event.grid_connector_id
-            idx = time_to_index(event.start_time)
+            if gc_id not in gc_update:
+                # GC not part of this strategy's world state
+                continue
+            # events before scenario start apply from the first time step
+            idx = max(time_to_index(event.start_time), 0)
             if event.cost is not None:
                 if event.cost["type"] == "fixed":
-                    gc_update[gc_id]["cost"][idx:] = event.cost["value"]
+                    gc_update[gc_id]["cost"].iloc[idx:] = event.cost["value"]
                 elif event.cost["type"] == "polynomial" and len(event.cost["value"]) > 1:
                     # special case: polynomial with only fixed part
                     value = event.cost["value"][1]
                     if sum(event.cost["value"]) == value:
-                        gc_update[gc_id]["cost"][idx:] = value
+                        gc_update[gc_id]["cost"].iloc[idx:] = value
                     else:
                         raise Exception("Only fixed costs allowed")
                 else:
@@ -66,124 +78,52 @@ class OemofSolph(Strategy):
             gc_power = gc_update[gc_id]["max_power"]
             if gc_power is not None:
                 if event.max_power is not None:
-                    if gc_update[gc_id]["scalar"] and gc_power != event.max_power:
+                    if not gc_update[gc_id]["scalar"]:
+                        gc_power.iloc[idx:] = event.max_power
+                    elif gc_power != event.max_power:
                         # was scalar, but changed: change to list
                         gc_power = pd.Series(gc_power, index=time_index)
-                        gc_power[idx:] = event.max_power
+                        gc_power.iloc[idx:] = event.max_power
                         gc_update[gc_id]["max_power"] = gc_power
                         gc_update[gc_id]["scalar"] = False
-                    else:
-                        gc_power[idx:] = event.max_power
-            else:
-                # connector power not set
-                gc_power = pd.Series(None, index=time_index)
-                gc_power[idx:] = event.max_power
+                    # scalar and unchanged: nothing to do
+            elif event.max_power is not None:
+                # connector power not set before
+                gc_power = pd.Series(1e9, index=time_index)
+                gc_power.iloc[idx:] = event.max_power
                 gc_update[gc_id]["max_power"] = gc_power
                 gc_update[gc_id]["scalar"] = False
 
         # fixed loads
         for name, load_list in kwargs["events"].fixed_load_lists.items():
             gc_id = load_list.grid_connector_id
+            if gc_id not in gc_update:
+                continue
             series = pd.Series(0.0, index=time_index)
             for event in load_list.get_events(name, FixedLoad):
-                idx = time_to_index(event.start_time)
-                series[idx:] = event.value
+                idx = max(time_to_index(event.start_time), 0)
+                series.iloc[idx:] = event.value
             gc_update[gc_id]["fixed_load"][name] = series
 
         # fixed generation
         for name, gen_list in kwargs["events"].local_generation_lists.items():
             gc_id = gen_list.grid_connector_id
+            if gc_id not in gc_update:
+                continue
             series = pd.Series(0.0, index=time_index)
             for event in gen_list.get_events(name, LocalEnergyGeneration):
-                idx = time_to_index(event.start_time)
-                series[idx:] = event.value
+                idx = max(time_to_index(event.start_time), 0)
+                series.iloc[idx:] = event.value
             gc_update[gc_id]["generation"][name] = series
 
-        # setup GC
-        gcs = dict()
-        for gc_id in self.world_state.grid_connectors.keys():
-            gc_bus = solph.Bus(label=f"GC_{gc_id}")
-            es.add(solph.components.Source(
-                label=f"GC_{gc_id}_source",
-                outputs={gc_bus: solph.Flow(
-                    nominal_capacity=1,
-                    maximum=gc_update[gc_id]["max_power"],
-                    variable_costs=gc_update[gc_id]["cost"],
-                )}
-            ))
-            es.add(solph.components.Sink(
-                label=f"GC_{gc_id}_sink",
-                inputs={gc_bus: solph.Flow(
-                    nominal_capacity=1,
-                    maximum=gc_update[gc_id]["max_power"],
-                    variable_costs=0,  # no associated cost or gain for feed-in
-                )}
-            ))
-            for name, fixed_load_list in gc_update[gc_id]["fixed_load"].items():
-                es.add(solph.components.Sink(
-                    label=f"GC_{gc_id}_{name}_sink",
-                    inputs={gc_bus: solph.Flow(
-                        nominal_capacity=1,
-                        fix=fixed_load_list,
-                    )}
-                ))
-            for name, generation_list in gc_update[gc_id]["generation"].items():
-                es.add(solph.components.Source(
-                    label=f"GC_{gc_id}_{name}_source",
-                    outputs={gc_bus: solph.Flow(
-                        nominal_capacity=1,
-                        fix=generation_list,
-                    )}
-                ))
-            gcs[gc_id] = gc_bus
-            es.add(gc_bus)
-
-        # battery dict to store battery info: energy system model, bus and SoC
-        batteries = {"stationary": dict(), "vehicle": dict()}
-        # stationary batteries
-        for bat_id, battery in self.world_state.batteries.items():
-            battery_parameters = get_battery_parameters(battery.loading_curve)
-            battery_model = solph.components.GenericStorage(
-                label=f"Stationary_{bat_id}",
-                nominal_capacity=battery.capacity,
-                initial_storage_level=battery.soc,
-                balanced=False,  # different SoC at begin and end of simulation allowed
-                inflow_conversion_factor=battery.efficiency,
-                outflow_conversion_factor=battery.efficiency,
-                # next two parameters are charging curve
-                constant_soc_until=battery_parameters["until"],
-                fraction_saturation_charging=battery_parameters["end_p"],
-                inputs={gcs[battery.parent]: solph.Flow(
-                    nominal_capacity=battery_parameters["power"],
-                    variable_costs = self.EPS,  # avoid cycle charging
-                )},
-                outputs={gcs[battery.parent]: solph.Flow(
-                    nominal_capacity=battery_parameters["power"],
-                )},
-            )
-            es.add(battery_model)
-            batteries["stationary"][bat_id] = {
-                "model": battery_model,
-                "bus": gcs[battery.parent],
-                "soc": None,  # set after model simulation
-                "capacity": battery.capacity,
-            }
-
-        # get interpolation points for vehicle type charging curves
-        charging_curve_info = dict()
-        for vt in self.world_state.vehicle_types.values():
-            charging_curve_info[vt] = get_battery_parameters(vt.charging_curve)
-
+        # vehicle info: when driving (with which power), when connected to which CS
         vehicle_models = dict()
-        # CS -> Vehicle -> Connection
+        # CS -> Vehicle -> connection info
         cs_models = dict()
         for v_id, vehicle in self.world_state.vehicles.items():
-            v_bus = solph.Bus(label=f"V_{v_id}")
-            es.add(v_bus)
             vehicle_models[v_id] = {
-                "bus": v_bus,
                 "spent": 0,  # SoC delta since last charge
-                "desired": pd.Series(0.0, index=time_index),  # force desired SoC at departure
+                "desired": pd.Series(0.0, index=time_index),  # desired SoC at departure
                 "driving": pd.Series(0.0, index=time_index),  # energy drain while driving
                 "charging": pd.Series(0, index=time_index),  # mark when connected
                 "connected": vehicle.connected_charging_station,  # current CS
@@ -199,14 +139,11 @@ class OemofSolph(Strategy):
             cs_id = vehicle.connected_charging_station
             if cs_id is None:
                 continue
-            cs_models[cs_id] = {
-                v_id: {
-                    "conn": None,  # set after knowing when to charge
-                    "cs_charging": pd.Series(0, index=time_index),
-                }
-            }
+            cs_models.setdefault(cs_id, dict())[v_id] = pd.Series(0, index=time_index)
 
         # process driving events
+        # vehicle ID -> time of first arrival with negative SoC (when starting fully charged)
+        infeasible = dict()
         vehicle_events = kwargs["events"].vehicle_events
         for event in sorted(vehicle_events, key=lambda ev: ev.start_time):
             v_id = event.vehicle_id
@@ -218,34 +155,43 @@ class OemofSolph(Strategy):
             if event.event_type == "arrival":
                 cs_id = event.update.get("connected_charging_station")
                 v_info["spent"] -= event.update.get("soc_delta", 0)
-                if cs_id is None:
+                if v_info["spent"] > 1 + self.EPS:
+                    # more than a full battery used since last charge: negative SoC
+                    infeasible.setdefault(v_id, event.start_time)
+                if cs_id is None or cs_id not in self.world_state.charging_stations:
                     # not connected: treat as still driving
                     continue
-                if cs_id not in cs_models:
-                    cs_models[cs_id] = dict()
-                if v_id not in cs_models[cs_id]:
-                    cs_models[cs_id][v_id] = {
-                        "conn": None,
-                        "cs_charging": pd.Series(0, index=time_index),
-                    }
                 start_idx = time_to_index(event.start_time)
+                if start_idx > 0 and start_idx == v_info["last_departure"]:
+                    # arrival in same time step as last departure: no time step for driving
+                    etd = event.update.get("estimated_time_of_departure")
+                    if etd is not None and time_to_index(etd) <= start_idx + 1:
+                        # too short to drive and charge: treat as still driving
+                        # (consumption carried over to next arrival)
+                        continue
+                    # use first time step of standing time for driving
+                    start_idx += 1
+                cs_models.setdefault(cs_id, dict()).setdefault(
+                    v_id, pd.Series(0, index=time_index))
                 if start_idx > 0:
                     # start_idx = 0: charging begins at scenario start -> no prior driving
                     last_departure = v_info["last_departure"]
                     if last_departure is None:
-                        raise Exception(f"{v_id}: arrival without departure {event.start_time.isoformat()}")
+                        raise Exception(
+                            f"{v_id}: arrival without departure {event.start_time.isoformat()}")
+                    # steps > 0 guaranteed by same-time-step check above
                     steps = start_idx - last_departure
                     energy = v_info["spent"] * vehicle.battery.capacity * vehicle.battery.efficiency
-                    if steps == 0 and energy > self.EPS:
-                        raise Exception("no time for driving")
                     avg_power = energy / steps * self.ts_per_hour
                     if any(v_info["driving"].iloc[last_departure:start_idx] > 0):
                         raise Exception(f"Vehicle {v_id}: multiple driving at same time")
-                    v_info["driving"].iloc[last_departure:start_idx] =  avg_power
-                v_info["last_desired"] = event.update["desired_soc"] if self.FORCE_DESIRED_SOC else 0
+                    v_info["driving"].iloc[last_departure:start_idx] = avg_power
+                v_info["last_desired"] = (
+                    event.update["desired_soc"] if self.FORCE_DESIRED_SOC else 0)
                 v_info["connected"] = cs_id
                 v_info["last_arrival"] = start_idx
                 v_info["last_departure"] = None
+                v_info["last_etd"] = event.update.get("estimated_time_of_departure")
                 v_info["spent"] = 0
             elif event.event_type == "departure":
                 cs_id = v_info["connected"]
@@ -254,7 +200,8 @@ class OemofSolph(Strategy):
                     continue
                 start_idx = v_info["last_arrival"]
                 if start_idx is None:
-                    raise Exception(f"{v_id}: departure without arrival {event.start_time.isoformat()}")
+                    raise Exception(
+                        f"{v_id}: departure without arrival {event.start_time.isoformat()}")
                 end_idx = time_to_index(event.start_time)
                 if end_idx < n_intervals:
                     # only set desired SoC if charging is finished before end of simulation
@@ -264,260 +211,336 @@ class OemofSolph(Strategy):
                 charging = pd.Series(0, index=time_index)
                 charging.iloc[start_idx:end_idx] = 1
                 v_info["charging"] += charging
-                cs_info = cs_models[cs_id][v_id]
-                cs_info["cs_charging"] += charging
+                cs_models[cs_id][v_id] += charging
                 v_info["last_arrival"] = None
                 v_info["last_departure"] = end_idx
+                v_info["connected"] = None
 
-        street = solph.components.Sink(label="driving", inputs=dict())
-        es.add(street)
+        if infeasible:
+            # oemof storage can't go below zero: abort instead of returning a wrong plan
+            details = ", ".join(f"{v_id} ({t.isoformat()})" for v_id, t in infeasible.items())
+            logging.error(
+                f"oemof-solph: {len(infeasible)} vehicle(s) reach negative SoC even when "
+                f"starting fully charged: {details}")
+            raise Exception("oemof-solph does not allow for negative SoC, scenario not feasible")
 
         for v_id, v_info in vehicle_models.items():
             # handle last interval
             last_arrival = v_info["last_arrival"]
-            last_departure = v_info["last_departure"]
-            if last_arrival:
+            if last_arrival is not None:
                 # still charging
-                cs_id = v_info["connected"]
                 charging = pd.Series(0, index=time_index)
                 charging.iloc[last_arrival:] = 1
                 v_info["charging"] += charging
-                cs_models[cs_id][v_id]["cs_charging"] += charging
-
-            is_charging = v_info["charging"] > 0
-            is_driving = v_info["driving"] > 0
-            if last_departure:
-                # after last departure, driving is not defined (unknown required energy)
-                is_charging = is_charging.iloc[:last_departure]
-                is_driving = is_driving.iloc[:last_departure]
-
+                cs_models[v_info["connected"]][v_id] += charging
+                # desired SoC at estimated departure, at the latest at end of simulation
+                etd = v_info.get("last_etd")
+                end_idx = n_intervals if etd is None else min(time_to_index(etd), n_intervals)
+                v_info["desired"].iloc[max(end_idx, last_arrival)] = v_info["last_desired"]
             # sanity checks
             if any(v_info["charging"] > 1):
                 raise Exception(f"Vehicle {v_id}: multiple charging at same time")
-            if any(is_charging == is_driving):
+            if any((v_info["charging"] > 0) & (v_info["driving"] > 0)):
                 raise Exception(f"Vehicle {v_id}: charging and driving at same time")
-
-            vehicle = self.world_state.vehicles[v_id]
-            street.inputs[v_info["bus"]] = solph.Flow(
-                nominal_capacity=1,
-                fix=v_info["driving"],
-            )
-
-            charging_curve = charging_curve_info[vehicle.vehicle_type]
-            battery_model = solph.components.GenericStorage(
-                label=f"Bat_{v_id}",
-                nominal_capacity=vehicle.battery.capacity,
-                initial_storage_level=vehicle.battery.soc,
-                balanced=False,  # allow different initial and final SoC
-                min_storage_level=v_info["desired"],  # force desired SoC to be reached on departure
-                inflow_conversion_factor=vehicle.battery.efficiency,
-                outflow_conversion_factor=vehicle.battery.efficiency,
-                # next two parameters are charging curve
-                constant_soc_until=charging_curve["until"],
-                fraction_saturation_charging=charging_curve["end_p"],
-                inputs={v_info["bus"]: solph.Flow(
-                    nominal_capacity=charging_curve["power"],
-                    variable_costs = self.EPS,  # avoid cycle charging
-                )},
-                outputs={v_info["bus"]: solph.Flow(
-                    # unlimited output for driving
-                    nominal_capacity=None,
-                    variable_costs = self.EPS,
-                )},
-            )
-            es.add(battery_model)
-            batteries["vehicle"][v_id] = {
-                "model": battery_model,
-                "bus": v_info["bus"],
-                "soc": None,  # set after model simulation
-                "capacity": vehicle.battery.capacity,
-            }
-
-        # setup charging station connections between GC and vehicles
         for cs_id, cs_v_info in cs_models.items():
-            cs_charging = pd.Series(0, index=time_index)
-            cs = self.world_state.charging_stations[cs_id]
-            gc_bus = gcs[cs.parent]
-            for v_id, v_info in cs_v_info.items():
-                cs_charging += v_info["cs_charging"]
-                v_bus = vehicle_models[v_id]["bus"]
-                vehicle = self.world_state.vehicles[v_id]
-                conn = solph.components.Link(
-                    label=f"Conn_{cs_id}_{v_id}",
-                    inputs={gc_bus: solph.Flow(variable_costs = self.EPS), v_bus: solph.Flow(
-                        nominal_capacity=cs.max_power,
-                        maximum=v_info["cs_charging"],  # allow charging when vehicle is present
-                        minimum=0,
-                        variable_costs=self.EPS,
-                    )},
-                    outputs={gc_bus: solph.Flow(variable_costs = self.EPS), v_bus: solph.Flow(
-                        nominal_capacity=cs.max_power,
-                        maximum=v_info["cs_charging"],  # allow discharging when vehicle is present
-                        minimum=0,
-                        variable_costs=self.EPS,
-                    )},
-                    conversion_factors={
-                        # allow discharge for V2G only
-                        (v_bus, gc_bus): int(vehicle.vehicle_type.v2g),
-                        # lossless connection when charging
-                        (gc_bus, v_bus): 1,
-                    },
-                )
-                es.add(conn)
-                cs_models[cs_id][v_id]["conn"] = conn
-
-            # sanity check: only one charging vehicle allowed at a time
-            if any(cs_charging > 1):
+            if any(sum(cs_v_info.values()) > 1):
                 raise Exception(f"CS {cs_id}: multiple charging at same time")
 
+        # split into independent energy systems: GCs are coupled only by vehicles visiting
+        # several of them (union-find over GC IDs)
+        gc_group = {gc_id: gc_id for gc_id in self.world_state.grid_connectors}
 
-        """
-        # plot energy system as graph
-        import matplotlib.pyplot as plt
-        import networkx as nx
-        from oemof.network.graph import create_nx_graph
-        plt.figure()
-        graph = create_nx_graph(es)
-        nx.draw(graph, with_labels=True, font_size=8)
-        plt.show()
-        """
+        def find_group(gc_id):
+            while gc_group[gc_id] != gc_id:
+                gc_id = gc_group[gc_id]
+            return gc_id
 
-        # solve energy system model
-        t2 = perf_counter()
-        model = solph.Model(es)
-        model.solve()
-        # model.solve(solver="cbc", solve_kwargs={"tee": True})
-        results = solph.Results(model)
-        # save results for debugging
-        self.results = results
-        print("oemof solphed")
-        # print(results["flow"].to_string())  # print all flows
-        t3=perf_counter()
+        vehicle_gcs = dict()
+        for cs_id, cs_v_info in cs_models.items():
+            gc_id = self.world_state.charging_stations[cs_id].parent
+            for v_id in cs_v_info:
+                vehicle_gcs.setdefault(v_id, set()).add(gc_id)
+        for gc_ids in vehicle_gcs.values():
+            gc_ids = list(gc_ids)
+            for gc_id in gc_ids[1:]:
+                gc_group[find_group(gc_id)] = find_group(gc_ids[0])
+        groups = dict()
+        for gc_id in gc_group:
+            groups.setdefault(find_group(gc_id), {
+                "gcs": [], "vehicles": [], "batteries": []})["gcs"].append(gc_id)
+        for v_id, gc_ids in vehicle_gcs.items():
+            groups[find_group(next(iter(gc_ids)))]["vehicles"].append(v_id)
+        for b_id, battery in self.world_state.batteries.items():
+            groups[find_group(battery.parent)]["batteries"].append(b_id)
 
-        """
-        # plot SoC and GC power
-        import matplotlib.pyplot as plt
-        plt.figure()
-        plt.subplot(len(gcs) + 1, 1, 1)
-        plt.plot(results["storage_content"], label=results["storage_content"].columns)
-        plt.legend()
-        for i, gc_id in enumerate(gcs.keys()):
-            plt.subplot(len(gcs) + 1, 1, i+2)
-            plt.plot(results["flow"]["GC_" + gc_id], label=results["flow"]["GC_" + gc_id].columns)
-            plt.plot(results["flow"][f"GC_{gc_id}_source"]["GC_" + gc_id], label=gc_id)
-            plt.legend()
-            # k0 = [k for k in results["flow"].keys() if k[0] == "GC_" + gc_id]
-            # k1 = [k for k in results["flow"].keys() if k[1] == "GC_" + gc_id]
-            # plt.subplot(len(gcs) + 1, 1, i+2)
-            # plt.plot(results["flow"][k0], label=results["flow"][k0].columns)
-            # plt.plot(-results["flow"][k1], label=results["flow"][k1].columns)
-            # plt.legend()
-        plt.show()
-        """
+        # get interpolation points for vehicle type charging curves
+        charging_curve_info = dict()
+        for vt in self.world_state.vehicle_types.values():
+            charging_curve_info[vt] = get_battery_parameters(vt.charging_curve)
 
-        """
-        # plot vehicles
-        vehicles = dict()
-        import matplotlib.pyplot as plt
-        for v_id, vehicle_info in vehicle_models.items():
-            vehicle = self.world_state.vehicles[v_id]
-            capacity = vehicle.battery.capacity
-            soc = results["storage_content"][f"Bat_{v_id}"] / capacity
+        t_setup = perf_counter() - t_start
+        t_solve = 0
+        for group in groups.values():
+            if not group["vehicles"] and not group["batteries"]:
+                # nothing to optimize
+                continue
+            t_group = perf_counter()
+            es = solph.EnergySystem(timeindex=time_index, infer_last_interval=False)
+
+            # setup GC
+            gcs = dict()
+            gc_sources = dict()
+            for gc_id in group["gcs"]:
+                gc_bus = solph.Bus(label=f"GC_{gc_id}")
+                gc_max_power = gc_update[gc_id]["max_power"]
+                # unknown max power: unlimited
+                gc_nominal = 1 if gc_max_power is not None else None
+                gc_sources[gc_id] = solph.components.Source(
+                    label=f"GC_{gc_id}_source",
+                    outputs={gc_bus: solph.Flow(
+                        nominal_capacity=gc_nominal,
+                        maximum=gc_max_power,
+                        variable_costs=gc_update[gc_id]["cost"],
+                    )}
+                )
+                es.add(gc_sources[gc_id])
+                es.add(solph.components.Sink(
+                    label=f"GC_{gc_id}_sink",
+                    inputs={gc_bus: solph.Flow(
+                        nominal_capacity=gc_nominal,
+                        maximum=gc_max_power,
+                        variable_costs=0,  # no associated cost or gain for feed-in
+                    )}
+                ))
+                for name, fixed_load_list in gc_update[gc_id]["fixed_load"].items():
+                    es.add(solph.components.Sink(
+                        label=f"GC_{gc_id}_{name}_sink",
+                        inputs={gc_bus: solph.Flow(nominal_capacity=1, fix=fixed_load_list)}
+                    ))
+                for name, generation_list in gc_update[gc_id]["generation"].items():
+                    es.add(solph.components.Source(
+                        label=f"GC_{gc_id}_{name}_source",
+                        outputs={gc_bus: solph.Flow(nominal_capacity=1, fix=generation_list)}
+                    ))
+                gcs[gc_id] = gc_bus
+                es.add(gc_bus)
+
+            # battery model -> (battery type, battery ID, capacity)
+            storage_info = dict()
+            # stationary batteries
+            for b_id in group["batteries"]:
+                battery = self.world_state.batteries[b_id]
+                battery_parameters = get_battery_parameters(battery.loading_curve)
+                battery_model = solph.components.GenericStorage(
+                    label=f"Stationary_{b_id}",
+                    nominal_capacity=battery.capacity,
+                    initial_storage_level=battery.soc,
+                    balanced=False,  # different SoC at begin and end of simulation allowed
+                    inflow_conversion_factor=battery.efficiency,
+                    outflow_conversion_factor=battery.efficiency,
+                    # next two parameters are charging curve
+                    constant_soc_until=battery_parameters["until"],
+                    fraction_saturation_charging=battery_parameters["end_p"],
+                    inputs={gcs[battery.parent]: solph.Flow(
+                        nominal_capacity=battery_parameters["power"],
+                        variable_costs=self.EPS,  # avoid cycle charging
+                    )},
+                    outputs={gcs[battery.parent]: solph.Flow(
+                        nominal_capacity=battery_parameters["power"],
+                    )},
+                )
+                es.add(battery_model)
+                storage_info[battery_model] = ("stationary", b_id, battery.capacity)
+
+            # vehicles: bus with battery and driving sink
+            street = solph.components.Sink(label="driving", inputs=dict())
+            if group["vehicles"]:
+                es.add(street)
+            v_buses = dict()
+            # (battery model, time index, desired SoC) for soft desired SoC constraints
+            desired_socs = []
+            for v_id in group["vehicles"]:
+                v_info = vehicle_models[v_id]
+                vehicle = self.world_state.vehicles[v_id]
+                v_bus = solph.Bus(label=f"V_{v_id}")
+                es.add(v_bus)
+                v_buses[v_id] = v_bus
+                street.inputs[v_bus] = solph.Flow(nominal_capacity=1, fix=v_info["driving"])
+                charging_curve = charging_curve_info[vehicle.vehicle_type]
+                battery_model = solph.components.GenericStorage(
+                    label=f"Bat_{v_id}",
+                    nominal_capacity=vehicle.battery.capacity,
+                    initial_storage_level=max(vehicle.battery.soc, 0),
+                    balanced=False,  # allow different initial and final SoC
+                    inflow_conversion_factor=vehicle.battery.efficiency,
+                    outflow_conversion_factor=vehicle.battery.efficiency,
+                    # next two parameters are charging curve
+                    constant_soc_until=charging_curve["until"],
+                    fraction_saturation_charging=charging_curve["end_p"],
+                    inputs={v_bus: solph.Flow(
+                        nominal_capacity=charging_curve["power"],
+                        variable_costs=self.EPS,  # avoid cycle charging
+                    )},
+                    outputs={v_bus: solph.Flow(
+                        # unlimited output for driving
+                        nominal_capacity=None,
+                        variable_costs=self.EPS,
+                    )},
+                )
+                es.add(battery_model)
+                storage_info[battery_model] = ("vehicle", v_id, vehicle.battery.capacity)
+                for t, desired_soc in v_info["desired"].items():
+                    if desired_soc > 0:
+                        desired_socs.append((
+                            battery_model, time_index.get_loc(t),
+                            desired_soc * vehicle.battery.capacity))
+
+            # setup charging station connections between GC and vehicles
             for cs_id, cs_v_info in cs_models.items():
-                if not v_id in cs_v_info:
+                cs = self.world_state.charging_stations[cs_id]
+                if cs.parent not in gcs:
                     continue
-                conn = cs_v_info[v_id]["conn"]
-                flow_in = results["flow"][conn][vehicle_info["bus"]]
-                flow_out = results["flow"][vehicle_info["bus"]][conn]
-                flow = flow_in - flow_out
-            vehicles[v_id] = {"soc": soc, "flow": flow}
+                gc_bus = gcs[cs.parent]
+                for v_id, cs_charging in cs_v_info.items():
+                    v_bus = v_buses[v_id]
+                    vehicle = self.world_state.vehicles[v_id]
+                    if vehicle.vehicle_type.v2g:
+                        # bidirectional connection, only while vehicle is present
+                        conn = solph.components.Link(
+                            label=f"Conn_{cs_id}_{v_id}",
+                            inputs={
+                                gc_bus: solph.Flow(variable_costs=self.EPS),
+                                v_bus: solph.Flow(
+                                    nominal_capacity=cs.max_power,
+                                    maximum=cs_charging,
+                                    variable_costs=self.EPS,
+                                )},
+                            outputs={
+                                gc_bus: solph.Flow(variable_costs=self.EPS),
+                                v_bus: solph.Flow(
+                                    nominal_capacity=cs.max_power,
+                                    maximum=cs_charging,
+                                    variable_costs=self.EPS,
+                                )},
+                            conversion_factors={(v_bus, gc_bus): 1, (gc_bus, v_bus): 1},
+                        )
+                    else:
+                        # charging only (fewer variables than Link), only while vehicle is present
+                        conn = solph.components.Converter(
+                            label=f"Conn_{cs_id}_{v_id}",
+                            inputs={gc_bus: solph.Flow(
+                                nominal_capacity=cs.max_power,
+                                maximum=cs_charging,
+                                variable_costs=self.EPS,
+                            )},
+                            outputs={v_bus: solph.Flow()},
+                        )
+                    es.add(conn)
 
-        plt.figure()
-        plt.subplot(211)
-        for v_id, vehicle_info in vehicles.items():
-            plt.plot(vehicle_info["soc"], label=v_id)
-        plt.legend()
-        plt.subplot(212)
-        for v_id, vehicle_info in vehicles.items():
-            plt.plot(vehicle_info["flow"], label=v_id)
-        plt.legend()
-        plt.show()
-        """
+            # solve energy system model with soft desired SoC constraints
+            # oemof refuses root logger level DEBUG (slows down pyomo), raise temporarily
+            root_logger = logging.getLogger()
+            log_level = root_logger.level
+            root_logger.setLevel(max(log_level, logging.INFO))
+            try:
+                model = solph.Model(es)
+                storage_content = model.GenericStorageBlock.storage_content
+                model.desired_soc_shortfall = po.Var(
+                    range(len(desired_socs)), within=po.NonNegativeReals)
+                model.desired_soc_constraint = po.Constraint(
+                    range(len(desired_socs)),
+                    rule=lambda m, i: (
+                        storage_content[desired_socs[i][0], desired_socs[i][1]]
+                        + m.desired_soc_shortfall[i] >= desired_socs[i][2]))
+                # peak power drawn from each GC
+                model.gc_peak = po.Var(list(gcs.keys()), within=po.NonNegativeReals)
+                model.gc_peak_constraint = po.Constraint(
+                    list(gcs.keys()), model.TIMESTEPS,
+                    rule=lambda m, gc_id, t: (
+                        m.flow[gc_sources[gc_id], gcs[gc_id], t] <= m.gc_peak[gc_id]))
+                objective = (
+                    model.objective.expr
+                    + self.DESIRED_SOC_PENALTY * sum(
+                        model.desired_soc_shortfall[i] for i in range(len(desired_socs)))
+                    + self.PEAK_POWER_COST * sum(model.gc_peak[gc_id] for gc_id in gcs))
+                model.del_component("objective")
+                model.objective = po.Objective(sense=po.minimize, expr=objective)
+                t_solve_start = perf_counter()
+                try:
+                    model.solve(solver=self.SOLVER)
+                except RuntimeError as e:
+                    # rotations feasible on their own (checked above), but e.g. not enough
+                    # standing time or power to recharge in between, or initial SoC too low
+                    logging.error(f"oemof-solph: no feasible solution for GC(s) {group['gcs']}")
+                    raise Exception(
+                        "oemof-solph does not allow for negative SoC, scenario not feasible "
+                        "(charging time or power between rotations insufficient)") from e
+                t_solve += perf_counter() - t_solve_start
+            finally:
+                root_logger.setLevel(log_level)
+            # don't keep results: oemof objects can't be pickled (SimBA pickles scenario)
+            results = solph.Results(model)
 
-        """
-        # plot vehicle behavior (driving, charging, soc, power)
-        import matplotlib.pyplot as plt
-        plt.figure()
-        for idx, (v_id, vehicle) in enumerate(batteries["vehicle"].items()):
-            plt.subplot(len(batteries["vehicle"]), 1, idx+1)
-            plt.plot(vehicle_models[v_id]["charging"] * 100, label="charging")
-            plt.plot(vehicle_models[v_id]["driving"] * 100, label="driving")
-            plt.plot(results["storage_content"][vehicle["model"]], label="soc")
-            plt.plot(results["flow"][vehicle["bus"]][vehicle["model"]], label="power")
-            # plt.plot(gc_update["GC1"]["cost"]*1000, label="cost")
-            plt.title(v_id)
-            plt.legend()
-        plt.show()
-        """
+            # save computed SoC
+            for battery_model, values in results["storage_content"].items():
+                battery_type, b_id, capacity = storage_info[battery_model]
+                self.batteries[battery_type][b_id] = list(values / capacity)[1:]
+            logging.debug(
+                f"oemof: GC(s) {group['gcs']} with {len(group['vehicles'])} vehicles "
+                f"solved in {perf_counter() - t_group:.1f} s")
 
-        """
-        # plot stationary batteries
-        import matplotlib.pyplot as plt
-        plt.figure()
-        plt.subplot(211)
-        for b_id, conn in batteries["stationary"].items():
-            battery = self.world_state.batteries[b_id]
-            plt.plot(results["storage_content"][conn["model"]] / battery.capacity, label=b_id)
-        plt.legend()
-        plt.subplot(212)
-        for b_id, conn in batteries["stationary"].items():
-            plt.plot(results["flow"][conn["bus"]][conn["model"]] - results["flow"][conn["model"]][conn["bus"]], label=b_id)
-        plt.legend()
-        plt.show()
-        """
-
-        # save computed SoC
-        model_info = {  # oemof battery model -> battery info dict
-            info["model"]: info
-            for info in list(batteries["vehicle"].values()) + list(batteries["stationary"].values())
-        }
-        for model, values in results["storage_content"].items():
-            battery_info = model_info[model]
-            battery_info["soc"] = list(values / battery_info["capacity"])[1:]
-        self.batteries = batteries
-
-        # set current time index to access SoC list during step
-        self.idx = 0
-
-        print("init done")
-        t4 = perf_counter()
-        print(f"Setup system: {t2-t1}\nSolve system: {t3-t2}\nExtract cmds: {t4-t3}\n--- Total --- {t4-t1}")
-
+        logging.info(
+            f"oemof: setup {t_setup:.1f} s, model building and solving "
+            f"{perf_counter() - t_start - t_setup:.1f} s (solver {t_solve:.1f} s)")
 
     def step(self):
+        """ Charge or discharge batteries to reach precomputed SoC of current time step.
+
+        :return: current time and commands of the charging stations
+        :rtype: dict
+        """
         charging_stations = dict()
+        # index from current time, not a step counter: step may be called
+        # several times or not at all per timestep (e.g. as sub-strategy of distributed)
+        idx = (self.current_time - self.start_time) // self.interval
         # read out precomputed SoC, charge as needed
         for v_id, vehicle in self.world_state.vehicles.items():
             cs_id = vehicle.connected_charging_station
             if cs_id is None:
                 # not connected: can't charge
                 continue
-            desired_soc = self.batteries["vehicle"][v_id]["soc"][self.idx]
+            planned_soc = self.batteries["vehicle"].get(v_id)
+            if planned_soc is None:
+                # vehicle never charges in model
+                continue
+            desired_soc = planned_soc[idx]
             if abs(vehicle.battery.soc - desired_soc) < self.EPS:
-                # precomputed SoC alread reached, no change needed
+                # precomputed SoC already reached, no change needed
                 continue
             cs = self.world_state.charging_stations[cs_id]
             gc = self.world_state.grid_connectors[cs.parent]
             if vehicle.battery.soc < desired_soc:
-                p = vehicle.battery.load(self.interval, target_soc=desired_soc)["avg_power"]
+                # actual SoC may deviate from plan (e.g. negative SoC): respect GC limit
+                max_power = cs.max_power
+                if gc.cur_max_power is not None:
+                    max_power = min(max_power, gc.cur_max_power - gc.get_current_load())
+                if max_power < self.EPS:
+                    continue
+                p = vehicle.battery.load(
+                    self.interval, max_power=max_power, target_soc=desired_soc)["avg_power"]
+            elif vehicle.vehicle_type.v2g:
+                p = -vehicle.battery.unload(
+                    self.interval, max_power=cs.max_power, target_soc=desired_soc)["avg_power"]
             else:
-                p = -vehicle.battery.unload(self.interval, target_soc=desired_soc)["avg_power"]
+                # SoC above plan (e.g. connection not modeled), but no V2G: don't discharge
+                continue
             charging_stations[cs_id] = gc.add_load(cs_id, p)
+            cs.current_power += p
 
         for b_id, battery in self.world_state.batteries.items():
-            desired_soc = self.batteries["stationary"][b_id]["soc"][self.idx]
+            desired_soc = self.batteries["stationary"][b_id][idx]
             if abs(battery.soc - desired_soc) < self.EPS:
-                # precomputed SoC alread reached, no change needed
+                # precomputed SoC already reached, no change needed
                 continue
             gc = self.world_state.grid_connectors[battery.parent]
             if battery.soc < desired_soc:
@@ -525,18 +548,21 @@ class OemofSolph(Strategy):
             else:
                 p = -battery.unload(self.interval, target_soc=desired_soc)["avg_power"]
             gc.add_load(b_id, p)
-        self.idx += 1
 
         return {'current_time': self.current_time, 'commands': charging_stations}
 
 
 def get_battery_parameters(charging_curve) -> dict:
-    """
-    Get specific characteristics of a battery's charging curve:
-    - power: charging power at lower SoC, should mostly be constant
-    - until: when does the decrease in charging power begin, in terms of SoC (0.1)?
-    - end_p: charging power when battery is full (never more than constant_power, None: no decrease)
-    return: dict
+    """ Get characteristics of a charging curve as needed by oemof GenericStorage.
+
+    The curve must be constant up to one break point and may decrease linearly afterwards.
+
+    :param charging_curve: charging curve of battery or vehicle type
+    :type charging_curve: spice_ev.loading_curve.LoadingCurve
+    :raises Exception: if charging curve has an unsupported shape
+    :return: constant charging power ("power"), SoC of break point ("until", None if constant)
+        and fraction of charging power at full battery ("end_p", None if constant)
+    :rtype: dict
     """
     constant_power = None
     constant_soc_until = None

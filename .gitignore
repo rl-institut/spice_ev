@@ -10,3 +10,5 @@ docs/
 .vscode/
 _build/
 scenarios/
+
+.claude

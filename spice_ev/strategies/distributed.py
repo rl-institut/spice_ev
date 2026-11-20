@@ -1,4 +1,4 @@
-from copy import deepcopy
+from copy import copy, deepcopy
 import datetime
 
 from spice_ev import components, events, strategy
@@ -18,10 +18,34 @@ class Distributed(strategy.Strategy):
         strat_deps = kwargs.get("strategy_deps", "balanced")
         strat_options_deps = dict(deepcopy(kwargs), **strat_options_deps)
         self.description = f"distributed (deps: {strat_deps} / opps: {strat_opps})"
+
+        # get station type of each GC from its CS IDs
+        gc_types = dict()
+        for cs_id, cs in comps.charging_stations.items():
+            station_type = cs_id.split("_")[-1]
+            if station_type not in ["deps", "opps"]:
+                raise Exception(f"The station {cs.parent} has no declaration such as "
+                                "'opps' or 'deps' attached. Please make sure the "
+                                "ending of the station name is one of the mentioned.")
+            prev_type = gc_types.setdefault(cs.parent, station_type)
+            assert prev_type == station_type, f"Station types do not match at {cs.parent}"
+
+        def filter_components(station_type):
+            # sub-strategy only knows GCs of its station type (with their CS, batteries and PV)
+            sub_comps = copy(comps)
+            sub_comps.grid_connectors = {
+                gc_id: gc for gc_id, gc in comps.grid_connectors.items()
+                if gc_types.get(gc_id) == station_type}
+            for name in ["charging_stations", "batteries", "photovoltaics"]:
+                setattr(sub_comps, name, {
+                    c_id: c for c_id, c in getattr(comps, name).items()
+                    if c.parent in sub_comps.grid_connectors})
+            return sub_comps
+
         self.strat_opps = strategy.class_from_str(strat_opps)(
-            comps, start_time, **strat_options_opps)
+            filter_components("opps"), start_time, **strat_options_opps)
         self.strat_deps = strategy.class_from_str(strat_deps)(
-            comps, start_time, **strat_options_deps)
+            filter_components("deps"), start_time, **strat_options_deps)
 
         # adjust foresight for vehicle events (known one hour in advance)
         self.ARRIVAL_HORIZON = datetime.timedelta(hours=1)
@@ -38,20 +62,9 @@ class Distributed(strategy.Strategy):
         self.strategies = dict()  # tuple of (station type, strategy) for each GC
         self.gc_battery = dict()  # GC ID -> batteries
         # set strategy for each GC
-        for cs_id, cs in self.world_state.charging_stations.items():
-            station_type = cs_id.split("_")[-1]
-            prev_type = self.strategies.get(cs.parent)
-            if prev_type is not None:
-                assert prev_type[0] == station_type, f"Station types do not match at {cs.parent}"
-                continue
-            if station_type == "deps":
-                self.strategies[cs.parent] = (station_type, self.strat_deps)
-            elif station_type == "opps":
-                self.strategies[cs.parent] = (station_type, self.strat_opps)
-            else:
-                raise Exception(f"The station {cs.parent} has no declaration such as "
-                                "'opps' or 'deps' attached. Please make sure the "
-                                "ending of the station name is one of the mentioned.")
+        for gc_id, station_type in gc_types.items():
+            strat = self.strat_deps if station_type == "deps" else self.strat_opps
+            self.strategies[gc_id] = (station_type, strat)
 
         # prepare batteries
         for b_id, bat in self.world_state.batteries.items():
