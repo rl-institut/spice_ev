@@ -27,7 +27,7 @@ DEFAULT_COST_CALCULATION = {
     "flex_window": "flex_window",
     "schedule": "schedule",
     "oemof_solph": "fixed_wo_plw",
-    "distributed": "fixed_wo_plw"  # should call cost calculation with specific cost type
+    "distributed": "fixed_wo_plw",  # should call cost calculation with specific cost type
 }
 
 

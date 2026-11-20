@@ -12,3 +12,4 @@ _build/
 scenarios/
 
 .claude
+spice_ev.egg-info/

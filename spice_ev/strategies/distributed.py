@@ -29,6 +29,14 @@ class Distributed(strategy.Strategy):
                                 "ending of the station name is one of the mentioned.")
             prev_type = gc_types.setdefault(cs.parent, station_type)
             assert prev_type == station_type, f"Station types do not match at {cs.parent}"
+        # oemof sub-strategy can't model charging at the other station type
+        if strat_opps.lower() == "oemof_solph":
+            raise Exception("The oemof-solph strategy is only valid for depot stations and "
+                            "can't be used as strategy_opps. Simulation aborted.")
+        if strat_deps.lower() == "oemof_solph" and "opps" in gc_types.values():
+            raise Exception("Opportunity stations are defined in electrified stations. The "
+                            "oemof-solph strategy is only valid for depot stations. "
+                            "Simulation aborted.")
 
         def filter_components(station_type):
             # sub-strategy only knows GCs of its station type (with their CS, batteries and PV)

@@ -1,3 +1,4 @@
+from copy import deepcopy
 import logging
 from time import perf_counter
 
@@ -21,6 +22,11 @@ class OemofSolph(Strategy):
         self.SOLVER = "cbc"
         super().__init__(components, start_time, **kwargs)
         self.description = "oemof"
+        # opportunity charging not supported (charging at unknown stations is not modeled)
+        if any(cs_id.split("_")[-1] == "opps" for cs_id in self.world_state.charging_stations):
+            raise Exception("Opportunity stations are defined in electrified stations. The "
+                            "oemof-solph strategy is only valid for depot stations. "
+                            "Simulation aborted.")
         # needed in step to get index of precomputed SoC
         self.start_time = start_time
         # precomputed SoC per battery and time step
@@ -74,23 +80,27 @@ class OemofSolph(Strategy):
                 else:
                     # unknown cost type
                     raise Exception("Only fixed costs allowed")
-            # set max power from event
+            # set max power from event, never above static GC max power (as in Strategy.step)
+            event_power = event.max_power
+            static_power = self.world_state.grid_connectors[gc_id].max_power
+            if event_power is not None and static_power is not None:
+                event_power = min(event_power, static_power)
             gc_power = gc_update[gc_id]["max_power"]
             if gc_power is not None:
-                if event.max_power is not None:
+                if event_power is not None:
                     if not gc_update[gc_id]["scalar"]:
-                        gc_power.iloc[idx:] = event.max_power
-                    elif gc_power != event.max_power:
+                        gc_power.iloc[idx:] = event_power
+                    elif gc_power != event_power:
                         # was scalar, but changed: change to list
                         gc_power = pd.Series(gc_power, index=time_index)
-                        gc_power.iloc[idx:] = event.max_power
+                        gc_power.iloc[idx:] = event_power
                         gc_update[gc_id]["max_power"] = gc_power
                         gc_update[gc_id]["scalar"] = False
                     # scalar and unchanged: nothing to do
-            elif event.max_power is not None:
+            elif event_power is not None:
                 # connector power not set before
                 gc_power = pd.Series(1e9, index=time_index)
-                gc_power.iloc[idx:] = event.max_power
+                gc_power.iloc[idx:] = event_power
                 gc_update[gc_id]["max_power"] = gc_power
                 gc_update[gc_id]["scalar"] = False
 
@@ -123,6 +133,8 @@ class OemofSolph(Strategy):
         for v_id, vehicle in self.world_state.vehicles.items():
             vehicle_models[v_id] = {
                 "spent": 0,  # SoC delta since last charge
+                # ("drive", SoC delta, arrival time) / ("charge", start, end, CS ID)
+                "sequence": [],
                 "desired": pd.Series(0.0, index=time_index),  # desired SoC at departure
                 "driving": pd.Series(0.0, index=time_index),  # energy drain while driving
                 "charging": pd.Series(0, index=time_index),  # mark when connected
@@ -173,6 +185,7 @@ class OemofSolph(Strategy):
                     start_idx += 1
                 cs_models.setdefault(cs_id, dict()).setdefault(
                     v_id, pd.Series(0, index=time_index))
+                v_info["sequence"].append(("drive", v_info["spent"], event.start_time))
                 if start_idx > 0:
                     # start_idx = 0: charging begins at scenario start -> no prior driving
                     last_departure = v_info["last_departure"]
@@ -212,6 +225,7 @@ class OemofSolph(Strategy):
                 charging.iloc[start_idx:end_idx] = 1
                 v_info["charging"] += charging
                 cs_models[cs_id][v_id] += charging
+                v_info["sequence"].append(("charge", start_idx, end_idx, cs_id))
                 v_info["last_arrival"] = None
                 v_info["last_departure"] = end_idx
                 v_info["connected"] = None
@@ -233,6 +247,8 @@ class OemofSolph(Strategy):
                 charging.iloc[last_arrival:] = 1
                 v_info["charging"] += charging
                 cs_models[v_info["connected"]][v_id] += charging
+                v_info["sequence"].append(
+                    ("charge", last_arrival, n_intervals, v_info["connected"]))
                 # desired SoC at estimated departure, at the latest at end of simulation
                 etd = v_info.get("last_etd")
                 end_idx = n_intervals if etd is None else min(time_to_index(etd), n_intervals)
@@ -245,6 +261,29 @@ class OemofSolph(Strategy):
         for cs_id, cs_v_info in cs_models.items():
             if any(sum(cs_v_info.values()) > 1):
                 raise Exception(f"CS {cs_id}: multiple charging at same time")
+
+        # each vehicle on its own must avoid negative SoC when charging with full CS power in
+        # every standing time (GC limits ignored), otherwise the model is infeasible
+        too_short = dict()
+        for v_id, v_info in vehicle_models.items():
+            vehicle = self.world_state.vehicles[v_id]
+            battery = deepcopy(vehicle.battery)
+            for step in v_info["sequence"]:
+                if step[0] == "drive":
+                    battery.soc -= step[1]
+                    if battery.soc < -self.EPS:
+                        too_short[v_id] = step[2]
+                        break
+                elif step[2] > step[1]:
+                    cs_power = self.world_state.charging_stations[step[3]].max_power
+                    battery.load(self.interval * (step[2] - step[1]), max_power=cs_power)
+        if too_short:
+            details = ", ".join(f"{v_id} ({t.isoformat()})" for v_id, t in too_short.items())
+            logging.error(
+                f"oemof-solph: {len(too_short)} vehicle(s) reach negative SoC even when charging "
+                f"with full power whenever connected (standing time too short or initial SoC "
+                f"too low): {details}")
+            raise Exception("oemof-solph does not allow for negative SoC, scenario not feasible")
 
         # split into independent energy systems: GCs are coupled only by vehicles visiting
         # several of them (union-find over GC IDs)
@@ -469,12 +508,12 @@ class OemofSolph(Strategy):
                 try:
                     model.solve(solver=self.SOLVER)
                 except RuntimeError as e:
-                    # rotations feasible on their own (checked above), but e.g. not enough
-                    # standing time or power to recharge in between, or initial SoC too low
-                    logging.error(f"oemof-solph: no feasible solution for GC(s) {group['gcs']}")
+                    # each vehicle feasible on its own (checked above): GC power insufficient
+                    logging.error(
+                        f"oemof-solph: no feasible solution for GC(s) {group['gcs']}, "
+                        f"grid connector power too low to charge all vehicles in time")
                     raise Exception(
-                        "oemof-solph does not allow for negative SoC, scenario not feasible "
-                        "(charging time or power between rotations insufficient)") from e
+                        "oemof-solph does not allow for negative SoC, scenario not feasible") from e
                 t_solve += perf_counter() - t_solve_start
             finally:
                 root_logger.setLevel(log_level)
@@ -500,6 +539,9 @@ class OemofSolph(Strategy):
         :rtype: dict
         """
         charging_stations = dict()
+        # reset charging station power (nothing charged yet in this time step)
+        for cs in self.world_state.charging_stations.values():
+            cs.current_power = 0
         # index from current time, not a step counter: step may be called
         # several times or not at all per timestep (e.g. as sub-strategy of distributed)
         idx = (self.current_time - self.start_time) // self.interval
