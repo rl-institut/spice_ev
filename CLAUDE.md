@@ -51,8 +51,8 @@ CI (`.github/workflows/pythonpackage.yaml`) runs `flake8 .`, `pytest tests/` and
 (`make -C doc html`) on Python 3.8 and 3.10 for every push. `darglint` checks that docstring
 `:param:`/`:type:`/`:return:`/`:raises:` blocks match the signature. `tests/test_examples.py` runs
 the example configs and compares against `examples/output/` — changing example configs or
-`examples/scenario.json` changes test results. oemof is not installed in CI; `oemof_solph` has no
-tests.
+`examples/scenario.json` changes test results. oemof is not installed in CI; the `oemof_solph` tests in
+`tests/test_oemof_objective.py` skip without it.
 
 ## Git workflow (from CONTRIBUTING.md)
 
@@ -157,6 +157,10 @@ from it may appear anywhere in this repo (code, tests, docs, example data, commi
     connections within the same time step as the last departure are treated as driving.
   - `step()` never discharges non-V2G vehicles and respects the GC limit if the actual SoC
     deviates from the plan. oemof refuses root logger level DEBUG, the strategy raises it to INFO
-    temporarily. Only fixed energy prices are supported; solver via `SOLVER` (default `cbc`).
+    temporarily. Solver via `SOLVER` (default `cbc`).
+  - The objective comes from a mandatory `oemof_objective.json` (strategy option
+    `oemof_objective`, read and validated in `spice_ev/oemof_objective.py`, per-GC settings via
+    `gc_overrides`). Energy prices come from the cost parameter file (`cost_parameters_file` /
+    SimBA `cost_parameters_path`), not from GC cost signals: net, annualized, weighted.
   - In `distributed`, sub-strategies only get the GCs of their station type, so oemof does not
     plan charging at opportunity stations (treated as driving).

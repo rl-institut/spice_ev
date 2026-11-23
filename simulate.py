@@ -32,6 +32,7 @@ def simulate(args):
 
     options = {
         'cost_calculation': args.get("cost_calc"),
+        'cost_parameters_file': args.get("cost_parameters_file"),
         'margin': args.get("margin"),
         'save_timeseries': args.get("save_timeseries"),
         'save_soc': args.get("save_soc"),

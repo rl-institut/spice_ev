@@ -17,6 +17,11 @@ Template:
 - [(#)]()
 ```
 
+## [unreleased]
+
+### Changed
+- oemof_solph: objective from mandatory `oemof_objective.json` (strategy option `oemof_objective`), energy prices from cost parameter file instead of GC cost signals (net, annualized, weighted per GC)
+
 ## [1.1.0] - Update - 2024-02-11
 
 ### Added

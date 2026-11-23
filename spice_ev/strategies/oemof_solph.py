@@ -1,4 +1,6 @@
 from copy import deepcopy
+from datetime import timedelta
+import json
 import logging
 from time import perf_counter
 
@@ -7,6 +9,7 @@ import pandas as pd
 import pyomo.environ as po
 
 from spice_ev.events import FixedLoad, GridOperatorSignal, LocalEnergyGeneration
+from spice_ev.oemof_objective import get_gc_rates, read_objective
 from spice_ev.strategy import Strategy
 
 
@@ -27,6 +30,23 @@ class OemofSolph(Strategy):
             raise Exception("Opportunity stations are defined in electrified stations. The "
                             "oemof-solph strategy is only valid for depot stations. "
                             "Simulation aborted.")
+        # objective settings per GC (see oemof_objective.json)
+        gc_settings = read_objective(
+            kwargs.get("oemof_objective"), self.world_state.grid_connectors.keys())
+        for gc_id, settings in gc_settings.items():
+            if settings["electricity_costs_method"]["value"].startswith("variable"):
+                raise NotImplementedError(
+                    f"oemof_objective: GC {gc_id}: electricity_costs_method "
+                    f"{settings['electricity_costs_method']['value']} not supported yet")
+        # cost parameter file: -cp in SpiceEV, cost_parameters_path in SimBA
+        price_sheet_path = kwargs.get("cost_parameters_file") or kwargs.get(
+            "cost_parameters_path")
+        price_sheet = dict()
+        if price_sheet_path is not None:
+            with open(price_sheet_path) as f:
+                price_sheet = json.load(f)
+        elif any(s["energy_charges"]["weight"] > 0 for s in gc_settings.values()):
+            raise Exception("oemof_solph needs a cost parameter file (cost_parameters_file)")
         # needed in step to get index of precomputed SoC
         self.start_time = start_time
         # precomputed SoC per battery and time step
@@ -49,8 +69,8 @@ class OemofSolph(Strategy):
             return -((start_time - datetime) // self.interval)
 
         # get GC info for whole simulation from events
+        # (energy prices come from the cost parameter file, not from signals)
         gc_update = {gc_id: {
-            "cost": pd.Series(gc.cost.get("value"), index=time_index[:-1]),
             "max_power": gc.max_power,
             "scalar": True,
             "fixed_load": dict(),
@@ -67,19 +87,6 @@ class OemofSolph(Strategy):
                 continue
             # events before scenario start apply from the first time step
             idx = max(time_to_index(event.start_time), 0)
-            if event.cost is not None:
-                if event.cost["type"] == "fixed":
-                    gc_update[gc_id]["cost"].iloc[idx:] = event.cost["value"]
-                elif event.cost["type"] == "polynomial" and len(event.cost["value"]) > 1:
-                    # special case: polynomial with only fixed part
-                    value = event.cost["value"][1]
-                    if sum(event.cost["value"]) == value:
-                        gc_update[gc_id]["cost"].iloc[idx:] = value
-                    else:
-                        raise Exception("Only fixed costs allowed")
-                else:
-                    # unknown cost type
-                    raise Exception("Only fixed costs allowed")
             # set max power from event, never above static GC max power (as in Strategy.step)
             event_power = event.max_power
             static_power = self.world_state.grid_connectors[gc_id].max_power
@@ -156,6 +163,8 @@ class OemofSolph(Strategy):
         # process driving events
         # vehicle ID -> time of first arrival with negative SoC (when starting fully charged)
         infeasible = dict()
+        # GC ID -> energy charged by vehicles in simulated period (kWh, from grid)
+        charged_energy = {gc_id: 0 for gc_id in gc_update}
         vehicle_events = kwargs["events"].vehicle_events
         for event in sorted(vehicle_events, key=lambda ev: ev.start_time):
             v_id = event.vehicle_id
@@ -205,6 +214,11 @@ class OemofSolph(Strategy):
                 v_info["last_arrival"] = start_idx
                 v_info["last_departure"] = None
                 v_info["last_etd"] = event.update.get("estimated_time_of_departure")
+                # energy to recharge at this GC (annual energy estimate, simulated period only)
+                if start_idx < n_intervals:
+                    gc_id = self.world_state.charging_stations[cs_id].parent
+                    charged_energy[gc_id] += (
+                        v_info["spent"] * vehicle.battery.capacity / vehicle.battery.efficiency)
                 v_info["spent"] = 0
             elif event.event_type == "departure":
                 cs_id = v_info["connected"]
@@ -284,6 +298,28 @@ class OemofSolph(Strategy):
                 f"with full power whenever connected (standing time too short or initial SoC "
                 f"too low): {details}")
             raise Exception("oemof-solph does not allow for negative SoC, scenario not feasible")
+
+        # energy costs per GC: billing type from estimated annual energy, rates from cost file,
+        # annualized and weighted (objective in €/a)
+        annual_factor = timedelta(days=365) / (n_intervals * self.interval)
+        for gc_id, info in gc_update.items():
+            settings = gc_settings[gc_id]
+            energy_sim = (
+                charged_energy[gc_id]
+                + sum(s.iloc[:-1].sum() for s in info["fixed_load"].values()) / self.ts_per_hour
+                - sum(s.iloc[:-1].sum() for s in info["generation"].values()) / self.ts_per_hour)
+            gc = self.world_state.grid_connectors[gc_id]
+            weight = settings["energy_charges"]["weight"]
+            rates = get_gc_rates(
+                price_sheet, gc_id, gc.grid_operator, gc.voltage_level,
+                energy_sim * annual_factor, weight)
+            info["cost"] = rates["energy_price"] * annual_factor * weight
+            logging.info(
+                f"oemof: GC {gc_id}: method {settings['electricity_costs_method']['value']}, "
+                f"grid operator {rates['grid_operator']}, voltage level {rates['voltage_level']}, "
+                f"{rates['fee_type']} (estimated {energy_sim * annual_factor:.0f} kWh/a), "
+                f"energy price {rates['energy_price']:.4f} €/kWh net, "
+                f"weight {weight}, annual factor {annual_factor:.2f}")
 
         # split into independent energy systems: GCs are coupled only by vehicles visiting
         # several of them (union-find over GC IDs)
