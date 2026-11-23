@@ -33,14 +33,14 @@ def load_price_sheet():
         return json.load(f)
 
 
-def get_two_gc_scenario():
+def get_two_gc_scenario(n_days=1, soc=0.9, desired_soc=0.5):
     # one vehicle standing at GC_A (MV), then GC_B (LV), then GC_A again
     # signal prices favor GC_B, cost file favors GC_A (MV commodity charge is lower)
     def t(hour):
         return f"2020-01-01T{hour:02d}:00:00+01:00"
     gcs = {"GC_A": ("MV", 1.0), "GC_B": ("LV", 0.01)}
     return {
-        "scenario": {"start_time": t(0), "interval": 15, "n_intervals": 96},
+        "scenario": {"start_time": t(0), "interval": 15, "n_intervals": 96 * n_days},
         "components": {
             "grid_connectors": {gc_id: {
                 "max_power": 200, "voltage_level": vl, "cost": {"type": "fixed", "value": cost}}
@@ -52,14 +52,14 @@ def get_two_gc_scenario():
                 "name": "bus", "capacity": 100, "mileage": 100,
                 "charging_curve": [[0, 50], [1, 50]], "min_charging_power": 0, "v2g": False}},
             "vehicles": {"bus_0": {
-                "vehicle_type": "bus", "soc": 0.9, "desired_soc": 0.5,
+                "vehicle_type": "bus", "soc": soc, "desired_soc": desired_soc,
                 "connected_charging_station": "CS_A", "estimated_time_of_departure": t(6)}},
         },
         "events": {
             # fixed loads: annual energy above SLP limit -> RLM
             "fixed_load": {f"load_{gc_id}": {
                 "start_time": t(0), "step_duration_s": 3600, "grid_connector_id": gc_id,
-                "values": [20] * 24} for gc_id in gcs},
+                "values": [20] * 24 * n_days} for gc_id in gcs},
             "grid_operator_signals": [],
             "vehicle_events": [
                 {"signal_time": t(6), "start_time": t(6), "vehicle_id": "bus_0",
@@ -67,29 +67,28 @@ def get_two_gc_scenario():
                 {"signal_time": t(8), "start_time": t(8), "vehicle_id": "bus_0",
                  "event_type": "arrival", "update": {
                      "connected_charging_station": "CS_B", "soc_delta": -0.3,
-                     "estimated_time_of_departure": t(12), "desired_soc": 0.5}},
+                     "estimated_time_of_departure": t(12), "desired_soc": desired_soc}},
                 {"signal_time": t(12), "start_time": t(12), "vehicle_id": "bus_0",
                  "event_type": "departure", "update": {}},
                 {"signal_time": t(14), "start_time": t(14), "vehicle_id": "bus_0",
                  "event_type": "arrival", "update": {
                      "connected_charging_station": "CS_A", "soc_delta": -0.3,
-                     "estimated_time_of_departure": t(23), "desired_soc": 0.5}},
+                     "estimated_time_of_departure": t(23), "desired_soc": desired_soc}},
             ],
         },
     }
 
 
 class TestOemofSolphObjective:
-    def run(self, tmp_path, objective):
+    def run(self, tmp_path, objective, options=dict(), **scenario_args):
         pytest.importorskip("oemof.solph")
-        s = scenario.Scenario(get_two_gc_scenario(), tmp_path)
-        s.run("oemof_solph", {
+        s = scenario.Scenario(get_two_gc_scenario(**scenario_args), tmp_path)
+        s.run("oemof_solph", dict({
             "oemof_objective": write_objective(tmp_path, objective),
             "cost_parameters_file": PRICE_SHEET_PATH,
-            # penalty must exceed annualized energy price (1 day simulated)
-            "DESIRED_SOC_PENALTY": 1e4,
-        })
+        }, **options))
         assert s.step_i == s.n_intervals
+        self.scenario = s
         # energy for vehicle per GC (fixed load subtracted)
         return {gc_id: sum(loads) / 4 - 20 * 24 for gc_id, loads in s.totalLoad.items()}
 
@@ -106,6 +105,16 @@ class TestOemofSolphObjective:
         # energy at GC_B is free now
         assert energy["GC_A"] == pytest.approx(0, abs=0.1)
         assert energy["GC_B"] > 15
+
+    def test_desired_soc_reached_despite_high_costs(self, tmp_path):
+        # long simulation, high per-kW costs: penalty must still dominate
+        n_days = 7
+        self.run(tmp_path, TEMPLATE, {"PEAK_POWER_COST": 1000},
+                 n_days=n_days, soc=0.5, desired_soc=0.8)
+        socs = self.scenario.socs
+        # SoC at departures from GC_A (6:00), GC_B (12:00) and GC_A (estimated, 23:00)
+        for step in [24, 48, 92]:
+            assert socs[step][0] > 0.8 - 1e-3
 
     def test_missing_objective_aborts(self, tmp_path):
         pytest.importorskip("oemof.solph")

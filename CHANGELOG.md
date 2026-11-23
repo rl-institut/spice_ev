@@ -21,6 +21,7 @@ Template:
 
 ### Changed
 - oemof_solph: objective from mandatory `oemof_objective.json` (strategy option `oemof_objective`), energy prices from cost parameter file instead of GC cost signals (net, annualized, weighted per GC)
+- oemof_solph: desired SoC penalty and auxiliary flow cost scaled per GC group to the annualized objective (`DESIRED_SOC_PENALTY_FACTOR`)
 
 ## [1.1.0] - Update - 2024-02-11
 

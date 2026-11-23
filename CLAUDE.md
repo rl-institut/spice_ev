@@ -152,7 +152,10 @@ from it may appear anywhere in this repo (code, tests, docs, example data, commi
     two charging connections, the strategy aborts with "oemof-solph does not allow for negative
     SoC, scenario not feasible". An infeasible LP (e.g. too little standing time / power between
     rotations) aborts with the same message.
-  - `PEAK_POWER_COST` per GC peak avoids arbitrary load peaks with constant prices.
+  - `PEAK_POWER_COST` (€/kW·a, not annualized) per GC peak avoids arbitrary load peaks with
+    constant prices. The desired SoC penalty per GC group is
+    max(`DESIRED_SOC_PENALTY`, `DESIRED_SOC_PENALTY_FACTOR` · highest saving per kWh), the
+    auxiliary flow cost 1e-4 · cheapest energy price (separate from the tolerance `EPS`).
   - Driving between two CS connections is spread evenly over the time steps in between;
     connections within the same time step as the last departure are treated as driving.
   - `step()` never discharges non-V2G vehicles and respects the GC limit if the actual SoC
