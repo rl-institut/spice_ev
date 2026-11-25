@@ -34,7 +34,8 @@ class PeakLoadWindow(Strategy):
         for name, local_generation in self.events.local_generation_lists.items():
             local_events.extend(local_generation.get_events(name, events.LocalEnergyGeneration))
         # only events of known GCs (as sub-strategy of distributed, only some GCs are known)
-        local_events = [e for e in local_events if e.grid_connector_id in gcs]
+        local_events = [e for e in local_events
+                        if e.grid_connector_id in self.world_state.grid_connectors]
         # make these events known in advance
         changed = 0
         for event in local_events:
