@@ -102,7 +102,7 @@
     "batteries": {
       "BAT1": {
         "parent": "GC1",
-        "capacity": 350,
+        "capacity": 350.0,
         "charging_curve": [
           [
             0,
