@@ -11,3 +11,7 @@ docs/
 .vscode/
 _build/
 scenarios/
+
+.claude
+CLAUDE.md
+spice_ev.egg-info/

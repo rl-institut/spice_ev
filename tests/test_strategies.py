@@ -399,6 +399,23 @@ class TestScenarios(TestCaseBase):
         assert s.testing["max_total_load"] <= max_power
         assert s.testing["max_total_load"] > 0
 
+    def test_oemof_aborts_with_opps(self):
+        # scenario has opportunity stations: oemof not allowed (as strategy or sub-strategy)
+        input = TEST_REPO_PATH / 'test_data/input_test_strategies/bus_scenario_D.json'
+        msg = "oemof-solph strategy is only valid for depot stations"
+        for strat_name, options in [
+                ("oemof_solph", {}),
+                ("distributed", {"strategy_deps": "oemof_solph"}),
+                ("distributed", {"strategy_opps": "oemof_solph"})]:
+            s = scenario.Scenario(load_json(input), input.parent)
+            with pytest.raises(Exception, match=msg):
+                s.run(strat_name, options)
+        # oemof never allowed as strategy_opps, even without opportunity stations
+        input = TEST_REPO_PATH / 'test_data/input_test_strategies/scenario_C3.json'
+        s = scenario.Scenario(load_json(input), input.parent)
+        with pytest.raises(Exception, match="can't be used as strategy_opps"):
+            s.run("distributed", {"strategy_opps": "oemof_solph"})
+
     def test_pv_bat(self):
         input = TEST_REPO_PATH / 'test_data/input_test_strategies/scenario_PV_Bat.json'
         s = scenario.Scenario(load_json(input), input.parent)
