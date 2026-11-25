@@ -80,13 +80,13 @@ def get_two_gc_scenario(n_days=1, soc=0.9, desired_soc=0.5):
 
 
 class TestOemofSolphObjective:
-    def run(self, tmp_path, objective, options=dict(), **scenario_args):
+    def run(self, tmp_path, objective, options=None, **scenario_args):
         pytest.importorskip("oemof.solph")
         s = scenario.Scenario(get_two_gc_scenario(**scenario_args), tmp_path)
         s.run("oemof_solph", dict({
             "oemof_objective": write_objective(tmp_path, objective),
             "cost_parameters_file": PRICE_SHEET_PATH,
-        }, **options))
+        }, **(options or dict())))
         assert s.step_i == s.n_intervals
         self.scenario = s
         # energy for vehicle per GC (fixed load subtracted)

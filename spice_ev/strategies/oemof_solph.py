@@ -25,6 +25,8 @@ class OemofSolph(Strategy):
         # fallback cost of peak power per GC (€/kW·a, not annualized), avoids arbitrary peaks
         # at GCs without other per-kW cost term
         self.PEAK_POWER_COST = 1
+        # cost of auxiliary flows (avoids cycle charging): factor times cheapest energy price
+        self.AUX_FLOW_COST_FACTOR = 1e-4
         self.SOLVER = "cbc"
         super().__init__(components, start_time, **kwargs)
         self.description = "oemof"
@@ -363,18 +365,18 @@ class OemofSolph(Strategy):
                 # nothing to optimize
                 continue
             t_group = perf_counter()
-            # technical terms fitting the objective in €/a (per group, see doc)
+            # technical terms fitting the objective in €/a (per group)
             energy_costs = [gc_update[gc_id]["cost"] for gc_id in group["gcs"]]
             # per-kW terms: only fallback peak cost so far, 1 kWh in one step = ts_per_hour kW
-            c_kw = self.PEAK_POWER_COST
             penalty = max(self.DESIRED_SOC_PENALTY, self.DESIRED_SOC_PENALTY_FACTOR * max(
-                cost + c_kw * self.ts_per_hour for cost in energy_costs))
-            # cost of auxiliary flows (avoid cycle charging), relative to cheapest energy
+                cost + self.PEAK_POWER_COST * self.ts_per_hour for cost in energy_costs))
+            # all energy free: relative to 1 €/kWh
             positive_costs = [cost for cost in energy_costs if cost > 0]
-            eps = 1e-4 * (min(positive_costs) if positive_costs else 1)
+            aux_flow_cost = self.AUX_FLOW_COST_FACTOR * (
+                min(positive_costs) if positive_costs else 1)
             logging.info(
                 f"oemof: GC(s) {group['gcs']}: desired SoC penalty {penalty:.2f} €/kWh, "
-                f"auxiliary flow cost {eps:.2e} €/kWh")
+                f"auxiliary flow cost {aux_flow_cost:.2e} €/kWh")
             es = solph.EnergySystem(timeindex=time_index, infer_last_interval=False)
 
             # setup GC
@@ -433,7 +435,7 @@ class OemofSolph(Strategy):
                     fraction_saturation_charging=battery_parameters["end_p"],
                     inputs={gcs[battery.parent]: solph.Flow(
                         nominal_capacity=battery_parameters["power"],
-                        variable_costs=eps,  # avoid cycle charging
+                        variable_costs=aux_flow_cost,  # avoid cycle charging
                     )},
                     outputs={gcs[battery.parent]: solph.Flow(
                         nominal_capacity=battery_parameters["power"],
@@ -469,12 +471,12 @@ class OemofSolph(Strategy):
                     fraction_saturation_charging=charging_curve["end_p"],
                     inputs={v_bus: solph.Flow(
                         nominal_capacity=charging_curve["power"],
-                        variable_costs=eps,  # avoid cycle charging
+                        variable_costs=aux_flow_cost,  # avoid cycle charging
                     )},
                     outputs={v_bus: solph.Flow(
                         # unlimited output for driving
                         nominal_capacity=None,
-                        variable_costs=eps,
+                        variable_costs=aux_flow_cost,
                     )},
                 )
                 es.add(battery_model)
@@ -499,18 +501,18 @@ class OemofSolph(Strategy):
                         conn = solph.components.Link(
                             label=f"Conn_{cs_id}_{v_id}",
                             inputs={
-                                gc_bus: solph.Flow(variable_costs=eps),
+                                gc_bus: solph.Flow(variable_costs=aux_flow_cost),
                                 v_bus: solph.Flow(
                                     nominal_capacity=cs.max_power,
                                     maximum=cs_charging,
-                                    variable_costs=eps,
+                                    variable_costs=aux_flow_cost,
                                 )},
                             outputs={
-                                gc_bus: solph.Flow(variable_costs=eps),
+                                gc_bus: solph.Flow(variable_costs=aux_flow_cost),
                                 v_bus: solph.Flow(
                                     nominal_capacity=cs.max_power,
                                     maximum=cs_charging,
-                                    variable_costs=eps,
+                                    variable_costs=aux_flow_cost,
                                 )},
                             conversion_factors={(v_bus, gc_bus): 1, (gc_bus, v_bus): 1},
                         )
@@ -521,7 +523,7 @@ class OemofSolph(Strategy):
                             inputs={gc_bus: solph.Flow(
                                 nominal_capacity=cs.max_power,
                                 maximum=cs_charging,
-                                variable_costs=eps,
+                                variable_costs=aux_flow_cost,
                             )},
                             outputs={v_bus: solph.Flow()},
                         )
