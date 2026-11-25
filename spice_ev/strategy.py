@@ -4,12 +4,15 @@ from datetime import timedelta
 from importlib import import_module
 from warnings import warn
 
-from spice_ev import events
-from spice_ev.util import get_cost, clamp_power
+from spice_ev import events, util
 
 STRATEGIES = [
     'greedy', 'balanced', 'balanced_market', 'distributed',
     'peak_load_window', 'peak_shaving', 'flex_window', 'schedule'
+]
+
+BATTERY_STRATEGIES = [
+    'peak_shaving', 'peak_load_window', 'surplus',
 ]
 
 
@@ -53,6 +56,8 @@ class Strategy():
         # Reduce available power at each charging station to given fraction (0 - 1)
         for cs in self.world_state.charging_stations.values():
             cs.max_power = kwargs.get('CONCURRENCY', 1.0) * cs.max_power
+        # special stationary battery charging strategy
+        self.battery_strategy = None
         # dummy description (should be set in actual strategies)
         self.description = None
         # update optional
@@ -66,7 +71,29 @@ class Strategy():
         # count number of times SoC is below desired SoC (with margin) on departure
         self.margin_counter = 0
 
-    def step(self, event_list=[]):
+        # bookkeeping for changes during stationary battery strategy
+        self.battery_parents = {
+            b_id: bat.parent
+            for b_id, bat in self.world_state.batteries.items()
+        }
+        self.gc_power = {
+            gc_id: gc.max_power
+            for gc_id, gc in self.world_state.grid_connectors.items()
+        }
+
+        if self.battery_strategy is not None:
+            assert self.battery_strategy in BATTERY_STRATEGIES, (
+                f"Unknown battery strategy, choose from {', '.join(BATTERY_STRATEGIES)}")
+        if self.battery_strategy == "peak_load_window":
+            self.uses_window = True
+            time_windows_file = vars(self).get("time_windows")
+            if time_windows_file is None:
+                raise Exception("Need time_windows for peak load window battery strategy")
+            util.parse_time_windows(
+                self, time_windows_file,
+                start_time=start_time, check_gc=True)
+
+    def pre_step(self, event_list=[]):
         """ Prepare next timestep for specific charging strategy.
 
         Processes next events, makes some sanity checks and resets loads at grid connectors.
@@ -125,6 +152,7 @@ class Strategy():
                 if connector.max_power:
                     if ev.max_power is not None:
                         connector.cur_max_power = min(connector.max_power, ev.max_power)
+                        self.gc_power[ev.grid_connector_id] = connector.cur_max_power
                 else:
                     # connector max power not set
                     connector.cur_max_power = ev.max_power
@@ -197,6 +225,63 @@ class Strategy():
                     "Connector {} has neither associated costs nor schedule at {}"
                     .format(name, self.current_time))
 
+        if self.battery_strategy is not None:
+            # special stationary battery strategy: ignore charging strategy
+            # remove batteries from their GC, so they can't charge
+            # add available battery power to GC power
+            for bat in self.world_state.batteries.values():
+                available_power = bat.get_available_power(self.interval)
+                self.world_state.grid_connectors[bat.parent].cur_max_power += available_power
+                bat.parent = None
+
+    def step(self):
+        # implemented in specific strategy
+        return {'current_time': self.current_time, 'commands': dict()}
+
+    def post_step(self):
+        # apply specific stat. battery strategy,
+        # revert any changes made during pre_step
+        if self.battery_strategy is not None:
+            # reset battery parents (connect to grid)
+            for b_id, parent in self.battery_parents.items():
+                if b_id in self.world_state.batteries:
+                    self.world_state.batteries[b_id].parent = parent
+                    self.world_state.grid_connectors[parent].cur_max_power = self.gc_power[parent]
+
+            for b_id, battery in self.world_state.batteries.items():
+                gc = self.world_state.grid_connectors[battery.parent]
+                available_power = 0
+                if self.battery_strategy == "peak_shaving":
+                    available_power = gc.cur_max_power - gc.get_current_load()
+                elif self.battery_strategy == "peak_load_window":
+                    gc.window = util.datetime_within_time_window(
+                        self.current_time,
+                        self.time_windows[gc.grid_operator],
+                        gc.voltage_level
+                    )
+                    if gc.window:
+                        # currently in peak load window: only charge surplus
+                        available_power = 0 - gc.get_current_load()
+                    else:
+                        # not in peak load window: charge max
+                        available_power = gc.cur_max_power - gc.get_current_load()
+                elif self.battery_strategy == "surplus":
+                    available_power = 0 - gc.get_current_load()
+
+                # act upon available power
+                if available_power < 0:
+                    # drawing too much: discharge battery to support GC
+                    bat_power = battery.unload(
+                        self.interval, target_power=-available_power
+                    )['avg_power']
+                    gc.add_load(b_id, -bat_power)
+                elif available_power > battery.min_charging_power:
+                    # power available: can still charge battery
+                    avg_power = battery.load(
+                        self.interval, target_power=available_power
+                    )['avg_power']
+                    gc.add_load(b_id, avg_power)
+
     def distribute_surplus_power(self):
         """ Distribute surplus power to vehicles.
 
@@ -206,7 +291,7 @@ class Strategy():
 
         commands = dict()
         gc_cheap = {
-            gc_id: get_cost(1, gc.cost) <= self.PRICE_THRESHOLD
+            gc_id: util.get_cost(1, gc.cost) <= self.PRICE_THRESHOLD
             for gc_id, gc in self.world_state.grid_connectors.items()}
         for vehicle in self.world_state.vehicles.values():
             cs_id = vehicle.connected_charging_station
@@ -217,7 +302,7 @@ class Strategy():
             gc_surplus = -gc.get_current_load()
             if gc_surplus > self.EPS:
                 # surplus power
-                power = clamp_power(gc_surplus, vehicle, cs)
+                power = util.clamp_power(gc_surplus, vehicle, cs)
                 avg_power = vehicle.battery.load(self.interval, max_power=power)['avg_power']
                 commands[cs_id] = gc.add_load(cs_id, avg_power)
                 cs.current_power += avg_power
@@ -239,7 +324,7 @@ class Strategy():
     def update_batteries(self):
         """ Charge/discharge batteries. In-place, no input/output """
         gc_cheap = {
-            gc_id: get_cost(1, gc.cost) <= self.PRICE_THRESHOLD
+            gc_id: util.get_cost(1, gc.cost) <= self.PRICE_THRESHOLD
             for gc_id, gc in self.world_state.grid_connectors.items()}
         for b_id, battery in self.world_state.batteries.items():
             gc = self.world_state.grid_connectors.get(battery.parent)

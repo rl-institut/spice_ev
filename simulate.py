@@ -50,7 +50,7 @@ def simulate(args):
             try:
                 # option may be number
                 opt_val = float(opt_val)
-            except ValueError:
+            except (ValueError, TypeError):
                 # or not
                 pass
             options[opt_key] = opt_val

@@ -3,7 +3,7 @@ import json
 from pathlib import Path
 import pytest
 
-from spice_ev import scenario, strategy
+from spice_ev import events, scenario, strategy
 from spice_ev.generate import generate_schedule
 
 TEST_REPO_PATH = Path(__file__).parent
@@ -112,7 +112,7 @@ class TestScenarios(TestCaseBase):
         strat = strategy.Strategy(s.components, s.start_time, **{"interval": s.interval})
         with pytest.raises(Exception):
             # GC has neither cost nor schedule
-            strat.step()
+            strat.pre_step()
 
     def test_zero_intervals(self):
         test_json = {
@@ -131,6 +131,42 @@ class TestScenarios(TestCaseBase):
         # open from file
         input = TEST_REPO_PATH / 'test_data/input_test_strategies/scenario_A.json'
         scenario.Scenario(load_json(input), input.parent)
+
+    def test_stop_time(self):
+        # set stop time for grid operator signals and load events
+        # basic scenario with fixed load and PV
+        input = TEST_REPO_PATH / 'test_data/input_test_strategies/scenario_B.json'
+        scenario_json = load_json(input)
+        # add stop time to fixed load and PV
+        # fixed load: 00:00 - 02:00
+        scenario_json["events"]["fixed_load"]["building"]["stop_time"] = "2018-01-01T02:00:00+02:00"
+        # PV: 00:00 - 15:00
+        scenario_json["events"]["local_generation"]["example_pv"]["stop_time"] = (
+            "2018-01-01T15:00:00+02:00"
+        )
+        # price timeseries: remove static values, read from CSV
+        scenario_json["events"]["grid_operator_signals"] = list()
+        scenario_json["events"]["energy_price_from_csv"] = {
+            "csv_file": str(TEST_REPO_PATH / 'test_data/input_test_strategies/example_load.csv'),
+            "start_time": "2018-01-01T00:00:00+02:00",
+            "stop_time": "2018-01-01T01:00:00+02:00",
+            "step_duration_s": 15*60,
+            "column": "value",
+            "grid_connector_id": "GC1",
+        }
+        # generate scenario
+        s = scenario.Scenario(scenario_json, input.parent)
+        # check event list lengths
+        fixed = s.events.fixed_load_lists["building"].get_events("", events.FixedLoad)
+        pv = s.events.local_generation_lists["example_pv"]
+        pv = pv.get_events("", events.LocalEnergyGeneration)
+        grid = s.events.grid_operator_signals
+        assert len(fixed) == 2 * 6 + 1  # 2 * 10 minute steps
+        assert len(pv) == 15 * 1 + 1  # 15 * 60 minute steps
+        assert len(grid) == 1 * 4 + 1  # 1 * 15 minute steps
+        # run scenario
+        s.run('greedy', dict())
+        assert s.step_i == s.n_intervals
 
     def test_set_connector_power(self):
         s = scenario.Scenario({
@@ -168,20 +204,25 @@ class TestScenarios(TestCaseBase):
         })
         strat = strategy.Strategy(s.components, s.start_time, **{"interval": s.interval})
         event_steps = s.events.get_event_steps(s.start_time, s.n_intervals, s.interval)
-        strat.step(event_steps[0])
+        strat.pre_step(event_steps[0])
+        strat.step()
         # start of scenario: initial value
         assert strat.world_state.grid_connectors["GC1"].cur_max_power == 1000
+        strat.pre_step()
         strat.step()
         # first step: max_power set
         assert strat.world_state.grid_connectors["GC1"].cur_max_power == 500
+        strat.pre_step()
         strat.step()
         # second step: grid event without max_power => retain value
         assert strat.world_state.grid_connectors["GC1"].cur_max_power == 500
+        strat.pre_step()
         strat.step()
         # third step: max_power higher than initial value: clip
         assert strat.world_state.grid_connectors["GC1"].cur_max_power == 1000
         # fourth step: no max power of connector: set max_power of event
         strat.world_state.grid_connectors["GC1"].max_power = None
+        strat.pre_step()
         strat.step()
         assert strat.world_state.grid_connectors["GC1"].cur_max_power == 2000
 
@@ -242,28 +283,33 @@ class TestScenarios(TestCaseBase):
         # pre-step: initial soc
         assert strat.world_state.vehicles["t1"].battery.soc == 0.3
         # first step: update for timesteps before scenario start (set desired soc if needed)
-        strat.step(event_steps[0])
+        strat.pre_step(event_steps[0])
+        strat.step()
         assert strat.world_state.vehicles["t1"].battery.soc == 0.5
         # second step: normal arrival with delta_soc = 0.1
+        strat.pre_step()
         strat.step()
         assert strat.world_state.vehicles["t1"].battery.soc == 0.4
         strat.world_state.vehicles["t1"].battery.soc = 0.5
         # third step: normal departure
+        strat.pre_step()
         strat.step()
         assert strat.world_state.vehicles["t1"].battery.soc == 0.5
         # fourth step: arrival with negative soc
         strat.ALLOW_NEGATIVE_SOC = True
         strat.RESET_NEGATIVE_SOC = True
+        strat.pre_step()
         strat.step()
         assert strat.world_state.vehicles["t1"].battery.soc == 0
         # fifth step: departure with soc below desired
         strat.world_state.vehicles["t1"].battery.soc = 0.4
+        strat.pre_step()
         strat.step()
         assert strat.margin_counter == 1
         # sixth step: error when arriving with negative soc
         strat.ALLOW_NEGATIVE_SOC = False
         with pytest.raises(RuntimeError):
-            strat.step()
+            strat.pre_step()
 
     def test_double_arrival_warning(self):
         # test for warning when a vehicle arrives multiple times (already at charging station)
