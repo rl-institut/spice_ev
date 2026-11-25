@@ -201,11 +201,7 @@ class VehicleType:
         max_power = self.charging_curve.max_power
         assert self.min_charging_power <= max_power
         assert 0 <= self.battery_efficiency <= 1
-        # if self.discharge_curve is None:
-            # no info: use V2G power factor to scale charging curve for discharging
-            # self.discharge_curve = self.charging_curve.clamped(
-                # max_power, pre_scale=self.v2g_power_factor)
-            # self.discharge_curve = loading_curve.LoadingCurve(((0, max_power*self.v2g_power_factor), (1, max_power*self.v2g_power_factor)))
+        # no discharge curve given: Battery discharges at constant max charging power
 
 
 class Vehicle:
