@@ -116,6 +116,16 @@ class TestOemofSolphObjective:
         for step in [24, 48, 92]:
             assert socs[step][0] > 0.8 - 1e-3
 
+    def test_objective_path_option_from_simba(self, tmp_path):
+        # SimBA passes the objective file as oemof_objective_path
+        pytest.importorskip("oemof.solph")
+        s = scenario.Scenario(get_two_gc_scenario(), tmp_path)
+        s.run("oemof_solph", {
+            "oemof_objective_path": write_objective(tmp_path, TEMPLATE),
+            "cost_parameters_file": PRICE_SHEET_PATH,
+        })
+        assert s.step_i == s.n_intervals
+
     def test_missing_objective_aborts(self, tmp_path):
         pytest.importorskip("oemof.solph")
         s = scenario.Scenario(get_two_gc_scenario(), tmp_path)

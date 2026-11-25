@@ -36,8 +36,10 @@ class OemofSolph(Strategy):
                             "oemof-solph strategy is only valid for depot stations. "
                             "Simulation aborted.")
         # objective settings per GC (see oemof_objective.json)
+        # objective file: oemof_objective in SpiceEV, oemof_objective_path in SimBA
         gc_settings = read_objective(
-            kwargs.get("oemof_objective"), self.world_state.grid_connectors.keys())
+            kwargs.get("oemof_objective") or kwargs.get("oemof_objective_path"),
+            self.world_state.grid_connectors.keys())
         for gc_id, settings in gc_settings.items():
             if settings["electricity_costs_method"]["value"].startswith("variable"):
                 raise NotImplementedError(
