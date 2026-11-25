@@ -123,6 +123,61 @@ class TestOemofSolphObjective:
             s.run("oemof_solph", {"cost_parameters_file": PRICE_SHEET_PATH})
 
 
+class TestOemofSolphV2G:
+    def test_discharge_limited_by_charging_curve(self, tmp_path, monkeypatch):
+        # V2G vehicle (10 kW charging curve) at 50 kW station covers a 60 kW load peak
+        pytest.importorskip("oemof.solph")
+        from spice_ev.strategies import oemof_solph
+
+        def t(hour):
+            return f"2020-01-01T{hour:02d}:00:00+01:00"
+        scenario_json = {
+            "scenario": {"start_time": t(0), "interval": 15, "n_intervals": 96},
+            "components": {
+                "grid_connectors": {"GC1": {
+                    "max_power": 200, "voltage_level": "MV",
+                    "cost": {"type": "fixed", "value": 0.3}}},
+                "charging_stations": {"CS1": {"max_power": 50, "min_power": 0, "parent": "GC1"}},
+                "vehicle_types": {"bus": {
+                    "name": "bus", "capacity": 100, "mileage": 100,
+                    "charging_curve": [[0, 10], [1, 10]], "min_charging_power": 0,
+                    "v2g": True}},
+                "vehicles": {"bus_0": {
+                    "vehicle_type": "bus", "soc": 0.9, "desired_soc": 0.1,
+                    "connected_charging_station": "CS1", "estimated_time_of_departure": t(23)}},
+            },
+            "events": {
+                "fixed_load": {"load_GC1": {
+                    "start_time": t(0), "step_duration_s": 3600, "grid_connector_id": "GC1",
+                    "values": [0] * 12 + [60] + [0] * 11}},
+                "grid_operator_signals": [],
+                "vehicle_events": [],
+            },
+        }
+        # keep strategy instance to read planned SoC
+        strategies = []
+
+        class RecordingOemofSolph(oemof_solph.OemofSolph):
+            def __init__(self, *args, **kwargs):
+                super().__init__(*args, **kwargs)
+                strategies.append(self)
+        monkeypatch.setattr(
+            scenario.strategy, "class_from_str", lambda name: RecordingOemofSolph)
+
+        s = scenario.Scenario(scenario_json, tmp_path)
+        s.run("oemof_solph", {
+            "oemof_objective": write_objective(tmp_path, TEMPLATE),
+            "cost_parameters_file": PRICE_SHEET_PATH,
+        })
+        planned_soc = strategies[0].batteries["vehicle"]["bus_0"]
+        max_soc_drop = max(a - b for a, b in zip(planned_soc, planned_soc[1:]))
+        # 10 kW at GC for 15 min, battery losses included
+        efficiency = s.components.vehicles["bus_0"].battery.efficiency
+        limit = 10 / efficiency / 4 / 100
+        assert max_soc_drop > 0.5 * limit
+        assert max_soc_drop <= limit + 1e-6
+
+
 class TestGetGcRates:
     # expected net energy prices from test price sheet in ct/kWh: commodity + procurement 7.7
     # + levies 1.237 + concession fee 1.32 + electricity tax 2.05 (no VAT)

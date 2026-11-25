@@ -502,8 +502,10 @@ class OemofSolph(Strategy):
                             label=f"Conn_{cs_id}_{v_id}",
                             inputs={
                                 gc_bus: solph.Flow(variable_costs=aux_flow_cost),
+                                # discharging: limited like battery.unload
                                 v_bus: solph.Flow(
-                                    nominal_capacity=cs.max_power,
+                                    nominal_capacity=min(
+                                        cs.max_power, vehicle.battery.unloading_curve.max_power),
                                     maximum=cs_charging,
                                     variable_costs=aux_flow_cost,
                                 )},
